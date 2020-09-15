@@ -1,0 +1,10 @@
+apiVersion: v1
+
+name: regatta
+namespace: regatta
+
+charts:
+- .:
+    values:
+      image:
+        tag: {{ env "TAG" | default "latest" | quote }}
