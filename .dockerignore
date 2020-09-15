@@ -1,0 +1,10 @@
+.idea
+.github
+.vscode
+client
+helm
+.gitignore
+Dockerfile
+Makefile
+README.md
+regatta
