@@ -1,0 +1,13 @@
+name: Git
+
+on: pull_request
+
+jobs:
+  block-fixup:
+    runs-on: ubuntu-18.04
+
+    steps:
+    - name: Block Autosquash Commits
+      uses: wandera/block-autosquash-commits-action@master
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
