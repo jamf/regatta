@@ -22,15 +22,18 @@ test:
 
 build: regatta
 
-regatta: proto/regatta.pb.go *.go **/*.go
-	CGO_ENABLED=0 go build -a -o regatta
+regatta: proto/regatta.pb.go proto/regatta.pb.gw.go *.go **/*.go
+	CGO_ENABLED=0 go build -o regatta
 
 proto/regatta.pb.go: proto/regatta.proto
 	protoc -I proto/ --go_out=plugins=grpc,paths=source_relative:./proto proto/regatta.proto
+
+proto/regatta.pb.gw.go: proto/regatta.proto
+	protoc -I proto/ --grpc-gateway_out=logtostderr=true,paths=source_relative:./proto proto/regatta.proto
 
 # Build the docker image
 docker-build:
 	docker build . -t ${IMG}
 
 clean:
-	rm -f regatta proto/regatta.pb.go
+	rm -f regatta proto/regatta.pb.go proto/regatta.pb.gw.go
