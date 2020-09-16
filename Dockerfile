@@ -1,4 +1,4 @@
-# Build the manager binary
+# Build the regatta binary
 FROM golang:1.15 as builder
 
 WORKDIR /workspace
@@ -21,8 +21,6 @@ COPY main.go main.go
 # Build
 RUN CGO_ENABLED=0 go build -a -o regatta
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM alpine:3.12
 RUN apk add --no-cache bash ca-certificates
 

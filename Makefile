@@ -3,9 +3,13 @@ IMG ?= regatta:latest
 
 all: clean check test build
 
+# Run golangci-lint on the code
 check:
-	go vet ./...
-	go fmt ./...
+	@echo "Running check"
+ifeq (, $(shell which golangci-lint))
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.30.0
+endif
+	golangci-lint run
 
 test:
 	go test ./...
