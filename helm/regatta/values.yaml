@@ -1,0 +1,21 @@
+# Default values for feature-instance-manager
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+replicas: 1
+team: delta
+
+image:
+  repository: 371487436103.dkr.ecr.eu-west-1.amazonaws.com/regatta
+
+branch: master
+
+resources:
+  limits:
+    cpu: 50m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+tolerations: []
+nodeSelector: {}
