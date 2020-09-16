@@ -1,7 +1,13 @@
 # Image URL to use all building/pushing image targets
 IMG ?= regatta:latest
 
-all: clean check test build
+all: proto check test build
+
+run: build
+	./regatta
+
+run-client:
+	go run client/main.go
 
 # Run golangci-lint on the code
 check:
@@ -14,11 +20,17 @@ endif
 test:
 	go test ./...
 
-build:
+build: regatta
+
+regatta: proto/regatta.pb.go *.go **/*.go
 	CGO_ENABLED=0 go build -a -o regatta
+
+proto/regatta.pb.go: proto/regatta.proto
+	protoc -I proto/ --go_out=plugins=grpc,paths=source_relative:./proto proto/regatta.proto
+
 # Build the docker image
 docker-build:
 	docker build . -t ${IMG}
 
 clean:
-	rm -f regatta
+	rm -f regatta proto/regatta.pb.go

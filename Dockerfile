@@ -4,7 +4,6 @@ FROM golang:1.15 as builder
 WORKDIR /workspace
 
 # this will cache the go mod download step, unless go.mod or go.sum changes
-ENV GO111MODULE=on
 ENV GOPROXY=go-proxy.oss.wandera.net
 ENV GONOSUMDB=github.com/wandera/*
 
@@ -16,7 +15,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the go source
-COPY main.go main.go
+COPY . ./
 
 # Build
 RUN CGO_ENABLED=0 go build -a -o regatta
