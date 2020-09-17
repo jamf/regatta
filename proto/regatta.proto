@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = ".;proto";
+
+package proto;
+
+// Interface exported by the server.
+service Regatta {
+  rpc Get(Key) returns (Value) {}
+}
+
+message Key {
+  // Key
+  bytes key = 1;
+}
+
+message Value {
+  // Value
+  bytes value = 1;
+}
