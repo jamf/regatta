@@ -6,22 +6,26 @@ import (
 	"log"
 	"time"
 
-	"github.com/wandera/regatta/insecure"
 	"github.com/wandera/regatta/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 const (
-	address    = "localhost:443"
+	address        = "localhost:8443"
+	caCertFilename = "hack/server.crt"
 )
 
 func main() {
 	// Set up a connection to the server.
-	var opts []grpc.DialOption
-
-	creds := credentials.NewClientTLSFromCert(insecure.CertPool, "localhost")
-	opts = append(opts, grpc.WithTransportCredentials(creds))
+	var creds credentials.TransportCredentials
+	var err error
+	if creds, err = credentials.NewClientTLSFromFile(caCertFilename, ""); err != nil {
+		log.Fatalf("Cannot create credentials: %v", err)
+	}
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+	}
 
 	conn, err := grpc.Dial(address, opts...)
 	if err != nil {

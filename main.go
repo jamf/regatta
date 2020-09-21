@@ -5,16 +5,23 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
-	"github.com/wandera/regatta/insecure"
 	"github.com/wandera/regatta/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+)
+
+const (
+	domain         = "localhost"
+	port           = "8443"
+	addr           = domain + ":" + port
+	certFilename   = "hack/server.crt"
+	keyFilename    = "hack/server.key"
+	caCertFilename = "hack/server.crt"
 )
 
 type kvServer struct {
@@ -68,43 +75,51 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 }
 
 func main() {
-	opts := []grpc.ServerOption{
-		grpc.Creds(credentials.NewClientTLSFromCert(insecure.CertPool, "localhost")),
+	var creds credentials.TransportCredentials
+	var err error
+	if creds, err = credentials.NewServerTLSFromFile(certFilename, keyFilename); err != nil {
+		log.Fatalf("Cannot create credentials: %v", err)
 	}
-	grpcServer := grpc.NewServer(opts...)
+	sopts := []grpc.ServerOption{
+		grpc.Creds(creds),
+	}
+	grpcServer := grpc.NewServer(sopts...)
 	proto.RegisterKVServer(grpcServer, newServer())
+
 	ctx := context.Background()
 
 	mux := http.NewServeMux()
 	gwmux := runtime.NewServeMux()
-	dcreds := credentials.NewTLS(&tls.Config{
-		ServerName: "localhost",
-		RootCAs:    insecure.CertPool,
-	})
-	dopts := []grpc.DialOption{grpc.WithTransportCredentials(dcreds)}
-	err := proto.RegisterKVHandlerFromEndpoint(ctx, gwmux, "localhost:443", dopts)
+	if creds, err = credentials.NewClientTLSFromFile(caCertFilename, ""); err != nil {
+		log.Fatalf("Cannot create credentials: %v", err)
+	}
+	dopts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+	}
+
+	err = proto.RegisterKVHandlerFromEndpoint(ctx, gwmux, addr, dopts)
 	if err != nil {
 		log.Fatalf("serve: %v\n", err)
 	}
 
 	mux.Handle("/", gwmux)
 
-	conn, err := net.Listen("tcp", "localhost:443")
+	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
-		panic(err)
+		log.Fatalln("Failed to parse key pair:", err)
 	}
 
 	srv := &http.Server{
-		Addr:    "localhost:443",
+		Addr:    addr,
 		Handler: grpcHandlerFunc(grpcServer, mux),
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{insecure.Cert},
+			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
 		},
 	}
 
-	fmt.Printf("grpc/rest on port: %d\n", 443)
-	err = srv.Serve(tls.NewListener(conn, srv.TLSConfig))
+	fmt.Printf("grpc/rest on port: %s\n", port)
+	err = srv.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
