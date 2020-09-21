@@ -7,18 +7,25 @@ import (
 	"os"
 	"time"
 
+	"github.com/wandera/regatta/insecure"
 	"github.com/wandera/regatta/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
-	address    = "localhost:8080"
+	address    = "localhost:443"
 	defaultKey = "key"
 )
 
 func main() {
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	var opts []grpc.DialOption
+
+	creds := credentials.NewClientTLSFromCert(insecure.CertPool, "localhost")
+	opts = append(opts, grpc.WithTransportCredentials(creds))
+
+	conn, err := grpc.Dial(address, opts...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

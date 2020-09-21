@@ -4,9 +4,16 @@ option go_package = ".;proto";
 
 package proto;
 
+import "google/api/annotations.proto";
+
 // Interface exported by the server.
 service Regatta {
-  rpc Get(Key) returns (Value) {}
+  rpc Get(Key) returns (Value) {
+    option (google.api.http) = {
+      post : "/v1/value"
+      body : "*"
+    };
+  }
 }
 
 message Key {
