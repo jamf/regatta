@@ -1,3 +1,7 @@
+//
+// Regatta protobuffer specification
+//
+
 syntax = "proto3";
 
 option go_package = ".;proto";
@@ -6,22 +10,214 @@ package proto;
 
 import "google/api/annotations.proto";
 
-// Interface exported by the server.
-service Regatta {
-  rpc Get(Key) returns (Value) {
+// KV for handling the read/put requests
+service KV {
+  // Range gets the keys in the range from the key-value store.
+  rpc Range(RangeRequest) returns (RangeResponse) {
     option (google.api.http) = {
-      post : "/v1/value"
+      post : "/v1/kv/range"
+      body : "*"
+    };
+  }
+
+  // Put puts the given key into the key-value store.
+  rpc Put(PutRequest) returns (PutResponse) {
+    option (google.api.http) = {
+      post : "/v1/kv/put"
+      body : "*"
+    };
+  }
+
+  // DeleteRange deletes the given range from the key-value store.
+  rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse) {
+    option (google.api.http) = {
+      post : "/v1/kv/deleterange"
       body : "*"
     };
   }
 }
 
-message Key {
-  // Key
-  bytes key = 1;
+// Maintenance service provides methods for testing and maintenance purposes.
+service Maintenance {
+  // Hash computes the hash of whole backend keyspace,
+  // including key, lease, and other buckets in storage.
+  // This is designed for testing ONLY!
+  // This operation does not hols lock on the underlying storage
+  // so it might produce inconsistent results while keep writing to the DB.
+  rpc Hash(HashRequest) returns (HashResponse) {
+    option (google.api.http) = {
+      post : "/v1/maintenance/hash"
+      body : "*"
+    };
+  }
+
+  // Reset method does reset the complete state of either the selected node or the whole cluster.
+  // The functionality is intended mainly for testing purposes.
+  rpc Reset(ResetRequest) returns (ResetResponse) {
+    option (google.api.http) = {
+      post : "/v1/maintenance/reset"
+      body : "*"
+    };
+  }
 }
 
-message Value {
-  // Value
-  bytes value = 1;
+message ResponseHeader {
+  // cluster_id is the ID of the cluster which sent the response.
+  uint64 cluster_id = 1;
+  // member_id is the ID of the member which sent the response.
+  uint64 member_id = 2;
+  // revision is the key-value store revision when the request was applied.
+  int64 revision = 3;
+  // raft_term is the raft term when the request was applied.
+  uint64 raft_term = 4;
+  // raft_leader_id is the ID of the actual raft quorum leader.
+  uint64 raft_leader_id = 5;
+}
+
+message RangeRequest {
+  // table name of the table
+  bytes table = 1;
+  // key is the first key for the range. If range_end is not given, the request only looks up key.
+  bytes key = 2;
+  // range_end is the upper bound on the requested range [key, range_end).
+  // If range_end is '\0', the range is all keys >= key.
+  // If range_end is key plus one (e.g., "aa"+1 == "ab", "a\xff"+1 == "b"),
+  // then the range request gets all keys prefixed with key.
+  // If both key and range_end are '\0', then the range request returns all keys.
+  bytes range_end = 3;
+  // limit is a limit on the number of keys returned for the request. When limit is set to 0,
+  // it is treated as no limit.
+  int64 limit = 4;
+
+  // linearizable sets the range request to use linearizable read. Linearizable requests
+  // have higher latency and lower throughput than serializable requests but reflect the current
+  // consensus of the cluster. For better performance, in exchange for possible stale reads,
+  // a serializable range request is served locally without needing to reach consensus
+  // with other nodes in the cluster. The serializable request is default option.
+  bool linearizable = 5;
+
+  // keys_only when set returns only the keys and not the values.
+  bool keys_only = 6;
+
+  // count_only when set returns only the count of the keys in the range.
+  bool count_only = 7;
+
+  // min_mod_revision is the lower bound for returned key mod revisions; all keys with
+  // lesser mod revisions will be filtered away.
+  int64 min_mod_revision = 8;
+
+  // max_mod_revision is the upper bound for returned key mod revisions; all keys with
+  // greater mod revisions will be filtered away.
+  int64 max_mod_revision = 9;
+
+  // min_create_revision is the lower bound for returned key create revisions; all keys with
+  // lesser create revisions will be filtered away.
+  int64 min_create_revision = 10;
+
+  // max_create_revision is the upper bound for returned key create revisions; all keys with
+  // greater create revisions will be filtered away.
+  int64 max_create_revision = 11;
+}
+
+message RangeResponse {
+  ResponseHeader header = 1;
+  // table name of the table
+  bytes table = 2;
+  // kvs is the list of key-value pairs matched by the range request.
+  // kvs is empty when count is requested.
+  repeated KeyValue kvs = 3;
+  // more indicates if there are more keys to return in the requested range.
+  bool more = 4;
+  // count is set to the number of keys within the range when requested.
+  int64 count = 5;
+}
+
+message PutRequest {
+  // table name of the table
+  bytes table = 1;
+  // key is the key, in bytes, to put into the key-value store.
+  bytes key = 2;
+  // value is the value, in bytes, to associate with the key in the key-value store.
+  bytes value = 3;
+  // kv if true the stored key-value pair will be returned in the put response.
+  bool kv = 4;
+  // prev_kv if true the previous key-value pair will be returned in the put response.
+  bool prev_kv = 5;
+}
+
+message PutResponse {
+  ResponseHeader header = 1;
+  // table name of the table
+  bytes table = 2;
+  // if kv is set in the request, the stored key-value pair will be returned.
+  KeyValue kv = 3;
+  // if prev_kv is set in the request, the previous key-value pair will be returned.
+  KeyValue prev_kv = 4;
+}
+
+message DeleteRangeRequest {
+  // table name of the table
+  bytes table = 1;
+  // key is the first key to delete in the range.
+  bytes key = 2;
+  // range_end is the key following the last key to delete for the range [key, range_end).
+  // If range_end is not given, the range is defined to contain only the key argument.
+  // If range_end is one bit larger than the given key, then the range is all the keys
+  // with the prefix (the given key).
+  // If range_end is '\0', the range is all keys greater than or equal to the key argument.
+  bytes range_end = 3;
+
+  // If prev_kv is set, etcd gets the previous key-value pairs before deleting it.
+  // The previous key-value pairs will be returned in the delete response.
+  bool prev_kv = 4;
+}
+
+message DeleteRangeResponse {
+  ResponseHeader header = 1;
+  // table name of the table
+  bytes table = 2;
+  // deleted is the number of keys deleted by the delete range request.
+  int64 deleted = 3;
+
+  // if prev_kv is set in the request, the previous key-value pairs will be returned.
+  repeated KeyValue prev_kvs = 4;
+}
+
+message KeyValue {
+  // table name of the table
+  bytes table = 1;
+  // key is the key in bytes. An empty key is not allowed.
+  bytes key = 2;
+  // create_revision is the revision of last creation on this key.
+  int64 create_revision = 3;
+  // mod_revision is the revision of last modification on this key.
+  int64 mod_revision = 4;
+  // version is the version of the key. A deletion resets
+  // the version to zero and any modification of the key
+  // increases its version.
+  int64 version = 5;
+  // value is the value held by the key, in bytes.
+  bytes value = 6;
+}
+
+message HashRequest {}
+
+message HashResponse {
+  ResponseHeader header = 1;
+  // hash is the hash value computed from the responding member's KV's backend.
+  uint32 hash = 2;
+}
+
+message ResetRequest {
+  // Operation defines what is going to be reset
+  enum Operation {
+    NODE = 0;     // Reset only selected node underlying KV database
+    CLUSTER = 1;  // Reset the whole cluster
+  }
+
+  Operation operation = 1;
+}
+
+message ResetResponse {
+  ResponseHeader header = 1;
 }

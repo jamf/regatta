@@ -17,16 +17,47 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-type regattaServer struct {
-	proto.UnimplementedRegattaServer
+type kvServer struct {
+	proto.UnimplementedKVServer
 }
 
-func newServer() *regattaServer {
-	return new(regattaServer)
+func newServer() *kvServer {
+	return new(kvServer)
 }
 
-func (s *regattaServer) Get(ctx context.Context, key *proto.Key) (*proto.Value, error) {
-	return &proto.Value{Value: key.GetKey()}, nil
+func (s *kvServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+	return &proto.RangeResponse{
+		Header: nil,
+		Table:  req.Table,
+		Kvs:    []*proto.KeyValue{
+			{
+				Table:          req.Table,
+				Key:            req.Key,
+				CreateRevision: 0,
+				ModRevision:    0,
+				Version:        0,
+				Value:          []byte("abc"),
+			},
+		},
+		More:   false,
+		Count:  1,
+	}, nil
+}
+
+func (*kvServer) Put(context.Context, *proto.PutRequest) (*proto.PutResponse, error) {
+	return &proto.PutResponse{
+		Header: nil,
+		Table:  nil,
+		PrevKv: nil,
+	}, nil
+}
+func (*kvServer) DeleteRange(context.Context, *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+	return &proto.DeleteRangeResponse{
+		Header:  nil,
+		Table:   nil,
+		Deleted: 0,
+		PrevKvs: nil,
+	}, nil
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
@@ -46,7 +77,7 @@ func main() {
 		grpc.Creds(credentials.NewClientTLSFromCert(insecure.CertPool, "localhost")),
 	}
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterRegattaServer(grpcServer, newServer())
+	proto.RegisterKVServer(grpcServer, newServer())
 	ctx := context.Background()
 
 	mux := http.NewServeMux()
@@ -56,7 +87,7 @@ func main() {
 		RootCAs:    insecure.CertPool,
 	})
 	dopts := []grpc.DialOption{grpc.WithTransportCredentials(dcreds)}
-	err := proto.RegisterRegattaHandlerFromEndpoint(ctx, gwmux, "localhost:443", dopts)
+	err := proto.RegisterKVHandlerFromEndpoint(ctx, gwmux, "localhost:443", dopts)
 	if err != nil {
 		log.Fatalf("serve: %v\n", err)
 	}

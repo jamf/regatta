@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"time"
 
 	"github.com/wandera/regatta/insecure"
@@ -15,7 +14,6 @@ import (
 
 const (
 	address    = "localhost:443"
-	defaultKey = "key"
 )
 
 func main() {
@@ -30,18 +28,26 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	c := proto.NewRegattaClient(conn)
+	c := proto.NewKVClient(conn)
 
 	// Contact the server and print out its response.
-	key := defaultKey
-	if len(os.Args) > 1 {
-		key = os.Args[1]
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.Get(ctx, &proto.Key{Key: []byte(key)})
+	r, err := c.Range(ctx, &proto.RangeRequest{
+		Table:             []byte("table"),
+		Key:               []byte("key"),
+		RangeEnd:          nil,
+		Limit:             0,
+		Linearizable:      false,
+		KeysOnly:          false,
+		CountOnly:         false,
+		MinModRevision:    0,
+		MaxModRevision:    0,
+		MinCreateRevision: 0,
+		MaxCreateRevision: 0,
+	})
 	if err != nil {
 		log.Fatalf("could not get value: %v", err)
 	}
-	log.Printf("Value: %s", r.GetValue())
+	log.Printf("Value: %s", r.GetKvs())
 }
