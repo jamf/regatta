@@ -121,8 +121,6 @@ message RangeRequest {
 
 message RangeResponse {
   ResponseHeader header = 1;
-  // table name of the table
-  bytes table = 2;
   // kvs is the list of key-value pairs matched by the range request.
   // kvs is empty when count is requested.
   repeated KeyValue kvs = 3;
@@ -139,20 +137,14 @@ message PutRequest {
   bytes key = 2;
   // value is the value, in bytes, to associate with the key in the key-value store.
   bytes value = 3;
-  // kv if true the stored key-value pair will be returned in the put response.
-  bool kv = 4;
   // prev_kv if true the previous key-value pair will be returned in the put response.
-  bool prev_kv = 5;
+  bool prev_kv = 4;
 }
 
 message PutResponse {
   ResponseHeader header = 1;
-  // table name of the table
-  bytes table = 2;
-  // if kv is set in the request, the stored key-value pair will be returned.
-  KeyValue kv = 3;
   // if prev_kv is set in the request, the previous key-value pair will be returned.
-  KeyValue prev_kv = 4;
+  KeyValue prev_kv = 2;
 }
 
 message DeleteRangeRequest {
@@ -174,30 +166,22 @@ message DeleteRangeRequest {
 
 message DeleteRangeResponse {
   ResponseHeader header = 1;
-  // table name of the table
-  bytes table = 2;
   // deleted is the number of keys deleted by the delete range request.
-  int64 deleted = 3;
+  int64 deleted = 2;
 
   // if prev_kv is set in the request, the previous key-value pairs will be returned.
-  repeated KeyValue prev_kvs = 4;
+  repeated KeyValue prev_kvs = 3;
 }
 
 message KeyValue {
-  // table name of the table
-  bytes table = 1;
   // key is the key in bytes. An empty key is not allowed.
-  bytes key = 2;
+  bytes key = 1;
   // create_revision is the revision of last creation on this key.
-  int64 create_revision = 3;
+  int64 create_revision = 2;
   // mod_revision is the revision of last modification on this key.
-  int64 mod_revision = 4;
-  // version is the version of the key. A deletion resets
-  // the version to zero and any modification of the key
-  // increases its version.
-  int64 version = 5;
+  int64 mod_revision = 3;
   // value is the value held by the key, in bytes.
-  bytes value = 6;
+  bytes value = 4;
 }
 
 message HashRequest {}
@@ -216,6 +200,8 @@ message ResetRequest {
   }
 
   Operation operation = 1;
+  // member_id is the ID of the member which should be reset when operation == NODE.
+  uint64 member_id = 2;
 }
 
 message ResetResponse {
