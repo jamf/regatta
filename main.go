@@ -28,33 +28,28 @@ func newServer() *kvServer {
 func (s *kvServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	return &proto.RangeResponse{
 		Header: nil,
-		Table:  req.Table,
-		Kvs:    []*proto.KeyValue{
+		Kvs: []*proto.KeyValue{
 			{
-				Table:          req.Table,
 				Key:            req.Key,
 				CreateRevision: 0,
 				ModRevision:    0,
-				Version:        0,
 				Value:          []byte("abc"),
 			},
 		},
-		More:   false,
-		Count:  1,
+		More:  false,
+		Count: 1,
 	}, nil
 }
 
 func (*kvServer) Put(context.Context, *proto.PutRequest) (*proto.PutResponse, error) {
 	return &proto.PutResponse{
 		Header: nil,
-		Table:  nil,
 		PrevKv: nil,
 	}, nil
 }
 func (*kvServer) DeleteRange(context.Context, *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	return &proto.DeleteRangeResponse{
 		Header:  nil,
-		Table:   nil,
 		Deleted: 0,
 		PrevKvs: nil,
 	}, nil
