@@ -32,10 +32,18 @@ make run-client
 
 ## rest
 ```bash
-# base64-encode the key
-$ echo -n "key" | base64
-a2V5
 
-$ curl -d'{"key":"a2V5"}' -k https://localhost:443/v1/value`
-{"value":"a2V5"}
+$ echo -n 'table_1' | base64
+dGFibGVfMQ==
+
+$ echo -n 'key_1' | base64
+a2V5XzE=
+
+$ curl -d'{"table": "dGFibGVfMQ==", "key": "a2V5XzE="}' -k https://localhost:8443/v1/kv/range
+{"kvs":[{"key":"a2V5XzE=","value":"dGFibGVfMXZhbHVlXzE="}],"count":"1"}
+$ echo "dGFibGVfMXZhbHVlXzE=" | base64 -d
+table_1value_1
+
+$ curl -d'{}' -k https://localhost:8443/v1/maintenance/reset
+{}
 ```

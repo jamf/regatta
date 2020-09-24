@@ -4,11 +4,12 @@ go 1.15
 
 require (
 	github.com/golang/protobuf v1.4.2
-	github.com/grpc-ecosystem/grpc-gateway v1.14.8
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
-	golang.org/x/sys v0.0.0-20200916084744-dbad9cb7cb7a // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.15.0
+	github.com/stretchr/testify v1.6.1
+	golang.org/x/net v0.0.0-20200923182212-328152dc79b1 // indirect
+	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
 	golang.org/x/text v0.3.3 // indirect
-	google.golang.org/genproto v0.0.0-20200915202801-9f80d0600517
+	google.golang.org/genproto v0.0.0-20200923140941-5646d36feee1
 	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.25.0
 )

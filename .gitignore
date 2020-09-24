@@ -2,3 +2,4 @@
 .vscode
 helm/regatta/charts-*-compiled.yaml
 regatta
+cover.out
