@@ -1,0 +1,26 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: {{ template "meta.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  commonName: {{ template "meta.name" . }}.{{ .Release.Namespace }}.svc
+  dnsNames:
+  - "{{ template "meta.name" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+  - "{{ template "meta.name" . }}.{{ .Release.Namespace }}:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}.{{ .Release.Namespace }}"
+  - "{{ template "meta.name" . }}:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}"
+{{ if .Values.externalLoadBalancer }}
+  - {{ .Values.externalLoadBalancer.externalDomain }}
+{{- end }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: cert-manager-ca
+  secretName: {{ template "meta.name" . }}-cert

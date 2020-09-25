@@ -13,6 +13,35 @@ spec:
   selector:
     app: {{ template "meta.name" . }}
   ports:
-  - name: http
-    targetPort: http
-    port: 8080
+  - name: https
+    targetPort: https
+    port: {{ .Values.internalPort }}
+---
+{{ if .Values.externalLoadBalancer }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "meta.name" . }}-external
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    team: {{ .Values.team }}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalLoadBalancer.externalDomain }}
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "900"
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ template "meta.name" . }}
+  ports:
+  - protocol: TCP
+    targetPort: https
+    port: 443
+  {{ if .Values.externalLoadBalancer.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+  {{ .Values.externalLoadBalancer.loadBalancerSourceRanges | toYaml | nindent 2 }}
+  {{- end }}
+{{- end }}

@@ -2,7 +2,6 @@ package regattaserver
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -23,10 +22,10 @@ type RegattaServer struct {
 
 // NewServer returns initialized grpc/http server
 func NewServer(
-	hostname string, port int, certFilename string, keyFilename string,
+	addr string, certFilename string, keyFilename string,
 ) *RegattaServer {
 	rs := new(RegattaServer)
-	rs.Addr = fmt.Sprintf("%s:%d", hostname, port)
+	rs.Addr = addr
 
 	var creds credentials.TransportCredentials
 	var err error

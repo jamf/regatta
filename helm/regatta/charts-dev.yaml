@@ -8,3 +8,11 @@ charts:
     values:
       image:
         tag: {{ env "TAG" | default "latest" | quote }}
+      externalLoadBalancer:
+        externalDomain: reg.dev.wandera.co.uk
+        loadBalancerSourceRanges:
+        - "89.197.44.224/29" #London Office
+        - "185.219.166.114/32" #Brno Office Rozmaryn
+        - "85.93.123.11/32" #Brno Office Moravak
+        - "54.246.181.160/32" # VPN
+
