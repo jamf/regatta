@@ -1,5 +1,5 @@
 .idea
 .vscode
-helm/regatta/charts-*-compiled.yaml
-regatta
+/helm/regatta/charts-*-compiled.yaml
+/regatta
 cover.out
