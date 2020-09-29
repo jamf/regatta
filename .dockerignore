@@ -1,10 +1,11 @@
 .idea
 .github
 .vscode
-client
-helm
+/client
+/helm
+/hack
 .gitignore
-Dockerfile
-Makefile
-README.md
-regatta
+/Dockerfile
+/Makefile
+/README.md
+/regatta
