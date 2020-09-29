@@ -57,6 +57,7 @@ func NewServer(
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
 		},
+		ErrorLog: zap.NewStdLog(zap.L()),
 	}
 
 	return rs
