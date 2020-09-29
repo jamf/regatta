@@ -6,7 +6,7 @@ syntax = "proto3";
 
 option go_package = ".;proto";
 
-package proto;
+package regatta.v1;
 
 import "google/api/annotations.proto";
 
