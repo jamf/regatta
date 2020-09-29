@@ -2,17 +2,18 @@ package regattaserver
 
 import (
 	"crypto/tls"
-	"log"
 	"net/http"
 	"strings"
 
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"go.uber.org/zap"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 )
 
-// RegattaServer is server where grpc/http services can be registered in
+// RegattaServer is server where grpc/http services can be registered in.
 type RegattaServer struct {
 	Addr       string
 	GrpcServer *grpc.Server
@@ -20,7 +21,7 @@ type RegattaServer struct {
 	GWMux      *gwruntime.ServeMux
 }
 
-// NewServer returns initialized grpc/http server
+// NewServer returns initialized grpc/http server.
 func NewServer(
 	addr string, certFilename string, keyFilename string,
 ) *RegattaServer {
@@ -30,12 +31,14 @@ func NewServer(
 	var creds credentials.TransportCredentials
 	var err error
 	if creds, err = credentials.NewServerTLSFromFile(certFilename, keyFilename); err != nil {
-		log.Fatalf("Cannot create server credentials: %v", err)
+		zap.S().Fatalf("Cannot create server credentials: %v", err)
 	}
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
 	}
 	rs.GrpcServer = grpc.NewServer(opts...)
+
+	reflection.Register(rs.GrpcServer)
 
 	mux := http.NewServeMux()
 	rs.GWMux = gwruntime.NewServeMux()
@@ -44,7 +47,7 @@ func NewServer(
 
 	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
-		log.Fatalln("Failed to parse key pair:", err)
+		zap.S().Fatalf("Failed to parse key pair:", err)
 	}
 
 	rs.httpServer = &http.Server{
@@ -71,8 +74,8 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 	})
 }
 
-// ListenAndServe starts underlying http server
+// ListenAndServe starts underlying http server.
 func (s *RegattaServer) ListenAndServe() error {
-	log.Printf("grpc/rest on: %s\n", s.Addr)
+	zap.S().Infof("grpc/rest on: %s", s.Addr)
 	return s.httpServer.ListenAndServeTLS("", "")
 }

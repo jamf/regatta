@@ -3,21 +3,23 @@ package regattaserver
 import (
 	"context"
 	"crypto/tls"
-	"log"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
-// KVServer implements KV service from proto/regatta.proto
+// KVServer implements KV service from proto/regatta.proto.
 type KVServer struct {
 	proto.UnimplementedKVServer
 	Storage *storage.SimpleStorage
 }
 
-// Register creates KV server and registers it to regatta server
+// Register creates KV server and registers it to regatta server.
 func (s *KVServer) Register(regatta *RegattaServer) error {
 	proto.RegisterKVServer(regatta.GrpcServer, s)
 
@@ -30,51 +32,85 @@ func (s *KVServer) Register(regatta *RegattaServer) error {
 
 	err := proto.RegisterKVHandlerFromEndpoint(context.Background(), regatta.GWMux, regatta.Addr, opts)
 	if err != nil {
-		log.Printf("Cannot register handler: %v\n", err)
+		zap.S().Errorf("Cannot register handler: %v", err)
 		return err
 	}
 	return nil
 }
 
+// Range implements proto/regatta.proto KV.Range method.
+// Currently only subset of functionality is implemented.
+// You can get exactly one kv, no versioning, no output configuration.
 func (s *KVServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
-	if val, err := s.Storage.Get(req.Table, req.Key); err != nil {
-		return nil, err
-	} else {
-		return &proto.RangeResponse{
-			Header: nil,
-			Kvs: []*proto.KeyValue{
-				{
-					Key:            req.Key,
-					CreateRevision: 0,
-					ModRevision:    0,
-					Value:          val,
-				},
-			},
-			More:  false,
-			Count: 1,
-		}, nil
+	if req.GetRangeEnd() != nil {
+		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
+	} else if req.GetLimit() > 0 {
+		return nil, status.Errorf(codes.Unimplemented, "limit not implemented")
+	} else if req.GetLinearizable() {
+		return nil, status.Errorf(codes.Unimplemented, "linearizable not implemented")
+	} else if req.GetKeysOnly() {
+		return nil, status.Errorf(codes.Unimplemented, "keys_only not implemented")
+	} else if req.GetCountOnly() {
+		return nil, status.Errorf(codes.Unimplemented, "count_only not implemented")
+	} else if req.GetMinModRevision() > 0 {
+		return nil, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented")
+	} else if req.GetMaxModRevision() > 0 {
+		return nil, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented")
+	} else if req.GetMinCreateRevision() > 0 {
+		return nil, status.Errorf(codes.Unimplemented, "min_create_revision not implemented")
+	} else if req.GetMaxCreateRevision() > 0 {
+		return nil, status.Errorf(codes.Unimplemented, "max_create_revision not implemented")
 	}
+
+	val, err := s.Storage.Get(req.Table, req.Key)
+	if err != nil {
+		if err == storage.ErrNotFound {
+			return nil, status.Errorf(codes.NotFound, "key not found")
+		}
+		return nil, err
+	}
+	return &proto.RangeResponse{
+		Kvs: []*proto.KeyValue{
+			{
+				Key:   req.Key,
+				Value: val,
+			},
+		},
+		Count: 1,
+	}, nil
 }
 
+// Put implements proto/regatta.proto KV.Put method.
+// Currently only subset of functionality is implemented.
+// You cannot get previous value.
 func (s *KVServer) Put(_ context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+	if req.GetPrevKv() {
+		return nil, status.Errorf(codes.Unimplemented, "prev_kv not implemented")
+	}
+
 	if _, err := s.Storage.Put(req.Table, req.Key, req.Value); err != nil {
 		return nil, err
-	} else {
-		return &proto.PutResponse{
-			Header: nil,
-			PrevKv: nil,
-		}, nil
 	}
+	return &proto.PutResponse{}, nil
 }
 
+// DeleteRange implements proto/regatta.proto KV.DeleteRange method.
+// Currently only subset of functionality is implemented.
+// You can only delete one kv. You cannot get previous values.
 func (s *KVServer) DeleteRange(_ context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
-	if _, err := s.Storage.Delete(req.Table, req.Key); err != nil {
-		return nil, err
-	} else {
-		return &proto.DeleteRangeResponse{
-			Header:  nil,
-			Deleted: 0,
-			PrevKvs: nil,
-		}, nil
+	if req.GetRangeEnd() != nil {
+		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
+	} else if req.GetPrevKv() {
+		return nil, status.Errorf(codes.Unimplemented, "prev_kv not implemented")
 	}
+
+	if _, err := s.Storage.Delete(req.Table, req.Key); err != nil {
+		if err == storage.ErrNotFound {
+			return nil, status.Errorf(codes.NotFound, "key not found")
+		}
+		return nil, err
+	}
+	return &proto.DeleteRangeResponse{
+		Deleted: 1,
+	}, nil
 }
