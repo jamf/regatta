@@ -4,7 +4,7 @@ IMG ?= regatta:latest
 all: proto check test build
 
 run: build
-	./regatta
+	./regatta --reflection-api
 
 run-client: proto
 	go run client/main.go

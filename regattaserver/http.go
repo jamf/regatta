@@ -23,7 +23,7 @@ type RegattaServer struct {
 
 // NewServer returns initialized grpc/http server.
 func NewServer(
-	addr string, certFilename string, keyFilename string,
+	addr string, certFilename string, keyFilename string, reflectionAPI bool,
 ) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.Addr = addr
@@ -38,7 +38,10 @@ func NewServer(
 	}
 	rs.GrpcServer = grpc.NewServer(opts...)
 
-	reflection.Register(rs.GrpcServer)
+	if reflectionAPI {
+		reflection.Register(rs.GrpcServer)
+		zap.S().Warn("Reflection API is active")
+	}
 
 	mux := http.NewServeMux()
 	rs.GWMux = gwruntime.NewServeMux()
