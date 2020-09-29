@@ -17,8 +17,8 @@ ifeq (, $(shell which golangci-lint))
 endif
 	golangci-lint run
 
-test: proto
-	go test ./... -coverprofile cover.out
+test:
+	go test ./... -coverprofile cover.out -race
 
 build: regatta
 
@@ -39,4 +39,4 @@ docker-build: proto
 	docker build . -t ${IMG}
 
 clean:
-	rm -f regatta proto/regatta.pb.go proto/regatta.pb.gw.go
+	rm -f regatta

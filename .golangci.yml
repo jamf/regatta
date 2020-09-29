@@ -1,0 +1,32 @@
+run:
+  timeout: 5m
+linters:
+  disable-all: true
+  enable:
+  - deadcode
+  - gosimple
+  - govet
+  - ineffassign
+  - staticcheck
+  - structcheck
+  - typecheck
+  - unused
+  - varcheck
+  - gofmt
+  - golint
+    # there is a bug in gci, already fixed, but not yet released
+    #- gci
+  - godot
+  - gofumpt
+  - whitespace
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - ineffassign
+
+    - linters:
+        - staticcheck
+      text: "SA4006:" #SA4006: this value of `not_used` is never used (staticcheck)

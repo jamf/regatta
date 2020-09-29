@@ -3,21 +3,21 @@ package regattaserver
 import (
 	"context"
 	"crypto/tls"
-	"log"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
-// MaintenanceServer implements Maintenance service from proto/regatta.proto
+// MaintenanceServer implements Maintenance service from proto/regatta.proto.
 type MaintenanceServer struct {
 	proto.UnimplementedMaintenanceServer
 	Storage *storage.SimpleStorage
 }
 
-// Register creates Maintenance server and registers it to regatta server
+// Register creates Maintenance server and registers it to regatta server.
 func (s *MaintenanceServer) Register(regatta *RegattaServer) error {
 	proto.RegisterMaintenanceServer(regatta.GrpcServer, s)
 
@@ -30,13 +30,13 @@ func (s *MaintenanceServer) Register(regatta *RegattaServer) error {
 
 	err := proto.RegisterMaintenanceHandlerFromEndpoint(context.Background(), regatta.GWMux, regatta.Addr, opts)
 	if err != nil {
-		log.Printf("Cannot register handler: %v\n", err)
+		zap.S().Errorf("Cannot register handler: %v", err)
 		return err
 	}
 	return nil
 }
 
-// Reset implements proto/regatta.proto Maintenance.Reset method
+// Reset implements proto/regatta.proto Maintenance.Reset method.
 func (s *MaintenanceServer) Reset(_ context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
 	s.Storage.Reset()
 	return &proto.ResetResponse{}, nil
