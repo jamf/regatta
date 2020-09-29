@@ -13,3 +13,5 @@ charts:
         externalDomain: reg.{{ env "FI_NAME" }}.fi2.wandera.cz
         loadBalancerSourceRanges:
         - "54.246.181.160/32" # VPN
+      reflectionAPI:
+        enabled: true

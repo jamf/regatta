@@ -29,6 +29,9 @@ spec:
         - "--addr=0.0.0.0:{{ .Values.internalPort }}"
         - --cert-filename=/cert/tls.crt
         - --key-filename=/cert/tls.key
+        {{- if .Values.reflectionAPI.enabled }}
+        - --reflection-api
+        {{- end }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
