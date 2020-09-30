@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	addr         string
-	certFilename string
-	keyFilename  string
-	logLevel     string
+	addr          string
+	certFilename  string
+	keyFilename   string
+	logLevel      string
+	reflectionAPI bool
 )
 
 func init() {
@@ -22,6 +23,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&certFilename, "cert-filename", "hack/server.crt", "path to the certificate")
 	rootCmd.PersistentFlags().StringVar(&keyFilename, "key-filename", "hack/server.key", "path to the certificate key file")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "DEBUG", "log level: DEBUG/INFO/WARN/ERROR")
+	rootCmd.PersistentFlags().BoolVar(&reflectionAPI, "reflection-api", false, "whether reflection API is provided. Should not be turned on in production.")
 }
 
 var rootCmd = &cobra.Command{
@@ -48,7 +50,7 @@ var rootCmd = &cobra.Command{
 		storage.PutDummyData()
 
 		// Create regatta server
-		regatta := regattaserver.NewServer(addr, certFilename, keyFilename)
+		regatta := regattaserver.NewServer(addr, certFilename, keyFilename, reflectionAPI)
 
 		// Create and register grpc/rest endpoints
 		kvs := &regattaserver.KVServer{
