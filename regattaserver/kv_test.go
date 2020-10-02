@@ -272,6 +272,24 @@ func TestRegatta_RangeNotFound(t *testing.T) {
 	require.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
 }
 
+func TestRegatta_RangeInvalidArgument(t *testing.T) {
+	require := require.New(t)
+
+	t.Log("Get with empty table name")
+	_, err := kv.Range(context.Background(), &proto.RangeRequest{
+		Table: []byte{},
+		Key:   key1Name,
+	})
+	require.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
+
+	t.Log("Get with empty key name")
+	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+		Table: table1Name,
+		Key:   []byte{},
+	})
+	require.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
+}
+
 func TestRegatta_RangeUnimplemented(t *testing.T) {
 	assert := assert.New(t)
 
@@ -348,6 +366,26 @@ func TestRegatta_RangeUnimplemented(t *testing.T) {
 	assert.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
 }
 
+func TestRegatta_PutInvalidArgument(t *testing.T) {
+	require := require.New(t)
+
+	t.Log("Put with empty table name")
+	_, err := kv.Put(context.Background(), &proto.PutRequest{
+		Table: []byte{},
+		Key:   key1Name,
+		Value: table1Value1,
+	})
+	require.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
+
+	t.Log("Put with empty key name")
+	_, err = kv.Put(context.Background(), &proto.PutRequest{
+		Table: table1Name,
+		Key:   []byte{},
+		Value: table1Value1,
+	})
+	require.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
+}
+
 func TestRegatta_PutUnimplemented(t *testing.T) {
 	require := require.New(t)
 
@@ -358,6 +396,24 @@ func TestRegatta_PutUnimplemented(t *testing.T) {
 		PrevKv: true,
 	})
 	require.EqualError(err, status.Errorf(codes.Unimplemented, "prev_kv not implemented").Error())
+}
+
+func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
+	require := require.New(t)
+
+	t.Log("Delete with empty table name")
+	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+		Table: []byte{},
+		Key:   key1Name,
+	})
+	require.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
+
+	t.Log("Delete with empty key name")
+	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+		Table: table1Name,
+		Key:   []byte{},
+	})
+	require.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
 }
 
 func TestRegatta_DeleteRangeUnimplemented(t *testing.T) {

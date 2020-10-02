@@ -62,6 +62,14 @@ func (s *KVServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.Ran
 		return nil, status.Errorf(codes.Unimplemented, "max_create_revision not implemented")
 	}
 
+	if len(req.GetTable()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
+	}
+
+	if len(req.GetKey()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
+	}
+
 	val, err := s.Storage.Get(req.Table, req.Key)
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -88,6 +96,14 @@ func (s *KVServer) Put(_ context.Context, req *proto.PutRequest) (*proto.PutResp
 		return nil, status.Errorf(codes.Unimplemented, "prev_kv not implemented")
 	}
 
+	if len(req.GetTable()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
+	}
+
+	if len(req.GetKey()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
+	}
+
 	if _, err := s.Storage.Put(req.Table, req.Key, req.Value); err != nil {
 		return nil, err
 	}
@@ -102,6 +118,14 @@ func (s *KVServer) DeleteRange(_ context.Context, req *proto.DeleteRangeRequest)
 		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
 	} else if req.GetPrevKv() {
 		return nil, status.Errorf(codes.Unimplemented, "prev_kv not implemented")
+	}
+
+	if len(req.GetTable()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
+	}
+
+	if len(req.GetKey()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
 	if _, err := s.Storage.Delete(req.Table, req.Key); err != nil {
