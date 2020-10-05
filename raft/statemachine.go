@@ -43,9 +43,7 @@ func (n *PersistentStateMachine) Update(data []byte) (sm.Result, error) {
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (n *PersistentStateMachine) SaveSnapshot(w io.Writer,
-	fileCollection sm.ISnapshotFileCollection,
-	done <-chan struct{}) error {
+func (n *PersistentStateMachine) SaveSnapshot(w io.Writer, fileCollection sm.ISnapshotFileCollection, done <-chan struct{}) error {
 	data, err := json.Marshal(n)
 	if err != nil {
 		panic(err)
@@ -59,9 +57,7 @@ func (n *PersistentStateMachine) SaveSnapshot(w io.Writer,
 
 // RecoverFromSnapshot recovers the object from the snapshot specified by the
 // io.Reader object.
-func (n *PersistentStateMachine) RecoverFromSnapshot(r io.Reader,
-	files []sm.SnapshotFile,
-	done <-chan struct{}) error {
+func (n *PersistentStateMachine) RecoverFromSnapshot(r io.Reader, files []sm.SnapshotFile, done <-chan struct{}) error {
 	var sn PersistentStateMachine
 	data, err := ioutil.ReadAll(r)
 	if err != nil {

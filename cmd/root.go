@@ -23,24 +23,28 @@ var (
 	logLevel      string
 	reflectionAPI bool
 
-	walDir      string
-	nodeHostDir string
-	raftAddress string
+	walDir        string
+	nodeHostDir   string
+	raftAddress   string
+	raftID        uint64
+	raftClusterID uint64
 )
 
 func init() {
-	rootCmd.PersistentFlags().BoolVar(&devMode, "dev-mode", false, "Dev mode enabled (verbose logging, human-friendly log format)")
+	rootCmd.PersistentFlags().BoolVar(&devMode, "dev-mode", false, "Dev mode enabled (verbose logging, human-friendly log format).")
 
-	rootCmd.PersistentFlags().StringVar(&addr, "addr", "localhost:8443", "addr to listen on")
-	rootCmd.PersistentFlags().StringVar(&certFilename, "cert-filename", "hack/server.crt", "path to the certificate")
-	rootCmd.PersistentFlags().StringVar(&keyFilename, "key-filename", "hack/server.key", "path to the certificate key file")
-	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "DEBUG", "log level: DEBUG/INFO/WARN/ERROR")
-	rootCmd.PersistentFlags().BoolVar(&reflectionAPI, "reflection-api", false, "whether reflection API is provided. Should not be turned on in production.")
+	rootCmd.PersistentFlags().StringVar(&addr, "addr", "localhost:8443", "Address the API server should listen on.")
+	rootCmd.PersistentFlags().StringVar(&certFilename, "cert-filename", "hack/server.crt", "Path to the API server certificate.")
+	rootCmd.PersistentFlags().StringVar(&keyFilename, "key-filename", "hack/server.key", "Path to the API server private key file.")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "DEBUG", "Log level: DEBUG/INFO/WARN/ERROR.")
+	rootCmd.PersistentFlags().BoolVar(&reflectionAPI, "reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
 
 	rootCmd.PersistentFlags().StringVar(&walDir, "wal-dir", "", "WALDir is the directory used for storing the WAL of Raft entries. It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. Leave WALDir to have zero value will have everything stored in NodeHostDir.")
 	rootCmd.PersistentFlags().StringVar(&nodeHostDir, "node-host-dir", "/tmp/regatta", "NodeHostDir is where everything else is stored")
 	rootCmd.PersistentFlags().StringVar(&raftAddress, "raft-address", "", "RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots. This is also the identifier for a NodeHost instance. RaftAddress should be set to the public address that can be accessed from remote NodeHost instances.")
 	_ = rootCmd.MarkPersistentFlagRequired("raft-address")
+	rootCmd.PersistentFlags().Uint64Var(&raftID, "node-id", 1, "Raft Node ID is a non-zero value used to identify a node within a Raft cluster.")
+	rootCmd.PersistentFlags().Uint64Var(&raftClusterID, "cluster-id", 1, "Raft Cluster ID is the unique value used to identify a Raft cluster.")
 }
 
 var rootCmd = &cobra.Command{
@@ -54,7 +58,7 @@ var rootCmd = &cobra.Command{
 		nhc := config.NodeHostConfig{
 			WALDir:         walDir,
 			NodeHostDir:    nodeHostDir,
-			RTTMillisecond: 200,
+			RTTMillisecond: 50,
 			RaftAddress:    raftAddress,
 			EnableMetrics:  true,
 		}
@@ -62,10 +66,10 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		err = nh.StartCluster(map[uint64]string{1: "127.0.0.1:5012"}, false, raft.NewStateMachine, config.Config{
-			NodeID:             1,
-			ClusterID:          100,
-			ElectionRTT:        5,
+		err = nh.StartCluster(map[uint64]string{raftID: raftAddress}, false, raft.NewStateMachine, config.Config{
+			NodeID:             raftID,
+			ClusterID:          raftClusterID,
+			ElectionRTT:        20,
 			HeartbeatRTT:       1,
 			CheckQuorum:        true,
 			SnapshotEntries:    10000,
