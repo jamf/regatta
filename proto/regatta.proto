@@ -9,6 +9,7 @@ option go_package = ".;proto";
 package regatta.v1;
 
 import "google/api/annotations.proto";
+import "mvcc.proto";
 
 // KV for handling the read/put requests
 service KV {
@@ -123,7 +124,7 @@ message RangeResponse {
   ResponseHeader header = 1;
   // kvs is the list of key-value pairs matched by the range request.
   // kvs is empty when count is requested.
-  repeated KeyValue kvs = 3;
+  repeated mvcc.v1.KeyValue kvs = 3;
   // more indicates if there are more keys to return in the requested range.
   bool more = 4;
   // count is set to the number of keys within the range when requested.
@@ -144,7 +145,7 @@ message PutRequest {
 message PutResponse {
   ResponseHeader header = 1;
   // if prev_kv is set in the request, the previous key-value pair will be returned.
-  KeyValue prev_kv = 2;
+  mvcc.v1.KeyValue prev_kv = 2;
 }
 
 message DeleteRangeRequest {
@@ -170,18 +171,7 @@ message DeleteRangeResponse {
   int64 deleted = 2;
 
   // if prev_kv is set in the request, the previous key-value pairs will be returned.
-  repeated KeyValue prev_kvs = 3;
-}
-
-message KeyValue {
-  // key is the key in bytes. An empty key is not allowed.
-  bytes key = 1;
-  // create_revision is the revision of last creation on this key.
-  int64 create_revision = 2;
-  // mod_revision is the revision of last modification on this key.
-  int64 mod_revision = 3;
-  // value is the value held by the key, in bytes.
-  bytes value = 4;
+  repeated mvcc.v1.KeyValue prev_kvs = 3;
 }
 
 message HashRequest {}
