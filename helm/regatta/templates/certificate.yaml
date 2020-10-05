@@ -22,5 +22,5 @@ spec:
 {{- end }}
   issuerRef:
     kind: ClusterIssuer
-    name: cert-manager-ca
+    name: cert-manager-wandera-intermediary-ca
   secretName: {{ template "meta.name" . }}-cert
