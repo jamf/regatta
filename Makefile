@@ -4,7 +4,7 @@ IMG ?= regatta:latest
 all: proto check test build
 
 run: build
-	./regatta --reflection-api
+	./regatta --dev-mode --reflection-api --raft-address=127.0.0.1:5012
 
 run-client: proto
 	go run client/main.go

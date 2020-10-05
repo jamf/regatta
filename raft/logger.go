@@ -5,7 +5,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// NewLogger builds a Dragonboat compatible named zap logger
+// NewLogger builds a Dragonboat compatible named zap logger.
 func NewLogger(pkgName string) logger.ILogger {
 	return zapLogger{z: zap.New(zap.L().Core(), zap.AddCaller(), zap.AddCallerSkip(2)).Named(pkgName).Sugar()}
 }
