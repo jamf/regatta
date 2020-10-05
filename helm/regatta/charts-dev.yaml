@@ -17,3 +17,11 @@ charts:
         - "54.246.181.160/32" # VPN
       reflectionAPI:
         enabled: true
+      persistence:
+        storage:
+          storageClassName: ebs-gp2-zone-agnostic
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi

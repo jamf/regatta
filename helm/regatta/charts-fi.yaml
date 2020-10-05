@@ -15,3 +15,11 @@ charts:
         - "54.246.181.160/32" # VPN
       reflectionAPI:
         enabled: true
+      persistence:
+        storage:
+          storageClassName: gp2-b
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi

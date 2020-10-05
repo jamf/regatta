@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ template "meta.name" . }}
   namespace: {{ .Release.Namespace }}
@@ -15,6 +15,7 @@ spec:
     matchLabels:
       app: {{ template "meta.name" . }}
       release: {{ .Release.Name }}
+  serviceName: {{ template "meta.name" . }}
   template:
     metadata:
       labels:
@@ -30,6 +31,7 @@ spec:
         - --cert-filename=/cert/tls.crt
         - --key-filename=/cert/tls.key
         - --raft-address=127.0.0.1:5012
+        - --node-host-dir=/data
         {{- if .Values.reflectionAPI.enabled }}
         - --reflection-api
         {{- end }}
@@ -38,8 +40,10 @@ spec:
           containerPort: {{ .Values.internalPort }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:
-          - mountPath: /cert
-            name: cert
+        - mountPath: /cert
+          name: cert
+        - mountPath: /data
+          name: data
       volumes:
       - name: cert
         secret:
@@ -51,3 +55,10 @@ spec:
       {{- if .Values.nodeSelector }}
       nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
       {{- end }}
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: data
+    spec:
+    {{ .Values.persistence.storage | toYaml | nindent 6 }}

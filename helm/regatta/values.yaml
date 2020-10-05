@@ -26,3 +26,5 @@ externalLoadBalancer: {}
 
 reflectionAPI:
   enabled: false
+
+persistence: {}
