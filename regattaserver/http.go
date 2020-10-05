@@ -40,7 +40,7 @@ func NewServer(
 
 	if reflectionAPI {
 		reflection.Register(rs.GrpcServer)
-		zap.S().Warn("Reflection API is active")
+		zap.S().Info("Reflection API is active")
 	}
 
 	mux := http.NewServeMux()
