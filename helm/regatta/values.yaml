@@ -27,4 +27,5 @@ externalLoadBalancer: {}
 reflectionAPI:
   enabled: false
 
-persistence: {}
+persistence:
+  hostPath: false

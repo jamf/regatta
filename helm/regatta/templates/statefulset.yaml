@@ -49,12 +49,22 @@ spec:
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-cert
+      {{- if .Values.persistence.hostPath }}
+      - name: data
+        hostPath:
+          path: /tmp/{{ template "meta.name" . }}-data
+          type: DirectoryOrCreate
+      {{- else }}
+      - name: data
+        emptyDir: {}
+      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
       {{- end }}
       {{- if .Values.nodeSelector }}
       nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
       {{- end }}
+  {{- if not .Values.persistence.hostPath }}
   volumeClaimTemplates:
   - apiVersion: v1
     kind: PersistentVolumeClaim
@@ -62,3 +72,4 @@ spec:
       name: data
     spec:
     {{ .Values.persistence.storage | toYaml | nindent 6 }}
+  {{- end }}
