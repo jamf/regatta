@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/golang/protobuf v1.4.2
 	github.com/grpc-ecosystem/grpc-gateway v1.15.0
+	github.com/lni/dragonboat/v3 v3.1.1-0.20200930054505-3fe077eba05b
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.10.0
