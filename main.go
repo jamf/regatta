@@ -1,6 +1,8 @@
 package main
 
-import "github.com/wandera/regatta/cmd"
+import (
+	"github.com/wandera/regatta/cmd"
+)
 
 func main() {
 	cmd.Execute()
