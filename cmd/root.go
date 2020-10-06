@@ -26,6 +26,7 @@ var (
 	walDir        string
 	nodeHostDir   string
 	raftAddress   string
+	listenAddress string
 	raftID        uint64
 	raftClusterID uint64
 )
@@ -39,10 +40,19 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "DEBUG", "Log level: DEBUG/INFO/WARN/ERROR.")
 	rootCmd.PersistentFlags().BoolVar(&reflectionAPI, "reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
 
-	rootCmd.PersistentFlags().StringVar(&walDir, "wal-dir", "", "WALDir is the directory used for storing the WAL of Raft entries. It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. Leave WALDir to have zero value will have everything stored in NodeHostDir.")
+	rootCmd.PersistentFlags().StringVar(&walDir, "wal-dir", "",
+		`WALDir is the directory used for storing the WAL of Raft entries. 
+It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
+Leave WALDir to have zero value will have everything stored in NodeHostDir.`)
 	rootCmd.PersistentFlags().StringVar(&nodeHostDir, "node-host-dir", "/tmp/regatta", "NodeHostDir is where everything else is stored")
-	rootCmd.PersistentFlags().StringVar(&raftAddress, "raft-address", "", "RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots. This is also the identifier for a NodeHost instance. RaftAddress should be set to the public address that can be accessed from remote NodeHost instances.")
+	rootCmd.PersistentFlags().StringVar(&raftAddress, "raft-address", "",
+		`RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
+This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.`)
 	_ = rootCmd.MarkPersistentFlagRequired("raft-address")
+	rootCmd.PersistentFlags().StringVar(&listenAddress, "listen-address", "",
+		`ListenAddress is a hostname:port or IP:port address used by the Raft RPC module to listen on for Raft message and snapshots.
+When the ListenAddress field is not set, The Raft RPC module listens on RaftAddress. If 0.0.0.0 is specified as the IP of the ListenAddress, Regatta listens to the specified port on all interfaces.
+When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.`)
 	rootCmd.PersistentFlags().Uint64Var(&raftID, "node-id", 1, "Raft Node ID is a non-zero value used to identify a node within a Raft cluster.")
 	rootCmd.PersistentFlags().Uint64Var(&raftClusterID, "cluster-id", 1, "Raft Cluster ID is the unique value used to identify a Raft cluster.")
 }
@@ -60,6 +70,7 @@ var rootCmd = &cobra.Command{
 			NodeHostDir:    nodeHostDir,
 			RTTMillisecond: 50,
 			RaftAddress:    raftAddress,
+			ListenAddress:  listenAddress,
 			EnableMetrics:  true,
 		}
 		nh, err := dragonboat.NewNodeHost(nhc)
@@ -80,22 +91,23 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Create storage
-		var storage storage.SimpleStorage
-		storage.Reset()
-		storage.PutDummyData()
+		st := &storage.RaftStorage{
+			NodeHost: nh,
+			Session:  nh.GetNoOPSession(raftClusterID),
+		}
 
 		// Create regatta server
 		regatta := regattaserver.NewServer(addr, certFilename, keyFilename, reflectionAPI)
 
 		// Create and register grpc/rest endpoints
 		kvs := &regattaserver.KVServer{
-			Storage: &storage,
+			Storage: st,
 		}
 		if err := kvs.Register(regatta); err != nil {
 			zap.S().Fatalf("registerKVServer failed: %v", err)
 		}
 		ms := &regattaserver.MaintenanceServer{
-			Storage: &storage,
+			Storage: st,
 		}
 		if err := ms.Register(regatta); err != nil {
 			zap.S().Fatalf("registerMaintenanceServer failed: %v", err)
@@ -105,6 +117,7 @@ var rootCmd = &cobra.Command{
 		if err := regatta.ListenAndServe(); err != http.ErrServerClosed {
 			zap.S().Fatalf("ListenAndServe failed: %v", err)
 		}
+		nh.Stop()
 	},
 }
 
