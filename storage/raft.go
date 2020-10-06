@@ -18,7 +18,7 @@ type RaftStorage struct {
 func (r *RaftStorage) Range(ctx context.Context, req *proto.RangeRequest) ([]byte, error) {
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
-	val, err := r.SyncRead(dc, 1, append(req.Table, req.Key...))
+	val, err := r.SyncRead(dc, r.Session.ClusterID, append(req.Table, req.Key...))
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +76,14 @@ func (r *RaftStorage) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 	}, nil
 }
 
-func (r *RaftStorage) Reset() {
+func (r *RaftStorage) Reset(ctx context.Context, req *proto.ResetRequest) error {
 	panic("not implemented")
+}
+
+func (r *RaftStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint64, error) {
+	val, err := r.StaleRead(r.Session.ClusterID, QueryHash)
+	if err != nil {
+		return 0, err
+	}
+	return val.(uint64), nil
 }
