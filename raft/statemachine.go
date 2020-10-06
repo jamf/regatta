@@ -2,6 +2,7 @@ package raft
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
@@ -27,6 +28,9 @@ type KVStateMachine struct {
 
 // Lookup locally looks up the data.
 func (n *KVStateMachine) Lookup(key interface{}) (interface{}, error) {
+	if key == storage.QueryHash {
+		return n.GetHash()
+	}
 	if value, ok := n.storage[string(key.([]byte))]; ok {
 		return value, nil
 	}
@@ -64,11 +68,7 @@ func (n *KVStateMachine) SaveSnapshot(w io.Writer, fileCollection sm.ISnapshotFi
 	}
 
 	_, err = w.Write(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // RecoverFromSnapshot recovers the object from the snapshot specified by the
@@ -79,12 +79,7 @@ func (n *KVStateMachine) RecoverFromSnapshot(r io.Reader, files []sm.SnapshotFil
 		return err
 	}
 
-	err = json.Unmarshal(data, &n.storage)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return json.Unmarshal(data, &n.storage)
 }
 
 // Close closes the KVStateMachine IStateMachine.
@@ -92,10 +87,13 @@ func (n *KVStateMachine) Close() error { return nil }
 
 // GetHash returns a uint64 value representing the current state of the object.
 func (n *KVStateMachine) GetHash() (uint64, error) {
+	// Encode to bin format
 	var b bytes.Buffer
 	err := gob.NewEncoder(&b).Encode(n.storage)
 	if err != nil {
 		return 0, err
 	}
-	return binary.LittleEndian.Uint64(b.Bytes()), nil
+	// Compute MD5
+	sum := md5.Sum(b.Bytes())
+	return binary.LittleEndian.Uint64(sum[:]), nil
 }

@@ -13,11 +13,10 @@ import (
 var ms MaintenanceServer
 
 func TestRegatta_Reset(t *testing.T) {
-	var err error
 	require := require.New(t)
 
 	t.Log("Put kv")
-	_, err = kv.Put(context.Background(), &proto.PutRequest{
+	_, err := kv.Put(context.Background(), &proto.PutRequest{
 		Table: table1Name,
 		Key:   key1Name,
 		Value: table1Value1,
@@ -43,11 +42,16 @@ func TestRegatta_Reset(t *testing.T) {
 	require.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
 }
 
-func TestRegatta_HashUnimplemented(t *testing.T) {
-	var err error
+func TestRegatta_Hash(t *testing.T) {
 	require := require.New(t)
 
-	t.Log("Get hash")
-	_, err = ms.Hash(context.Background(), &proto.HashRequest{})
-	require.EqualError(err, status.Errorf(codes.Unimplemented, "method Hash not implemented").Error())
+	t.Log("Reset")
+	_, err := ms.Reset(context.Background(), &proto.ResetRequest{})
+	require.NoError(err)
+
+	t.Log("Get Hash")
+	hash, err := ms.Hash(context.Background(), &proto.HashRequest{})
+	require.NoError(err)
+
+	require.Equal(uint64(14016925752965410166), hash.Hash)
 }
