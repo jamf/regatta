@@ -179,7 +179,7 @@ message HashRequest {}
 message HashResponse {
   ResponseHeader header = 1;
   // hash is the hash value computed from the responding member's KV's backend.
-  uint32 hash = 2;
+  uint64 hash = 2;
 }
 
 message ResetRequest {
