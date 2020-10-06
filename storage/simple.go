@@ -3,9 +3,8 @@ package storage
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/binary"
 	"encoding/gob"
+	"hash/fnv"
 	"sync"
 
 	"github.com/wandera/regatta/proto"
@@ -65,7 +64,11 @@ func (s *SimpleStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint6
 	if err != nil {
 		return 0, err
 	}
-	// Compute MD5
-	sum := md5.Sum(b.Bytes())
-	return binary.LittleEndian.Uint64(sum[:]), nil
+	// Compute Hash
+	hash64 := fnv.New64()
+	_, err = hash64.Write(b.Bytes())
+	if err != nil {
+		return 0, err
+	}
+	return hash64.Sum64(), nil
 }

@@ -53,5 +53,5 @@ func TestRegatta_Hash(t *testing.T) {
 	hash, err := ms.Hash(context.Background(), &proto.HashRequest{})
 	require.NoError(err)
 
-	require.Equal(uint64(14016925752965410166), hash.Hash)
+	require.Equal(uint64(5001005189967390176), hash.Hash)
 }
