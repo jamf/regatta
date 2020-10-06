@@ -14,7 +14,7 @@ import (
 // MaintenanceServer implements Maintenance service from proto/regatta.proto.
 type MaintenanceServer struct {
 	proto.UnimplementedMaintenanceServer
-	Storage *storage.SimpleStorage
+	Storage storage.KVStorage
 }
 
 // Register creates Maintenance server and registers it to regatta server.
