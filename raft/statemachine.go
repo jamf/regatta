@@ -15,18 +15,18 @@ import (
 )
 
 func NewStateMachine(clusterID uint64, nodeID uint64) sm.IStateMachine {
-	return &PersistentStateMachine{
+	return &KVStateMachine{
 		storage: make(map[string][]byte),
 	}
 }
 
-// PersistentStateMachine is a IStateMachine struct used for testing purpose.
-type PersistentStateMachine struct {
+// KVStateMachine is a IStateMachine struct used for testing purpose.
+type KVStateMachine struct {
 	storage map[string][]byte
 }
 
 // Lookup locally looks up the data.
-func (n *PersistentStateMachine) Lookup(key interface{}) (interface{}, error) {
+func (n *KVStateMachine) Lookup(key interface{}) (interface{}, error) {
 	if value, ok := n.storage[string(key.([]byte))]; ok {
 		return value, nil
 	}
@@ -34,7 +34,7 @@ func (n *PersistentStateMachine) Lookup(key interface{}) (interface{}, error) {
 }
 
 // Update updates the object.
-func (n *PersistentStateMachine) Update(data []byte) (sm.Result, error) {
+func (n *KVStateMachine) Update(data []byte) (sm.Result, error) {
 	cmd := proto.Command{}
 	err := pb.Unmarshal(data, &cmd)
 	if err != nil {
@@ -57,7 +57,7 @@ func (n *PersistentStateMachine) Update(data []byte) (sm.Result, error) {
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (n *PersistentStateMachine) SaveSnapshot(w io.Writer, fileCollection sm.ISnapshotFileCollection, done <-chan struct{}) error {
+func (n *KVStateMachine) SaveSnapshot(w io.Writer, fileCollection sm.ISnapshotFileCollection, done <-chan struct{}) error {
 	data, err := json.Marshal(n.storage)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func (n *PersistentStateMachine) SaveSnapshot(w io.Writer, fileCollection sm.ISn
 
 // RecoverFromSnapshot recovers the object from the snapshot specified by the
 // io.Reader object.
-func (n *PersistentStateMachine) RecoverFromSnapshot(r io.Reader, files []sm.SnapshotFile, done <-chan struct{}) error {
+func (n *KVStateMachine) RecoverFromSnapshot(r io.Reader, files []sm.SnapshotFile, done <-chan struct{}) error {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -87,11 +87,11 @@ func (n *PersistentStateMachine) RecoverFromSnapshot(r io.Reader, files []sm.Sna
 	return nil
 }
 
-// Close closes the PersistentStateMachine IStateMachine.
-func (n *PersistentStateMachine) Close() error { return nil }
+// Close closes the KVStateMachine IStateMachine.
+func (n *KVStateMachine) Close() error { return nil }
 
 // GetHash returns a uint64 value representing the current state of the object.
-func (n *PersistentStateMachine) GetHash() (uint64, error) {
+func (n *KVStateMachine) GetHash() (uint64, error) {
 	var b bytes.Buffer
 	err := gob.NewEncoder(&b).Encode(n.storage)
 	if err != nil {
