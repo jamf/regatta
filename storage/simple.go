@@ -1,7 +1,11 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/binary"
+	"encoding/gob"
 	"sync"
 
 	"github.com/wandera/regatta/proto"
@@ -47,8 +51,21 @@ func (s *SimpleStorage) Delete(_ context.Context, req *proto.DeleteRangeRequest)
 }
 
 // Reset method resets storage.
-func (s *SimpleStorage) Reset() {
+func (s *SimpleStorage) Reset(ctx context.Context, req *proto.ResetRequest) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.storage = make(map[string][]byte)
+	return nil
+}
+
+func (s *SimpleStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint64, error) {
+	// Encode to bin format
+	var b bytes.Buffer
+	err := gob.NewEncoder(&b).Encode(s.storage)
+	if err != nil {
+		return 0, err
+	}
+	// Compute MD5
+	sum := md5.Sum(b.Bytes())
+	return binary.LittleEndian.Uint64(sum[:]), nil
 }
