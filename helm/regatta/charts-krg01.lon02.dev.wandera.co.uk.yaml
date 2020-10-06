@@ -1,0 +1,15 @@
+apiVersion: v1
+
+name: regatta
+namespace: regatta
+
+charts:
+- .:
+    values:
+      image:
+        tag: {{ env "TAG" | default "latest" | quote }}
+      reflectionAPI:
+        enabled: true
+      persistence:
+        hostPath: true
+      imagePullSecrets: awsecr-cred
