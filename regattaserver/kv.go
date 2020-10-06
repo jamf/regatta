@@ -16,7 +16,7 @@ import (
 // KVServer implements KV service from proto/regatta.proto.
 type KVServer struct {
 	proto.UnimplementedKVServer
-	Storage *storage.SimpleStorage
+	Storage storage.KVStorage
 }
 
 // Register creates KV server and registers it to regatta server.
@@ -41,7 +41,7 @@ func (s *KVServer) Register(regatta *RegattaServer) error {
 // Range implements proto/regatta.proto KV.Range method.
 // Currently only subset of functionality is implemented.
 // You can get exactly one kv, no versioning, no output configuration.
-func (s *KVServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if req.GetRangeEnd() != nil {
 		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
 	} else if req.GetLimit() > 0 {
@@ -70,12 +70,12 @@ func (s *KVServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.Ran
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
-	val, err := s.Storage.Get(req.Table, req.Key)
+	val, err := s.Storage.Range(ctx, req)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			return nil, status.Errorf(codes.NotFound, "key not found")
 		}
-		return nil, err
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	return &proto.RangeResponse{
 		Kvs: []*proto.KeyValue{
@@ -91,7 +91,7 @@ func (s *KVServer) Range(_ context.Context, req *proto.RangeRequest) (*proto.Ran
 // Put implements proto/regatta.proto KV.Put method.
 // Currently only subset of functionality is implemented.
 // You cannot get previous value.
-func (s *KVServer) Put(_ context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if req.GetPrevKv() {
 		return nil, status.Errorf(codes.Unimplemented, "prev_kv not implemented")
 	}
@@ -104,8 +104,9 @@ func (s *KVServer) Put(_ context.Context, req *proto.PutRequest) (*proto.PutResp
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
-	if _, err := s.Storage.Put(req.Table, req.Key, req.Value); err != nil {
-		return nil, err
+	_, err := s.Storage.Put(ctx, req)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &proto.PutResponse{}, nil
 }
@@ -113,7 +114,7 @@ func (s *KVServer) Put(_ context.Context, req *proto.PutRequest) (*proto.PutResp
 // DeleteRange implements proto/regatta.proto KV.DeleteRange method.
 // Currently only subset of functionality is implemented.
 // You can only delete one kv. You cannot get previous values.
-func (s *KVServer) DeleteRange(_ context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if req.GetRangeEnd() != nil {
 		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
 	} else if req.GetPrevKv() {
@@ -128,13 +129,14 @@ func (s *KVServer) DeleteRange(_ context.Context, req *proto.DeleteRangeRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
-	if _, err := s.Storage.Delete(req.Table, req.Key); err != nil {
+	r, err := s.Storage.Delete(ctx, req)
+	if err != nil {
 		if err == storage.ErrNotFound {
 			return nil, status.Errorf(codes.NotFound, "key not found")
 		}
-		return nil, err
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	return &proto.DeleteRangeResponse{
-		Deleted: 1,
+		Deleted: int64(r.Value),
 	}, nil
 }

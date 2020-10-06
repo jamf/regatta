@@ -1,15 +1,17 @@
 package regattaserver
 
 import (
+	"context"
 	"os"
 	"testing"
 
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
 )
 
 func setup() {
 	s := storage.SimpleStorage{}
-	s.Reset()
+	_ = s.Reset(context.TODO(), &proto.ResetRequest{})
 
 	kv = KVServer{
 		Storage: &s,
