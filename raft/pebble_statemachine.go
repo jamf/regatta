@@ -1,14 +1,30 @@
 package raft
 
 import (
+	"encoding/binary"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
+	"reflect"
+
+	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
 	pb "google.golang.org/protobuf/proto"
+)
+
+type recordKind byte
+
+const (
+	system recordKind = iota
+	user   recordKind = iota
+)
+
+type systemRecord byte
+
+const (
+	raftLogIndex systemRecord = iota
 )
 
 func NewPebbleStateMachine(_ uint64, _ uint64) sm.IOnDiskStateMachine {
@@ -34,13 +50,24 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		panic(err) // TODO this is fatal, right? Cannot continue.
 	}
 
-	// TODO return correct most recent raft log index from the persistent storage
-	// store it as some system key?
-	return 0, nil
+	indexVal, closer, err := p.storage.Get([]byte{byte(system), byte(raftLogIndex)})
+
+	defer func() {
+		if closer != nil {
+			if err := closer.Close(); err != nil {
+				panic("failed to close") // TODO this is fatal, right? Cannot continue.
+			}
+		}
+	}()
+
+	if err != nil {
+		return 0, nil
+	}
+
+	return binary.LittleEndian.Uint64(indexVal), nil
 }
 
 // TODO flush/sync needed?
-// TODO not handling the raft index
 // Update updates the object.
 func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	// TODO inefficient implementation, rework to batch update on the pebble side
@@ -54,17 +81,38 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			return updates, err
 		}
 
-		key := string(append(cmd.Table, cmd.Kv.Key...))
+		// pre-allocate the userDataKey slice for the better performance
+		userDataKey := make([]byte, int(reflect.TypeOf(user).Size())+len(cmd.Table)+len(cmd.Kv.Key)) // TODO Isn't using reflect unnecessarily inefficient?
+		userDataKey[0] = byte(user)
+		copy(userDataKey[reflect.TypeOf(user).Size():], cmd.Table)
+		copy(userDataKey[int(reflect.TypeOf(user).Size())+len(cmd.Table):], cmd.Kv.Key)
+
+		raftIndexKey := []byte{byte(system), byte(raftLogIndex)}
+		raftIndexVal := make([]byte, reflect.TypeOf(uint64(0)).Size()) // TODO I've read this might be unsafe though
 		switch cmd.Type {
 		case proto.Command_PUT:
-			if err := p.storage.Set([]byte(key), cmd.Kv.Value, nil); err != nil {
+			if err := p.storage.Set(userDataKey, cmd.Kv.Value, nil); err != nil {
+				update.Result = sm.Result{Value: 0}
+				// TODO not sure about the error handling here in case the incomplete update is done
+				return updates, err
+			}
+
+			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
+			if err := p.storage.Set(raftIndexKey, raftIndexVal, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				// TODO not sure about the error handling here in case the incomplete update is done
 				return updates, err
 			}
 			update.Result = sm.Result{Value: 1}
 		case proto.Command_DELETE:
-			if err := p.storage.Delete([]byte(key), nil); err != nil {
+			if err := p.storage.Delete(userDataKey, nil); err != nil {
+				update.Result = sm.Result{Value: 0}
+				// TODO not sure about the error handling here in case the incomplete update is done
+				return updates, err
+			}
+
+			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
+			if err := p.storage.Set(raftIndexKey, raftIndexVal, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				// TODO not sure about the error handling here in case the incomplete update is done
 				return updates, err
@@ -78,7 +126,10 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 
 // Lookup locally looks up the data.
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
-	value, closer, err := p.storage.Get(key.([]byte))
+	queryKey := make([]byte, len(key.([]byte))+1)
+	queryKey[0] = byte(user)
+	copy(queryKey[1:], key.([]byte))
+	value, closer, err := p.storage.Get(queryKey)
 
 	defer func() {
 		if closer != nil {
