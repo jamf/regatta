@@ -3,6 +3,7 @@ module github.com/wandera/regatta
 go 1.15
 
 require (
+	github.com/cockroachdb/pebble v0.0.0-20200924231120-0602c847ff9d
 	github.com/golang/protobuf v1.4.2
 	github.com/grpc-ecosystem/grpc-gateway v1.15.0
 	github.com/lni/dragonboat/v3 v3.1.1-0.20200930054505-3fe077eba05b
