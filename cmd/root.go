@@ -3,6 +3,8 @@ package cmd
 import (
 	"net/http"
 
+	sm "github.com/lni/dragonboat/v3/statemachine"
+
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
@@ -24,13 +26,14 @@ var (
 	reflectionAPI        bool
 	inMemoryStateMachine bool
 
-	walDir          string
-	nodeHostDir     string
-	stateMachineDir string
-	raftAddress     string
-	listenAddress   string
-	raftID          uint64
-	raftClusterID   uint64
+	walDir             string
+	nodeHostDir        string
+	stateMachineWalDir string
+	stateMachineDir    string
+	raftAddress        string
+	listenAddress      string
+	raftID             uint64
+	raftClusterID      uint64
 )
 
 func init() {
@@ -48,6 +51,9 @@ func init() {
 It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
 Leave WALDir to have zero value will have everything stored in NodeHostDir.`)
 	rootCmd.PersistentFlags().StringVar(&nodeHostDir, "node-host-dir", "/tmp/regatta/raft", "NodeHostDir raft internal storage")
+	rootCmd.PersistentFlags().StringVar(&stateMachineWalDir, "state-machine-wal-dir", "",
+		`StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
+Applicable only when in-memory-state-machine=false.`)
 	rootCmd.PersistentFlags().StringVar(&stateMachineDir, "state-machine-dir", "/tmp/regatta/state-machine",
 		"StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false.")
 	rootCmd.PersistentFlags().StringVar(&raftAddress, "raft-address", "",
@@ -96,8 +102,9 @@ var rootCmd = &cobra.Command{
 		if inMemoryStateMachine {
 			err = nh.StartCluster(map[uint64]string{raftID: raftAddress}, false, raft.NewStateMachine, cfg)
 		} else {
-			raft.PersistentDirname = stateMachineDir
-			err = nh.StartOnDiskCluster(map[uint64]string{raftID: raftAddress}, false, raft.NewPebbleStateMachine, cfg)
+			err = nh.StartOnDiskCluster(map[uint64]string{raftID: raftAddress}, false, func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
+				return raft.NewPebbleStateMachine(clusterID, nodeID, stateMachineDir, stateMachineWalDir)
+			}, cfg)
 		}
 
 		if err != nil {
