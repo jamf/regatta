@@ -14,22 +14,18 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
-type recordKind byte
-
 const (
-	system recordKind = iota
-	user   recordKind = iota
+	kindSystem byte = iota
+	kindUser   byte = iota
 )
 
-type systemRecord byte
-
 const (
-	raftLogIndex systemRecord = iota
+	raftLogIndex byte = iota
 )
 
 func NewPebbleStateMachine(_ uint64, _ uint64) sm.IOnDiskStateMachine {
 	return &KVPebbleStateMachine{
-		storage: nil, // to be init in the Open
+		pebble: nil, // to be init in the Open
 		dirname: PersistentDirname,
 	}
 }
@@ -37,7 +33,7 @@ func NewPebbleStateMachine(_ uint64, _ uint64) sm.IOnDiskStateMachine {
 // TODO Q: How do we test this? Should the methods like Lookup be tested in unit tests? If so, we need to provide in memory FS for pebble.
 // KVStateMachine is a IStateMachine struct used for testing purpose.
 type KVPebbleStateMachine struct {
-	storage *pebble.DB
+	pebble  *pebble.DB
 	dirname string
 }
 
@@ -45,17 +41,17 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	var err error
 
 	zap.S().Debugf("opening pebble state machine with dirname: %s", p.dirname)
-	p.storage, err = pebble.Open(p.dirname, &pebble.Options{})
+	p.pebble, err = pebble.Open(p.dirname, &pebble.Options{})
 	if err != nil {
-		panic(err) // TODO this is fatal, right? Cannot continue.
+		zap.S().Panic(err) // TODO this is fatal, right? Cannot continue.
 	}
 
-	indexVal, closer, err := p.storage.Get([]byte{byte(system), byte(raftLogIndex)})
+	indexVal, closer, err := p.pebble.Get([]byte{kindSystem, raftLogIndex})
 
 	defer func() {
 		if closer != nil {
 			if err := closer.Close(); err != nil {
-				panic("failed to close") // TODO this is fatal, right? Cannot continue.
+				zap.S().Panic("failed to close") // TODO this is fatal, right? Cannot continue.
 			}
 		}
 	}()
@@ -72,8 +68,9 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	// TODO inefficient implementation, rework to batch update on the pebble side
 	// this will break if the change is applied only partially - there will be inconsistence between pebble and the raft log
+	cmd := proto.Command{}
 	for _, update := range updates {
-		cmd := proto.Command{}
+		cmd.Reset()
 		err := pb.Unmarshal(update.Cmd, &cmd)
 		if err != nil {
 			update.Result = sm.Result{Value: 0}
@@ -82,37 +79,37 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		}
 
 		// pre-allocate the userDataKey slice for the better performance
-		userDataKey := make([]byte, int(reflect.TypeOf(user).Size())+len(cmd.Table)+len(cmd.Kv.Key)) // TODO Isn't using reflect unnecessarily inefficient?
-		userDataKey[0] = byte(user)
-		copy(userDataKey[reflect.TypeOf(user).Size():], cmd.Table)
-		copy(userDataKey[int(reflect.TypeOf(user).Size())+len(cmd.Table):], cmd.Kv.Key)
+		userDataKey := make([]byte, int(reflect.TypeOf(kindUser).Size())+len(cmd.Table)+len(cmd.Kv.Key)) // TODO Isn't using reflect unnecessarily inefficient?
+		userDataKey[0] = kindUser
+		copy(userDataKey[reflect.TypeOf(kindUser).Size():], cmd.Table)
+		copy(userDataKey[int(reflect.TypeOf(kindUser).Size())+len(cmd.Table):], cmd.Kv.Key)
 
-		raftIndexKey := []byte{byte(system), byte(raftLogIndex)}
+		raftIndexKey := []byte{kindSystem, raftLogIndex}
 		raftIndexVal := make([]byte, reflect.TypeOf(uint64(0)).Size()) // TODO I've read this might be unsafe though
 		switch cmd.Type {
 		case proto.Command_PUT:
-			if err := p.storage.Set(userDataKey, cmd.Kv.Value, nil); err != nil {
+			if err := p.pebble.Set(userDataKey, cmd.Kv.Value, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				// TODO not sure about the error handling here in case the incomplete update is done
 				return updates, err
 			}
 
 			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
-			if err := p.storage.Set(raftIndexKey, raftIndexVal, nil); err != nil {
+			if err := p.pebble.Set(raftIndexKey, raftIndexVal, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				// TODO not sure about the error handling here in case the incomplete update is done
 				return updates, err
 			}
 			update.Result = sm.Result{Value: 1}
 		case proto.Command_DELETE:
-			if err := p.storage.Delete(userDataKey, nil); err != nil {
+			if err := p.pebble.Delete(userDataKey, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				// TODO not sure about the error handling here in case the incomplete update is done
 				return updates, err
 			}
 
 			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
-			if err := p.storage.Set(raftIndexKey, raftIndexVal, nil); err != nil {
+			if err := p.pebble.Set(raftIndexKey, raftIndexVal, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				// TODO not sure about the error handling here in case the incomplete update is done
 				return updates, err
@@ -127,14 +124,14 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 // Lookup locally looks up the data.
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 	queryKey := make([]byte, len(key.([]byte))+1)
-	queryKey[0] = byte(user)
+	queryKey[0] = kindUser
 	copy(queryKey[1:], key.([]byte))
-	value, closer, err := p.storage.Get(queryKey)
+	value, closer, err := p.pebble.Get(queryKey)
 
 	defer func() {
 		if closer != nil {
 			if err := closer.Close(); err != nil {
-				panic("failed to close") // TODO this is fatal, right? Cannot continue.
+				zap.S().Panic("failed to close") // TODO this is fatal, right? Cannot continue.
 			}
 		}
 	}()
@@ -177,5 +174,5 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(_ io.Reader, _ <-chan struct{
 
 // Close closes the KVStateMachine IStateMachine.
 func (p *KVPebbleStateMachine) Close() error {
-	return p.storage.Close()
+	return p.pebble.Close()
 }
