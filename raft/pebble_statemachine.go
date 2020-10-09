@@ -171,18 +171,80 @@ func (p *KVPebbleStateMachine) Sync() error {
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *KVPebbleStateMachine) PrepareSnapshot() (interface{}, error) {
-	return nil, fmt.Errorf("not implemented PrepareSnapshot()")
+	return p.pebble.NewSnapshot(), nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (p *KVPebbleStateMachine) SaveSnapshot(_ interface{}, _ io.Writer, _ <-chan struct{}) error {
-	return fmt.Errorf("not implemented SaveSnapshot()")
+func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
+	snapshot := ctx.(pebble.Snapshot)
+	totalLen := make([]byte, 8)
+	entryLen := make([]byte, 4)
+	iter := snapshot.NewIter(nil)
+
+	// calculate the total snapshot size and send to writer
+	count := uint64(0)
+	for iter.First(); iter.Valid(); iter.Next() {
+		count++
+	}
+	binary.LittleEndian.PutUint64(totalLen, count)
+	if _, err := w.Write(totalLen); err != nil {
+		return err
+	}
+
+	// iterate through he whole kv space and send it to writer
+	for iter.First(); iter.Valid(); iter.Next() {
+		kv := &proto.KeyValue{
+			Key:   iter.Key(),
+			Value: iter.Value(),
+		}
+		entry, err := pb.Marshal(kv)
+		if err != nil {
+			return err
+		}
+		binary.LittleEndian.PutUint32(entryLen, uint32(len(entry))) // ⚠️ possible truncate
+		if _, err := w.Write(entryLen); err != nil {
+			return err
+		}
+		if _, err := w.Write(entry); err != nil {
+			return err
+		}
+		count++
+	}
+
+	if err := snapshot.Close(); err != nil {
+		zap.S().Warn("unable to close snapshot")
+	}
+	return nil
 }
 
 // RecoverFromSnapshot recovers the object from the snapshot specified by the
 // io.Reader object.
-func (p *KVPebbleStateMachine) RecoverFromSnapshot(_ io.Reader, _ <-chan struct{}) error {
-	return fmt.Errorf("not implemented RecoverFromSnapshot()")
+func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{}) error {
+	lenBuf := make([]byte, 8)
+
+	if _, err := io.ReadFull(r, lenBuf); err != nil {
+		return err
+	}
+	total := binary.LittleEndian.Uint64(lenBuf)
+	lenBuf = lenBuf[:4]
+	for i := uint64(0); i < total; i++ {
+		if _, err := io.ReadFull(r, lenBuf); err != nil {
+			return err
+		}
+		toRead := binary.LittleEndian.Uint32(lenBuf)
+		data := make([]byte, toRead) // ⚠️ re-allocation
+		if _, err := io.ReadFull(r, data); err != nil {
+			return err
+		}
+		kv := proto.KeyValue{}
+		if err := pb.Unmarshal(data, &kv); err != nil {
+			return err
+		}
+		if err := p.pebble.Set(kv.Key, kv.Value, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close closes the KVStateMachine IStateMachine.
