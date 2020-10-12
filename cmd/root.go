@@ -3,6 +3,8 @@ package cmd
 import (
 	"net/http"
 
+	sm "github.com/lni/dragonboat/v3/statemachine"
+
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
@@ -17,18 +19,21 @@ import (
 var (
 	devMode bool
 
-	addr          string
-	certFilename  string
-	keyFilename   string
-	logLevel      string
-	reflectionAPI bool
+	addr                 string
+	certFilename         string
+	keyFilename          string
+	logLevel             string
+	reflectionAPI        bool
+	inMemoryStateMachine bool
 
-	walDir        string
-	nodeHostDir   string
-	raftAddress   string
-	listenAddress string
-	raftID        uint64
-	raftClusterID uint64
+	walDir             string
+	nodeHostDir        string
+	stateMachineWalDir string
+	stateMachineDir    string
+	raftAddress        string
+	listenAddress      string
+	raftID             uint64
+	raftClusterID      uint64
 )
 
 func init() {
@@ -39,12 +44,18 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&keyFilename, "key-filename", "hack/server.key", "Path to the API server private key file.")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "DEBUG", "Log level: DEBUG/INFO/WARN/ERROR.")
 	rootCmd.PersistentFlags().BoolVar(&reflectionAPI, "reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
+	rootCmd.PersistentFlags().BoolVar(&inMemoryStateMachine, "in-memory-state-machine", false, "State machine is not persisted on the disk if true. Mainly for testing and debug purposes.")
 
 	rootCmd.PersistentFlags().StringVar(&walDir, "wal-dir", "",
 		`WALDir is the directory used for storing the WAL of Raft entries. 
 It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
 Leave WALDir to have zero value will have everything stored in NodeHostDir.`)
-	rootCmd.PersistentFlags().StringVar(&nodeHostDir, "node-host-dir", "/tmp/regatta", "NodeHostDir is where everything else is stored")
+	rootCmd.PersistentFlags().StringVar(&nodeHostDir, "node-host-dir", "/tmp/regatta/raft", "NodeHostDir raft internal storage")
+	rootCmd.PersistentFlags().StringVar(&stateMachineWalDir, "state-machine-wal-dir", "",
+		`StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
+Applicable only when in-memory-state-machine=false.`)
+	rootCmd.PersistentFlags().StringVar(&stateMachineDir, "state-machine-dir", "/tmp/regatta/state-machine",
+		"StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false.")
 	rootCmd.PersistentFlags().StringVar(&raftAddress, "raft-address", "",
 		`RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
 This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.`)
@@ -77,7 +88,8 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		err = nh.StartCluster(map[uint64]string{raftID: raftAddress}, false, raft.NewStateMachine, config.Config{
+
+		cfg := config.Config{
 			NodeID:             raftID,
 			ClusterID:          raftClusterID,
 			ElectionRTT:        20,
@@ -85,7 +97,16 @@ var rootCmd = &cobra.Command{
 			CheckQuorum:        true,
 			SnapshotEntries:    10000,
 			CompactionOverhead: 5000,
-		})
+		}
+
+		if inMemoryStateMachine {
+			err = nh.StartCluster(map[uint64]string{raftID: raftAddress}, false, raft.NewStateMachine, cfg)
+		} else {
+			err = nh.StartOnDiskCluster(map[uint64]string{raftID: raftAddress}, false, func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
+				return raft.NewPebbleStateMachine(clusterID, nodeID, stateMachineDir, stateMachineWalDir)
+			}, cfg)
+		}
+
 		if err != nil {
 			zap.S().Fatal("Failed to start Raft cluster: %v", err)
 		}
