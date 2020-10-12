@@ -127,7 +127,6 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		}
 	}()
 
-	// TODO example: consider adding to field d.lastApplied
 	return binary.LittleEndian.Uint64(indexVal), nil
 }
 
@@ -246,7 +245,7 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 		if err != nil {
 			return err
 		}
-		binary.LittleEndian.PutUint32(entryLen, uint32(len(entry))) // ⚠️ possible truncate
+		binary.LittleEndian.PutUint32(entryLen, uint32(len(entry)))
 		if _, err := w.Write(entryLen); err != nil {
 			return err
 		}
@@ -277,7 +276,7 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			return err
 		}
 		toRead := binary.LittleEndian.Uint32(lenBuf)
-		data := make([]byte, toRead) // ⚠️ re-allocation
+		data := make([]byte, toRead)
 		if _, err := io.ReadFull(r, data); err != nil {
 			return err
 		}
