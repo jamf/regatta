@@ -16,23 +16,35 @@ import (
 )
 
 const (
-	kindUser     byte = 0x0
-	kindSystem   byte = 0x1
-	raftLogIndex byte = 0x1
+	kindUser   byte = 0x0
+	kindSystem byte = 0x1
 )
 
+var raftLogIndexKey = []byte{kindSystem, 0x1}
+
 const (
-	levels                     = 7
-	targetFileSizeBase         = 16 * 1024 * 1024
-	blockSize                  = 32 * 1024
-	targetFileSizeGrowFactor   = 2
-	writeBufferSize            = 4 * 1024 * 1024
-	maxWriteBufferNumber       = 4
+	// levels is number of Pebble levels.
+	levels = 7
+	// targetFileSizeBase base file size (in L0).
+	targetFileSizeBase = 16 * 1024 * 1024
+	// blockSize FS block size.
+	blockSize = 32 * 1024
+	// targetFileSizeGrowFactor the factor of growth of targetFileSizeBase between levels.
+	targetFileSizeGrowFactor = 2
+	// writeBufferSize inmemory write buffer size.
+	writeBufferSize = 4 * 1024 * 1024
+	// maxWriteBufferNumber number of write buffers.
+	maxWriteBufferNumber = 4
+	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
 	l0FileNumCompactionTrigger = 8
-	l0StopWritesTrigger        = 24
-	maxBytesForLevelBase       = 4 * 1024 * 1024 * 1024
-	cacheSize                  = 1024
-	maxLogFileSize             = 1024 * 1024 * 128
+	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
+	l0StopWritesTrigger = 24
+	// maxBytesForLevelBase maximum amount of data in a single level.
+	maxBytesForLevelBase = 4 * 1024 * 1024 * 1024
+	// cacheSize LRU cache size.
+	cacheSize = 1024
+	// maxLogFileSize maximum size of WAL files.
+	maxLogFileSize = 1024 * 1024 * 128
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
@@ -103,7 +115,8 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		zap.S().Panic(err)
 	}
 	p.pebble = db
-	indexVal, closer, err := p.pebble.Get([]byte{kindSystem, raftLogIndex})
+
+	indexVal, closer, err := p.pebble.Get(raftLogIndexKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -145,29 +158,21 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				return updates, err
 			}
 
-			buf.Reset()
-			buf.WriteByte(kindSystem)
-			buf.WriteByte(raftLogIndex)
 			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
-			if err := batch.Set(buf.Bytes(), raftIndexVal, nil); err != nil {
+			if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				return updates, err
 			}
 
 			update.Result = sm.Result{Value: 1}
 		case proto.Command_DELETE:
-			batch := p.pebble.NewBatch()
-
 			if err := batch.Delete(buf.Bytes(), nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				return updates, err
 			}
 
-			buf.Reset()
-			buf.WriteByte(kindSystem)
-			buf.WriteByte(raftLogIndex)
-			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
-			if err := batch.Set(buf.Bytes(), raftIndexVal, nil); err != nil {
+			binary.LittleEndian.PutUint64(raftLogIndexKey, update.Index)
+			if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				return updates, err
 			}
