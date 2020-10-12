@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cockroachdb/pebble/vfs"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
@@ -15,12 +16,23 @@ import (
 )
 
 const (
-	kindSystem byte = iota
-	kindUser   byte = iota
+	kindUser     byte = 0x0
+	kindSystem   byte = 0x1
+	raftLogIndex byte = 0x1
 )
 
 const (
-	raftLogIndex byte = iota
+	levels                     = 7
+	targetFileSizeBase         = 16 * 1024 * 1024
+	blockSize                  = 32 * 1024
+	targetFileSizeGrowFactor   = 2
+	writeBufferSize            = 4 * 1024 * 1024
+	maxWriteBufferNumber       = 4
+	l0FileNumCompactionTrigger = 8
+	l0StopWritesTrigger        = 24
+	maxBytesForLevelBase       = 4 * 1024 * 1024 * 1024
+	cacheSize                  = 1024
+	maxLogFileSize             = 1024 * 1024 * 128
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
@@ -36,29 +48,61 @@ func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 // KVStateMachine is a IStateMachine struct used for testing purpose.
 type KVPebbleStateMachine struct {
 	pebble     *pebble.DB
+	fs         vfs.FS
 	clusterID  uint64
 	nodeID     uint64
 	dirname    string
 	walDirname string
 }
 
-func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
-	var err error
+func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 	var walDirname string
-
 	dirname := fmt.Sprintf("%s-%d-%d", p.dirname, p.clusterID, p.nodeID)
 	if p.walDirname != "" {
 		walDirname = fmt.Sprintf("%s-%d-%d", p.walDirname, p.clusterID, p.nodeID)
 	}
 	zap.S().Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
 
-	p.pebble, err = pebble.Open(dirname, &pebble.Options{
-		WALDir: walDirname,
+	cache := pebble.NewCache(cacheSize)
+	defer cache.Unref()
+
+	lvlOpts := make([]pebble.LevelOptions, levels)
+	sz := targetFileSizeBase
+	for l := int64(0); l < levels; l++ {
+		opt := pebble.LevelOptions{
+			Compression:    pebble.NoCompression,
+			BlockSize:      blockSize,
+			TargetFileSize: int64(sz),
+		}
+		sz = sz * targetFileSizeGrowFactor
+		lvlOpts = append(lvlOpts, opt)
+	}
+
+	var fs vfs.FS
+	if p.fs != nil {
+		fs = p.fs
+	}
+	return pebble.Open(dirname, &pebble.Options{
+		Cache:                       cache,
+		FS:                          fs,
+		Levels:                      lvlOpts,
+		Logger:                      zap.S().Named("psm"),
+		WALDir:                      walDirname,
+		MaxManifestFileSize:         maxLogFileSize,
+		MemTableSize:                writeBufferSize,
+		MemTableStopWritesThreshold: maxWriteBufferNumber,
+		LBaseMaxBytes:               maxBytesForLevelBase,
+		L0CompactionThreshold:       l0FileNumCompactionTrigger,
+		L0StopWritesThreshold:       l0StopWritesTrigger,
 	})
+}
+
+func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
+	db, err := p.openDB()
 	if err != nil {
 		zap.S().Panic(err)
 	}
-
+	p.pebble = db
 	indexVal, closer, err := p.pebble.Get([]byte{kindSystem, raftLogIndex})
 	if err != nil {
 		return 0, nil
