@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"io"
 
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/wandera/regatta/storage"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
@@ -181,6 +183,10 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 
 // Lookup locally looks up the data.
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
+	if key == storage.QueryHash {
+		return p.GetHash()
+	}
+
 	buf := bytes.NewBuffer(make([]byte, 0))
 	buf.WriteByte(kindUser)
 	buf.Write(key.([]byte))
@@ -294,4 +300,31 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 // Close closes the KVStateMachine IStateMachine.
 func (p *KVPebbleStateMachine) Close() error {
 	return p.pebble.Close()
+}
+
+// GetHash gets the DB hash for test comparison.
+func (p *KVPebbleStateMachine) GetHash() (uint64, error) {
+	snap := p.pebble.NewSnapshot()
+	iter := snap.NewIter(nil)
+	defer func() {
+		if err := iter.Close(); err != nil {
+			zap.S().Error(err)
+		}
+	}()
+
+	// Compute Hash
+	hash64 := fnv.New64()
+	// iterate through he whole kv space and send it to hash func
+	for iter.First(); iter.Valid(); iter.Next() {
+		_, err := hash64.Write(iter.Key())
+		if err != nil {
+			return 0, err
+		}
+		_, err = hash64.Write(iter.Value())
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return hash64.Sum64(), nil
 }
