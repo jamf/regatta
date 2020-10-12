@@ -224,6 +224,11 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 	totalLen := make([]byte, 8)
 	entryLen := make([]byte, 4)
 	iter := snapshot.NewIter(nil)
+	defer func() {
+		if err := iter.Close(); err != nil {
+			zap.S().Error(err)
+		}
+	}()
 
 	// calculate the total snapshot size and send to writer
 	count := uint64(0)
