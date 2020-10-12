@@ -1,5 +1,5 @@
 # Build the regatta binary
-FROM golang:1.15 as builder
+FROM golang:1.15.2 as builder
 
 WORKDIR /workspace
 
