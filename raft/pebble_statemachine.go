@@ -157,28 +157,19 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				update.Result = sm.Result{Value: 0}
 				return updates, err
 			}
-
-			binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
-			if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
-				update.Result = sm.Result{Value: 0}
-				return updates, err
-			}
-
-			update.Result = sm.Result{Value: 1}
 		case proto.Command_DELETE:
 			if err := batch.Delete(buf.Bytes(), nil); err != nil {
 				update.Result = sm.Result{Value: 0}
 				return updates, err
 			}
-
-			binary.LittleEndian.PutUint64(raftLogIndexKey, update.Index)
-			if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
-				update.Result = sm.Result{Value: 0}
-				return updates, err
-			}
-
-			update.Result = sm.Result{Value: 1}
 		}
+
+		binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
+		if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
+			update.Result = sm.Result{Value: 0}
+			return updates, err
+		}
+		update.Result = sm.Result{Value: 1}
 		buf.Reset()
 	}
 
