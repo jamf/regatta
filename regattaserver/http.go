@@ -1,9 +1,11 @@
 package regattaserver
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"strings"
+	"time"
 
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"go.uber.org/zap"
@@ -19,6 +21,7 @@ type RegattaServer struct {
 	GrpcServer *grpc.Server
 	httpServer *http.Server
 	GWMux      *gwruntime.ServeMux
+	log        *zap.SugaredLogger
 }
 
 // NewServer returns initialized grpc/http server.
@@ -27,11 +30,12 @@ func NewServer(
 ) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.Addr = addr
+	rs.log = zap.S().Named("grpc")
 
 	var creds credentials.TransportCredentials
 	var err error
 	if creds, err = credentials.NewServerTLSFromFile(certFilename, keyFilename); err != nil {
-		zap.S().Fatalf("Cannot create server credentials: %v", err)
+		rs.log.Fatalf("cannot create server credentials: %v", err)
 	}
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
@@ -40,7 +44,7 @@ func NewServer(
 
 	if reflectionAPI {
 		reflection.Register(rs.GrpcServer)
-		zap.S().Info("Reflection API is active")
+		rs.log.Info("reflection API is active")
 	}
 
 	mux := http.NewServeMux()
@@ -50,7 +54,7 @@ func NewServer(
 
 	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
-		zap.S().Fatalf("Failed to parse key pair:", err)
+		rs.log.Fatalf("failed to parse key pair:", err)
 	}
 
 	rs.httpServer = &http.Server{
@@ -60,7 +64,7 @@ func NewServer(
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
 		},
-		ErrorLog: zap.NewStdLog(zap.L()),
+		ErrorLog: zap.NewStdLog(rs.log.Desugar()),
 	}
 
 	return rs
@@ -80,6 +84,14 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 
 // ListenAndServe starts underlying http server.
 func (s *RegattaServer) ListenAndServe() error {
-	zap.S().Infof("grpc/rest on: %s", s.Addr)
+	s.log.Infof("listen gRPC/REST on: %s", s.Addr)
 	return s.httpServer.ListenAndServeTLS("", "")
+}
+
+// Shutdown stops underlying http server.
+func (s *RegattaServer) Shutdown(ctx context.Context, d time.Duration) error {
+	s.log.Infof("stop gRPC/REST on: %s", s.Addr)
+	ctx, cancel := context.WithTimeout(ctx, d)
+	defer cancel()
+	return s.httpServer.Shutdown(ctx)
 }
