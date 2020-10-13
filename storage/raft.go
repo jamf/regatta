@@ -80,10 +80,10 @@ func (r *RaftStorage) Reset(ctx context.Context, req *proto.ResetRequest) error 
 	panic("not implemented")
 }
 
-func (r *RaftStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint64, error) {
+func (r *RaftStorage) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
 	val, err := r.StaleRead(r.Session.ClusterID, req)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return val.(*proto.HashResponse).Hash, nil
+	return val.(*proto.HashResponse), nil
 }

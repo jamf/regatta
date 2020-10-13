@@ -66,18 +66,18 @@ func (s *SimpleStorage) Reset(ctx context.Context, req *proto.ResetRequest) erro
 	return nil
 }
 
-func (s *SimpleStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint64, error) {
+func (s *SimpleStorage) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
 	// Encode to bin format
 	var b bytes.Buffer
 	err := gob.NewEncoder(&b).Encode(s.storage)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	// Compute Hash
 	hash64 := fnv.New64()
 	_, err = hash64.Write(b.Bytes())
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return hash64.Sum64(), nil
+	return &proto.HashResponse{Hash: hash64.Sum64()}, nil
 }

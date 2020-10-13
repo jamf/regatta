@@ -15,7 +15,7 @@ type KVStorage interface {
 	Put(ctx context.Context, req *proto.PutRequest) (Result, error)
 	Delete(ctx context.Context, req *proto.DeleteRangeRequest) (Result, error)
 	Reset(ctx context.Context, req *proto.ResetRequest) error
-	Hash(ctx context.Context, req *proto.HashRequest) (uint64, error)
+	Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error)
 }
 
 type Result struct {
