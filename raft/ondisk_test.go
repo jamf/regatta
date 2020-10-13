@@ -298,7 +298,7 @@ func TestKVPebbleStateMachine_Snapshot(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			t.Log("Save snapshot routine started")
-			err = p.SaveSnapshot(snp, pw, nil)
+			err := p.SaveSnapshot(snp, pw, nil)
 			r.NoError(err)
 		}()
 
@@ -306,7 +306,7 @@ func TestKVPebbleStateMachine_Snapshot(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			t.Log("Recover from snapshot routine started")
-			err = ep.RecoverFromSnapshot(pr, nil)
+			err := ep.RecoverFromSnapshot(pr, nil)
 			r.NoError(err)
 		}()
 

@@ -242,6 +242,9 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 		if err := iter.Close(); err != nil {
 			p.log.Error(err)
 		}
+		if err := snapshot.Close(); err != nil {
+			p.log.Warn("unable to close snapshot")
+		}
 	}()
 
 	// calculate the total snapshot size and send to writer
@@ -272,10 +275,6 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 			return err
 		}
 		count++
-	}
-
-	if err := snapshot.Close(); err != nil {
-		p.log.Warn("unable to close snapshot")
 	}
 	return nil
 }
