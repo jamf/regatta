@@ -7,15 +7,11 @@ import (
 	"github.com/wandera/regatta/proto"
 )
 
-var (
-	// ErrNotFound returned when the key is not found.
-	ErrNotFound = errors.New("key not found")
-	// QueryHash pseudo-value for query FIXME - Introduce proper query protocol.
-	QueryHash = "---Query-Hash---"
-)
+// ErrNotFound returned when the key is not found.
+var ErrNotFound = errors.New("key not found")
 
 type KVStorage interface {
-	Range(ctx context.Context, req *proto.RangeRequest) ([]byte, error)
+	Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error)
 	Put(ctx context.Context, req *proto.PutRequest) (Result, error)
 	Delete(ctx context.Context, req *proto.DeleteRangeRequest) (Result, error)
 	Reset(ctx context.Context, req *proto.ResetRequest) error

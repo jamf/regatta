@@ -16,11 +16,20 @@ type SimpleStorage struct {
 	storage map[string][]byte
 }
 
-func (s *SimpleStorage) Range(_ context.Context, req *proto.RangeRequest) ([]byte, error) {
+func (s *SimpleStorage) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
-	if value, ok := s.storage[string(append(req.Table, req.Key...))]; ok {
-		return value, nil
+	key := string(append(req.Table, req.Key...))
+	if value, ok := s.storage[key]; ok {
+		return &proto.RangeResponse{
+			Kvs: []*proto.KeyValue{
+				{
+					Key:   req.Key,
+					Value: value,
+				},
+			},
+			Count: 1,
+		}, nil
 	}
 	return nil, ErrNotFound
 }

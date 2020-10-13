@@ -15,14 +15,14 @@ type RaftStorage struct {
 	Session *client.Session
 }
 
-func (r *RaftStorage) Range(ctx context.Context, req *proto.RangeRequest) ([]byte, error) {
+func (r *RaftStorage) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
-	val, err := r.SyncRead(dc, r.Session.ClusterID, append(req.Table, req.Key...))
+	val, err := r.SyncRead(dc, r.Session.ClusterID, req)
 	if err != nil {
 		return nil, err
 	}
-	return val.([]byte), nil
+	return val.(*proto.RangeResponse), nil
 }
 
 func (r *RaftStorage) Put(ctx context.Context, req *proto.PutRequest) (Result, error) {
@@ -81,9 +81,9 @@ func (r *RaftStorage) Reset(ctx context.Context, req *proto.ResetRequest) error 
 }
 
 func (r *RaftStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint64, error) {
-	val, err := r.StaleRead(r.Session.ClusterID, QueryHash)
+	val, err := r.StaleRead(r.Session.ClusterID, req)
 	if err != nil {
 		return 0, err
 	}
-	return val.(uint64), nil
+	return val.(*proto.HashResponse).Hash, nil
 }
