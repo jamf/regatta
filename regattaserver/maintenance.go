@@ -53,7 +53,5 @@ func (s *MaintenanceServer) Hash(ctx context.Context, req *proto.HashRequest) (*
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &proto.HashResponse{
-		Hash: hsh,
-	}, nil
+	return hsh, nil
 }
