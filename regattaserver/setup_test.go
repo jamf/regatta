@@ -10,7 +10,7 @@ import (
 )
 
 func setup() {
-	s := storage.SimpleStorage{}
+	s := storage.Mock{}
 	_ = s.Reset(context.TODO(), &proto.ResetRequest{})
 
 	kv = KVServer{
