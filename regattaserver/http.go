@@ -17,20 +17,21 @@ import (
 
 // RegattaServer is server where grpc/http services can be registered in.
 type RegattaServer struct {
-	Addr       string
-	GrpcServer *grpc.Server
-	httpServer *http.Server
-	GWMux      *gwruntime.ServeMux
-	log        *zap.SugaredLogger
+	Addr         string
+	GrpcServer   *grpc.Server
+	httpServer   *http.Server
+	GWMux        *gwruntime.ServeMux
+	GWContext    context.Context
+	gwCancelFunc context.CancelFunc
+	log          *zap.SugaredLogger
 }
 
 // NewServer returns initialized grpc/http server.
-func NewServer(
-	addr string, certFilename string, keyFilename string, reflectionAPI bool,
-) *RegattaServer {
+func NewServer(addr string, certFilename string, keyFilename string, reflectionAPI bool) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.Addr = addr
 	rs.log = zap.S().Named("server")
+	rs.GWContext, rs.gwCancelFunc = context.WithCancel(context.Background())
 
 	var creds credentials.TransportCredentials
 	var err error
@@ -92,6 +93,9 @@ func (s *RegattaServer) ListenAndServe() error {
 func (s *RegattaServer) Shutdown(ctx context.Context, d time.Duration) error {
 	s.log.Infof("stop gRPC/REST on: %s", s.Addr)
 	ctx, cancel := context.WithTimeout(ctx, d)
-	defer cancel()
+	defer func() {
+		s.gwCancelFunc()
+		cancel()
+	}()
 	return s.httpServer.Shutdown(ctx)
 }

@@ -30,7 +30,7 @@ func (s *MaintenanceServer) Register(regatta *RegattaServer) error {
 		})),
 	}
 
-	err := proto.RegisterMaintenanceHandlerFromEndpoint(context.Background(), regatta.GWMux, regatta.Addr, opts)
+	err := proto.RegisterMaintenanceHandlerFromEndpoint(regatta.GWContext, regatta.GWMux, regatta.Addr, opts)
 	if err != nil {
 		zap.S().Errorf("Cannot register handler: %v", err)
 		return err

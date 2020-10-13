@@ -30,7 +30,7 @@ func (s *KVServer) Register(regatta *RegattaServer) error {
 		})),
 	}
 
-	err := proto.RegisterKVHandlerFromEndpoint(context.Background(), regatta.GWMux, regatta.Addr, opts)
+	err := proto.RegisterKVHandlerFromEndpoint(regatta.GWContext, regatta.GWMux, regatta.Addr, opts)
 	if err != nil {
 		zap.S().Errorf("Cannot register handler: %v", err)
 		return err
