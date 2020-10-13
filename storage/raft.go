@@ -10,22 +10,22 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
-type RaftStorage struct {
+type Raft struct {
 	*dragonboat.NodeHost
 	Session *client.Session
 }
 
-func (r *RaftStorage) Range(ctx context.Context, req *proto.RangeRequest) ([]byte, error) {
+func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
-	val, err := r.SyncRead(dc, r.Session.ClusterID, append(req.Table, req.Key...))
+	val, err := r.SyncRead(dc, r.Session.ClusterID, req)
 	if err != nil {
 		return nil, err
 	}
-	return val.([]byte), nil
+	return val.(*proto.RangeResponse), nil
 }
 
-func (r *RaftStorage) Put(ctx context.Context, req *proto.PutRequest) (Result, error) {
+func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (Result, error) {
 	cmd := &proto.Command{
 		Type:  proto.Command_PUT,
 		Table: req.Table,
@@ -51,7 +51,7 @@ func (r *RaftStorage) Put(ctx context.Context, req *proto.PutRequest) (Result, e
 	}, nil
 }
 
-func (r *RaftStorage) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (Result, error) {
+func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (Result, error) {
 	cmd := &proto.Command{
 		Type:  proto.Command_DELETE,
 		Table: req.Table,
@@ -76,14 +76,14 @@ func (r *RaftStorage) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 	}, nil
 }
 
-func (r *RaftStorage) Reset(ctx context.Context, req *proto.ResetRequest) error {
+func (r *Raft) Reset(ctx context.Context, req *proto.ResetRequest) error {
 	panic("not implemented")
 }
 
-func (r *RaftStorage) Hash(ctx context.Context, req *proto.HashRequest) (uint64, error) {
-	val, err := r.StaleRead(r.Session.ClusterID, QueryHash)
+func (r *Raft) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
+	val, err := r.StaleRead(r.Session.ClusterID, req)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return val.(uint64), nil
+	return val.(*proto.HashResponse), nil
 }

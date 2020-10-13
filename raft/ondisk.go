@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble/vfs"
-	"github.com/wandera/regatta/storage"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
@@ -196,27 +195,43 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 
 // Lookup locally looks up the data.
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
-	if key == storage.QueryHash {
-		return p.GetHash()
-	}
-
-	buf := bytes.NewBuffer(make([]byte, 0))
-	buf.WriteByte(kindUser)
-	buf.Write(key.([]byte))
-	value, closer, err := p.pebble.Get(buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err := closer.Close(); err != nil {
-			p.log.Error(err)
+	switch req := key.(type) {
+	case *proto.RangeRequest:
+		buf := bytes.NewBuffer(make([]byte, 0))
+		buf.WriteByte(kindUser)
+		buf.Write(req.Table)
+		buf.Write(req.Key)
+		value, closer, err := p.pebble.Get(buf.Bytes())
+		if err != nil {
+			return nil, err
 		}
-	}()
 
-	buf.Reset()
-	buf.Write(value)
-	return buf.Bytes(), nil
+		defer func() {
+			if err := closer.Close(); err != nil {
+				p.log.Error(err)
+			}
+		}()
+
+		buf.Reset()
+		buf.Write(value)
+		return &proto.RangeResponse{
+			Kvs: []*proto.KeyValue{
+				{
+					Key:   req.Key,
+					Value: buf.Bytes(),
+				},
+			},
+			Count: 1,
+		}, nil
+	case *proto.HashRequest:
+		hash, err := p.GetHash()
+		if err != nil {
+			return nil, err
+		}
+		return &proto.HashResponse{Hash: hash}, nil
+	}
+
+	return nil, errors.New("unknown query type")
 }
 
 // Sync synchronizes all in-core state of the state machine to permanent

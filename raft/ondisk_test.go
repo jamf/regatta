@@ -95,7 +95,7 @@ func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 		sm *KVPebbleStateMachine
 	}
 	type args struct {
-		key interface{}
+		key *proto.RangeRequest
 	}
 	tests := []struct {
 		name    string
@@ -109,7 +109,9 @@ func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 			fields: fields{
 				sm: emptyPebbleSM(),
 			},
-			args:    args{key: []byte("Hello")},
+			args: args{key: &proto.RangeRequest{
+				Key: []byte("Hello"),
+			}},
 			wantErr: true,
 		},
 		{
@@ -117,7 +119,9 @@ func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 			fields: fields{
 				sm: filledPebbleSM(),
 			},
-			args:    args{key: []byte("Hello")},
+			args: args{key: &proto.RangeRequest{
+				Key: []byte("Hello"),
+			}},
 			wantErr: true,
 		},
 		{
@@ -125,8 +129,19 @@ func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 			fields: fields{
 				sm: filledPebbleSM(),
 			},
-			args: args{key: []byte(fmt.Sprintf("%s%s", testTable, fmt.Sprintf(testKeyFormat, 0)))},
-			want: []byte(testValue),
+			args: args{key: &proto.RangeRequest{
+				Table: []byte(testTable),
+				Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
+			}},
+			want: &proto.RangeResponse{
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
+						Value: []byte(testValue),
+					},
+				},
+				Count: 1,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -140,6 +155,7 @@ func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 				r.Error(err)
 				return
 			}
+			r.NoError(err)
 			r.Equal(tt.want, got)
 		})
 	}
