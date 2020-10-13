@@ -3,6 +3,7 @@ package raft
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -72,11 +73,18 @@ type KVPebbleStateMachine struct {
 }
 
 func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
+	if p.nodeID < 1 {
+		return nil, errors.New("invalid node ID")
+	}
+	if p.clusterID < 1 {
+		return nil, errors.New("invalid cluster ID")
+	}
 	var walDirname string
 	dirname := fmt.Sprintf("%s-%d-%d", p.dirname, p.clusterID, p.nodeID)
 	if p.walDirname != "" {
 		walDirname = fmt.Sprintf("%s-%d-%d", p.walDirname, p.clusterID, p.nodeID)
 	}
+
 	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
 
 	cache := pebble.NewCache(cacheSize)
@@ -116,12 +124,15 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	db, err := p.openDB()
 	if err != nil {
-		p.log.Panic(err)
+		return 0, err
 	}
 	p.pebble = db
 
 	indexVal, closer, err := p.pebble.Get(raftLogIndexKey)
 	if err != nil {
+		if err != pebble.ErrNotFound {
+			return 0, err
+		}
 		return 0, nil
 	}
 
@@ -139,7 +150,7 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	buf := bytes.NewBuffer(make([]byte, 0))
 	batch := p.pebble.NewBatch()
-	for _, update := range updates {
+	for i, update := range updates {
 		cmd.Reset()
 		err := pb.Unmarshal(update.Cmd, &cmd)
 		if err != nil {
@@ -151,8 +162,6 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		buf.WriteByte(kindUser)
 		buf.Write(cmd.Table)
 		buf.Write(cmd.Kv.Key)
-
-		raftIndexVal := make([]byte, 8)
 
 		switch cmd.Type {
 		case proto.Command_PUT:
@@ -167,12 +176,14 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			}
 		}
 
+		raftIndexVal := make([]byte, 8)
 		binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
 		if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
 			update.Result = sm.Result{Value: 0}
 			return updates, err
 		}
-		update.Result = sm.Result{Value: 1}
+
+		updates[i].Result = sm.Result{Value: 1}
 		buf.Reset()
 	}
 
