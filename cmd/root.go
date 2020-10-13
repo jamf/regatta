@@ -24,12 +24,11 @@ import (
 var (
 	devMode bool
 
-	addr                 string
-	certFilename         string
-	keyFilename          string
-	logLevel             string
-	reflectionAPI        bool
-	inMemoryStateMachine bool
+	addr          string
+	certFilename  string
+	keyFilename   string
+	logLevel      string
+	reflectionAPI bool
 
 	walDir             string
 	nodeHostDir        string
@@ -49,7 +48,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&keyFilename, "key-filename", "hack/server.key", "Path to the API server private key file.")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "DEBUG", "Log level: DEBUG/INFO/WARN/ERROR.")
 	rootCmd.PersistentFlags().BoolVar(&reflectionAPI, "reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
-	rootCmd.PersistentFlags().BoolVar(&inMemoryStateMachine, "in-memory-state-machine", false, "State machine is not persisted on the disk if true. Mainly for testing and debug purposes.")
 
 	rootCmd.PersistentFlags().StringVar(&walDir, "wal-dir", "",
 		`WALDir is the directory used for storing the WAL of Raft entries. 
@@ -105,13 +103,9 @@ var rootCmd = &cobra.Command{
 			CompactionOverhead: 5000,
 		}
 
-		if inMemoryStateMachine {
-			err = nh.StartCluster(map[uint64]string{raftID: raftAddress}, false, raft.NewStateMachine, cfg)
-		} else {
-			err = nh.StartOnDiskCluster(map[uint64]string{raftID: raftAddress}, false, func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
-				return raft.NewPebbleStateMachine(clusterID, nodeID, stateMachineDir, stateMachineWalDir)
-			}, cfg)
-		}
+		err = nh.StartOnDiskCluster(map[uint64]string{raftID: raftAddress}, false, func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
+			return raft.NewPebbleStateMachine(clusterID, nodeID, stateMachineDir, stateMachineWalDir)
+		}, cfg)
 
 		if err != nil {
 			log.Fatalf("failed to start Raft cluster: %v", err)
