@@ -30,7 +30,7 @@ func NewServer(
 ) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.Addr = addr
-	rs.log = zap.S().Named("grpc")
+	rs.log = zap.S().Named("server")
 
 	var creds credentials.TransportCredentials
 	var err error
