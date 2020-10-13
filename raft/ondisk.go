@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"io"
 
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/wandera/regatta/storage"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
@@ -54,6 +56,7 @@ func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 		nodeID:     nodeID,
 		dirname:    stateMachineDir,
 		walDirname: walDirname,
+		log:        zap.S().Named("ondisk"),
 	}
 }
 
@@ -65,6 +68,7 @@ type KVPebbleStateMachine struct {
 	nodeID     uint64
 	dirname    string
 	walDirname string
+	log        *zap.SugaredLogger
 }
 
 func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
@@ -73,7 +77,7 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 	if p.walDirname != "" {
 		walDirname = fmt.Sprintf("%s-%d-%d", p.walDirname, p.clusterID, p.nodeID)
 	}
-	zap.S().Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
+	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
 
 	cache := pebble.NewCache(cacheSize)
 	defer cache.Unref()
@@ -98,7 +102,7 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 		Cache:                       cache,
 		FS:                          fs,
 		Levels:                      lvlOpts,
-		Logger:                      zap.S().Named("psm"),
+		Logger:                      zap.S().Named("pebble"),
 		WALDir:                      walDirname,
 		MaxManifestFileSize:         maxLogFileSize,
 		MemTableSize:                writeBufferSize,
@@ -112,7 +116,7 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	db, err := p.openDB()
 	if err != nil {
-		zap.S().Panic(err)
+		p.log.Panic(err)
 	}
 	p.pebble = db
 
@@ -123,7 +127,7 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 
 	defer func() {
 		if err := closer.Close(); err != nil {
-			zap.S().Warn(err)
+			p.log.Warn(err)
 		}
 	}()
 
@@ -181,6 +185,10 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 
 // Lookup locally looks up the data.
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
+	if key == storage.QueryHash {
+		return p.GetHash()
+	}
+
 	buf := bytes.NewBuffer(make([]byte, 0))
 	buf.WriteByte(kindUser)
 	buf.Write(key.([]byte))
@@ -191,7 +199,7 @@ func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 
 	defer func() {
 		if err := closer.Close(); err != nil {
-			zap.S().Error(err)
+			p.log.Error(err)
 		}
 	}()
 
@@ -221,7 +229,7 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 	iter := snapshot.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {
-			zap.S().Error(err)
+			p.log.Error(err)
 		}
 	}()
 
@@ -256,7 +264,7 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 	}
 
 	if err := snapshot.Close(); err != nil {
-		zap.S().Warn("unable to close snapshot")
+		p.log.Warn("unable to close snapshot")
 	}
 	return nil
 }
@@ -294,4 +302,31 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 // Close closes the KVStateMachine IStateMachine.
 func (p *KVPebbleStateMachine) Close() error {
 	return p.pebble.Close()
+}
+
+// GetHash gets the DB hash for test comparison.
+func (p *KVPebbleStateMachine) GetHash() (uint64, error) {
+	snap := p.pebble.NewSnapshot()
+	iter := snap.NewIter(nil)
+	defer func() {
+		if err := iter.Close(); err != nil {
+			p.log.Error(err)
+		}
+	}()
+
+	// Compute Hash
+	hash64 := fnv.New64()
+	// iterate through he whole kv space and send it to hash func
+	for iter.First(); iter.Valid(); iter.Next() {
+		_, err := hash64.Write(iter.Key())
+		if err != nil {
+			return 0, err
+		}
+		_, err = hash64.Write(iter.Value())
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return hash64.Sum64(), nil
 }

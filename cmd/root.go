@@ -1,7 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	sm "github.com/lni/dragonboat/v3/statemachine"
 
@@ -75,6 +80,7 @@ var rootCmd = &cobra.Command{
 		logger := buildLogger()
 		defer logger.Sync()
 		dragonboatlogger.SetLoggerFactory(raft.NewLogger)
+		log := zap.S().Named("root")
 
 		nhc := config.NodeHostConfig{
 			WALDir:         walDir,
@@ -108,7 +114,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if err != nil {
-			zap.S().Fatal("Failed to start Raft cluster: %v", err)
+			log.Fatalf("failed to start Raft cluster: %v", err)
 		}
 
 		// Create storage
@@ -125,19 +131,29 @@ var rootCmd = &cobra.Command{
 			Storage: st,
 		}
 		if err := kvs.Register(regatta); err != nil {
-			zap.S().Fatalf("registerKVServer failed: %v", err)
+			log.Fatalf("registerKVServer failed: %v", err)
 		}
 		ms := &regattaserver.MaintenanceServer{
 			Storage: st,
 		}
 		if err := ms.Register(regatta); err != nil {
-			zap.S().Fatalf("registerMaintenanceServer failed: %v", err)
+			log.Fatalf("registerMaintenanceServer failed: %v", err)
 		}
 
-		// Start serving
-		if err := regatta.ListenAndServe(); err != http.ErrServerClosed {
-			zap.S().Fatalf("ListenAndServe failed: %v", err)
-		}
+		// Start server
+		go func() {
+			if err := regatta.ListenAndServe(); err != http.ErrServerClosed {
+				log.Fatalf("listenAndServe failed: %v", err)
+			}
+		}()
+
+		// Check signals
+		shutdown := make(chan os.Signal, 1)
+		signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+		// Cleanup
+		<-shutdown
+		_ = regatta.Shutdown(context.Background(), 30*time.Second)
 		nh.Stop()
 	},
 }
@@ -156,7 +172,7 @@ func buildLogger() *zap.Logger {
 	logCfg.Level.SetLevel(level)
 	logger, err := logCfg.Build()
 	if err != nil {
-		zap.S().Fatal("Failed to build logger: %v", err)
+		zap.S().Fatal("failed to build logger: %v", err)
 	}
 	zap.ReplaceGlobals(logger)
 	return logger
