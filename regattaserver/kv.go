@@ -77,15 +77,7 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	return &proto.RangeResponse{
-		Kvs: []*proto.KeyValue{
-			{
-				Key:   req.Key,
-				Value: val,
-			},
-		},
-		Count: 1,
-	}, nil
+	return val, nil
 }
 
 // Put implements proto/regatta.proto KV.Put method.

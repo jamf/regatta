@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
@@ -27,13 +28,21 @@ type KVStateMachine struct {
 
 // Lookup locally looks up the data.
 func (n *KVStateMachine) Lookup(key interface{}) (interface{}, error) {
-	if key == storage.QueryHash {
-		return n.GetHash()
+	switch req := key.(type) {
+	case *proto.RangeRequest:
+		k := string(append(req.Table, req.Key...))
+		if value, ok := n.storage[k]; ok {
+			return value, nil
+		}
+		return nil, storage.ErrNotFound
+	case *proto.HashRequest:
+		hash, err := n.GetHash()
+		if err != nil {
+			return nil, err
+		}
+		return &proto.HashResponse{Hash: hash}, nil
 	}
-	if value, ok := n.storage[string(key.([]byte))]; ok {
-		return value, nil
-	}
-	return nil, storage.ErrNotFound
+	return nil, errors.New("unknown query type")
 }
 
 // Update updates the object.
