@@ -234,7 +234,7 @@ func (p *KVPebbleStateMachine) PrepareSnapshot() (interface{}, error) {
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
 func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
-	snapshot := ctx.(pebble.Snapshot)
+	snapshot := ctx.(*pebble.Snapshot)
 	totalLen := make([]byte, 8)
 	entryLen := make([]byte, 4)
 	iter := snapshot.NewIter(nil)
