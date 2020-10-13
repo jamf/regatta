@@ -112,7 +112,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Create storage
-		st := &storage.RaftStorage{
+		st := &storage.Raft{
 			NodeHost: nh,
 			Session:  nh.GetNoOPSession(raftClusterID),
 		}
