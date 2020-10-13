@@ -31,7 +31,8 @@ spec:
         - --cert-filename=/cert/tls.crt
         - --key-filename=/cert/tls.key
         - --raft-address=127.0.0.1:5012
-        - --node-host-dir=/data
+        - --node-host-dir=/data/raft
+        - --state-machine-dir=/data/state-machine
         {{- if .Values.reflectionAPI.enabled }}
         - --reflection-api
         {{- end }}
