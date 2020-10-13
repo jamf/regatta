@@ -114,7 +114,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if err != nil {
-			log.Fatal("failed to start Raft cluster: %v", err)
+			log.Fatalf("failed to start Raft cluster: %v", err)
 		}
 
 		// Create storage
