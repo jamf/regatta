@@ -243,7 +243,7 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 			p.log.Error(err)
 		}
 		if err := snapshot.Close(); err != nil {
-			p.log.Warn("unable to close snapshot")
+			p.log.Error(err)
 		}
 	}()
 

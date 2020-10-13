@@ -14,6 +14,12 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
+const (
+	testValue     = "test"
+	testTable     = "test"
+	testKeyFormat = "test%d"
+)
+
 func TestKVPebbleStateMachine_Open(t *testing.T) {
 	type fields struct {
 		clusterID  uint64
@@ -86,10 +92,7 @@ func TestKVPebbleStateMachine_Open(t *testing.T) {
 
 func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 	type fields struct {
-		clusterID  uint64
-		nodeID     uint64
-		dirname    string
-		walDirname string
+		sm *KVPebbleStateMachine
 	}
 	type args struct {
 		key interface{}
@@ -104,32 +107,35 @@ func TestKVPebbleStateMachine_Lookup(t *testing.T) {
 		{
 			name: "Lookup empty DB",
 			fields: fields{
-				clusterID: 1,
-				nodeID:    1,
-				dirname:   "/tmp/dir",
+				sm: emptyPebbleSM(),
 			},
 			args:    args{key: []byte("Hello")},
 			wantErr: true,
+		},
+		{
+			name: "Lookup full DB with non-existent key",
+			fields: fields{
+				sm: filledPebbleSM(),
+			},
+			args:    args{key: []byte("Hello")},
+			wantErr: true,
+		},
+		{
+			name: "Lookup full DB with existing key",
+			fields: fields{
+				sm: filledPebbleSM(),
+			},
+			args: args{key: []byte(fmt.Sprintf("%s%s", testTable, fmt.Sprintf(testKeyFormat, 0)))},
+			want: []byte(testValue),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			p := &KVPebbleStateMachine{
-				fs:         vfs.NewMem(),
-				clusterID:  tt.fields.clusterID,
-				nodeID:     tt.fields.nodeID,
-				dirname:    tt.fields.dirname,
-				walDirname: tt.fields.walDirname,
-				log:        zap.S(),
-			}
-
-			_, err := p.Open(nil)
-			r.NoError(err)
 			defer func() {
-				r.NoError(p.Close())
+				r.NoError(tt.fields.sm.Close())
 			}()
-			got, err := p.Lookup(tt.args.key)
+			got, err := tt.fields.sm.Lookup(tt.args.key)
 			if tt.wantErr {
 				r.Error(err)
 				return
@@ -255,15 +261,7 @@ func TestKVPebbleStateMachine_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			p := &KVPebbleStateMachine{
-				fs:        vfs.NewMem(),
-				clusterID: 1,
-				nodeID:    1,
-				dirname:   "/tmp/dir",
-				log:       zap.S(),
-			}
-			_, err := p.Open(nil)
-			r.NoError(err)
+			p := emptyPebbleSM()
 			defer func() {
 				r.NoError(p.Close())
 			}()
@@ -280,7 +278,7 @@ func TestKVPebbleStateMachine_Update(t *testing.T) {
 func TestKVPebbleStateMachine_Snapshot(t *testing.T) {
 	t.Run("Applying snapshot to the empty DB should produce the same hash", func(t *testing.T) {
 		r := require.New(t)
-		p := filledPebble()
+		p := filledPebbleSM()
 		defer p.Close()
 
 		want, err := p.GetHash()
@@ -290,7 +288,7 @@ func TestKVPebbleStateMachine_Snapshot(t *testing.T) {
 		r.NoError(err)
 
 		pr, pw := io.Pipe()
-		ep := emptyPebble()
+		ep := emptyPebbleSM()
 		defer ep.Close()
 
 		var wg sync.WaitGroup
@@ -318,7 +316,7 @@ func TestKVPebbleStateMachine_Snapshot(t *testing.T) {
 	})
 }
 
-func emptyPebble() *KVPebbleStateMachine {
+func emptyPebbleSM() *KVPebbleStateMachine {
 	p := &KVPebbleStateMachine{
 		fs:        vfs.NewMem(),
 		clusterID: 1,
@@ -333,17 +331,17 @@ func emptyPebble() *KVPebbleStateMachine {
 	return p
 }
 
-func filledPebble() *KVPebbleStateMachine {
+func filledPebbleSM() *KVPebbleStateMachine {
 	entries := make([]sm.Entry, 10_000)
 	for i := 0; i < len(entries); i++ {
 		entries[i] = sm.Entry{
 			Index: uint64(i),
 			Cmd: MustMarshallProto(&proto.Command{
-				Table: []byte("test"),
+				Table: []byte(testTable),
 				Type:  proto.Command_PUT,
 				Kv: &proto.KeyValue{
-					Key:   []byte(fmt.Sprintf("test%d", i)),
-					Value: []byte("test"),
+					Key:   []byte(fmt.Sprintf(testKeyFormat, i)),
+					Value: []byte(testValue),
 				},
 			}),
 		}
