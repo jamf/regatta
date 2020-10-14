@@ -149,6 +149,7 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	buf := bytes.NewBuffer(make([]byte, 0))
 	batch := p.pebble.NewBatch()
+	defer batch.Close()
 
 	for i := 0; i < len(updates); i++ {
 		err := pb.Unmarshal(updates[i].Cmd, &cmd)
@@ -175,7 +176,7 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		raftIndexVal := make([]byte, 8)
 		binary.LittleEndian.PutUint64(raftIndexVal, updates[i].Index)
 		if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
-			return updates, err
+			return nil, err
 		}
 
 		updates[i].Result = sm.Result{Value: 1}
