@@ -17,6 +17,13 @@ type Mock struct {
 }
 
 func (s *Mock) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+	if len(req.Table) == 0 {
+		return nil, ErrEmptyTable
+	}
+	if len(req.Key) == 0 {
+		return nil, ErrEmptyKey
+	}
+
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	if value, ok := s.storage[string(append(req.Table, req.Key...))]; ok {
@@ -34,6 +41,13 @@ func (s *Mock) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeRe
 }
 
 func (s *Mock) Put(_ context.Context, req *proto.PutRequest) (Result, error) {
+	if len(req.Table) == 0 {
+		return Result{}, ErrEmptyTable
+	}
+	if len(req.Key) == 0 {
+		return Result{}, ErrEmptyKey
+	}
+
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.storage[string(append(req.Table, req.Key...))] = req.Value
@@ -43,6 +57,13 @@ func (s *Mock) Put(_ context.Context, req *proto.PutRequest) (Result, error) {
 }
 
 func (s *Mock) Delete(_ context.Context, req *proto.DeleteRangeRequest) (Result, error) {
+	if len(req.Table) == 0 {
+		return Result{}, ErrEmptyTable
+	}
+	if len(req.Key) == 0 {
+		return Result{}, ErrEmptyKey
+	}
+
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	key := string(append(req.Table, req.Key...))
