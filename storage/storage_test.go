@@ -19,9 +19,13 @@ func startRaftNode() *dragonboat.NodeHost {
 	nhc := config.NodeHostConfig{
 		WALDir:         "wal",
 		NodeHostDir:    "dragonboat",
-		RTTMillisecond: 500,
+		RTTMillisecond: 1,
 		RaftAddress:    testNodeAddress,
 		FS:             vfs.NewMem(),
+		Expert: config.ExpertConfig{
+			ExecShards:  1,
+			LogDBShards: 1,
+		},
 	}
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
