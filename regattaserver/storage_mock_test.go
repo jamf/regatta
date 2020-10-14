@@ -1,4 +1,4 @@
-package storage
+package regattaserver
 
 import (
 	"bytes"
@@ -8,20 +8,21 @@ import (
 	"sync"
 
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/storage"
 )
 
-// Mock implements trivial storage for testing purposes.
-type Mock struct {
+// MockStorage implements trivial storage for testing purposes.
+type MockStorage struct {
 	mtx     sync.RWMutex
 	storage map[string][]byte
 }
 
-func (s *Mock) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (s *MockStorage) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if len(req.Table) == 0 {
-		return nil, ErrEmptyTable
+		return nil, storage.ErrEmptyTable
 	}
 	if len(req.Key) == 0 {
-		return nil, ErrEmptyKey
+		return nil, storage.ErrEmptyKey
 	}
 
 	s.mtx.RLock()
@@ -37,31 +38,31 @@ func (s *Mock) Range(_ context.Context, req *proto.RangeRequest) (*proto.RangeRe
 			Count: 1,
 		}, nil
 	}
-	return nil, ErrNotFound
+	return nil, storage.ErrNotFound
 }
 
-func (s *Mock) Put(_ context.Context, req *proto.PutRequest) (Result, error) {
+func (s *MockStorage) Put(_ context.Context, req *proto.PutRequest) (storage.Result, error) {
 	if len(req.Table) == 0 {
-		return Result{}, ErrEmptyTable
+		return storage.Result{}, storage.ErrEmptyTable
 	}
 	if len(req.Key) == 0 {
-		return Result{}, ErrEmptyKey
+		return storage.Result{}, storage.ErrEmptyKey
 	}
 
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.storage[string(append(req.Table, req.Key...))] = req.Value
-	return Result{
+	return storage.Result{
 		Value: 1,
 	}, nil
 }
 
-func (s *Mock) Delete(_ context.Context, req *proto.DeleteRangeRequest) (Result, error) {
+func (s *MockStorage) Delete(_ context.Context, req *proto.DeleteRangeRequest) (storage.Result, error) {
 	if len(req.Table) == 0 {
-		return Result{}, ErrEmptyTable
+		return storage.Result{}, storage.ErrEmptyTable
 	}
 	if len(req.Key) == 0 {
-		return Result{}, ErrEmptyKey
+		return storage.Result{}, storage.ErrEmptyKey
 	}
 
 	s.mtx.Lock()
@@ -69,24 +70,24 @@ func (s *Mock) Delete(_ context.Context, req *proto.DeleteRangeRequest) (Result,
 	key := string(append(req.Table, req.Key...))
 	if _, ok := s.storage[key]; ok {
 		delete(s.storage, key)
-		return Result{
+		return storage.Result{
 			Value: 1,
 		}, nil
 	}
-	return Result{
+	return storage.Result{
 		Value: 0,
-	}, ErrNotFound
+	}, storage.ErrNotFound
 }
 
 // Reset method resets storage.
-func (s *Mock) Reset(ctx context.Context, req *proto.ResetRequest) error {
+func (s *MockStorage) Reset(ctx context.Context, req *proto.ResetRequest) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.storage = make(map[string][]byte)
 	return nil
 }
 
-func (s *Mock) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
+func (s *MockStorage) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
 	// Encode to bin format
 	var b bytes.Buffer
 	err := gob.NewEncoder(&b).Encode(s.storage)
