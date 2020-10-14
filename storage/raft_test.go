@@ -2,11 +2,8 @@ package storage
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/client"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 )
@@ -28,9 +25,29 @@ func TestRaft_Put(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.PutRequest{},
 			},
-			want: Result{
-				Value: 0,
+			wantErr: true,
+		},
+		{
+			name: "Put record with empty key into RAFT",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.PutRequest{
+					Table: []byte("table"),
+					Value: []byte("value"),
+				},
 			},
+			wantErr: true,
+		},
+		{
+			name: "Put record with empty table into RAFT",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.PutRequest{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			},
+			wantErr: true,
 		},
 		{
 			name: "Put a single key pair into RAFT",
@@ -47,161 +64,302 @@ func TestRaft_Put(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		nh := startRaftNode()
-		st := Raft{
-			NodeHost: nh,
-			Session:  nh.GetNoOPSession(1),
-		}
-		t.Run(tt.name, func(t *testing.T) {
-			r := require.New(t)
-			err := st.Reset(context.TODO(), nil)
-			r.NoError(err)
 
+	for _, tt := range tests {
+		tt := tt // Capture argument before launching in Parallel
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			nh := startRaftNode()
+			st := Raft{
+				NodeHost: nh,
+				Session:  nh.GetNoOPSession(1),
+			}
+			defer nh.Stop()
+			r := require.New(t)
+			t.Log("store the value")
 			got, err := st.Put(tt.args.ctx, tt.args.req)
 			if tt.wantErr {
 				r.Error(err)
 				return
 			}
+			r.NoError(err)
 			r.Equal(tt.want, got)
+
+			if tt.want.Value > 0 {
+				t.Log("check that value is stored")
+				val, err := st.Range(tt.args.ctx, &proto.RangeRequest{
+					Table: tt.args.req.Table,
+					Key:   tt.args.req.Key,
+				})
+				r.NoError(err)
+				r.Equal(tt.args.req.Key, val.Kvs[0].Key)
+				r.Equal(tt.args.req.Value, val.Kvs[0].Value)
+			}
 		})
 	}
 }
 
 func TestRaft_Delete(t *testing.T) {
-	type fields struct {
-		NodeHost *dragonboat.NodeHost
-		Session  *client.Session
-	}
 	type args struct {
 		ctx context.Context
 		req *proto.DeleteRangeRequest
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    Result
-		wantErr bool
+		name            string
+		args            args
+		want            Result
+		wantErr         bool
+		preInsertedData []*proto.PutRequest
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Delete empty data",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Delete record with empty key",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Table: []byte("table"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Delete record with empty table",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Key: []byte("key"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Delete a non-existent key pair",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Table: []byte("table"),
+					Key:   []byte("key"),
+				},
+			},
+			want: Result{
+				Value: 1,
+			},
+		},
+		{
+			name: "Delete an existing key pair",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Table: []byte("table1"),
+					Key:   []byte("key1"),
+				},
+			},
+			preInsertedData: []*proto.PutRequest{
+				{
+					Table: []byte("table1"),
+					Key:   []byte("key1"),
+					Value: []byte("value1"),
+				},
+			},
+			want: Result{
+				Value: 1,
+			},
+		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &Raft{
-				NodeHost: tt.fields.NodeHost,
-				Session:  tt.fields.Session,
-			}
-			got, err := r.Delete(tt.args.ctx, tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Delete() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
-func TestRaft_Hash(t *testing.T) {
-	type fields struct {
-		NodeHost *dragonboat.NodeHost
-		Session  *client.Session
-	}
-	type args struct {
-		ctx context.Context
-		req *proto.HashRequest
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *proto.HashResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
 	for _, tt := range tests {
+		tt := tt // Capture argument before launching in Parallel
 		t.Run(tt.name, func(t *testing.T) {
-			r := &Raft{
-				NodeHost: tt.fields.NodeHost,
-				Session:  tt.fields.Session,
+			t.Parallel()
+			nh := startRaftNode()
+			st := Raft{
+				NodeHost: nh,
+				Session:  nh.GetNoOPSession(1),
 			}
-			got, err := r.Hash(tt.args.ctx, tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Hash() error = %v, wantErr %v", err, tt.wantErr)
+			defer nh.Stop()
+			r := require.New(t)
+
+			if len(tt.preInsertedData) > 0 {
+				for _, data := range tt.preInsertedData {
+					_, err := st.Put(tt.args.ctx, data)
+					r.NoError(err)
+				}
+				defer func() {
+					for _, data := range tt.preInsertedData {
+						_, err := st.Delete(tt.args.ctx, &proto.DeleteRangeRequest{Table: data.Table, Key: data.Key})
+						r.NoError(err)
+					}
+				}()
+			}
+
+			t.Log("delete the value")
+			got, err := st.Delete(tt.args.ctx, tt.args.req)
+			if tt.wantErr {
+				r.Error(err)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Hash() got = %v, want %v", got, tt.want)
+			r.NoError(err)
+			r.Equal(tt.want, got)
+
+			if tt.want.Value > 0 {
+				t.Log("check that value is deleted")
+				_, err := st.Range(tt.args.ctx, &proto.RangeRequest{
+					Table: tt.args.req.Table,
+					Key:   tt.args.req.Key,
+				})
+				r.Error(err)
+				r.Equal(ErrNotFound, err)
 			}
 		})
 	}
 }
 
 func TestRaft_Range(t *testing.T) {
-	type fields struct {
-		NodeHost *dragonboat.NodeHost
-		Session  *client.Session
-	}
 	type args struct {
 		ctx context.Context
 		req *proto.RangeRequest
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *proto.RangeResponse
-		wantErr bool
+		name            string
+		args            args
+		want            *proto.RangeResponse
+		wantErr         bool
+		preInsertedData []*proto.PutRequest
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Query empty data",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Query record with empty key",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{
+					Table: []byte("table"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Query record with empty table",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{
+					Key: []byte("key"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Query a non-existent key pair",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{
+					Table: []byte("table"),
+					Key:   []byte("key"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Query an existing key pair",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{
+					Table: []byte("table1"),
+					Key:   []byte("key1"),
+				},
+			},
+			preInsertedData: []*proto.PutRequest{
+				{
+					Table: []byte("table1"),
+					Key:   []byte("key1"),
+					Value: []byte("value1"),
+				},
+			},
+			want: &proto.RangeResponse{
+				Count: 1,
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   []byte("key1"),
+						Value: []byte("value1"),
+					},
+				},
+			},
+		},
+		{
+			name: "Query an existing key pair - linearized",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{
+					Table:        []byte("table1"),
+					Key:          []byte("key1"),
+					Linearizable: true,
+				},
+			},
+			preInsertedData: []*proto.PutRequest{
+				{
+					Table: []byte("table1"),
+					Key:   []byte("key1"),
+					Value: []byte("value1"),
+				},
+			},
+			want: &proto.RangeResponse{
+				Count: 1,
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   []byte("key1"),
+						Value: []byte("value1"),
+					},
+				},
+			},
+		},
 	}
+
 	for _, tt := range tests {
+		tt := tt // Capture argument before launching in Parallel
 		t.Run(tt.name, func(t *testing.T) {
-			r := &Raft{
-				NodeHost: tt.fields.NodeHost,
-				Session:  tt.fields.Session,
+			t.Parallel()
+			nh := startRaftNode()
+			st := Raft{
+				NodeHost: nh,
+				Session:  nh.GetNoOPSession(1),
 			}
-			got, err := r.Range(tt.args.ctx, tt.args.req)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Range() error = %v, wantErr %v", err, tt.wantErr)
+			defer nh.Stop()
+			r := require.New(t)
+
+			if len(tt.preInsertedData) > 0 {
+				for _, data := range tt.preInsertedData {
+					_, err := st.Put(tt.args.ctx, data)
+					r.NoError(err)
+				}
+				defer func() {
+					for _, data := range tt.preInsertedData {
+						_, err := st.Delete(tt.args.ctx, &proto.DeleteRangeRequest{Table: data.Table, Key: data.Key})
+						r.NoError(err)
+					}
+				}()
+			}
+
+			t.Log("query the value")
+			got, err := st.Range(tt.args.ctx, tt.args.req)
+			if tt.wantErr {
+				r.Error(err)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Range() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRaft_Reset(t *testing.T) {
-	type fields struct {
-		NodeHost *dragonboat.NodeHost
-		Session  *client.Session
-	}
-	type args struct {
-		ctx context.Context
-		req *proto.ResetRequest
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &Raft{
-				NodeHost: tt.fields.NodeHost,
-				Session:  tt.fields.Session,
-			}
-			if err := r.Reset(tt.args.ctx, tt.args.req); (err != nil) != tt.wantErr {
-				t.Errorf("Reset() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			r.NoError(err)
+			r.Equal(tt.want, got)
 		})
 	}
 }
