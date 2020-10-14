@@ -3,7 +3,6 @@ package raft
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -49,13 +48,14 @@ const (
 	maxLogFileSize = 1024 * 1024 * 128
 )
 
-func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
+func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string, fs vfs.FS) sm.IOnDiskStateMachine {
 	return &KVPebbleStateMachine{
 		pebble:     nil,
 		clusterID:  clusterID,
 		nodeID:     nodeID,
 		dirname:    stateMachineDir,
 		walDirname: walDirname,
+		fs:         fs,
 		log:        zap.S().Named("ondisk"),
 	}
 }
@@ -72,11 +72,11 @@ type KVPebbleStateMachine struct {
 }
 
 func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
-	if p.nodeID < 1 {
-		return nil, errors.New("invalid node ID")
-	}
 	if p.clusterID < 1 {
-		return nil, errors.New("invalid cluster ID")
+		return nil, ErrInvalidClusterID
+	}
+	if p.nodeID < 1 {
+		return nil, ErrInvalidNodeID
 	}
 	var walDirname string
 	dirname := fmt.Sprintf("%s-%d-%d", p.dirname, p.clusterID, p.nodeID)
@@ -149,12 +149,11 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	buf := bytes.NewBuffer(make([]byte, 0))
 	batch := p.pebble.NewBatch()
-	for i, update := range updates {
-		cmd.Reset()
-		err := pb.Unmarshal(update.Cmd, &cmd)
+
+	for i := 0; i < len(updates); i++ {
+		err := pb.Unmarshal(updates[i].Cmd, &cmd)
 		if err != nil {
-			update.Result = sm.Result{Value: 0}
-			return updates, err
+			return nil, err
 		}
 
 		buf.Reset()
@@ -165,20 +164,17 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		switch cmd.Type {
 		case proto.Command_PUT:
 			if err := batch.Set(buf.Bytes(), cmd.Kv.Value, nil); err != nil {
-				update.Result = sm.Result{Value: 0}
-				return updates, err
+				return nil, err
 			}
 		case proto.Command_DELETE:
 			if err := batch.Delete(buf.Bytes(), nil); err != nil {
-				update.Result = sm.Result{Value: 0}
-				return updates, err
+				return nil, err
 			}
 		}
 
 		raftIndexVal := make([]byte, 8)
-		binary.LittleEndian.PutUint64(raftIndexVal, update.Index)
+		binary.LittleEndian.PutUint64(raftIndexVal, updates[i].Index)
 		if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
-			update.Result = sm.Result{Value: 0}
 			return updates, err
 		}
 
@@ -187,9 +183,8 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}
 
 	if err := batch.Commit(nil); err != nil {
-		return updates, err
+		return nil, err
 	}
-
 	return updates, nil
 }
 
@@ -231,7 +226,7 @@ func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 		return &proto.HashResponse{Hash: hash}, nil
 	}
 
-	return nil, errors.New("unknown query type")
+	return nil, ErrUnknownQueryType
 }
 
 // Sync synchronizes all in-core state of the state machine to permanent
