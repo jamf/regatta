@@ -27,18 +27,16 @@ func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Range
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
 
+	var (
+		val interface{}
+		err error
+	)
 	if req.Linearizable {
-		val, err := r.SyncRead(dc, r.Session.ClusterID, req)
-		if err != nil {
-			if err != pebble.ErrNotFound {
-				return nil, err
-			}
-			return nil, ErrNotFound
-		}
-		return val.(*proto.RangeResponse), nil
+		val, err = r.SyncRead(dc, r.Session.ClusterID, req)
+	} else {
+		val, err = r.StaleRead(r.Session.ClusterID, req)
 	}
 
-	val, err := r.StaleRead(r.Session.ClusterID, req)
 	if err != nil {
 		if err != pebble.ErrNotFound {
 			return nil, err
