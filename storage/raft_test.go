@@ -20,7 +20,7 @@ func TestRaft_Put(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Put empty data into RAFT",
+			name: "Put an empty data",
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{},
@@ -28,7 +28,7 @@ func TestRaft_Put(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Put record with empty key into RAFT",
+			name: "Put a record with empty key",
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{
@@ -39,7 +39,7 @@ func TestRaft_Put(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Put record with empty table into RAFT",
+			name: "Put a record with empty table",
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{
@@ -50,7 +50,21 @@ func TestRaft_Put(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Put a single key pair into RAFT",
+			name: "Put a record with empty value",
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.PutRequest{
+					Table: []byte("table"),
+					Key:   []byte("key"),
+					Value: []byte{}, // for the sake of simple comparison (storage always returns initialized values)
+				},
+			},
+			want: Result{
+				Value: 1,
+			},
+		},
+		{
+			name: "Put a single key pair",
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{
