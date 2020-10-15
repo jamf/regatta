@@ -14,6 +14,8 @@ import (
 	"github.com/lni/dragonboat/v3/config"
 	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
 	"github.com/spf13/cobra"
+	"github.com/wandera/regatta/kafka"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage"
@@ -141,12 +143,43 @@ var rootCmd = &cobra.Command{
 			}
 		}()
 
+		// Start Kafka consumer
+		// TODO config
+		kafkaCfg := kafka.Config{
+			Brokers: []string{"kaf-101-dev.eu-west-1b.ie.wandera.co.uk:8091"},
+			TLS:     false,
+			Topics: []kafka.TopicConfig{
+				{
+					Name:    "applicable-cellular-data-policy",
+					GroupID: "regatta",
+					Table:   "applicable-cellular-data-policy",
+				},
+				{
+					Name:    "applicable-wifi-data-policy",
+					GroupID: "regatta",
+					Table:   "applicable-wifi-data-policy",
+				},
+			},
+			DebugLogs: false,
+		}
+
+		consumer, err := kafka.NewConsumer(kafkaCfg, onMessage(st))
+		if err != nil {
+			log.Fatalf("Fail to create consumer: %v", err)
+		}
+
+		log.Info("Start consuming...")
+		if err := consumer.Start(context.Background()); err != nil {
+			log.Fatalf("Fail to start consumer: %v", err)
+		}
+
 		// Check signals
 		shutdown := make(chan os.Signal, 1)
 		signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 		// Cleanup
 		<-shutdown
+		consumer.Close()
 		_ = regatta.Shutdown(context.Background(), 30*time.Second)
 		nh.Stop()
 	},
@@ -170,6 +203,24 @@ func buildLogger() *zap.Logger {
 	}
 	zap.ReplaceGlobals(logger)
 	return logger
+}
+
+func onMessage(st *storage.Raft) kafka.OnMessageFunc {
+	return func(ctx context.Context, table, key, value []byte) error {
+		if value != nil {
+			_, err := st.Put(ctx, &proto.PutRequest{
+				Table: table,
+				Key:   key,
+				Value: value,
+			})
+			return err
+		}
+		_, err := st.Delete(ctx, &proto.DeleteRangeRequest{
+			Table: table,
+			Key:   key,
+		})
+		return err
+	}
 }
 
 // Execute cobra command.
