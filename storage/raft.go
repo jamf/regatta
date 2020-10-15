@@ -16,6 +16,20 @@ type Raft struct {
 	Session *client.Session
 }
 
+func (r *Raft) raftHeader() *proto.ResponseHeader {
+	nhi := r.NodeHost.GetNodeHostInfo(dragonboat.NodeHostInfoOption{SkipLogInfo: true})
+	cil := dragonboat.ClusterInfo{}
+	if len(nhi.ClusterInfoList) > 0 {
+		cil = nhi.ClusterInfoList[0]
+	}
+	leaderId, _, _ := r.GetLeaderID(r.Session.ClusterID)
+	return &proto.ResponseHeader{
+		ClusterId:    cil.ClusterID,
+		MemberId:     cil.NodeID,
+		RaftLeaderId: leaderId,
+	}
+}
+
 func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if len(req.Table) == 0 {
 		return nil, ErrEmptyTable
@@ -43,7 +57,9 @@ func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Range
 		}
 		return nil, ErrNotFound
 	}
-	return val.(*proto.RangeResponse), nil
+	response := val.(*proto.RangeResponse)
+	response.Header = r.raftHeader()
+	return response, nil
 }
 
 func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (Result, error) {
@@ -120,5 +136,7 @@ func (r *Raft) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashRes
 	if err != nil {
 		return nil, err
 	}
-	return val.(*proto.HashResponse), nil
+	response := val.(*proto.HashResponse)
+	response.Header = r.raftHeader()
+	return response, nil
 }
