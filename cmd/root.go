@@ -104,7 +104,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		err = nh.StartOnDiskCluster(map[uint64]string{raftID: raftAddress}, false, func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
-			return raft.NewPebbleStateMachine(clusterID, nodeID, stateMachineDir, stateMachineWalDir)
+			return raft.NewPebbleStateMachine(clusterID, nodeID, stateMachineDir, stateMachineWalDir, nil)
 		}, cfg)
 
 		if err != nil {

@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
 )
 
 func setup() {
-	s := storage.Mock{}
+	s := MockStorage{}
 	_ = s.Reset(context.TODO(), &proto.ResetRequest{})
 
 	kv = KVServer{

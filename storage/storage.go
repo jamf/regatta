@@ -7,8 +7,14 @@ import (
 	"github.com/wandera/regatta/proto"
 )
 
-// ErrNotFound returned when the key is not found.
-var ErrNotFound = errors.New("key not found")
+var (
+	// ErrNotFound returned when the key is not found.
+	ErrNotFound = errors.New("key not found")
+	// ErrEmptyKey returned when the key is not provided.
+	ErrEmptyKey = errors.New("key must not be empty")
+	// ErrEmptyTable returned when the table is not provided.
+	ErrEmptyTable = errors.New("table must not be empty")
+)
 
 type KVStorage interface {
 	Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error)

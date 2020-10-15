@@ -12,6 +12,7 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lni/dragonboat/v3 v3.1.1-0.20200930054505-3fe077eba05b
+	github.com/lni/goutils v1.2.3-0.20200912062322-5c8071af46b2
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.10.0
