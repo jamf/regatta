@@ -128,7 +128,5 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	return &proto.DeleteRangeResponse{
-		Deleted: int64(r.Value),
-	}, nil
+	return r, nil
 }

@@ -177,7 +177,7 @@ func TestRegatta_PutAndGet(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := require.New(t)
-			err := kv.Storage.Reset(context.TODO(), &proto.ResetRequest{})
+			_, err := kv.Storage.Reset(context.TODO(), &proto.ResetRequest{})
 			r.NoError(err)
 
 			t.Log("Put kvs")
