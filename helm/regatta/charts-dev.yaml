@@ -15,6 +15,7 @@ charts:
         - "185.219.166.114/32" #Brno Office Rozmaryn
         - "85.93.123.11/32" #Brno Office Moravak
         - "54.246.181.160/32" # VPN
+        - "52.30.177.178/32"  # jes-101-dev.eu-west-1a.ie.wandera.co.uk
       reflectionAPI:
         enabled: true
       persistence:
