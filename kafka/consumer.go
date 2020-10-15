@@ -1,0 +1,250 @@
+package kafka
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"sync"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
+)
+
+// OnMessageFunc is function called for every fetched kafka message.
+type OnMessageFunc func(ctx context.Context, table, key, value []byte) error
+
+// Consumer is kafka consumer which can consume one or more topics and processes
+// fetched messages with `WriterFunc`.
+type Consumer struct {
+	dialer         *kafka.Dialer
+	config         Config
+	topicConsumers []*TopicConsumer
+	listener       OnMessageFunc
+	cancel         context.CancelFunc
+	log            *zap.SugaredLogger
+}
+
+// NewConsumer constructs Consumer with `config` and `listener`.
+func NewConsumer(config Config, listener OnMessageFunc) (*Consumer, error) {
+	c := new(Consumer)
+	c.config = config
+	c.log = zap.S().Named("consumer")
+
+	var clCert tls.Certificate
+	var caCert []byte
+	var caCertPool *x509.CertPool
+	var tlsConf *tls.Config
+	var err error
+
+	if c.config.TLS {
+		clCert, err = tls.LoadX509KeyPair(c.config.ClientCertFilename, c.config.ClientKeyFilename)
+		if err != nil {
+			return nil, err
+		}
+
+		caCert, err = ioutil.ReadFile(c.config.ServerCertFilename)
+		if err != nil {
+			return nil, err
+		}
+		caCertPool = x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		tlsConf = &tls.Config{
+			Certificates:          []tls.Certificate{clCert},
+			RootCAs:               caCertPool,
+			InsecureSkipVerify:    true, // Not actually skipping, the cert is checked using VerifyPeerCertificate
+			VerifyPeerCertificate: verifyPeerCertificate(caCertPool),
+		}
+	}
+	c.dialer = &kafka.Dialer{
+		Timeout:   c.config.DialerTimeout,
+		DualStack: true,
+		TLS:       tlsConf,
+	}
+
+	c.listener = listener
+
+	c.topicConsumers = make([]*TopicConsumer, 0, len(c.config.Topics))
+	for _, tc := range c.config.Topics {
+		c.topicConsumers = append(c.topicConsumers,
+			NewTopicConsumer(c.config.Brokers, c.dialer, tc, c.listener, c.config.DebugLogs))
+	}
+
+	return c, nil
+}
+
+// Start starts Consumer, i.e. starts to consume configured topics and processes the messages.
+func (c *Consumer) Start(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	c.cancel = cancel
+	var wg sync.WaitGroup
+	wg.Add(len(c.topicConsumers))
+
+	for _, tc := range c.topicConsumers {
+		c.log.Debugf("Starting topic consumer: %s", tc.config.Name)
+		if err := tc.Start(ctx, &wg); err != nil {
+			c.log.Fatalf("Fail to start topic consumer: %s. Error: %v", tc.config.Name, err)
+		}
+	}
+	wg.Wait()
+	return nil
+}
+
+// Close closes all topic consumers.
+func (c *Consumer) Close() {
+	if c.cancel != nil {
+		c.cancel()
+		for _, tc := range c.topicConsumers {
+			tc.Close()
+		}
+	}
+}
+
+// TopicConsumer reads one topic from Kafka and processes the messages with `listener`.
+type TopicConsumer struct {
+	config   TopicConfig
+	reader   Reader
+	listener OnMessageFunc
+	log      *zap.SugaredLogger
+}
+
+// NewTopicConsumer constructs TopicConsumer.
+func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig, listener OnMessageFunc, debugLogs bool) *TopicConsumer {
+	tc := TopicConsumer{}
+	tc.config = config
+	tc.log = zap.S().Named(fmt.Sprintf("consumer:%s", config.Name))
+
+	rc := kafka.ReaderConfig{
+		Brokers:     brokers,
+		Topic:       config.Name,
+		GroupID:     config.GroupID,
+		Dialer:      dialer,
+		MinBytes:    1e3,  // 1KB
+		MaxBytes:    10e6, // 10MB
+		ErrorLogger: kafka.LoggerFunc(tc.log.Errorf),
+	}
+	tc.listener = listener
+	if debugLogs {
+		rc.Logger = kafka.LoggerFunc(tc.log.Debugf)
+	}
+	tc.reader = kafka.NewReader(rc)
+	return &tc
+}
+
+// Start checks reader is initialized and starts consuming kafka topic and processing the fetched messages. It is non-blocking.
+// Consumption can be stopped by cancelling the `ctx` or by calling `Close()` method.
+func (tc *TopicConsumer) Start(ctx context.Context, wg *sync.WaitGroup) error {
+	if tc.reader == nil {
+		wg.Done()
+		return fmt.Errorf("Fail to start not initialized topic consumer")
+	}
+
+	go tc.Consume(ctx, wg)
+
+	return nil
+}
+
+// Consume starts consuming kafka topic and processing the fetched messages. It is blocking.
+// Consumption can be stopped by cancelling the `ctx` or by calling `Close()` method.
+func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
+	table := []byte(tc.config.Table)
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 0 // infinite
+	wg.Done()
+	for {
+		m, err := tc.reader.FetchMessage(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
+				tc.log.Infof("Stop reading topic: %s, reader has been closed", tc.config.Name)
+				break
+			}
+			tc.log.Error(err)
+			continue
+		}
+		tc.log.Debugf("Fetch message at topic:%v partition:%v offset:%v %s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
+
+		b.Reset()
+		err = backoff.Retry(func() error {
+			if err := ctx.Err(); err != nil {
+				tc.log.Errorf("Context closed: %v", err)
+				return backoff.Permanent(err)
+			}
+
+			if err := tc.listener(ctx, table, m.Key, m.Value); err != nil {
+				tc.log.Errorf("Failed to write message from topic: %v to storage: %v", m.Topic, err)
+				return err
+			}
+			return nil
+		}, b)
+		if err != nil {
+			tc.log.Errorf("Failed to retry: %v", err)
+			break
+		}
+
+		b.Reset()
+		err = backoff.Retry(func() error {
+			if err := ctx.Err(); err != nil {
+				tc.log.Errorf("Context closed: %v", err)
+				return backoff.Permanent(err)
+			}
+
+			if err := tc.reader.CommitMessages(ctx, m); err != nil {
+				tc.log.Errorf("Failed to commmit message from topic: %v: %v", m.Topic, err)
+				return err
+			}
+			tc.log.Debugf("Commit message at topic:%v partition:%v offset:%v %s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
+			return nil
+		}, b)
+		if err != nil {
+			tc.log.Errorf("Failed to retry: %v", err)
+			break
+		}
+	}
+}
+
+// Close stops topic consumer.
+func (tc *TopicConsumer) Close() error {
+	if tc.reader != nil {
+		tc.log.Infof("Topic reader for topic: %s closed", tc.config.Name)
+		return tc.reader.Close()
+	}
+	return nil
+}
+
+// verifyPeerCertificate is used for verification of certificates with wrong hostname, i.e. current wandera situation.
+// Inspired by https://go-review.googlesource.com/c/go/+/193620/8/src/crypto/tls/example_test.go.
+func verifyPeerCertificate(rootCAs *x509.CertPool) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	return func(certificates [][]byte, _ [][]*x509.Certificate) error {
+		certs := make([]*x509.Certificate, len(certificates))
+		for i, asn1Data := range certificates {
+			cert, err := x509.ParseCertificate(asn1Data)
+			if err != nil {
+				return errors.New("tls: failed to parse certificate from server: " + err.Error())
+			}
+			certs[i] = cert
+		}
+		opts := x509.VerifyOptions{
+			Roots:         rootCAs,
+			DNSName:       "", // skip hostname verification
+			Intermediates: x509.NewCertPool(),
+		}
+		for _, cert := range certs[1:] {
+			opts.Intermediates.AddCert(cert)
+		}
+		_, err := certs[0].Verify(opts)
+		return err
+	}
+}
+
+// Reader is interface for readers implementing reading from Kafka.
+type Reader interface {
+	FetchMessage(ctx context.Context) (kafka.Message, error)
+	CommitMessages(ctx context.Context, msgs ...kafka.Message) error
+	Config() kafka.ReaderConfig
+	Close() error
+}
