@@ -40,11 +40,11 @@ func (s *MaintenanceServer) Register(regatta *RegattaServer) error {
 
 // Reset implements proto/regatta.proto Maintenance.Reset method.
 func (s *MaintenanceServer) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
-	err := s.Storage.Reset(ctx, req)
+	r, err := s.Storage.Reset(ctx, req)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &proto.ResetResponse{}, nil
+	return r, nil
 }
 
 // Hash implements proto/regatta.proto Maintenance.Hash method.

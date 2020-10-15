@@ -43,15 +43,17 @@ func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Range
 		}
 		return nil, ErrNotFound
 	}
-	return val.(*proto.RangeResponse), nil
+	response := val.(*proto.RangeResponse)
+	response.Header = raftHeader(r.NodeHost, r.Session.ClusterID)
+	return response, nil
 }
 
-func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (Result, error) {
+func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if len(req.Table) == 0 {
-		return Result{}, ErrEmptyTable
+		return nil, ErrEmptyTable
 	}
 	if len(req.Key) == 0 {
-		return Result{}, ErrEmptyKey
+		return nil, ErrEmptyKey
 	}
 
 	cmd := &proto.Command{
@@ -64,27 +66,25 @@ func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (Result, error) {
 	}
 	bytes, err := pb.Marshal(cmd)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
-	res, err := r.SyncPropose(dc, r.Session, bytes)
+	// TODO Query previous value
+	_, err = r.SyncPropose(dc, r.Session, bytes)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
-	return Result{
-		Value: res.Value,
-		Data:  res.Data,
-	}, nil
+	return &proto.PutResponse{Header: raftHeader(r.NodeHost, r.Session.ClusterID)}, nil
 }
 
-func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (Result, error) {
+func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if len(req.Table) == 0 {
-		return Result{}, ErrEmptyTable
+		return nil, ErrEmptyTable
 	}
 	if len(req.Key) == 0 {
-		return Result{}, ErrEmptyKey
+		return nil, ErrEmptyKey
 	}
 
 	cmd := &proto.Command{
@@ -96,22 +96,22 @@ func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (Resul
 	}
 	bytes, err := pb.Marshal(cmd)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
 	res, err := r.SyncPropose(dc, r.Session, bytes)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
-	return Result{
-		Value: res.Value,
-		Data:  res.Data,
+	return &proto.DeleteRangeResponse{
+		Header:  raftHeader(r.NodeHost, r.Session.ClusterID),
+		Deleted: int64(res.Value),
 	}, nil
 }
 
-func (r *Raft) Reset(ctx context.Context, req *proto.ResetRequest) error {
+func (r *Raft) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
 	panic("not implemented")
 }
 
@@ -120,5 +120,21 @@ func (r *Raft) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashRes
 	if err != nil {
 		return nil, err
 	}
-	return val.(*proto.HashResponse), nil
+	response := val.(*proto.HashResponse)
+	response.Header = raftHeader(r.NodeHost, r.Session.ClusterID)
+	return response, nil
+}
+
+func raftHeader(nh *dragonboat.NodeHost, clusterID uint64) *proto.ResponseHeader {
+	nhi := nh.GetNodeHostInfo(dragonboat.NodeHostInfoOption{SkipLogInfo: true})
+	cil := dragonboat.ClusterInfo{}
+	if len(nhi.ClusterInfoList) > 0 {
+		cil = nhi.ClusterInfoList[0]
+	}
+	leaderID, _, _ := nh.GetLeaderID(clusterID)
+	return &proto.ResponseHeader{
+		ClusterId:    cil.ClusterID,
+		MemberId:     cil.NodeID,
+		RaftLeaderId: leaderID,
+	}
 }

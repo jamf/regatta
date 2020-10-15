@@ -16,7 +16,7 @@ func TestRaft_Put(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    Result
+		want    *proto.PutResponse
 		wantErr bool
 	}{
 		{
@@ -59,8 +59,12 @@ func TestRaft_Put(t *testing.T) {
 					Value: []byte{}, // for the sake of simple comparison (storage always returns initialized values)
 				},
 			},
-			want: Result{
-				Value: 1,
+			want: &proto.PutResponse{
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
 			},
 		},
 		{
@@ -73,8 +77,12 @@ func TestRaft_Put(t *testing.T) {
 					Value: []byte("value"),
 				},
 			},
-			want: Result{
-				Value: 1,
+			want: &proto.PutResponse{
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
 			},
 		},
 	}
@@ -99,7 +107,7 @@ func TestRaft_Put(t *testing.T) {
 			r.NoError(err)
 			r.Equal(tt.want, got)
 
-			if tt.want.Value > 0 {
+			if tt.want != nil {
 				t.Log("check that value is stored")
 				val, err := st.Range(tt.args.ctx, &proto.RangeRequest{
 					Table: tt.args.req.Table,
@@ -121,7 +129,7 @@ func TestRaft_Delete(t *testing.T) {
 	tests := []struct {
 		name            string
 		args            args
-		want            Result
+		want            *proto.DeleteRangeResponse
 		wantErr         bool
 		preInsertedData []*proto.PutRequest
 	}{
@@ -162,8 +170,13 @@ func TestRaft_Delete(t *testing.T) {
 					Key:   []byte("key"),
 				},
 			},
-			want: Result{
-				Value: 1,
+			want: &proto.DeleteRangeResponse{
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
+				Deleted: 1,
 			},
 		},
 		{
@@ -182,8 +195,13 @@ func TestRaft_Delete(t *testing.T) {
 					Value: []byte("value1"),
 				},
 			},
-			want: Result{
-				Value: 1,
+			want: &proto.DeleteRangeResponse{
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
+				Deleted: 1,
 			},
 		},
 	}
@@ -205,12 +223,6 @@ func TestRaft_Delete(t *testing.T) {
 					_, err := st.Put(tt.args.ctx, data)
 					r.NoError(err)
 				}
-				defer func() {
-					for _, data := range tt.preInsertedData {
-						_, err := st.Delete(tt.args.ctx, &proto.DeleteRangeRequest{Table: data.Table, Key: data.Key})
-						r.NoError(err)
-					}
-				}()
 			}
 
 			t.Log("delete the value")
@@ -222,7 +234,7 @@ func TestRaft_Delete(t *testing.T) {
 			r.NoError(err)
 			r.Equal(tt.want, got)
 
-			if tt.want.Value > 0 {
+			if tt.want.Deleted > 0 {
 				t.Log("check that value is deleted")
 				_, err := st.Range(tt.args.ctx, &proto.RangeRequest{
 					Table: tt.args.req.Table,
@@ -304,6 +316,11 @@ func TestRaft_Range(t *testing.T) {
 			},
 			want: &proto.RangeResponse{
 				Count: 1,
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
 				Kvs: []*proto.KeyValue{
 					{
 						Key:   []byte("key1"),
@@ -331,6 +348,11 @@ func TestRaft_Range(t *testing.T) {
 			},
 			want: &proto.RangeResponse{
 				Count: 1,
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
 				Kvs: []*proto.KeyValue{
 					{
 						Key:   []byte("key1"),
