@@ -304,6 +304,11 @@ func TestRaft_Range(t *testing.T) {
 			},
 			want: &proto.RangeResponse{
 				Count: 1,
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
 				Kvs: []*proto.KeyValue{
 					{
 						Key:   []byte("key1"),
@@ -331,6 +336,11 @@ func TestRaft_Range(t *testing.T) {
 			},
 			want: &proto.RangeResponse{
 				Count: 1,
+				Header: &proto.ResponseHeader{
+					ClusterId:    1,
+					MemberId:     1,
+					RaftLeaderId: 1,
+				},
 				Kvs: []*proto.KeyValue{
 					{
 						Key:   []byte("key1"),
