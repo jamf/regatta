@@ -60,7 +60,13 @@ When hostname or domain name is specified, it is locally resolved to IP addresse
 
 	// Kafka flags
 	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"localhost:9092"}, "Address of the Kafka broker.")
-	rootCmd.PersistentFlags().String("kafka.group-id", "regatta-local", "Kafka consumer group ID")
+	rootCmd.PersistentFlags().Duration("kafka.timeout", 10*time.Second, "Kafka dialer timeout.")
+	rootCmd.PersistentFlags().String("kafka.group-id", "regatta-local", "Kafka consumer group ID.")
+	rootCmd.PersistentFlags().StringSlice("kafka.topics", nil, "Kafka topics to read from.")
+	rootCmd.PersistentFlags().Bool("kafka.tls", false, "Enables Kafka broker TLS connection.")
+	rootCmd.PersistentFlags().String("kafka.server-cert-filename", "", "Kafka broker CA.")
+	rootCmd.PersistentFlags().String("kafka.client-cert-filename", "", "Kafka client certificate.")
+	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
 
 	cobra.OnInitialize(initConfig)
 }
@@ -187,26 +193,26 @@ func root(_ *cobra.Command, _ []string) {
 		}
 	}()
 
-	// Start Kafka consumer
-	// TODO config
+	var tc []kafka.TopicConfig
+	for _, topic := range viper.GetStringSlice("kafka.topics") {
+		tc = append(tc, kafka.TopicConfig{
+			Name:    topic,
+			GroupID: viper.GetString("kafka.group-id"),
+			Table:   topic,
+		})
+	}
 	kafkaCfg := kafka.Config{
-		Brokers: viper.GetStringSlice("kafka.brokers"),
-		TLS:     false,
-		Topics: []kafka.TopicConfig{
-			{
-				Name:    "applicable-cellular-data-policy",
-				GroupID: viper.GetString("kafka.group.id"),
-				Table:   "applicable-cellular-data-policy",
-			},
-			{
-				Name:    "applicable-wifi-data-policy",
-				GroupID: viper.GetString("kafka.group.id"),
-				Table:   "applicable-wifi-data-policy",
-			},
-		},
-		DebugLogs: false,
+		Brokers:            viper.GetStringSlice("kafka.brokers"),
+		DialerTimeout:      viper.GetDuration("kafka.timeout"),
+		TLS:                viper.GetBool("kafka.tls"),
+		ServerCertFilename: viper.GetString("kafka.server-cert-filename"),
+		ClientCertFilename: viper.GetString("kafka.client-cert-filename"),
+		ClientKeyFilename:  viper.GetString("kafka.client-key-filename"),
+		Topics:             tc,
+		DebugLogs:          false,
 	}
 
+	// Start Kafka consumer
 	consumer, err := kafka.NewConsumer(kafkaCfg, onMessage(st))
 	if err != nil {
 		log.Fatalf("Fail to create consumer: %v", err)
