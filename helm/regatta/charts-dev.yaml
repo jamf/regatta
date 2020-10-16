@@ -29,3 +29,4 @@ charts:
       kafka:
         address: kaf-101-dev.eu-west-1b.ie.wandera.co.uk:8091
         groupID: regatta-dev-0
+        topics: applicable-cellular-data-policy,applicable-wifi-data-policy
