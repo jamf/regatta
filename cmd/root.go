@@ -40,6 +40,9 @@ var (
 	listenAddress      string
 	raftID             uint64
 	raftClusterID      uint64
+
+	kafkaAddr string
+	groupID   string
 )
 
 func init() {
@@ -71,6 +74,10 @@ When the ListenAddress field is not set, The Raft RPC module listens on RaftAddr
 When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.`)
 	rootCmd.PersistentFlags().Uint64Var(&raftID, "node-id", 1, "Raft Node ID is a non-zero value used to identify a node within a Raft cluster.")
 	rootCmd.PersistentFlags().Uint64Var(&raftClusterID, "cluster-id", 1, "Raft Cluster ID is the unique value used to identify a Raft cluster.")
+
+	// TODO config properly
+	rootCmd.PersistentFlags().StringVar(&kafkaAddr, "kafka-addr", "localhost:9092", "Address of the Kafka broker.")
+	rootCmd.PersistentFlags().StringVar(&groupID, "group-id", "regatta-local", "Kafka consumer group ID")
 }
 
 var rootCmd = &cobra.Command{
@@ -146,17 +153,17 @@ var rootCmd = &cobra.Command{
 		// Start Kafka consumer
 		// TODO config
 		kafkaCfg := kafka.Config{
-			Brokers: []string{"kaf-101-dev.eu-west-1b.ie.wandera.co.uk:8091"},
+			Brokers: []string{kafkaAddr},
 			TLS:     false,
 			Topics: []kafka.TopicConfig{
 				{
 					Name:    "applicable-cellular-data-policy",
-					GroupID: "regatta",
+					GroupID: groupID,
 					Table:   "applicable-cellular-data-policy",
 				},
 				{
 					Name:    "applicable-wifi-data-policy",
-					GroupID: "regatta",
+					GroupID: groupID,
 					Table:   "applicable-wifi-data-policy",
 				},
 			},
