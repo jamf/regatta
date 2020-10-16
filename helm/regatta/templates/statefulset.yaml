@@ -27,17 +27,17 @@ spec:
       - name: {{ template "meta.name" . }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         args:
-        - "--addr=0.0.0.0:{{ .Values.internalPort }}"
-        - --cert-filename=/cert/tls.crt
-        - --key-filename=/cert/tls.key
-        - --raft-address=127.0.0.1:5012
-        - --node-host-dir=/data/raft
-        - --state-machine-dir=/data/state-machine
+        - "--api.address=0.0.0.0:{{ .Values.internalPort }}"
+        - --api.cert-filename=/cert/tls.crt
+        - --api.key-filename=/cert/tls.key
+        - --raft.address=127.0.0.1:5012
+        - --raft.node-host-dir=/data/raft
+        - --raft.state-machine-dir=/data/state-machine
         {{- if .Values.reflectionAPI.enabled }}
-        - --reflection-api
+        - --api.reflection-api
         {{- end }}
-        - --kafka-addr={{ .Values.kafka.address }}
-        - --group-id={{ .Values.kafka.groupID }}
+        - --kafka.brokers={{ .Values.kafka.address }}
+        - --kafka.group-id={{ .Values.kafka.groupID }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
