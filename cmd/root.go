@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -65,9 +66,10 @@ When hostname or domain name is specified, it is locally resolved to IP addresse
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "regatta",
-	Short: "Regatta is read-optimized distributed key-value store.",
-	Run:   root,
+	Use:     "regatta",
+	Short:   "Regatta is read-optimized distributed key-value store.",
+	Run:     root,
+	PreRunE: validateConfig,
 }
 
 func initConfig() {
@@ -93,6 +95,13 @@ func initConfig() {
 	}
 }
 
+func validateConfig(_ *cobra.Command, _ []string) error {
+	if !viper.IsSet("raft.address") {
+		return errors.New("raft address must be set")
+	}
+	return nil
+}
+
 func root(_ *cobra.Command, _ []string) {
 	logger := buildLogger()
 	defer logger.Sync()
@@ -109,7 +118,7 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	cfg := config.Config{
