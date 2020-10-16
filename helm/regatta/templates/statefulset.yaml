@@ -36,6 +36,8 @@ spec:
         {{- if .Values.reflectionAPI.enabled }}
         - --reflection-api
         {{- end }}
+        - --kafka-addr={{ .Values.kafka.address }}
+        - --group-id={{ .Values.kafka.groupID }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}

@@ -166,7 +166,6 @@ func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
 			tc.log.Error(err)
 			continue
 		}
-		tc.log.Debugf("Fetch message at topic:%v partition:%v offset:%v %s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 
 		b.Reset()
 		err = backoff.Retry(func() error {
@@ -197,7 +196,6 @@ func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
 				tc.log.Errorf("Failed to commmit message from topic: %v: %v", m.Topic, err)
 				return err
 			}
-			tc.log.Debugf("Commit message at topic:%v partition:%v offset:%v %s = %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 			return nil
 		}, b)
 		if err != nil {

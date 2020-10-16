@@ -13,3 +13,7 @@ charts:
       persistence:
         hostPath: true
       imagePullSecrets: awsecr-cred
+      kafka:
+        address: kaf-101-dev.eu-west-1b.ie.wandera.co.uk:8091
+        groupID: regatta-lon02-dev-0
+
