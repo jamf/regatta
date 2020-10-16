@@ -36,9 +36,14 @@ spec:
         {{- if .Values.reflectionAPI.enabled }}
         - --api.reflection-api
         {{- end }}
-        - --kafka.brokers={{ .Values.kafka.address }}
+        - --kafka.brokers={{ .Values.kafka.brokers }}
+        - --kafka.timeout={{ .Values.kafka.dialerTimeoutSeconds }}
         - --kafka.group-id={{ .Values.kafka.groupID }}
         - --kafka.topics={{ .Values.kafka.topics }}
+        - --kafka.tls={{ .Values.kafka.tls }}
+        - --kafka.server-cert-filename=/kafka-cert/ca.crt
+        - --kafka.client-cert-filename=/kafka-cert/tls.crt
+        - --kafka.client-key-filename=/kafka-cert/tls.key
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
@@ -46,6 +51,8 @@ spec:
         volumeMounts:
         - mountPath: /cert
           name: cert
+        - mountPath: /kafka-cert
+          name: kafka-cert
         - mountPath: /data
           name: data
       volumes:
@@ -53,6 +60,10 @@ spec:
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-cert
+      - name: kafka-cert
+        secret:
+          defaultMode: 420
+          secretName: {{ template "meta.name" . }}-kafka-cert
       {{- if .Values.persistence.hostPath }}
       - name: data
         hostPath:

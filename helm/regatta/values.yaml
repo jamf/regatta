@@ -30,4 +30,6 @@ reflectionAPI:
 persistence:
   hostPath: false
 
-kafka: {}
+kafka:
+  dialerTimeoutSeconds: 10
+  topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy
