@@ -26,3 +26,6 @@ charts:
           resources:
             requests:
               storage: 20Gi
+      kafka:
+        address: kaf-101-dev.eu-west-1b.ie.wandera.co.uk:8091
+        groupID: regatta-dev-0

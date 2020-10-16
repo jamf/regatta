@@ -29,3 +29,5 @@ reflectionAPI:
 
 persistence:
   hostPath: false
+
+kafka: {}
