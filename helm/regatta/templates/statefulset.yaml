@@ -37,7 +37,7 @@ spec:
         - --api.reflection-api
         {{- end }}
         - --kafka.brokers={{ .Values.kafka.brokers }}
-        - --kafka.timeout={{ .Values.kafka.dialerTimeoutSeconds }}
+        - --kafka.timeout={{ .Values.kafka.dialerTimeout }}
         - --kafka.group-id={{ .Values.kafka.groupID }}
         - --kafka.topics={{ .Values.kafka.topics }}
         - --kafka.tls={{ .Values.kafka.tls }}
