@@ -31,5 +31,5 @@ persistence:
   hostPath: false
 
 kafka:
-  dialerTimeoutSeconds: 10
+  dialerTimeout: 10s
   topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy
