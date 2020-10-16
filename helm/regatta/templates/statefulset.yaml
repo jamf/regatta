@@ -38,6 +38,7 @@ spec:
         {{- end }}
         - --kafka.brokers={{ .Values.kafka.address }}
         - --kafka.group-id={{ .Values.kafka.groupID }}
+        - --kafka.topics={{ .Values.kafka.topics }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
