@@ -14,8 +14,15 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lni/dragonboat/v3 v3.1.1-0.20200930054505-3fe077eba05b
 	github.com/lni/goutils v1.2.3-0.20200912062322-5c8071af46b2
+	github.com/magiconair/properties v1.8.4 // indirect
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/segmentio/kafka-go v0.4.5
+	github.com/spf13/afero v1.4.1 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.0
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.16.0
 	golang.org/x/exp v0.0.0-20201008143054-e3b2a7f2fdc7 // indirect
@@ -26,4 +33,5 @@ require (
 	google.golang.org/genproto v0.0.0-20201014134559-03b6142f0dc9
 	google.golang.org/grpc v1.33.0
 	google.golang.org/protobuf v1.25.0
+	gopkg.in/ini.v1 v1.62.0 // indirect
 )
