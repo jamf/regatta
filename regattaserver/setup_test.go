@@ -13,12 +13,15 @@ import (
 	"github.com/wandera/regatta/storage"
 )
 
+const managedTable = "managed-table"
+
 func setup() {
 	s := MockStorage{}
 	_, _ = s.Reset(context.TODO(), &proto.ResetRequest{})
 
 	kv = KVServer{
-		Storage: &s,
+		Storage:       &s,
+		ManagedTables: []string{managedTable},
 	}
 
 	ms = MaintenanceServer{

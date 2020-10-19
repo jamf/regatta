@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"time"
 
@@ -173,8 +174,11 @@ func root(_ *cobra.Command, _ []string) {
 	)
 
 	// Create and register grpc/rest endpoints
+	mTables := viper.GetStringSlice("kafka.topics")
+	sort.Strings(mTables)
 	kvs := &regattaserver.KVServer{
-		Storage: st,
+		Storage:       st,
+		ManagedTables: mTables,
 	}
 	if err := kvs.Register(regatta); err != nil {
 		log.Panicf("registerKVServer failed: %v", err)
