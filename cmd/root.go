@@ -124,7 +124,7 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 
 	cfg := config.Config{
@@ -155,7 +155,7 @@ func root(_ *cobra.Command, _ []string) {
 	)
 
 	if err != nil {
-		log.Fatalf("failed to start Raft cluster: %v", err)
+		log.Panicf("failed to start Raft cluster: %v", err)
 	}
 
 	// Create storage
@@ -177,19 +177,19 @@ func root(_ *cobra.Command, _ []string) {
 		Storage: st,
 	}
 	if err := kvs.Register(regatta); err != nil {
-		log.Fatalf("registerKVServer failed: %v", err)
+		log.Panicf("registerKVServer failed: %v", err)
 	}
 	ms := &regattaserver.MaintenanceServer{
 		Storage: st,
 	}
 	if err := ms.Register(regatta); err != nil {
-		log.Fatalf("registerMaintenanceServer failed: %v", err)
+		log.Panicf("registerMaintenanceServer failed: %v", err)
 	}
 
 	// Start server
 	go func() {
 		if err := regatta.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatalf("listenAndServe failed: %v", err)
+			log.Panicf("listenAndServe failed: %v", err)
 		}
 	}()
 
@@ -215,12 +215,12 @@ func root(_ *cobra.Command, _ []string) {
 	// Start Kafka consumer
 	consumer, err := kafka.NewConsumer(kafkaCfg, onMessage(st))
 	if err != nil {
-		log.Fatalf("Fail to create consumer: %v", err)
+		log.Panicf("failed to create consumer: %v", err)
 	}
 
 	log.Info("Start consuming...")
 	if err := consumer.Start(context.Background()); err != nil {
-		log.Fatalf("Fail to start consumer: %v", err)
+		log.Panicf("failed to start consumer: %v", err)
 	}
 
 	// Check signals
@@ -248,7 +248,7 @@ func buildLogger() *zap.Logger {
 	logCfg.Level.SetLevel(level)
 	logger, err := logCfg.Build()
 	if err != nil {
-		zap.S().Fatal("failed to build logger: %v", err)
+		zap.S().Panicf("failed to build logger: %v", err)
 	}
 	zap.ReplaceGlobals(logger)
 	return logger

@@ -36,7 +36,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	var creds credentials.TransportCredentials
 	var err error
 	if creds, err = credentials.NewServerTLSFromFile(certFilename, keyFilename); err != nil {
-		rs.log.Fatalf("cannot create server credentials: %v", err)
+		rs.log.Panicf("cannot create server credentials: %v", err)
 	}
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
@@ -55,7 +55,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 
 	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
-		rs.log.Fatalf("failed to parse key pair:", err)
+		rs.log.Panicf("failed to parse key pair:", err)
 	}
 
 	rs.httpServer = &http.Server{
