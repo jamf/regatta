@@ -3,6 +3,7 @@ package regattaserver
 import (
 	"context"
 	"crypto/tls"
+	"sort"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
@@ -16,7 +17,8 @@ import (
 // KVServer implements KV service from proto/regatta.proto.
 type KVServer struct {
 	proto.UnimplementedKVServer
-	Storage storage.KVStorage
+	Storage       storage.KVStorage
+	ManagedTables []string
 }
 
 // Register creates KV server and registers it to regatta server.
@@ -46,8 +48,6 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
 	} else if req.GetLimit() > 0 {
 		return nil, status.Errorf(codes.Unimplemented, "limit not implemented")
-	} else if req.GetLinearizable() {
-		return nil, status.Errorf(codes.Unimplemented, "linearizable not implemented")
 	} else if req.GetKeysOnly() {
 		return nil, status.Errorf(codes.Unimplemented, "keys_only not implemented")
 	} else if req.GetCountOnly() {
@@ -96,6 +96,10 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
+	if sort.SearchStrings(s.ManagedTables, string(req.GetTable())) != len(s.ManagedTables) {
+		return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
+	}
+
 	_, err := s.Storage.Put(ctx, req)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -119,6 +123,10 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 
 	if len(req.GetKey()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
+	}
+
+	if sort.SearchStrings(s.ManagedTables, string(req.GetTable())) != len(s.ManagedTables) {
+		return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
 	}
 
 	r, err := s.Storage.Delete(ctx, req)
