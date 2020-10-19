@@ -310,14 +310,6 @@ func TestRegatta_RangeUnimplemented(t *testing.T) {
 	})
 	a.EqualError(err, status.Errorf(codes.Unimplemented, "limit not implemented").Error())
 
-	t.Log("Get kv with unimplemented linearizable")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
-		Table:        table1Name,
-		Key:          key1Name,
-		Linearizable: true,
-	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "linearizable not implemented").Error())
-
 	t.Log("Get kv with unimplemented keys_only")
 	_, err = kv.Range(context.Background(), &proto.RangeRequest{
 		Table:    table1Name,
@@ -385,6 +377,14 @@ func TestRegatta_PutInvalidArgument(t *testing.T) {
 		Value: table1Value1,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
+
+	t.Log("Put with managed table name")
+	_, err = kv.Put(context.Background(), &proto.PutRequest{
+		Table: []byte(managedTable),
+		Key:   key1Name,
+		Value: table1Value1,
+	})
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
 }
 
 func TestRegatta_PutUnimplemented(t *testing.T) {
@@ -415,6 +415,13 @@ func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 		Key:   []byte{},
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
+
+	t.Log("Delete with managed table name")
+	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+		Table: []byte(managedTable),
+		Key:   key1Name,
+	})
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
 }
 
 func TestRegatta_DeleteRangeUnimplemented(t *testing.T) {
