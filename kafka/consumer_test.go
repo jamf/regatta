@@ -151,7 +151,7 @@ func TestKafka_StartTopicConsumer(t *testing.T) {
 	err := tc.Start(context.Background(), &wg)
 	wg.Wait()
 
-	r.EqualError(err, "Fail to start not initialized topic consumer", "Error expected")
+	r.EqualError(err, "failed to start not initialized topic consumer", "Error expected")
 	err = tc.Close()
 	r.NoError(err, "No error expected")
 }

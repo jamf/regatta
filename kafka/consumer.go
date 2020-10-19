@@ -86,9 +86,9 @@ func (c *Consumer) Start(ctx context.Context) error {
 	wg.Add(len(c.topicConsumers))
 
 	for _, tc := range c.topicConsumers {
-		c.log.Debugf("Starting topic consumer: %s", tc.config.Name)
+		c.log.Infof("starting topic consumer: %s", tc.config.Name)
 		if err := tc.Start(ctx, &wg); err != nil {
-			c.log.Fatalf("Fail to start topic consumer: %s. Error: %v", tc.config.Name, err)
+			c.log.Panicf("failed to start topic consumer: %s. Error: %v", tc.config.Name, err)
 		}
 	}
 	wg.Wait()
@@ -141,7 +141,7 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 func (tc *TopicConsumer) Start(ctx context.Context, wg *sync.WaitGroup) error {
 	if tc.reader == nil {
 		wg.Done()
-		return fmt.Errorf("Fail to start not initialized topic consumer")
+		return fmt.Errorf("failed to start not initialized topic consumer")
 	}
 
 	go tc.Consume(ctx, wg)
@@ -160,7 +160,7 @@ func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
 		m, err := tc.reader.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
-				tc.log.Infof("Stop reading topic: %s, reader has been closed", tc.config.Name)
+				tc.log.Infof("stop reading topic: %s, reader has been closed", tc.config.Name)
 				break
 			}
 			tc.log.Error(err)
@@ -170,36 +170,36 @@ func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
 		b.Reset()
 		err = backoff.Retry(func() error {
 			if err := ctx.Err(); err != nil {
-				tc.log.Errorf("Context closed: %v", err)
+				tc.log.Errorf("context closed: %v", err)
 				return backoff.Permanent(err)
 			}
 
 			if err := tc.listener(ctx, table, m.Key, m.Value); err != nil {
-				tc.log.Errorf("Failed to write message from topic: %v to storage: %v", m.Topic, err)
+				tc.log.Errorf("failed to write message from topic: %v to storage: %v", m.Topic, err)
 				return err
 			}
 			return nil
 		}, b)
 		if err != nil {
-			tc.log.Errorf("Failed to retry: %v", err)
+			tc.log.Errorf("failed to retry: %v", err)
 			break
 		}
 
 		b.Reset()
 		err = backoff.Retry(func() error {
 			if err := ctx.Err(); err != nil {
-				tc.log.Errorf("Context closed: %v", err)
+				tc.log.Errorf("context closed: %v", err)
 				return backoff.Permanent(err)
 			}
 
 			if err := tc.reader.CommitMessages(ctx, m); err != nil {
-				tc.log.Errorf("Failed to commmit message from topic: %v: %v", m.Topic, err)
+				tc.log.Errorf("failed to commmit message from topic: %v: %v", m.Topic, err)
 				return err
 			}
 			return nil
 		}, b)
 		if err != nil {
-			tc.log.Errorf("Failed to retry: %v", err)
+			tc.log.Errorf("failed to retry: %v", err)
 			break
 		}
 	}
@@ -208,7 +208,7 @@ func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
 // Close stops topic consumer.
 func (tc *TopicConsumer) Close() error {
 	if tc.reader != nil {
-		tc.log.Infof("Topic reader for topic: %s closed", tc.config.Name)
+		tc.log.Infof("topic reader for topic: %s closed", tc.config.Name)
 		return tc.reader.Close()
 	}
 	return nil
