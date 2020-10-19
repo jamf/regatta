@@ -82,6 +82,8 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 	dirname := fmt.Sprintf("%s-%d-%d", p.dirname, p.clusterID, p.nodeID)
 	if p.walDirname != "" {
 		walDirname = fmt.Sprintf("%s-%d-%d", p.walDirname, p.clusterID, p.nodeID)
+	} else {
+		walDirname = dirname
 	}
 
 	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
@@ -98,7 +100,7 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 			TargetFileSize: int64(sz),
 		}
 		sz = sz * targetFileSizeGrowFactor
-		lvlOpts = append(lvlOpts, opt)
+		lvlOpts[l] = opt
 	}
 
 	var fs vfs.FS
