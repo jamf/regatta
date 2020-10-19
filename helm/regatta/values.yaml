@@ -11,11 +11,11 @@ branch: master
 
 resources:
   limits:
-    cpu: 300m
+    cpu: 1
     memory: 512Mi
   requests:
-    cpu: 200m
-    memory: 256Mi
+    cpu: 500m
+    memory: 512Mi
 
 internalPort: 8443
 
@@ -31,5 +31,11 @@ persistence:
   hostPath: false
 
 kafka:
+  brokers: ""
   dialerTimeout: 10s
+  groupID: ""
   topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy
+  tls: false
+  serverCert: ""
+  clientCert: ""
+  clientKey: ""
