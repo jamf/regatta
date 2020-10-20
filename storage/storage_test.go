@@ -14,8 +14,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func startRaftNode() *dragonboat.NodeHost {
+func startRaftNode() (*dragonboat.NodeHost, *raft.Metadata) {
 	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+	meta := &raft.Metadata{}
 	nhc := config.NodeHostConfig{
 		WALDir:         "wal",
 		NodeHostDir:    "dragonboat",
@@ -26,6 +27,7 @@ func startRaftNode() *dragonboat.NodeHost {
 			ExecShards:  1,
 			LogDBShards: 1,
 		},
+		RaftEventListener: meta,
 	}
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
@@ -69,7 +71,7 @@ func startRaftNode() *dragonboat.NodeHost {
 		zap.S().Panic("Unable to start test Dragonboat in timeout of 30s")
 	}
 
-	return nh
+	return nh, meta
 }
 
 func getTestPort() int {
