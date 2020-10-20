@@ -8,12 +8,14 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/client"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/raft"
 	pb "google.golang.org/protobuf/proto"
 )
 
 type Raft struct {
 	*dragonboat.NodeHost
-	Session *client.Session
+	Session  *client.Session
+	Metadata *raft.Metadata
 }
 
 func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
@@ -44,7 +46,7 @@ func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Range
 		return nil, ErrNotFound
 	}
 	response := val.(*proto.RangeResponse)
-	response.Header = raftHeader(r.NodeHost, r.Session.ClusterID)
+	response.Header = raftHeader(r.Metadata, r.Session.ClusterID)
 	return response, nil
 }
 
@@ -76,7 +78,7 @@ func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRespon
 	if err != nil {
 		return nil, err
 	}
-	return &proto.PutResponse{Header: raftHeader(r.NodeHost, r.Session.ClusterID)}, nil
+	return &proto.PutResponse{Header: raftHeader(r.Metadata, r.Session.ClusterID)}, nil
 }
 
 func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
@@ -106,7 +108,7 @@ func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*prot
 		return nil, err
 	}
 	return &proto.DeleteRangeResponse{
-		Header:  raftHeader(r.NodeHost, r.Session.ClusterID),
+		Header:  raftHeader(r.Metadata, r.Session.ClusterID),
 		Deleted: int64(res.Value),
 	}, nil
 }
@@ -121,20 +123,16 @@ func (r *Raft) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashRes
 		return nil, err
 	}
 	response := val.(*proto.HashResponse)
-	response.Header = raftHeader(r.NodeHost, r.Session.ClusterID)
+	response.Header = raftHeader(r.Metadata, r.Session.ClusterID)
 	return response, nil
 }
 
-func raftHeader(nh *dragonboat.NodeHost, clusterID uint64) *proto.ResponseHeader {
-	nhi := nh.GetNodeHostInfo(dragonboat.NodeHostInfoOption{SkipLogInfo: true})
-	cil := dragonboat.ClusterInfo{}
-	if len(nhi.ClusterInfoList) > 0 {
-		cil = nhi.ClusterInfoList[0]
-	}
-	leaderID, _, _ := nh.GetLeaderID(clusterID)
+func raftHeader(nh *raft.Metadata, clusterID uint64) *proto.ResponseHeader {
+	v := nh.Get(clusterID)
 	return &proto.ResponseHeader{
-		ClusterId:    cil.ClusterID,
-		MemberId:     cil.NodeID,
-		RaftLeaderId: leaderID,
+		ClusterId:    clusterID,
+		MemberId:     v.NodeID,
+		RaftLeaderId: v.LeaderID,
+		RaftTerm:     v.Term,
 	}
 }

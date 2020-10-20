@@ -115,13 +115,15 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.SetLoggerFactory(raft.NewLogger)
 	log := zap.S().Named("root")
 
+	metadata := &raft.Metadata{}
 	nhc := config.NodeHostConfig{
-		WALDir:         viper.GetString("raft.wal-dir"),
-		NodeHostDir:    viper.GetString("raft.node-host-dir"),
-		RTTMillisecond: 50,
-		RaftAddress:    viper.GetString("raft.address"),
-		ListenAddress:  viper.GetString("raft.listen-address"),
-		EnableMetrics:  true,
+		WALDir:            viper.GetString("raft.wal-dir"),
+		NodeHostDir:       viper.GetString("raft.node-host-dir"),
+		RTTMillisecond:    50,
+		RaftAddress:       viper.GetString("raft.address"),
+		ListenAddress:     viper.GetString("raft.listen-address"),
+		EnableMetrics:     true,
+		RaftEventListener: metadata,
 	}
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
@@ -162,6 +164,7 @@ func root(_ *cobra.Command, _ []string) {
 	// Create storage
 	st := &storage.Raft{
 		NodeHost: nh,
+		Metadata: metadata,
 		Session:  nh.GetNoOPSession(viper.GetUint64("raft.cluster-id")),
 	}
 

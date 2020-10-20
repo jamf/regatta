@@ -64,6 +64,7 @@ func TestRaft_Put(t *testing.T) {
 					ClusterId:    1,
 					MemberId:     1,
 					RaftLeaderId: 1,
+					RaftTerm:     2,
 				},
 			},
 		},
@@ -82,6 +83,7 @@ func TestRaft_Put(t *testing.T) {
 					ClusterId:    1,
 					MemberId:     1,
 					RaftLeaderId: 1,
+					RaftTerm:     2,
 				},
 			},
 		},
@@ -91,10 +93,11 @@ func TestRaft_Put(t *testing.T) {
 		tt := tt // Capture argument before launching in Parallel
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			nh := startRaftNode()
+			nh, meta := startRaftNode()
 			st := Raft{
 				NodeHost: nh,
 				Session:  nh.GetNoOPSession(1),
+				Metadata: meta,
 			}
 			defer nh.Stop()
 			r := require.New(t)
@@ -175,6 +178,7 @@ func TestRaft_Delete(t *testing.T) {
 					ClusterId:    1,
 					MemberId:     1,
 					RaftLeaderId: 1,
+					RaftTerm:     2,
 				},
 				Deleted: 1,
 			},
@@ -200,6 +204,7 @@ func TestRaft_Delete(t *testing.T) {
 					ClusterId:    1,
 					MemberId:     1,
 					RaftLeaderId: 1,
+					RaftTerm:     2,
 				},
 				Deleted: 1,
 			},
@@ -210,10 +215,11 @@ func TestRaft_Delete(t *testing.T) {
 		tt := tt // Capture argument before launching in Parallel
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			nh := startRaftNode()
+			nh, meta := startRaftNode()
 			st := Raft{
 				NodeHost: nh,
 				Session:  nh.GetNoOPSession(1),
+				Metadata: meta,
 			}
 			defer nh.Stop()
 			r := require.New(t)
@@ -320,6 +326,7 @@ func TestRaft_Range(t *testing.T) {
 					ClusterId:    1,
 					MemberId:     1,
 					RaftLeaderId: 1,
+					RaftTerm:     2,
 				},
 				Kvs: []*proto.KeyValue{
 					{
@@ -352,6 +359,7 @@ func TestRaft_Range(t *testing.T) {
 					ClusterId:    1,
 					MemberId:     1,
 					RaftLeaderId: 1,
+					RaftTerm:     2,
 				},
 				Kvs: []*proto.KeyValue{
 					{
@@ -367,10 +375,11 @@ func TestRaft_Range(t *testing.T) {
 		tt := tt // Capture argument before launching in Parallel
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			nh := startRaftNode()
+			nh, meta := startRaftNode()
 			st := Raft{
 				NodeHost: nh,
 				Session:  nh.GetNoOPSession(1),
+				Metadata: meta,
 			}
 			defer nh.Stop()
 			r := require.New(t)
