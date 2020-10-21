@@ -40,12 +40,12 @@ const (
 	l0FileNumCompactionTrigger = 8
 	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
 	l0StopWritesTrigger = 24
-	// maxBytesForLevelBase maximum amount of data in a single level.
-	maxBytesForLevelBase = 4 * 1024 * 1024 * 1024
+	// maxBytesForLevelBase base for amount of data stored in a single level.
+	maxBytesForLevelBase = 256 * 1024 * 1024
 	// cacheSize LRU cache size.
 	cacheSize = 1024
 	// maxLogFileSize maximum size of WAL files.
-	maxLogFileSize = 1024 * 1024 * 128
+	maxLogFileSize = 128 * 1024 * 1024
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string, fs vfs.FS) sm.IOnDiskStateMachine {
