@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -58,6 +59,8 @@ When the ListenAddress field is not set, The Raft RPC module listens on RaftAddr
 When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.`)
 	rootCmd.PersistentFlags().Uint64("raft.node-id", 1, "Raft Node ID is a non-zero value used to identify a node within a Raft cluster.")
 	rootCmd.PersistentFlags().Uint64("raft.cluster-id", 1, "Raft Cluster ID is the unique value used to identify a Raft cluster.")
+	rootCmd.PersistentFlags().StringToString("raft.initial-members", map[string]string{}, `Raft cluster initial members defines a mapping of node IDs to their respective raft address.
+The node ID must be must be Integer >= 1. Example for the initial 3 node cluster setup on the localhost: "1=127.0.0.1:5012,2=127.0.0.1:5013,3=127.0.0.1:5014".`)
 
 	// Kafka flags
 	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"localhost:9092"}, "Address of the Kafka broker.")
@@ -109,6 +112,18 @@ func validateConfig(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
+func initialMembers(log *zap.SugaredLogger) map[uint64]string {
+	initialMembers := make(map[uint64]string)
+	for kStr, v := range viper.GetStringMapString("raft.initial-members") {
+		kUint, err := strconv.ParseUint(kStr, 10, 64)
+		if err != nil {
+			log.Panicf("cluster node ID in \"raft.initial-members\" must be integer: %v", err)
+		}
+		initialMembers[kUint] = v
+	}
+	return initialMembers
+}
+
 func root(_ *cobra.Command, _ []string) {
 	logger := buildLogger()
 	defer logger.Sync()
@@ -141,9 +156,7 @@ func root(_ *cobra.Command, _ []string) {
 	}
 
 	err = nh.StartOnDiskCluster(
-		map[uint64]string{
-			viper.GetUint64("raft.node-id"): viper.GetString("raft.address"),
-		},
+		initialMembers(log),
 		false,
 		func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
 			return raft.NewPebbleStateMachine(
