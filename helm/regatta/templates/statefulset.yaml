@@ -31,7 +31,7 @@ spec:
         - --api.cert-filename=/cert/tls.crt
         - --api.key-filename=/cert/tls.key
         - --raft.address=127.0.0.1:5012
-        - --raft.initial-members='1=127.0.0.1:5012'
+        - --raft.initial-members=1=127.0.0.1:5012
         - --raft.node-host-dir=/data/raft
         - --raft.state-machine-dir=/data/state-machine
         {{- if .Values.reflectionAPI.enabled }}
