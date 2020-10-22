@@ -102,6 +102,8 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 		sz = sz * targetFileSizeGrowFactor
 		lvlOpts[l] = opt
 	}
+	// Compress the lowest level
+	lvlOpts[levels-1].Compression = pebble.SnappyCompression
 
 	var fs vfs.FS
 	if p.fs != nil {
