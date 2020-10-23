@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sort"
 	"strconv"
 	"syscall"
 	"time"
@@ -191,7 +190,6 @@ func root(_ *cobra.Command, _ []string) {
 
 	// Create and register grpc/rest endpoints
 	mTables := viper.GetStringSlice("kafka.topics")
-	sort.Strings(mTables)
 	kvs := &regattaserver.KVServer{
 		Storage:       st,
 		ManagedTables: mTables,
