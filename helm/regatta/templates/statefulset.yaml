@@ -85,15 +85,6 @@ spec:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-kafka-cert
       {{- end }}
-      {{- if .Values.persistence.hostPath }}
-      - name: data
-        hostPath:
-          path: /tmp/{{ template "meta.name" . }}-data
-          type: DirectoryOrCreate
-      {{- else }}
-      - name: data
-        emptyDir: {}
-      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
       {{- end }}
@@ -109,8 +100,7 @@ spec:
               matchLabels:
                 app: {{ template "meta.name" . }}
                 release: {{ .Release.Name }}
-      {{- end}}
-  {{- if and (not .Values.persistence.hostPath) (not .Values.kind) }}
+      {{- end }}
   volumeClaimTemplates:
   - apiVersion: v1
     kind: PersistentVolumeClaim
@@ -118,4 +108,3 @@ spec:
       name: data
     spec:
     {{ .Values.persistence.storage | toYaml | nindent 6 }}
-  {{- end }}

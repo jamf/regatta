@@ -32,8 +32,7 @@ externalLoadBalancer: {}
 reflectionAPI:
   enabled: false
 
-persistence:
-  hostPath: false
+persistence: {}
 
 kafka:
   enabled: true

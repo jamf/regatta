@@ -12,7 +12,13 @@ charts:
       reflectionAPI:
         enabled: true
       persistence:
-        hostPath: true
+        storage:
+          storageClassName: local-path-provisioner
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
       imagePullSecrets: awsecr-cred
       kafka:
         brokers: kaf-101-dev.eu-west-1b.ie.wandera.co.uk:9091
