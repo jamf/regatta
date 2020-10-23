@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
 	"go.uber.org/zap"
 
@@ -106,6 +107,8 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 			Compression:    pebble.NoCompression,
 			BlockSize:      blockSize,
 			TargetFileSize: int64(sz),
+			FilterPolicy:   bloom.FilterPolicy(10),
+			FilterType:     pebble.TableFilter,
 		}
 		sz = sz * targetFileSizeGrowFactor
 		lvlOpts[l] = opt
