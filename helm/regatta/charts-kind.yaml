@@ -1,0 +1,20 @@
+apiVersion: v1
+
+name: regatta
+namespace: regatta
+
+charts:
+- .:
+    values:
+      kind: true
+      image:
+        repository: regatta
+        imagePullPolicy: IfNotPresent
+        tag: {{ env "TAG" | default "latest" | quote }}
+      reflectionAPI:
+        enabled: true
+      kafka:
+        enabled: false
+      affinity: true
+      raft:
+        initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"

@@ -40,5 +40,13 @@ proto/mvcc.pb.go: proto/mvcc.proto
 docker-build: proto
 	docker build . -t ${IMG}
 
+kind: docker-build kind-cluster
+	kubectl --context kind-regatta create namespace regatta || true
+	cd helm/regatta && kubecrt charts-kind.yaml | kubectl --context kind-regatta apply -f -
+
+kind-cluster:
+	kind create cluster --config hack/kind-cluster-config.yaml || true
+	kind load docker-image --name regatta regatta:latest
+
 clean:
 	rm -f regatta

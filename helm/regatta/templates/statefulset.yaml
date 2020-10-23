@@ -26,25 +26,41 @@ spec:
       containers:
       - name: {{ template "meta.name" . }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        args:
-        - "--api.address=0.0.0.0:{{ .Values.internalPort }}"
-        - --api.cert-filename=/cert/tls.crt
-        - --api.key-filename=/cert/tls.key
-        - --raft.address=127.0.0.1:5012
-        - --raft.initial-members=1=127.0.0.1:5012
-        - --raft.node-host-dir=/data/raft
-        - --raft.state-machine-dir=/data/state-machine
-        {{- if .Values.reflectionAPI.enabled }}
-        - --api.reflection-api
-        {{- end }}
-        - --kafka.brokers={{ .Values.kafka.brokers }}
-        - --kafka.timeout={{ .Values.kafka.dialerTimeout }}
-        - --kafka.group-id={{ .Values.kafka.groupID }}
-        - --kafka.topics={{ .Values.kafka.topics }}
-        - --kafka.tls={{ .Values.kafka.tls }}
-        - --kafka.server-cert-filename=/kafka-cert/ca.crt
-        - --kafka.client-cert-filename=/kafka-cert/tls.crt
-        - --kafka.client-key-filename=/kafka-cert/tls.key
+        imagePullPolicy: {{ .Values.image.imagePullPolicy }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        command:
+        - "sh"
+        - "-c"
+        - >-
+          NODE_ID=$(expr $(echo "${POD_NAME: -1}") + 1) &&
+          regatta \
+            --api.address=0.0.0.0:{{ .Values.internalPort }} \
+            --api.cert-filename=/cert/tls.crt \
+            --api.key-filename=/cert/tls.key \
+            --raft.address=$(POD_NAME).regatta.regatta.svc.cluster.local:5012 \
+            --raft.listen-address=0.0.0.0:5012 \
+            --raft.node-id=${NODE_ID} \
+            --raft.node-host-dir=/data/raft \
+            --raft.cluster-id=1 \
+            --raft.initial-members={{ .Values.raft.initialMembers }} \
+            --raft.state-machine-dir=/data/state-machine \
+          {{- if .Values.reflectionAPI.enabled }}
+            --api.reflection-api \
+          {{- end }}
+          {{- if .Values.kafka.enabled }}
+            --kafka.brokers={{ .Values.kafka.brokers }} \
+            --kafka.timeout={{ .Values.kafka.dialerTimeout }} \
+            --kafka.group-id={{ .Values.kafka.groupID }} \
+            --kafka.topics={{ .Values.kafka.topics }} \
+            --kafka.tls={{ .Values.kafka.tls }} \
+            --kafka.server-cert-filename=/kafka-cert/ca.crt \
+            --kafka.client-cert-filename=/kafka-cert/tls.crt \
+            --kafka.client-key-filename=/kafka-cert/tls.key
+          {{- end }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
@@ -52,8 +68,10 @@ spec:
         volumeMounts:
         - mountPath: /cert
           name: cert
+        {{- if ne .Values.kafka.serverCert ""}}
         - mountPath: /kafka-cert
           name: kafka-cert
+        {{- end }}
         - mountPath: /data
           name: data
       volumes:
@@ -61,10 +79,12 @@ spec:
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-cert
+      {{- if ne .Values.kafka.serverCert ""}}
       - name: kafka-cert
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-kafka-cert
+      {{- end }}
       {{- if .Values.persistence.hostPath }}
       - name: data
         hostPath:
@@ -80,7 +100,17 @@ spec:
       {{- if .Values.nodeSelector }}
       nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
       {{- end }}
-  {{- if not .Values.persistence.hostPath }}
+      {{ if .Values.affinity }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app: {{ template "meta.name" . }}
+                release: {{ .Release.Name }}
+      {{- end}}
+  {{- if and (not .Values.persistence.hostPath) (not .Values.kind) }}
   volumeClaimTemplates:
   - apiVersion: v1
     kind: PersistentVolumeClaim

@@ -1,11 +1,12 @@
 # Default values for regatta
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-replicas: 1
+replicas: 3
 team: delta
 
 image:
   repository: 371487436103.dkr.ecr.eu-west-1.amazonaws.com/regatta
+  imagePullPolicy: Always
 
 branch: master
 
@@ -21,6 +22,10 @@ internalPort: 8443
 
 tolerations: []
 nodeSelector: {}
+affinity: {}
+
+raft:
+  initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012"
 
 externalLoadBalancer: {}
 
@@ -31,6 +36,7 @@ persistence:
   hostPath: false
 
 kafka:
+  enabled: true
   brokers: ""
   dialerTimeout: 10s
   groupID: ""
@@ -39,3 +45,5 @@ kafka:
   serverCert: ""
   clientCert: ""
   clientKey: ""
+
+kind: false
