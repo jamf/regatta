@@ -3,10 +3,7 @@ FROM golang:1.15.2 as builder
 
 WORKDIR /workspace
 
-# this will cache the go mod download step, unless go.mod or go.sum changes
-ENV GOPROXY=go-proxy.oss.wandera.net
-ENV GONOSUMDB=github.com/wandera/*
-
+# This will cache the go mod download step, unless go.mod or go.sum changes
 # Copy the Go Modules manifests
 COPY go.mod go.sum ./
 
