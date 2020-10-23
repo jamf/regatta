@@ -96,8 +96,10 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
-	if sort.SearchStrings(s.ManagedTables, string(req.GetTable())) != len(s.ManagedTables) {
-		return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
+	for _, t := range s.ManagedTables {
+		if t == string(req.GetTable()) {
+			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
+		}
 	}
 
 	_, err := s.Storage.Put(ctx, req)
