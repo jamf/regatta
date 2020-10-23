@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"os"
+	"path"
 
 	"github.com/cockroachdb/pebble/vfs"
 	"go.uber.org/zap"
@@ -78,10 +80,16 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 	if p.nodeID < 1 {
 		return nil, ErrInvalidNodeID
 	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
 	var walDirname string
-	dirname := fmt.Sprintf("%s-%d-%d", p.dirname, p.clusterID, p.nodeID)
+	dirname := path.Join(p.dirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
 	if p.walDirname != "" {
-		walDirname = fmt.Sprintf("%s-%d-%d", p.walDirname, p.clusterID, p.nodeID)
+		walDirname = path.Join(p.walDirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
 	} else {
 		walDirname = dirname
 	}
