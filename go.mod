@@ -3,7 +3,7 @@ module github.com/wandera/regatta
 go 1.15
 
 require (
-	github.com/VictoriaMetrics/metrics v1.12.3 // indirect
+	github.com/VictoriaMetrics/metrics v1.12.3
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/cockroachdb/pebble v0.0.0-20201007144542-b79d619f4761
 	github.com/cockroachdb/redact v1.0.7 // indirect

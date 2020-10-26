@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/VictoriaMetrics/metrics"
+
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"go.uber.org/zap"
 
@@ -52,6 +54,11 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	rs.GWMux = gwruntime.NewServeMux()
 
 	mux.Handle("/", rs.GWMux)
+
+	// expose the registered metrics at `/metrics` path.
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
+		metrics.WritePrometheus(w, true)
+	})
 
 	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
