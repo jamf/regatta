@@ -145,13 +145,15 @@ func root(_ *cobra.Command, _ []string) {
 	}
 
 	cfg := config.Config{
-		NodeID:             viper.GetUint64("raft.node-id"),
-		ClusterID:          viper.GetUint64("raft.cluster-id"),
-		ElectionRTT:        20,
-		HeartbeatRTT:       1,
-		CheckQuorum:        true,
-		SnapshotEntries:    10000,
-		CompactionOverhead: 5000,
+		NodeID:                  viper.GetUint64("raft.node-id"),
+		ClusterID:               viper.GetUint64("raft.cluster-id"),
+		CheckQuorum:             true,
+		ElectionRTT:             20,
+		HeartbeatRTT:            1,
+		SnapshotEntries:         100000,
+		CompactionOverhead:      50000,
+		SnapshotCompressionType: config.Snappy,
+		MaxInMemLogSize:         64 * 1024 * 1024,
 	}
 
 	err = nh.StartOnDiskCluster(
