@@ -300,7 +300,6 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 		if _, err := w.Write(entry); err != nil {
 			return err
 		}
-		count++
 	}
 	return nil
 }
@@ -315,24 +314,38 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 	}
 	total := binary.LittleEndian.Uint64(lenBuf)
 	lenBuf = lenBuf[:4]
+
+	kv := proto.KeyValue{}
+	buffer := make([]byte, 0, 5*1024*1024)
+	b := p.pebble.NewBatch()
+	defer b.Close()
 	for i := uint64(0); i < total; i++ {
 		if _, err := io.ReadFull(r, lenBuf); err != nil {
 			return err
 		}
 		toRead := binary.LittleEndian.Uint32(lenBuf)
-		data := make([]byte, toRead)
-		if _, err := io.ReadFull(r, data); err != nil {
+
+		if _, err := io.ReadFull(r, buffer[:toRead]); err != nil {
 			return err
 		}
-		kv := proto.KeyValue{}
-		if err := pb.Unmarshal(data, &kv); err != nil {
+		if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
 			return err
 		}
-		if err := p.pebble.Set(kv.Key, kv.Value, nil); err != nil {
+
+		if err := b.Set(kv.Key, kv.Value, nil); err != nil {
 			return err
+		}
+
+		// TODO use size based commit trigger WND-31382
+		if i%1000 == 0 {
+			err := b.Commit(nil)
+			if err != nil {
+				return err
+			}
+			b = p.pebble.NewBatch()
 		}
 	}
-	return nil
+	return b.Commit(nil)
 }
 
 // Close closes the KVStateMachine IStateMachine.
