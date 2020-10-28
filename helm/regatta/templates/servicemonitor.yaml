@@ -1,3 +1,4 @@
+{{- if not .Values.kind }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -22,3 +23,4 @@ spec:
     tlsConfig:
       insecureSkipVerify: true
     interval: 30s
+{{ end }}

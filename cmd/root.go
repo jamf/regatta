@@ -71,6 +71,8 @@ The node ID must be must be Integer >= 1. Example for the initial 3 node cluster
 	rootCmd.PersistentFlags().String("kafka.client-cert-filename", "", "Kafka client certificate.")
 	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
 
+	rootCmd.PersistentFlags().Bool("experimental.badger", false, "Experimental! state machine using BadgerDB instead of Pebble")
+
 	cobra.OnInitialize(initConfig)
 }
 
@@ -156,10 +158,24 @@ func root(_ *cobra.Command, _ []string) {
 		MaxInMemLogSize:         64 * 1024 * 1024,
 	}
 
+	dragonboatlogger.GetLogger("raft").SetLevel(dragonboatlogger.DEBUG)
+	dragonboatlogger.GetLogger("rsm").SetLevel(dragonboatlogger.DEBUG)
+	dragonboatlogger.GetLogger("transport").SetLevel(dragonboatlogger.DEBUG)
+	dragonboatlogger.GetLogger("dragonboat").SetLevel(dragonboatlogger.DEBUG)
+	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
+
 	err = nh.StartOnDiskCluster(
 		initialMembers(log),
 		false,
 		func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
+			if viper.GetBool("experimental.badger") {
+				return raft.NewBadgerStateMachine(
+					clusterID,
+					nodeID,
+					viper.GetString("raft.state-machine-dir"),
+					viper.GetString("raft.state-machine-wal"),
+				)
+			}
 			return raft.NewPebbleStateMachine(
 				clusterID,
 				nodeID,
