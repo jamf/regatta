@@ -31,7 +31,7 @@ func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 	}
 }
 
-// KVStateMachine is a IStateMachine struct used for testing purpose.
+// KVBadgerStateMachine is a IStateMachine struct used for testing purpose.
 type KVBadgerStateMachine struct {
 	db         *badger.DB
 	clusterID  uint64
@@ -91,7 +91,7 @@ func (p *KVBadgerStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	}
 	p.db = db
 
-	indexVal := make([]byte, 1024)
+	indexVal := make([]byte, 8)
 	err = p.db.View(func(txn *badger.Txn) error {
 		it, err := txn.Get(raftLogIndexKey)
 		if err != nil {

@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -49,6 +50,8 @@ const (
 	cacheSize = 1024
 	// maxLogFileSize maximum size of WAL files.
 	maxLogFileSize = 128 * 1024 * 1024
+	// maxBatchSize maximum size of inmemory batch before commit.
+	maxBatchSize = 16 * 1024 * 1024
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string, fs vfs.FS) sm.IOnDiskStateMachine {
@@ -63,7 +66,7 @@ func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 	}
 }
 
-// KVStateMachine is a IStateMachine struct used for testing purpose.
+// KVPebbleStateMachine is a IStateMachine struct used for testing purpose.
 type KVPebbleStateMachine struct {
 	pebble     *pebble.DB
 	fs         vfs.FS
@@ -261,8 +264,6 @@ func (p *KVPebbleStateMachine) PrepareSnapshot() (interface{}, error) {
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
 func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
 	snapshot := ctx.(*pebble.Snapshot)
-	totalLen := make([]byte, 8)
-	entryLen := make([]byte, 4)
 	iter := snapshot.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {
@@ -278,8 +279,8 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 	for iter.First(); iter.Valid(); iter.Next() {
 		count++
 	}
-	binary.LittleEndian.PutUint64(totalLen, count)
-	if _, err := w.Write(totalLen); err != nil {
+	err := binary.Write(w, binary.LittleEndian, count)
+	if err != nil {
 		return err
 	}
 
@@ -293,8 +294,8 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 		if err != nil {
 			return err
 		}
-		binary.LittleEndian.PutUint32(entryLen, uint32(len(entry)))
-		if _, err := w.Write(entryLen); err != nil {
+		err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
+		if err != nil {
 			return err
 		}
 		if _, err := w.Write(entry); err != nil {
@@ -307,25 +308,30 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 // RecoverFromSnapshot recovers the object from the snapshot specified by the
 // io.Reader object.
 func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{}) error {
-	lenBuf := make([]byte, 8)
-
-	if _, err := io.ReadFull(r, lenBuf); err != nil {
+	br := bufio.NewReaderSize(r, maxBatchSize)
+	var total uint64
+	if err := binary.Read(br, binary.LittleEndian, &total); err != nil {
 		return err
 	}
-	total := binary.LittleEndian.Uint64(lenBuf)
-	lenBuf = lenBuf[:4]
 
 	kv := proto.KeyValue{}
-	buffer := make([]byte, 0, 5*1024*1024)
+	buffer := make([]byte, 0, 128*1024)
 	b := p.pebble.NewBatch()
 	defer b.Close()
+
+	var batchSize uint64
 	for i := uint64(0); i < total; i++ {
-		if _, err := io.ReadFull(r, lenBuf); err != nil {
+		var toRead uint64
+		if err := binary.Read(br, binary.LittleEndian, &toRead); err != nil {
 			return err
 		}
-		toRead := binary.LittleEndian.Uint32(lenBuf)
 
-		if _, err := io.ReadFull(r, buffer[:toRead]); err != nil {
+		batchSize = batchSize + toRead
+		if cap(buffer) < int(toRead) {
+			buffer = make([]byte, toRead)
+		}
+
+		if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
 			return err
 		}
 		if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
@@ -336,13 +342,13 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			return err
 		}
 
-		// TODO use size based commit trigger WND-31382
-		if i%1000 == 0 {
+		if batchSize >= maxBatchSize {
 			err := b.Commit(nil)
 			if err != nil {
 				return err
 			}
 			b = p.pebble.NewBatch()
+			batchSize = 0
 		}
 	}
 	return b.Commit(nil)
