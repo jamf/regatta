@@ -2,8 +2,6 @@ package raft
 
 import (
 	"fmt"
-	"io"
-	"sync"
 	"testing"
 
 	"github.com/cockroachdb/pebble/vfs"
@@ -289,47 +287,6 @@ func TestKVPebbleStateMachine_Update(t *testing.T) {
 			r.Equal(tt.want, got)
 		})
 	}
-}
-
-func TestKVPebbleStateMachine_Snapshot(t *testing.T) {
-	t.Run("Applying snapshot to the empty DB should produce the same hash", func(t *testing.T) {
-		r := require.New(t)
-		p := filledPebbleSM()
-		defer p.Close()
-
-		want, err := p.GetHash()
-		r.NoError(err)
-
-		snp, err := p.PrepareSnapshot()
-		r.NoError(err)
-
-		pr, pw := io.Pipe()
-		ep := emptyPebbleSM()
-		defer ep.Close()
-
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			t.Log("Save snapshot routine started")
-			err := p.SaveSnapshot(snp, pw, nil)
-			r.NoError(err)
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			t.Log("Recover from snapshot routine started")
-			err := ep.RecoverFromSnapshot(pr, nil)
-			r.NoError(err)
-		}()
-
-		wg.Wait()
-		t.Log("Recovery finished")
-		got, err := ep.GetHash()
-		r.NoError(err)
-		r.Equal(want, got, "the hash of recovered DB should be the same as of the original one")
-	})
 }
 
 func emptyPebbleSM() *KVPebbleStateMachine {
