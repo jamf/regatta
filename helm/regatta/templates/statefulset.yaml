@@ -41,7 +41,7 @@ spec:
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
-            --raft.address=$(POD_NAME).regatta.regatta.svc.cluster.local:5012 \
+            --raft.address=$(POD_NAME).{{ template "meta.name" . }}.{{ .Release.Namespace }}.svc.cluster.local:5012 \
             --raft.listen-address=0.0.0.0:5012 \
             --raft.node-id=${NODE_ID} \
             --raft.node-host-dir=/data/raft \
@@ -50,6 +50,9 @@ spec:
             --raft.state-machine-dir=/data/state-machine \
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
+          {{- end }}
+          {{- if .Values.badger }}
+            --experimental.badger \
           {{- end }}
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
