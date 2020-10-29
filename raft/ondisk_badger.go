@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
@@ -205,8 +204,7 @@ func (p *KVBadgerStateMachine) Sync() error {
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *KVBadgerStateMachine) PrepareSnapshot() (interface{}, error) {
-	ts := time.Now().UnixNano() / int64(time.Millisecond)
-	return p.db.NewStreamAt(uint64(ts)), nil
+	return p.db.NewStream(), nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
