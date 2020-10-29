@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
@@ -20,6 +21,13 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
+const (
+	blockCacheSize   = 4 * 1024 * 1024
+	valueLogFileSize = 500 * 1024 * 1024
+	gcTick           = 5 * time.Second
+	gcDiscardRatio   = 0.5
+)
+
 func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
 	return &KVBadgerStateMachine{
 		db:         nil,
@@ -28,6 +36,7 @@ func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 		dirname:    stateMachineDir,
 		walDirname: walDirname,
 		log:        zap.S().Named("ondisk"),
+		gcEnabled:  true,
 	}
 }
 
@@ -40,6 +49,8 @@ type KVBadgerStateMachine struct {
 	walDirname string
 	log        *zap.SugaredLogger
 	inMemory   bool
+	stopGC     func()
+	gcEnabled  bool
 }
 
 func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
@@ -85,8 +96,10 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 		WithValueDir(walDirname).
 		WithLogger(l).
 		WithCompression(options.Snappy).
-		WithSyncWrites(false)
-	o.InMemory = p.inMemory
+		WithSyncWrites(false).
+		WithInMemory(p.inMemory).
+		WithBlockCacheSize(blockCacheSize).
+		WithValueLogFileSize(valueLogFileSize)
 	return badger.Open(o)
 }
 
@@ -96,6 +109,10 @@ func (p *KVBadgerStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.db = db
+
+	if p.gcEnabled {
+		p.stopGC = p.runGC()
+	}
 
 	indexVal := make([]byte, 8)
 	err = p.db.View(func(txn *badger.Txn) error {
@@ -114,6 +131,38 @@ func (p *KVBadgerStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	}
 
 	return binary.LittleEndian.Uint64(indexVal), nil
+}
+
+func (p *KVBadgerStateMachine) runGC() func() {
+	stopChan := make(chan struct{})
+	go func() {
+		// Run value log GC.
+		defer func() {
+			stopChan <- struct{}{}
+		}()
+		var count int
+		ticker := time.NewTicker(gcTick)
+		defer ticker.Stop()
+		for range ticker.C {
+		again:
+			select {
+			case <-stopChan:
+				p.log.Infof("number of times value log GC was successful: %d", count)
+				return
+			default:
+			}
+			p.log.Infof("starting a value log GC")
+			err := p.db.RunValueLogGC(gcDiscardRatio)
+			p.log.Infof("result of value log GC: %v", err)
+			if err == nil {
+				count++
+				goto again
+			}
+		}
+	}()
+	return func() {
+		stopChan <- struct{}{}
+	}
 }
 
 // Update updates the object.
@@ -309,6 +358,9 @@ func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 
 // Close closes the KVStateMachine IStateMachine.
 func (p *KVBadgerStateMachine) Close() error {
+	if p.stopGC != nil {
+		p.stopGC()
+	}
 	return p.db.Close()
 }
 
