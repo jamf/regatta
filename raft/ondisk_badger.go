@@ -14,10 +14,9 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
 	"github.com/lni/dragonboat/v3/logger"
-	"go.uber.org/zap"
-
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
+	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
 )
 
@@ -167,18 +166,17 @@ func (p *KVBadgerStateMachine) runGC() func() {
 
 // Update updates the object.
 func (p *KVBadgerStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
-	cmd := proto.Command{}
-	buf := bytes.NewBuffer(make([]byte, 0))
 	batch := p.db.NewWriteBatch()
 	defer batch.Cancel()
 
 	for i := 0; i < len(updates); i++ {
-		err := pb.Unmarshal(updates[i].Cmd, &cmd)
+		cmd := &proto.Command{}
+		err := pb.Unmarshal(updates[i].Cmd, cmd)
 		if err != nil {
 			return nil, err
 		}
 
-		buf.Reset()
+		buf := bytes.NewBuffer(make([]byte, 0, 1+len(cmd.Table)+len(cmd.Kv.Key)))
 		buf.WriteByte(kindUser)
 		buf.Write(cmd.Table)
 		buf.Write(cmd.Kv.Key)
@@ -193,15 +191,13 @@ func (p *KVBadgerStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				return nil, err
 			}
 		}
-
-		raftIndexVal := make([]byte, 8)
-		binary.LittleEndian.PutUint64(raftIndexVal, updates[i].Index)
-		if err := batch.Set(raftLogIndexKey, raftIndexVal); err != nil {
-			return nil, err
-		}
-
 		updates[i].Result = sm.Result{Value: 1}
-		buf.Reset()
+	}
+
+	raftIndexVal := make([]byte, 8)
+	binary.LittleEndian.PutUint64(raftIndexVal, updates[len(updates)-1].Index)
+	if err := batch.Set(raftLogIndexKey, raftIndexVal); err != nil {
+		return nil, err
 	}
 
 	if err := batch.Flush(); err != nil {
@@ -316,7 +312,6 @@ func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 		return err
 	}
 
-	kv := proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
 	b := p.db.NewWriteBatch()
 	defer b.Cancel()
@@ -333,10 +328,11 @@ func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			buffer = make([]byte, toRead)
 		}
 
+		kv := &proto.KeyValue{}
 		if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
 			return err
 		}
-		if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
+		if err := pb.Unmarshal(buffer[:toRead], kv); err != nil {
 			return err
 		}
 
