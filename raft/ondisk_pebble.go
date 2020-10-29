@@ -191,14 +191,13 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			}
 		}
 
-		raftIndexVal := make([]byte, 8)
-		binary.LittleEndian.PutUint64(raftIndexVal, updates[i].Index)
-		if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
-			return nil, err
-		}
-
 		updates[i].Result = sm.Result{Value: 1}
-		buf.Reset()
+	}
+
+	raftIndexVal := make([]byte, 8)
+	binary.LittleEndian.PutUint64(raftIndexVal, updates[len(updates)-1].Index)
+	if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
+		return nil, err
 	}
 
 	if err := batch.Commit(nil); err != nil {
