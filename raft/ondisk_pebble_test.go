@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"go.uber.org/zap"
-	pb "google.golang.org/protobuf/proto"
 )
 
 const (
@@ -88,208 +87,7 @@ func TestKVPebbleStateMachine_Open(t *testing.T) {
 	}
 }
 
-func TestKVPebbleStateMachine_Lookup(t *testing.T) {
-	type fields struct {
-		sm *KVPebbleStateMachine
-	}
-	type args struct {
-		key *proto.RangeRequest
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    interface{}
-		wantErr bool
-	}{
-		{
-			name: "Lookup empty DB",
-			fields: fields{
-				sm: emptyPebbleSM(),
-			},
-			args: args{key: &proto.RangeRequest{
-				Key: []byte("Hello"),
-			}},
-			wantErr: true,
-		},
-		{
-			name: "Lookup full DB with non-existent key",
-			fields: fields{
-				sm: filledPebbleSM(),
-			},
-			args: args{key: &proto.RangeRequest{
-				Key: []byte("Hello"),
-			}},
-			wantErr: true,
-		},
-		{
-			name: "Lookup full DB with existing key",
-			fields: fields{
-				sm: filledPebbleSM(),
-			},
-			args: args{key: &proto.RangeRequest{
-				Table: []byte(testTable),
-				Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
-			}},
-			want: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
-					{
-						Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
-						Value: []byte(testValue),
-					},
-				},
-				Count: 1,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := require.New(t)
-			defer func() {
-				r.NoError(tt.fields.sm.Close())
-			}()
-			got, err := tt.fields.sm.Lookup(tt.args.key)
-			if tt.wantErr {
-				r.Error(err)
-				return
-			}
-			r.NoError(err)
-			r.Equal(tt.want, got)
-		})
-	}
-}
-
-func MustMarshallProto(message pb.Message) []byte {
-	bytes, err := pb.Marshal(message)
-	if err != nil {
-		zap.S().Panic(err)
-	}
-	return bytes
-}
-
-func TestKVPebbleStateMachine_Update(t *testing.T) {
-	type args struct {
-		updates []sm.Entry
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    []sm.Entry
-		wantErr bool
-	}{
-		{
-			name: "Successful update of a single item",
-			args: args{
-				updates: []sm.Entry{
-					{
-						Index: 1,
-						Cmd: MustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_PUT,
-							Kv: &proto.KeyValue{
-								Key:   []byte("test"),
-								Value: []byte("test"),
-							},
-						}),
-					},
-				},
-			},
-			want: []sm.Entry{
-				{
-					Index: 1,
-					Cmd: MustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_PUT,
-						Kv: &proto.KeyValue{
-							Key:   []byte("test"),
-							Value: []byte("test"),
-						},
-					}),
-					Result: sm.Result{
-						Value: 1,
-						Data:  nil,
-					},
-				},
-			},
-		},
-		{
-			name: "Successful update of a batch",
-			args: args{
-				updates: []sm.Entry{
-					{
-						Index: 1,
-						Cmd: MustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_PUT,
-							Kv: &proto.KeyValue{
-								Key:   []byte("test"),
-								Value: []byte("test"),
-							},
-						}),
-					},
-					{
-						Index: 2,
-						Cmd: MustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_DELETE,
-							Kv: &proto.KeyValue{
-								Key: []byte("test"),
-							},
-						}),
-					},
-				},
-			},
-			want: []sm.Entry{
-				{
-					Index: 1,
-					Cmd: MustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_PUT,
-						Kv: &proto.KeyValue{
-							Key:   []byte("test"),
-							Value: []byte("test"),
-						},
-					}),
-					Result: sm.Result{
-						Value: 1,
-						Data:  nil,
-					},
-				},
-				{
-					Index: 2,
-					Cmd: MustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_DELETE,
-						Kv: &proto.KeyValue{
-							Key: []byte("test"),
-						},
-					}),
-					Result: sm.Result{
-						Value: 1,
-						Data:  nil,
-					},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := require.New(t)
-			p := emptyPebbleSM()
-			defer func() {
-				r.NoError(p.Close())
-			}()
-			got, err := p.Update(tt.args.updates)
-			if tt.wantErr {
-				r.Error(err)
-				return
-			}
-			r.Equal(tt.want, got)
-		})
-	}
-}
-
-func emptyPebbleSM() *KVPebbleStateMachine {
+func emptyPebbleSM() sm.IOnDiskStateMachine {
 	p := &KVPebbleStateMachine{
 		fs:        vfs.NewMem(),
 		clusterID: 1,
@@ -304,12 +102,12 @@ func emptyPebbleSM() *KVPebbleStateMachine {
 	return p
 }
 
-func filledPebbleSM() *KVPebbleStateMachine {
+func filledPebbleSM() sm.IOnDiskStateMachine {
 	entries := make([]sm.Entry, 10_000)
 	for i := 0; i < len(entries); i++ {
 		entries[i] = sm.Entry{
 			Index: uint64(i),
-			Cmd: MustMarshallProto(&proto.Command{
+			Cmd: mustMarshallProto(&proto.Command{
 				Table: []byte(testTable),
 				Type:  proto.Command_PUT,
 				Kv: &proto.KeyValue{
