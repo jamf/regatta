@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func emptyBadgerSM() *KVBadgerStateMachine {
+func emptyBadgerSM() sm.IOnDiskStateMachine {
 	p := &KVBadgerStateMachine{
 		clusterID: 1,
 		nodeID:    1,
@@ -23,12 +23,12 @@ func emptyBadgerSM() *KVBadgerStateMachine {
 	return p
 }
 
-func filledBadgerSM() *KVBadgerStateMachine {
+func filledBadgerSM() sm.IOnDiskStateMachine {
 	entries := make([]sm.Entry, 10_000)
 	for i := 0; i < len(entries); i++ {
 		entries[i] = sm.Entry{
 			Index: uint64(i),
-			Cmd: MustMarshallProto(&proto.Command{
+			Cmd: mustMarshallProto(&proto.Command{
 				Table: []byte(testTable),
 				Type:  proto.Command_PUT,
 				Kv: &proto.KeyValue{
