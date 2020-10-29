@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -38,6 +39,7 @@ type KVBadgerStateMachine struct {
 	dirname    string
 	walDirname string
 	log        *zap.SugaredLogger
+	inMemory   bool
 }
 
 func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
@@ -54,21 +56,25 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 	}
 
 	var walDirname string
-	dirname := path.Join(p.dirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
-	if p.walDirname != "" {
-		walDirname = path.Join(p.walDirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
-	} else {
-		walDirname = dirname
-	}
+	var dirname string
 
-	err = os.MkdirAll(dirname, 0777)
-	if err != nil {
-		return nil, err
-	}
+	if !p.inMemory {
+		dirname = path.Join(p.dirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
+		if p.walDirname != "" {
+			walDirname = path.Join(p.walDirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
+		} else {
+			walDirname = dirname
+		}
 
-	err = os.MkdirAll(walDirname, 0777)
-	if err != nil {
-		return nil, err
+		err = os.MkdirAll(dirname, 0777)
+		if err != nil {
+			return nil, err
+		}
+
+		err = os.MkdirAll(walDirname, 0777)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	p.log.Infof("opening badger state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
@@ -80,6 +86,7 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 		WithLogger(l).
 		WithCompression(options.Snappy).
 		WithSyncWrites(false)
+	o.InMemory = p.inMemory
 	return badger.Open(o)
 }
 
@@ -204,20 +211,100 @@ func (p *KVBadgerStateMachine) Sync() error {
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *KVBadgerStateMachine) PrepareSnapshot() (interface{}, error) {
-	return p.db.NewStream(), nil
+	return p.db.NewTransaction(false), nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
 func (p *KVBadgerStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
-	st := ctx.(*badger.Stream)
-	_, err := st.Backup(w, 0)
-	return err
+	txn := ctx.(*badger.Txn)
+	defer txn.Discard()
+
+	iter := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer iter.Close()
+
+	// calculate the total snapshot size and send to writer
+	count := uint64(0)
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		count++
+	}
+	err := binary.Write(w, binary.LittleEndian, count)
+	if err != nil {
+		return err
+	}
+
+	val := make([]byte, 0)
+	// iterate through he whole kv space and send it to writer
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		val, err = iter.Item().ValueCopy(val)
+		if err != nil {
+			return err
+		}
+		kv := &proto.KeyValue{
+			Key:   iter.Item().Key(),
+			Value: val,
+		}
+		entry, err := pb.Marshal(kv)
+		if err != nil {
+			return err
+		}
+		err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
+		if err != nil {
+			return err
+		}
+		if _, err := w.Write(entry); err != nil {
+			return err
+		}
+	}
+	return txn.Commit()
 }
 
 // RecoverFromSnapshot recovers the object from the snapshot specified by the
 // io.Reader object.
 func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{}) error {
-	return p.db.Load(r, 10)
+	br := bufio.NewReaderSize(r, maxBatchSize)
+	var total uint64
+	if err := binary.Read(br, binary.LittleEndian, &total); err != nil {
+		return err
+	}
+
+	kv := proto.KeyValue{}
+	buffer := make([]byte, 0, 128*1024)
+	b := p.db.NewWriteBatch()
+	defer b.Cancel()
+
+	var batchSize uint64
+	for i := uint64(0); i < total; i++ {
+		var toRead uint64
+		if err := binary.Read(br, binary.LittleEndian, &toRead); err != nil {
+			return err
+		}
+
+		batchSize = batchSize + toRead
+		if cap(buffer) < int(toRead) {
+			buffer = make([]byte, toRead)
+		}
+
+		if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
+			return err
+		}
+		if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
+			return err
+		}
+
+		if err := b.Set(kv.Key, kv.Value); err != nil {
+			return err
+		}
+
+		if batchSize >= maxBatchSize {
+			err := b.Flush()
+			if err != nil {
+				return err
+			}
+			b = p.db.NewWriteBatch()
+			batchSize = 0
+		}
+	}
+	return b.Flush()
 }
 
 // Close closes the KVStateMachine IStateMachine.
@@ -230,6 +317,7 @@ func (p *KVBadgerStateMachine) GetHash() (uint64, error) {
 	hash64 := fnv.New64()
 	err := p.db.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer iter.Close()
 		// Compute Hash
 		// iterate through he whole kv space and send it to hash func
 		val := make([]byte, 0)
