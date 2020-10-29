@@ -86,35 +86,35 @@ func Test_zapLogger_SetLevel(t *testing.T) {
 
 func Test_zapLogger_Debugf(t *testing.T) {
 	l, _ := zap.NewDevelopment()
-	log := zapLogger{l.Sugar()}
+	log := zapLogger{l.Sugar(), logger.DEBUG}
 	log.Debugf("some")
 	_ = l.Sync()
 }
 
 func Test_zapLogger_Infof(t *testing.T) {
 	l, _ := zap.NewDevelopment()
-	log := zapLogger{l.Sugar()}
+	log := zapLogger{l.Sugar(), logger.DEBUG}
 	log.Infof("some")
 	_ = l.Sync()
 }
 
 func Test_zapLogger_Warningf(t *testing.T) {
 	l, _ := zap.NewDevelopment()
-	log := zapLogger{l.Sugar()}
+	log := zapLogger{l.Sugar(), logger.DEBUG}
 	log.Warningf("some")
 	_ = l.Sync()
 }
 
 func Test_zapLogger_Errorf(t *testing.T) {
 	l, _ := zap.NewDevelopment()
-	log := zapLogger{l.Sugar()}
+	log := zapLogger{l.Sugar(), logger.DEBUG}
 	log.Errorf("some")
 	_ = l.Sync()
 }
 
 func Test_zapLogger_Panicf(t *testing.T) {
 	l, _ := zap.NewDevelopment()
-	log := zapLogger{l.Sugar()}
+	log := zapLogger{l.Sugar(), logger.DEBUG}
 	require.Panics(t, func() {
 		log.Panicf("some")
 	})
