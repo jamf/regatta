@@ -9,15 +9,22 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
 	"github.com/lni/dragonboat/v3/logger"
-	"go.uber.org/zap"
-
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
+	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
+)
+
+const (
+	blockCacheSize   = 4 * 1024 * 1024
+	valueLogFileSize = 500 * 1024 * 1024
+	gcTick           = 5 * time.Second
+	gcDiscardRatio   = 0.5
 )
 
 func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
@@ -28,6 +35,7 @@ func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 		dirname:    stateMachineDir,
 		walDirname: walDirname,
 		log:        zap.S().Named("ondisk"),
+		gcEnabled:  true,
 	}
 }
 
@@ -40,6 +48,8 @@ type KVBadgerStateMachine struct {
 	walDirname string
 	log        *zap.SugaredLogger
 	inMemory   bool
+	stopGC     func()
+	gcEnabled  bool
 }
 
 func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
@@ -85,8 +95,10 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 		WithValueDir(walDirname).
 		WithLogger(l).
 		WithCompression(options.Snappy).
-		WithSyncWrites(false)
-	o.InMemory = p.inMemory
+		WithSyncWrites(false).
+		WithInMemory(p.inMemory).
+		WithBlockCacheSize(blockCacheSize).
+		WithValueLogFileSize(valueLogFileSize)
 	return badger.Open(o)
 }
 
@@ -96,6 +108,10 @@ func (p *KVBadgerStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.db = db
+
+	if p.gcEnabled {
+		p.stopGC = p.runGC()
+	}
 
 	indexVal := make([]byte, 8)
 	err = p.db.View(func(txn *badger.Txn) error {
@@ -116,20 +132,51 @@ func (p *KVBadgerStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	return binary.LittleEndian.Uint64(indexVal), nil
 }
 
+func (p *KVBadgerStateMachine) runGC() func() {
+	stopChan := make(chan struct{})
+	go func() {
+		// Run value log GC.
+		defer func() {
+			stopChan <- struct{}{}
+		}()
+		var count int
+		ticker := time.NewTicker(gcTick)
+		defer ticker.Stop()
+		for range ticker.C {
+		again:
+			select {
+			case <-stopChan:
+				p.log.Infof("number of times value log GC was successful: %d", count)
+				return
+			default:
+			}
+			p.log.Infof("starting a value log GC")
+			err := p.db.RunValueLogGC(gcDiscardRatio)
+			p.log.Infof("result of value log GC: %v", err)
+			if err == nil {
+				count++
+				goto again
+			}
+		}
+	}()
+	return func() {
+		stopChan <- struct{}{}
+	}
+}
+
 // Update updates the object.
 func (p *KVBadgerStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
-	cmd := proto.Command{}
-	buf := bytes.NewBuffer(make([]byte, 0))
 	batch := p.db.NewWriteBatch()
 	defer batch.Cancel()
 
 	for i := 0; i < len(updates); i++ {
-		err := pb.Unmarshal(updates[i].Cmd, &cmd)
+		cmd := &proto.Command{}
+		err := pb.Unmarshal(updates[i].Cmd, cmd)
 		if err != nil {
 			return nil, err
 		}
 
-		buf.Reset()
+		buf := bytes.NewBuffer(make([]byte, 0, 1+len(cmd.Table)+len(cmd.Kv.Key)))
 		buf.WriteByte(kindUser)
 		buf.Write(cmd.Table)
 		buf.Write(cmd.Kv.Key)
@@ -144,15 +191,13 @@ func (p *KVBadgerStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				return nil, err
 			}
 		}
-
-		raftIndexVal := make([]byte, 8)
-		binary.LittleEndian.PutUint64(raftIndexVal, updates[i].Index)
-		if err := batch.Set(raftLogIndexKey, raftIndexVal); err != nil {
-			return nil, err
-		}
-
 		updates[i].Result = sm.Result{Value: 1}
-		buf.Reset()
+	}
+
+	raftIndexVal := make([]byte, 8)
+	binary.LittleEndian.PutUint64(raftIndexVal, updates[len(updates)-1].Index)
+	if err := batch.Set(raftLogIndexKey, raftIndexVal); err != nil {
+		return nil, err
 	}
 
 	if err := batch.Flush(); err != nil {
@@ -267,7 +312,6 @@ func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 		return err
 	}
 
-	kv := proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
 	b := p.db.NewWriteBatch()
 	defer b.Cancel()
@@ -284,10 +328,11 @@ func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			buffer = make([]byte, toRead)
 		}
 
+		kv := &proto.KeyValue{}
 		if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
 			return err
 		}
-		if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
+		if err := pb.Unmarshal(buffer[:toRead], kv); err != nil {
 			return err
 		}
 
@@ -309,6 +354,9 @@ func (p *KVBadgerStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 
 // Close closes the KVStateMachine IStateMachine.
 func (p *KVBadgerStateMachine) Close() error {
+	if p.stopGC != nil {
+		p.stopGC()
+	}
 	return p.db.Close()
 }
 
