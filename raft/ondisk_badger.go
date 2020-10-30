@@ -23,7 +23,7 @@ import (
 const (
 	blockCacheSize   = 4 * 1024 * 1024
 	valueLogFileSize = 500 * 1024 * 1024
-	gcTick           = 5 * time.Second
+	gcTick           = 5 * time.Minute
 	gcDiscardRatio   = 0.5
 )
 
@@ -142,20 +142,22 @@ func (p *KVBadgerStateMachine) runGC() func() {
 		var count int
 		ticker := time.NewTicker(gcTick)
 		defer ticker.Stop()
-		for range ticker.C {
-		again:
+		for {
 			select {
 			case <-stopChan:
 				p.log.Infof("number of times value log GC was successful: %d", count)
 				return
-			default:
-			}
-			p.log.Infof("starting a value log GC")
-			err := p.db.RunValueLogGC(gcDiscardRatio)
-			p.log.Infof("result of value log GC: %v", err)
-			if err == nil {
-				count++
-				goto again
+			case <-ticker.C:
+				for {
+					p.log.Infof("starting a value log GC")
+					err := p.db.RunValueLogGC(gcDiscardRatio)
+					if err != nil {
+						p.log.Infof("result of value log GC: %v", err)
+						break
+					}
+					p.log.Info("result of value log GC: Success")
+					count++
+				}
 			}
 		}
 	}()
