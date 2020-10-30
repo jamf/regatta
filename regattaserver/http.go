@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/metrics"
-
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 
 	"google.golang.org/grpc"
@@ -42,6 +44,8 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	}
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	}
 	rs.GrpcServer = grpc.NewServer(opts...)
 
@@ -54,11 +58,23 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	rs.GWMux = gwruntime.NewServeMux()
 
 	mux.Handle("/", rs.GWMux)
-
 	// expose the registered metrics at `/metrics` path.
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
-		metrics.WritePrometheus(w, true)
+	mux.HandleFunc("/metrics", func(resp http.ResponseWriter, req *http.Request) {
+		metrics.WritePrometheus(resp, true)
+		mfs, err := prometheus.DefaultGatherer.Gather()
+		if err != nil {
+			resp.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		enc := expfmt.NewEncoder(resp, expfmt.FmtText)
+		for _, mf := range mfs {
+			if err := enc.Encode(mf); err != nil {
+				resp.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
 	})
+	grpc_prometheus.Register(rs.GrpcServer)
 
 	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
