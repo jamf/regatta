@@ -24,7 +24,7 @@ const (
 	blockCacheSize   = 4 * 1024 * 1024
 	valueLogFileSize = 500 * 1024 * 1024
 	gcTick           = 5 * time.Minute
-	gcDiscardRatio   = 0.5
+	gcDiscardRatio   = 0.25
 )
 
 func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
@@ -97,6 +97,7 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 		WithCompression(options.Snappy).
 		WithSyncWrites(false).
 		WithInMemory(p.inMemory).
+		WithValueLogLoadingMode(options.FileIO).
 		WithBlockCacheSize(blockCacheSize).
 		WithValueLogFileSize(valueLogFileSize)
 	return badger.Open(o)
