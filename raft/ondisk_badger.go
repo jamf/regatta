@@ -13,6 +13,7 @@ import (
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
+	"github.com/golang/snappy"
 	"github.com/lni/dragonboat/v3/logger"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
@@ -21,10 +22,18 @@ import (
 )
 
 const (
-	blockCacheSize   = 4 * 1024 * 1024
-	valueLogFileSize = 500 * 1024 * 1024
-	gcTick           = 5 * time.Minute
-	gcDiscardRatio   = 0.25
+	// blockCacheSize inmemory block cache speeds up key lookups.
+	blockCacheSize = 4 * 1024 * 1024
+	// valueLogFileSize maximum size of a value log file.
+	valueLogFileSize = 250 * 1024 * 1024
+	// valueLogThreshold threshold for storing value data in LSM instead of in value log.
+	valueLogThreshold = 1024
+	// gcTick how often to trigger value log garbage collection.
+	gcTick = 5 * time.Minute
+	// gcDiscardRatio threshold for rewriting the value log file (if more than the threshold could be reclaimed then reclaim).
+	gcDiscardRatio = 0.25
+	// compressionSnappy bit for entry.UserData that marks the value as compressed.
+	compressionSnappy = 0x1
 )
 
 func NewBadgerStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string) sm.IOnDiskStateMachine {
@@ -99,7 +108,8 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 		WithInMemory(p.inMemory).
 		WithValueLogLoadingMode(options.FileIO).
 		WithBlockCacheSize(blockCacheSize).
-		WithValueLogFileSize(valueLogFileSize)
+		WithValueLogFileSize(valueLogFileSize).
+		WithValueThreshold(valueLogThreshold)
 	return badger.Open(o)
 }
 
@@ -186,7 +196,8 @@ func (p *KVBadgerStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 
 		switch cmd.Type {
 		case proto.Command_PUT:
-			if err := batch.Set(buf.Bytes(), cmd.Kv.Value); err != nil {
+			ent := newEntry(buf.Bytes(), cmd.Kv.Value)
+			if err := batch.SetEntry(ent); err != nil {
 				return nil, err
 			}
 		case proto.Command_DELETE:
@@ -209,6 +220,30 @@ func (p *KVBadgerStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	return updates, nil
 }
 
+func newEntry(key, value []byte) *badger.Entry {
+	var enc byte
+	if len(value) > valueLogThreshold {
+		value = snappy.Encode(nil, value)
+		enc = compressionSnappy
+	}
+	ent := badger.NewEntry(key, value).WithMeta(enc)
+	return ent
+}
+
+func getValue(item *badger.Item, val []byte) ([]byte, error) {
+	val, err := item.ValueCopy(val)
+	if err != nil {
+		return nil, err
+	}
+	if item.UserMeta()&compressionSnappy != 0 {
+		val, err = snappy.Decode(nil, val)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return val, nil
+}
+
 // Lookup locally looks up the data.
 func (p *KVBadgerStateMachine) Lookup(key interface{}) (interface{}, error) {
 	switch req := key.(type) {
@@ -223,7 +258,7 @@ func (p *KVBadgerStateMachine) Lookup(key interface{}) (interface{}, error) {
 			if err != nil {
 				return err
 			}
-			val, err = it.ValueCopy(val)
+			val, err = getValue(it, val)
 			return err
 		})
 		if err != nil {
@@ -283,7 +318,7 @@ func (p *KVBadgerStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 	val := make([]byte, 0)
 	// iterate through he whole kv space and send it to writer
 	for iter.Rewind(); iter.Valid(); iter.Next() {
-		val, err = iter.Item().ValueCopy(val)
+		val, err = getValue(iter.Item(), val)
 		if err != nil {
 			return err
 		}
@@ -377,7 +412,7 @@ func (p *KVBadgerStateMachine) GetHash() (uint64, error) {
 			if err != nil {
 				return err
 			}
-			val, err := iter.Item().ValueCopy(val)
+			val, err := getValue(iter.Item(), val)
 			if err != nil {
 				return err
 			}

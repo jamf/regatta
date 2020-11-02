@@ -8,9 +8,8 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20201007144542-b79d619f4761
 	github.com/cockroachdb/redact v1.0.7 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.2
-	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21
 	github.com/golang/protobuf v1.4.3
-	github.com/golang/snappy v0.0.2 // indirect
+	github.com/golang/snappy v0.0.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.15.2
 	github.com/kr/pretty v0.2.1 // indirect
