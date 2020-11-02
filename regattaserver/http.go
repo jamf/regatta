@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"net/http/pprof"
 	"strings"
 	"time"
 
@@ -76,6 +77,19 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 		}
 	})
 	grpc_prometheus.Register(rs.GrpcServer)
+
+	// expose pprof
+	mux.HandleFunc("/debug/pprof", pprof.Index)
+	mux.Handle("/debug/allocs", pprof.Handler("allocs"))
+	mux.Handle("/debug/block", pprof.Handler("block"))
+	mux.Handle("/debug/goroutine", pprof.Handler("goroutine"))
+	mux.Handle("/debug/heap", pprof.Handler("heap"))
+	mux.Handle("/debug/mutex", pprof.Handler("mutex"))
+	mux.Handle("/debug/threadcreate", pprof.Handler("threadcreate"))
+	mux.HandleFunc("/debug/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/profile", pprof.Profile)
+	mux.HandleFunc("/debug/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/trace", pprof.Trace)
 
 	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
 	if err != nil {
