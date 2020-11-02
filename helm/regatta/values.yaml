@@ -46,3 +46,5 @@ kafka:
   clientKey: ""
 
 kind: false
+
+noServiceMonitor: false

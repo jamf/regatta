@@ -7,6 +7,7 @@ charts:
 - .:
     values:
       kind: true
+      noServiceMonitor: true
       image:
         repository: regatta
         imagePullPolicy: IfNotPresent

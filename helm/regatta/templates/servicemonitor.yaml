@@ -1,4 +1,4 @@
-{{- if not .Values.kind }}
+{{- if not .Values.noServiceMonitor }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

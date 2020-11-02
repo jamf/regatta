@@ -6,6 +6,7 @@ namespace: {{ env "FI_NAME" | default "default_fi_instance" }}
 charts:
 - .:
     values:
+      noServiceMonitor: true
       image:
         repository: {{ env "REPOSITORY_URL" | default "371487436103.dkr.ecr.eu-west-1.amazonaws.com/regatta" | quote }}
         tag: {{ env "TAG" | default "latest" | quote }}
