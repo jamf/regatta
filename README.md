@@ -61,7 +61,7 @@ Flags:
                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
 ```
 
-## Runing regatta locally
+## Running regatta locally
 
 ### Single replica
 The following command will run regatta locally in the single replica:

@@ -132,6 +132,10 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.SetLoggerFactory(raft.NewLogger)
 	log := zap.S().Named("root")
 
+	// Check signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
 	metadata := &raft.Metadata{}
 	nhc := config.NodeHostConfig{
 		WALDir:            viper.GetString("raft.wal-dir"),
@@ -146,6 +150,7 @@ func root(_ *cobra.Command, _ []string) {
 	if err != nil {
 		log.Panic(err)
 	}
+	defer nh.Stop()
 
 	cfg := config.Config{
 		NodeID:                  viper.GetUint64("raft.node-id"),
@@ -199,6 +204,11 @@ func root(_ *cobra.Command, _ []string) {
 		Session:  nh.GetNoOPSession(viper.GetUint64("raft.cluster-id")),
 	}
 
+	if !waitForClusterInit(shutdown, nh) {
+		log.Info("Shutting down...")
+		return
+	}
+
 	// Create regatta server
 	regatta := regattaserver.NewServer(
 		viper.GetString("api.address"),
@@ -206,6 +216,7 @@ func root(_ *cobra.Command, _ []string) {
 		viper.GetString("api.key-filename"),
 		viper.GetBool("api.reflection-api"),
 	)
+	defer regatta.Shutdown(context.Background(), 30*time.Second)
 
 	// Create and register grpc/rest endpoints
 	mTables := viper.GetStringSlice("kafka.topics")
@@ -254,6 +265,7 @@ func root(_ *cobra.Command, _ []string) {
 	if err != nil {
 		log.Panicf("failed to create consumer: %v", err)
 	}
+	defer consumer.Close()
 	prometheus.MustRegister(consumer)
 
 	log.Info("Start consuming...")
@@ -261,15 +273,32 @@ func root(_ *cobra.Command, _ []string) {
 		log.Panicf("failed to start consumer: %v", err)
 	}
 
-	// Check signals
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
-
 	// Cleanup
 	<-shutdown
-	consumer.Close()
-	_ = regatta.Shutdown(context.Background(), 30*time.Second)
-	nh.Stop()
+	log.Info("Shutting down...")
+}
+
+// waitForClusterInit checks state of clusters for `nh`. It blocks until no clusters are pending.
+// It can be interrupted with signal in `shutdown` channel.
+func waitForClusterInit(shutdown chan os.Signal, nh *dragonboat.NodeHost) bool {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		ready := true
+		select {
+		case <-shutdown:
+			return false
+		case <-ticker.C:
+			info := nh.GetNodeHostInfo(dragonboat.NodeHostInfoOption{SkipLogInfo: true})
+			for _, ci := range info.ClusterInfoList {
+				ready = ready && !ci.Pending
+			}
+			if ready {
+				return true
+			}
+		}
+	}
 }
 
 func buildLogger() *zap.Logger {
