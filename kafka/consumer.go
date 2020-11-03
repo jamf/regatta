@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/prometheus/client_golang/prometheus"
@@ -137,8 +138,9 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 		Topic:       config.Name,
 		GroupID:     config.GroupID,
 		Dialer:      dialer,
-		MinBytes:    1e3,  // 1KB
+		MinBytes:    1e6,  // 1MB
 		MaxBytes:    10e6, // 10MB
+		MaxWait:     3 * time.Second,
 		ErrorLogger: kafka.LoggerFunc(tc.log.Errorf),
 	}
 	tc.listener = listener
