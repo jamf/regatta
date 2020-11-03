@@ -42,6 +42,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	if creds, err = credentials.NewServerTLSFromFile(certFilename, keyFilename); err != nil {
 		rs.log.Panicf("cannot create server credentials: %v", err)
 	}
+	grpc_prometheus.EnableHandlingTimeHistogram()
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
