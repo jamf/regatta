@@ -13,6 +13,14 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
+var largeValues []string
+
+func init() {
+	for i := 0; i < 10_000; i++ {
+		largeValues = append(largeValues, RandString(2048))
+	}
+}
+
 func TestKVStateMachine_Snapshot(t *testing.T) {
 	type args struct {
 		producingSMFactory func() sm.IOnDiskStateMachine
@@ -30,9 +38,23 @@ func TestKVStateMachine_Snapshot(t *testing.T) {
 			},
 		},
 		{
+			"Pebble(large) -> Pebble",
+			args{
+				producingSMFactory: filledPebbleLargeValuesSM,
+				receivingSMFactory: emptyPebbleSM,
+			},
+		},
+		{
 			"Badger -> Badger",
 			args{
 				producingSMFactory: filledBadgerSM,
+				receivingSMFactory: emptyBadgerSM,
+			},
+		},
+		{
+			"Badger(large) -> Badger",
+			args{
+				producingSMFactory: filledBadgerLargeValuesSM,
 				receivingSMFactory: emptyBadgerSM,
 			},
 		},
@@ -47,6 +69,20 @@ func TestKVStateMachine_Snapshot(t *testing.T) {
 			"Badger -> Pebble",
 			args{
 				producingSMFactory: filledBadgerSM,
+				receivingSMFactory: emptyPebbleSM,
+			},
+		},
+		{
+			"Pebble(large) -> Badger",
+			args{
+				producingSMFactory: filledPebbleLargeValuesSM,
+				receivingSMFactory: emptyBadgerSM,
+			},
+		},
+		{
+			"Badger(large) -> Pebble",
+			args{
+				producingSMFactory: filledBadgerLargeValuesSM,
 				receivingSMFactory: emptyPebbleSM,
 			},
 		},
