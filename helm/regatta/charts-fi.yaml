@@ -6,6 +6,7 @@ namespace: {{ env "FI_NAME" | default "default_fi_instance" }}
 charts:
 - .:
     values:
+      replicas: 1
       noServiceMonitor: true
       image:
         repository: {{ env "REPOSITORY_URL" | default "371487436103.dkr.ecr.eu-west-1.amazonaws.com/regatta" | quote }}
@@ -25,3 +26,12 @@ charts:
           resources:
             requests:
               storage: 20Gi
+      resources:
+        limits:
+          cpu: 1
+          memory: 1500Mi
+        requests:
+          cpu: 200m
+          memory: 500Mi
+      kafka:
+        enabled: false
