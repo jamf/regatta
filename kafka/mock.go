@@ -37,6 +37,7 @@ func NewTopicConsumerMock(brokers []string, dialer *kafka.Dialer, config TopicCo
 	tc.listener = listener
 	tc.log = zap.S().Named(fmt.Sprintf("consumer:%s", config.Name))
 	tc.reader = &ReaderMock{log: tc.log}
+	tc.metrics = newTopicConsumerMetrics(config.Name, tc.reader)
 	return &tc
 }
 
@@ -148,6 +149,35 @@ func (r *ReaderMock) CommitMessages(ctx context.Context, msgs ...kafka.Message) 
 // Config mocks getting reader config.
 func (r *ReaderMock) Config() kafka.ReaderConfig {
 	return kafka.ReaderConfig{}
+}
+
+// Stats get the reader stats.
+func (r *ReaderMock) Stats() kafka.ReaderStats {
+	return kafka.ReaderStats{
+		Dials:                     1,
+		Fetches:                   2,
+		Messages:                  3,
+		Bytes:                     4,
+		Rebalances:                5,
+		Timeouts:                  6,
+		Errors:                    7,
+		DialTime:                  kafka.DurationStats{},
+		ReadTime:                  kafka.DurationStats{},
+		WaitTime:                  kafka.DurationStats{},
+		FetchSize:                 kafka.SummaryStats{},
+		FetchBytes:                kafka.SummaryStats{},
+		Offset:                    8,
+		Lag:                       9,
+		MinBytes:                  10,
+		MaxBytes:                  11,
+		MaxWait:                   12,
+		QueueLength:               13,
+		QueueCapacity:             14,
+		ClientID:                  "",
+		Topic:                     "mock-topic",
+		Partition:                 "",
+		DeprecatedFetchesWithTypo: 0,
+	}
 }
 
 // Close closes mock.

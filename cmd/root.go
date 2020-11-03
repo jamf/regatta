@@ -12,6 +12,7 @@ import (
 	"time"
 
 	sm "github.com/lni/dragonboat/v3/statemachine"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 
 	"github.com/lni/dragonboat/v3"
@@ -253,6 +254,7 @@ func root(_ *cobra.Command, _ []string) {
 	if err != nil {
 		log.Panicf("failed to create consumer: %v", err)
 	}
+	prometheus.MustRegister(consumer)
 
 	log.Info("Start consuming...")
 	if err := consumer.Start(context.Background()); err != nil {

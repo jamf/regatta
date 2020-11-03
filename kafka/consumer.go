@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -74,7 +75,6 @@ func NewConsumer(config Config, listener OnMessageFunc) (*Consumer, error) {
 		c.topicConsumers = append(c.topicConsumers,
 			NewTopicConsumer(c.config.Brokers, c.dialer, tc, c.listener, c.config.DebugLogs))
 	}
-
 	return c, nil
 }
 
@@ -105,12 +105,25 @@ func (c *Consumer) Close() {
 	}
 }
 
+func (c *Consumer) Collect(ch chan<- prometheus.Metric) {
+	for _, tc := range c.topicConsumers {
+		tc.Collect(ch)
+	}
+}
+
+func (c *Consumer) Describe(ch chan<- *prometheus.Desc) {
+	for _, tc := range c.topicConsumers {
+		tc.Describe(ch)
+	}
+}
+
 // TopicConsumer reads one topic from Kafka and processes the messages with `listener`.
 type TopicConsumer struct {
 	config   TopicConfig
 	reader   Reader
 	listener OnMessageFunc
 	log      *zap.SugaredLogger
+	metrics  *topicConsumerMetrics
 }
 
 // NewTopicConsumer constructs TopicConsumer.
@@ -133,6 +146,7 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 		rc.Logger = kafka.LoggerFunc(tc.log.Debugf)
 	}
 	tc.reader = kafka.NewReader(rc)
+	tc.metrics = newTopicConsumerMetrics(config.Name, tc.reader)
 	return &tc
 }
 
@@ -214,6 +228,14 @@ func (tc *TopicConsumer) Close() error {
 	return nil
 }
 
+func (tc *TopicConsumer) Collect(ch chan<- prometheus.Metric) {
+	tc.metrics.Collect(ch)
+}
+
+func (tc *TopicConsumer) Describe(ch chan<- *prometheus.Desc) {
+	tc.metrics.Describe(ch)
+}
+
 // verifyPeerCertificate is used for verification of certificates with wrong hostname, i.e. current wandera situation.
 // Inspired by https://go-review.googlesource.com/c/go/+/193620/8/src/crypto/tls/example_test.go.
 func verifyPeerCertificate(rootCAs *x509.CertPool) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -244,5 +266,6 @@ type Reader interface {
 	FetchMessage(ctx context.Context) (kafka.Message, error)
 	CommitMessages(ctx context.Context, msgs ...kafka.Message) error
 	Config() kafka.ReaderConfig
+	Stats() kafka.ReaderStats
 	Close() error
 }

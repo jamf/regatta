@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -395,4 +397,22 @@ func TestKafka_ConsumeTopicFailToCommit(t *testing.T) {
 		func() bool { return len(msgs) == mock.GetCommitCount() },
 		1*time.Second, 10*time.Millisecond, "All messages should be commited",
 	)
+}
+
+func TestKafka_Metrics(t *testing.T) {
+	r := require.New(t)
+
+	w := ListenerMock{}
+	tc := NewTopicConsumerMock([]string{"address"},
+		kafka.DefaultDialer,
+		topics[0],
+		w.OnMessage,
+		true,
+	)
+
+	metrics, err := os.Open("testdata/metrics")
+	r.NoError(err)
+
+	err = testutil.CollectAndCompare(tc, metrics)
+	r.NoError(err)
 }
