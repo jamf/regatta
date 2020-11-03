@@ -34,4 +34,6 @@ charts:
           cpu: 200m
           memory: 500Mi
       kafka:
-        enabled: false
+        brokers: "core-kafka-bootstrap:9092"
+        groupID: "regatta-fi-0"
+        tls: false
