@@ -170,7 +170,7 @@ func (r *ReaderMock) Stats() kafka.ReaderStats {
 		Lag:                       9,
 		MinBytes:                  10,
 		MaxBytes:                  11,
-		MaxWait:                   12,
+		MaxWait:                   12 * time.Second,
 		QueueLength:               13,
 		QueueCapacity:             14,
 		ClientID:                  "",
