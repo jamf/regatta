@@ -9,6 +9,7 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/util"
 	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
 )
@@ -17,7 +18,7 @@ var largeValues []string
 
 func init() {
 	for i := 0; i < 10_000; i++ {
-		largeValues = append(largeValues, RandString(2048))
+		largeValues = append(largeValues, util.RandString(2048))
 	}
 }
 
