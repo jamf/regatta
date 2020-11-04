@@ -7,12 +7,13 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/util"
 	"go.uber.org/zap"
 )
 
 func TestKVBadgerStateMachine_LargeValueLookup(t *testing.T) {
 	r := require.New(t)
-	expValue := RandString(2048)
+	expValue := util.RandString(2048)
 	expKey := fmt.Sprintf(testKeyFormat, 0)
 	entries := []sm.Entry{
 		{
