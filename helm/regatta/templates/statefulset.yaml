@@ -68,6 +68,16 @@ spec:
         - name: https
           containerPort: {{ .Values.internalPort }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
+        livenessProbe:
+          tcpSocket:
+            port: 8443
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          tcpSocket:
+            port: 8443
+          initialDelaySeconds: 30
+          periodSeconds: 60
         volumeMounts:
         - mountPath: /cert
           name: cert
