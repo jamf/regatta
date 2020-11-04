@@ -103,7 +103,7 @@ func (c *topicConsumerMetrics) update() {
 	c.kafkaReaderLag.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.Lag))
 	c.kafkaReaderMinBytes.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.MinBytes))
 	c.kafkaReaderMaxBytes.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.MaxBytes))
-	c.kafkaReaderMaxWaitSeconds.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.MaxWait))
+	c.kafkaReaderMaxWaitSeconds.With(prometheus.Labels{"topic": c.topic}).Set(stats.MaxWait.Seconds())
 	c.kafkaReaderQueueLength.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.QueueLength))
 	c.kafkaReaderQueueCapacity.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.QueueCapacity))
 }
