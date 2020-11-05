@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lni/dragonboat/v3/plugin/rocksdb"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
@@ -145,6 +146,10 @@ func root(_ *cobra.Command, _ []string) {
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
 		LogDB:             config.GetSmallMemLogDBConfig(),
+	}
+
+	if viper.GetBool("experimental.badger") {
+		nhc.LogDBFactory = rocksdb.NewLogDB
 	}
 
 	err := nhc.Prepare()
