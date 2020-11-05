@@ -23,7 +23,7 @@ test:
 build: regatta
 
 regatta: proto *.go **/*.go
-	CGO_ENABLED=0 go build -o regatta
+	CGO_ENABLED=1 go build -o regatta
 
 proto: proto/regatta.pb.go proto/regatta.pb.gw.go proto/mvcc.pb.go
 
