@@ -58,7 +58,6 @@ This is also the identifier for a Storage instance. RaftAddress should be set to
 When the ListenAddress field is not set, The Raft RPC module listens on RaftAddress. If 0.0.0.0 is specified as the IP of the ListenAddress, Regatta listens to the specified port on all interfaces.
 When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.`)
 	rootCmd.PersistentFlags().Uint64("raft.node-id", 1, "Raft Node ID is a non-zero value used to identify a node within a Raft cluster.")
-	rootCmd.PersistentFlags().Uint64("raft.cluster-id", 1, "Raft Cluster ID is the unique value used to identify a Raft cluster.")
 	rootCmd.PersistentFlags().StringToString("raft.initial-members", map[string]string{}, `Raft cluster initial members defines a mapping of node IDs to their respective raft address.
 The node ID must be must be Integer >= 1. Example for the initial 3 node cluster setup on the localhost: "--raft.initial-members=1=127.0.0.1:5012,2=127.0.0.1:5013,3=127.0.0.1:5014".`)
 
@@ -146,23 +145,15 @@ func root(_ *cobra.Command, _ []string) {
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
 	}
+	err := nhc.Prepare()
+	if err != nil {
+		log.Panic(err)
+	}
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
 		log.Panic(err)
 	}
 	defer nh.Stop()
-
-	cfg := config.Config{
-		NodeID:                  viper.GetUint64("raft.node-id"),
-		ClusterID:               viper.GetUint64("raft.cluster-id"),
-		CheckQuorum:             true,
-		ElectionRTT:             20,
-		HeartbeatRTT:            1,
-		SnapshotEntries:         100000,
-		CompactionOverhead:      50000,
-		SnapshotCompressionType: config.Snappy,
-		MaxInMemLogSize:         64 * 1024 * 1024,
-	}
 
 	dragonboatlogger.GetLogger("raft").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("rsm").SetLevel(dragonboatlogger.DEBUG)
@@ -170,39 +161,49 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.GetLogger("dragonboat").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
 
-	err = nh.StartOnDiskCluster(
-		initialMembers(log),
-		false,
-		func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
-			if viper.GetBool("experimental.badger") {
-				return raft.NewBadgerStateMachine(
+	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDBShards)
+
+	for clusterID := uint64(1); clusterID <= partitioner.Capacity(); clusterID++ {
+		cfg := config.Config{
+			NodeID:                  viper.GetUint64("raft.node-id"),
+			ClusterID:               clusterID,
+			CheckQuorum:             true,
+			ElectionRTT:             20,
+			HeartbeatRTT:            1,
+			SnapshotEntries:         100000,
+			CompactionOverhead:      50000,
+			MaxInMemLogSize:         64 * 1024 * 1024,
+			SnapshotCompressionType: config.Snappy,
+		}
+		err = nh.StartOnDiskCluster(
+			initialMembers(log),
+			false,
+			func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
+				if viper.GetBool("experimental.badger") {
+					return raft.NewBadgerStateMachine(
+						clusterID,
+						nodeID,
+						viper.GetString("raft.state-machine-dir"),
+						viper.GetString("raft.state-machine-wal"),
+					)
+				}
+				return raft.NewPebbleStateMachine(
 					clusterID,
 					nodeID,
 					viper.GetString("raft.state-machine-dir"),
 					viper.GetString("raft.state-machine-wal"),
+					nil,
 				)
-			}
-			return raft.NewPebbleStateMachine(
-				clusterID,
-				nodeID,
-				viper.GetString("raft.state-machine-dir"),
-				viper.GetString("raft.state-machine-wal"),
-				nil,
-			)
-		},
-		cfg,
-	)
-
-	if err != nil {
-		log.Panicf("failed to start Raft cluster: %v", err)
+			},
+			cfg,
+		)
+		if err != nil {
+			log.Panicf("failed to start raft cluster: %v", err)
+		}
 	}
 
 	// Create storage
-	st := &storage.Raft{
-		NodeHost: nh,
-		Metadata: metadata,
-		Session:  nh.GetNoOPSession(viper.GetUint64("raft.cluster-id")),
-	}
+	st := storage.NewRaft(nh, partitioner, metadata)
 
 	if !waitForClusterInit(shutdown, nh) {
 		log.Info("Shutting down...")
@@ -321,7 +322,7 @@ func buildLogger() *zap.Logger {
 	return logger
 }
 
-func onMessage(st *storage.Raft) kafka.OnMessageFunc {
+func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
 	return func(ctx context.Context, table, key, value []byte) error {
 		if value != nil {
 			_, err := st.Put(ctx, &proto.PutRequest{
