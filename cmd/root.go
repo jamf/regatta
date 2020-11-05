@@ -144,7 +144,9 @@ func root(_ *cobra.Command, _ []string) {
 		ListenAddress:     viper.GetString("raft.listen-address"),
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
+		LogDB:             config.GetSmallMemLogDBConfig(),
 	}
+
 	err := nhc.Prepare()
 	if err != nil {
 		log.Panic(err)
