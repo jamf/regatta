@@ -1,0 +1,203 @@
+{{- if not .Values.noServiceMonitor -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "meta.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    role: alert-rules
+    prometheus: k8s
+spec:
+  groups:
+  - name: regatta.rules
+    rules:
+    # K8S
+    - alert: PodFrequentlyRestarting
+      expr: increase(kube_pod_container_status_restarts_total{pod=~"{{ template "meta.name" . }}.*"}[1h]) > 5
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: Pod {{ "{{" }}$labels.namespace{{ "}}" }}/{{ "{{" }}$labels.pod{{ "}}" }} was restarted {{ "{{" }}$value{{ "}}" }}
+          times within the last hour
+        summary: Pod is restarting frequently
+    - alert: TargetDown
+      expr: round(100 * (count(up{job="{{ template "meta.name" . }}"} == 0) BY (job) / count(up{job="{{ template "meta.name" . }}"}) BY (job))) > 10
+      for: 10m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: '{{ "{{" }} $value {{ "}}" }}% of {{ "{{" }} $labels.job {{ "}}" }} targets are down.'
+        summary: Targets are down
+    - alert: StatefulsetReplicasNotUpdated
+      expr: max without (revision)
+        (kube_statefulset_status_current_revision{job="kube-state-metrics", statefulset="{{ template "meta.name" . }}"}
+        unless
+        kube_statefulset_status_update_revision{job="kube-state-metrics", statefulset="{{ template "meta.name" . }}"})
+        *
+        (kube_statefulset_replicas{job="kube-state-metrics", statefulset="{{ template "meta.name" . }}"}
+        !=
+        kube_statefulset_status_replicas_updated{job="kube-state-metrics", statefulset="{{ template "meta.name" . }}"})
+      for: 15m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: Replicas are not updated and available for statefulset {{ "{{" }}$labels.namespace{{ "}}" }}/{{ "{{" }}$labels.statefulset{{ "}}" }}
+        summary: Statefulset replicas are outdated
+
+    # RAFT
+    - alert: TooManyRaftnodeCampaignsLaunched
+      expr: sum(increase(dragonboat_raftnode_campaign_launched_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign launched in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign launched'
+    - alert: TooManyRaftnodeCampaignsSkipped
+      expr: sum(increase(dragonboat_raftnode_campaign_skipped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign skipped in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign skipped'
+    - alert: RaftLeaderNotAvailable
+      expr: sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job) < 1
+      for: 2m
+      labels:
+        severity: critical
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Raft leader not available for cluster: {{ "{{" }}$labels.clusterid{{ "}}" }}, job: {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
+    - alert: TooManyRaftNodeProposalsDropped
+      expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node proposals in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node proposals dropped'
+    - alert: TooManyRaftNodeReadIndexesDropped
+      expr: sum(increase(dragonboat_raftnode_read_index_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node read index in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node read indexes dropped'
+    - alert: TooManyRaftNodeReplicationsRejected
+      expr: sum(increase(dragonboat_raftnode_replication_rejected_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Rejected {{ "{{" }}$value{{ "}}" }} replications in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node replications rejected'
+    - alert: TooManyFailedTransportMessageConnectionAttempts
+      expr: increase(dragonboat_transport_failed_message_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Failed {{ "{{" }}$value{{ "}}" }} transport message connection attempts in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport message connection attempts'
+    - alert: TooManyFailedSnapshotConnectionAttempts
+      expr: increase(dragonboat_transport_failed_snapshot_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Failed {{ "{{" }}$value{{ "}}" }} snapshot connection attempts in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed snapshot connection attempts'
+    - alert: TooManyTransportMessageSendFailures
+      expr: increase(dragonboat_transport_failed_snapshot_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Failed {{ "{{" }}$value{{ "}}" }} transport message send in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport message send'
+    - alert: TooManyTransportReceiveMessagesDropped
+      expr: increase(dragonboat_transport_received_message_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Dropped {{ "{{" }}$value{{ "}}" }} transport message receive in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many dropped transport message receive'
+    - alert: TooManyTransportSnapshotSendFailures
+      expr: increase(dragonboat_transport_snapshot_send_failure_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Failed {{ "{{" }}$value{{ "}}" }} transport snapshot send in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport snapshot send'
+
+    # GRPC
+    - alert: GRPCFailedRequests
+      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection"}[5m]) > 0
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Failed {{ "{{" }}$value{{ "}}" }} GRPC requests in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC request error'
+    - alert: TooSlowGRPCResponseP99
+      expr: histogram_quantile(0.99, sum by (grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.5
+      for: 1m
+      labels:
+        severity: critical
+        team: {{ .Values.team }}
+      annotations:
+        description: '95 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P99)'
+    - alert: TooSlowGRPCResponseP50
+      expr: histogram_quantile(0.99, sum by (grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.05
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: '50 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} for {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P50)'
+
+    # Kafka
+    - alert: TooManyKafkaReaderErrors
+      expr: increase(kafka_reader_error_count{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 0
+      for: 1m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Observed {{ "{{" }}$value{{ "}}" }} kafka reader errors in 5 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many kafka reader errors'
+    - alert: HighKafkaReaderLag
+      expr: kafka_reader_lag{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"} > 200
+      for: 15m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Kafka reader lag was over 200 for 15 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader lag to high'
+{{- end -}}
