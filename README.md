@@ -45,7 +45,6 @@ Flags:
       --log-level string                      Log level: DEBUG/INFO/WARN/ERROR. (default "DEBUG")
       --raft.address string                   RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
                                               This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.
-      --raft.cluster-id uint                  Raft Cluster ID is the unique value used to identify a Raft cluster. (default 1)
       --raft.initial-members stringToString   Raft cluster initial members defines a mapping of node IDs to their respective raft address.
                                               The node ID must be must be Integer >= 1. Example for the initial 3 node cluster setup on the localhost: "--raft.initial-members=1=127.0.0.1:5012,2=127.0.0.1:5013,3=127.0.0.1:5014". (default [])
       --raft.listen-address string            ListenAddress is a hostname:port or IP:port address used by the Raft RPC module to listen on for Raft message and snapshots.
