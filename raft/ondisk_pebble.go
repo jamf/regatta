@@ -126,15 +126,15 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 	return pebble.Open(dirname, &pebble.Options{
 		Cache:                       cache,
 		FS:                          fs,
+		L0CompactionThreshold:       l0FileNumCompactionTrigger,
+		L0StopWritesThreshold:       l0StopWritesTrigger,
+		LBaseMaxBytes:               maxBytesForLevelBase,
 		Levels:                      lvlOpts,
 		Logger:                      zap.S().Named("pebble"),
-		WALDir:                      walDirname,
 		MaxManifestFileSize:         maxLogFileSize,
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
-		LBaseMaxBytes:               maxBytesForLevelBase,
-		L0CompactionThreshold:       l0FileNumCompactionTrigger,
-		L0StopWritesThreshold:       l0StopWritesTrigger,
+		WALDir:                      walDirname,
 	})
 }
 

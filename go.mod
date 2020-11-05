@@ -17,6 +17,7 @@ require (
 	github.com/lni/dragonboat/v3 v3.1.1-0.20200930054505-3fe077eba05b
 	github.com/lni/goutils v1.2.3-0.20200912062322-5c8071af46b2
 	github.com/magiconair/properties v1.8.4 // indirect
+	github.com/minio/highwayhash v1.0.1
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.3
@@ -29,6 +30,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.16.0
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/exp v0.0.0-20201008143054-e3b2a7f2fdc7 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20201010224723-4f7140c49acb // indirect

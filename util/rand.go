@@ -1,4 +1,4 @@
-package raft
+package util
 
 import (
 	"math/rand"
@@ -14,6 +14,14 @@ const (
 )
 
 var src = rand.NewSource(time.Now().UnixNano())
+
+func RandStrings(length, count int) []string {
+	res := make([]string, count)
+	for i := 0; i < count; i++ {
+		res[i] = RandString(length)
+	}
+	return res
+}
 
 func RandString(n int) string {
 	sb := strings.Builder{}
