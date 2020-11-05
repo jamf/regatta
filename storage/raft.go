@@ -2,6 +2,9 @@ package storage
 
 import (
 	"context"
+	"encoding/binary"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -12,13 +15,47 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
-type Raft struct {
-	*dragonboat.NodeHost
-	Session  *client.Session
-	Metadata *raft.Metadata
+func NewRaft(nh *dragonboat.NodeHost, partitioner Partitioner, metadata *raft.Metadata) KVStorage {
+	return &raftKV{
+		nh:          nh,
+		meta:        metadata,
+		partitioner: partitioner,
+		sessionPool: struct {
+			sessions map[uint64]*client.Session
+			mtx      sync.RWMutex
+		}{
+			sessions: make(map[uint64]*client.Session),
+		},
+	}
 }
 
-func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+type raftKV struct {
+	nh          *dragonboat.NodeHost
+	meta        *raft.Metadata
+	partitioner Partitioner
+	sessionPool struct {
+		sessions map[uint64]*client.Session
+		mtx      sync.RWMutex
+	}
+}
+
+func (r *raftKV) sessionForKey(key []byte) *client.Session {
+	id := r.partitioner.ClusterID(key)
+	r.sessionPool.mtx.RLock()
+	session, ok := r.sessionPool.sessions[id]
+	r.sessionPool.mtx.RUnlock()
+	if ok {
+		return session
+	}
+
+	session = r.nh.GetNoOPSession(id)
+	r.sessionPool.mtx.Lock()
+	defer r.sessionPool.mtx.Unlock()
+	r.sessionPool.sessions[id] = session
+	return session
+}
+
+func (r *raftKV) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if len(req.Table) == 0 {
 		return nil, ErrEmptyTable
 	}
@@ -29,14 +66,15 @@ func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Range
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
 
+	id := r.partitioner.ClusterID(req.Key)
 	var (
 		val interface{}
 		err error
 	)
 	if req.Linearizable {
-		val, err = r.SyncRead(dc, r.Session.ClusterID, req)
+		val, err = r.nh.SyncRead(dc, id, req)
 	} else {
-		val, err = r.StaleRead(r.Session.ClusterID, req)
+		val, err = r.nh.StaleRead(id, req)
 	}
 
 	if err != nil {
@@ -46,11 +84,11 @@ func (r *Raft) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Range
 		return nil, ErrNotFound
 	}
 	response := val.(*proto.RangeResponse)
-	response.Header = raftHeader(r.Metadata, r.Session.ClusterID)
+	response.Header = raftHeader(r.meta, id)
 	return response, nil
 }
 
-func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (r *raftKV) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if len(req.Table) == 0 {
 		return nil, ErrEmptyTable
 	}
@@ -74,14 +112,15 @@ func (r *Raft) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRespon
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
 	// TODO Query previous value
-	_, err = r.SyncPropose(dc, r.Session, bytes)
+	sess := r.sessionForKey(req.Key)
+	_, err = r.nh.SyncPropose(dc, sess, bytes)
 	if err != nil {
 		return nil, err
 	}
-	return &proto.PutResponse{Header: raftHeader(r.Metadata, r.Session.ClusterID)}, nil
+	return &proto.PutResponse{Header: raftHeader(r.meta, sess.ClusterID)}, nil
 }
 
-func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (r *raftKV) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if len(req.Table) == 0 {
 		return nil, ErrEmptyTable
 	}
@@ -103,28 +142,34 @@ func (r *Raft) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*prot
 
 	dc, cancel := context.WithDeadline(ctx, time.Now().Add(1*time.Minute))
 	defer cancel()
-	res, err := r.SyncPropose(dc, r.Session, bytes)
+	sess := r.sessionForKey(req.Key)
+	res, err := r.nh.SyncPropose(dc, sess, bytes)
 	if err != nil {
 		return nil, err
 	}
 	return &proto.DeleteRangeResponse{
-		Header:  raftHeader(r.Metadata, r.Session.ClusterID),
+		Header:  raftHeader(r.meta, sess.ClusterID),
 		Deleted: int64(res.Value),
 	}, nil
 }
 
-func (r *Raft) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
+func (r *raftKV) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
 	panic("not implemented")
 }
 
-func (r *Raft) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
-	val, err := r.StaleRead(r.Session.ClusterID, req)
-	if err != nil {
-		return nil, err
+func (r *raftKV) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
+	h64 := fnv.New64()
+	for i := uint64(1); i <= r.partitioner.Capacity(); i++ {
+		val, err := r.nh.StaleRead(1, req)
+		if err != nil {
+			return nil, err
+		}
+		err = binary.Write(h64, binary.LittleEndian, val.(*proto.HashResponse).Hash)
+		if err != nil {
+			return nil, err
+		}
 	}
-	response := val.(*proto.HashResponse)
-	response.Header = raftHeader(r.Metadata, r.Session.ClusterID)
-	return response, nil
+	return &proto.HashResponse{Hash: h64.Sum64()}, nil
 }
 
 func raftHeader(nh *raft.Metadata, clusterID uint64) *proto.ResponseHeader {

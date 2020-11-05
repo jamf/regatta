@@ -2,8 +2,10 @@ package storage
 
 import (
 	"context"
+	"sync"
 	"testing"
 
+	"github.com/lni/dragonboat/v3/client"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 )
@@ -94,10 +96,14 @@ func TestRaft_Put(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			nh, meta := startRaftNode()
-			st := Raft{
-				NodeHost: nh,
-				Session:  nh.GetNoOPSession(1),
-				Metadata: meta,
+			st := raftKV{
+				nh:          nh,
+				partitioner: &StaticPartitioner{},
+				meta:        meta,
+				sessionPool: struct {
+					sessions map[uint64]*client.Session
+					mtx      sync.RWMutex
+				}{sessions: make(map[uint64]*client.Session)},
 			}
 			defer nh.Stop()
 			r := require.New(t)
@@ -216,10 +222,14 @@ func TestRaft_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			nh, meta := startRaftNode()
-			st := Raft{
-				NodeHost: nh,
-				Session:  nh.GetNoOPSession(1),
-				Metadata: meta,
+			st := raftKV{
+				nh:          nh,
+				partitioner: &StaticPartitioner{},
+				meta:        meta,
+				sessionPool: struct {
+					sessions map[uint64]*client.Session
+					mtx      sync.RWMutex
+				}{sessions: make(map[uint64]*client.Session)},
 			}
 			defer nh.Stop()
 			r := require.New(t)
@@ -376,10 +386,14 @@ func TestRaft_Range(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			nh, meta := startRaftNode()
-			st := Raft{
-				NodeHost: nh,
-				Session:  nh.GetNoOPSession(1),
-				Metadata: meta,
+			st := raftKV{
+				nh:          nh,
+				partitioner: &StaticPartitioner{},
+				meta:        meta,
+				sessionPool: struct {
+					sessions map[uint64]*client.Session
+					mtx      sync.RWMutex
+				}{sessions: make(map[uint64]*client.Session)},
 			}
 			defer nh.Stop()
 			r := require.New(t)
