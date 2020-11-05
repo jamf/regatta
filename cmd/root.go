@@ -170,9 +170,9 @@ func root(_ *cobra.Command, _ []string) {
 			CheckQuorum:             true,
 			ElectionRTT:             20,
 			HeartbeatRTT:            1,
-			SnapshotEntries:         100000,
-			CompactionOverhead:      50000,
-			MaxInMemLogSize:         64 * 1024 * 1024,
+			SnapshotEntries:         10000,
+			CompactionOverhead:      5000,
+			MaxInMemLogSize:         6 * 1024 * 1024,
 			SnapshotCompressionType: config.Snappy,
 		}
 		err = nh.StartOnDiskCluster(
