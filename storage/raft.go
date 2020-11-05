@@ -159,8 +159,8 @@ func (r *raftKV) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.Res
 
 func (r *raftKV) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
 	h64 := fnv.New64()
-	for i := uint64(1); i <= r.partitioner.Capacity(); i++ {
-		val, err := r.nh.StaleRead(1, req)
+	for clusterID := uint64(1); clusterID <= r.partitioner.Capacity(); clusterID++ {
+		val, err := r.nh.StaleRead(clusterID, req)
 		if err != nil {
 			return nil, err
 		}
