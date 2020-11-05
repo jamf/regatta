@@ -1,6 +1,8 @@
 package raft
 
 import (
+	"strings"
+
 	"github.com/lni/dragonboat/v3/logger"
 	"go.uber.org/zap"
 )
@@ -21,28 +23,28 @@ func (l *zapLogger) SetLevel(lvl logger.LogLevel) {
 
 func (l *zapLogger) Debugf(format string, args ...interface{}) {
 	if l.lvl >= logger.DEBUG {
-		l.z.Debugf(format, args...)
+		l.z.Debugf(strings.TrimRight(format, "\n"), args...)
 	}
 }
 
 func (l *zapLogger) Infof(format string, args ...interface{}) {
 	if l.lvl >= logger.INFO {
-		l.z.Infof(format, args...)
+		l.z.Infof(strings.TrimRight(format, "\n"), args...)
 	}
 }
 
 func (l *zapLogger) Warningf(format string, args ...interface{}) {
 	if l.lvl >= logger.WARNING {
-		l.z.Warnf(format, args...)
+		l.z.Warnf(strings.TrimRight(format, "\n"), args...)
 	}
 }
 
 func (l *zapLogger) Errorf(format string, args ...interface{}) {
 	if l.lvl >= logger.ERROR {
-		l.z.Errorf(format, args...)
+		l.z.Errorf(strings.TrimRight(format, "\n"), args...)
 	}
 }
 
 func (l *zapLogger) Panicf(format string, args ...interface{}) {
-	l.z.Panicf(format, args...)
+	l.z.Panicf(strings.TrimRight(format, "\n"), args...)
 }
