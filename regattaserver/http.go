@@ -78,6 +78,10 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	})
 	grpc_prometheus.Register(rs.GrpcServer)
 
+	mux.HandleFunc("/healthz", func(resp http.ResponseWriter, req *http.Request) {
+		resp.WriteHeader(http.StatusOK)
+	})
+
 	// expose pprof
 	mux.HandleFunc("/debug/pprof", pprof.Index)
 	mux.Handle("/debug/allocs", pprof.Handler("allocs"))
