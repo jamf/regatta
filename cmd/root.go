@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lni/dragonboat/v3/plugin/rocksdb"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
@@ -77,6 +76,7 @@ The node ID must be must be Integer >= 1. Example for the initial 3 node cluster
 	cobra.OnInitialize(initConfig)
 }
 
+var logDBFactory config.LogDBFactoryFunc
 var rootCmd = &cobra.Command{
 	Use:     "regatta",
 	Short:   "Regatta is read-optimized distributed key-value store.",
@@ -146,10 +146,7 @@ func root(_ *cobra.Command, _ []string) {
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
 		LogDB:             config.GetSmallMemLogDBConfig(),
-	}
-
-	if viper.GetBool("experimental.badger") {
-		nhc.LogDBFactory = rocksdb.NewLogDB
+		LogDBFactory:      logDBFactory,
 	}
 
 	err := nhc.Prepare()
