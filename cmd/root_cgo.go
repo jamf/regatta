@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	if viper.GetBool("experimental.badger") {
+	if viper.GetBool("experimental.rocksdb") {
 		logDBFactory = rocksdb.NewLogDB
 	}
 }

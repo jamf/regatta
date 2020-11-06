@@ -18,7 +18,7 @@ endif
 	golangci-lint run
 
 test:
-	go test ./... -coverprofile cover.out -race
+	go test ./kafka ./raft ./regattaserver ./storage ./util -coverprofile cover.out -race
 
 build: regatta
 

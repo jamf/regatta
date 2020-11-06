@@ -34,7 +34,8 @@ Flags:
       --api.key-filename string               Path to the API server private key file. (default "hack/server.key")
       --api.reflection-api                    Whether reflection API is provided. Should not be turned on in production.
       --dev-mode                              Dev mode enabled (verbose logging, human-friendly log format).
-      --experimental.badger                   Experimental! state machine using BadgerDB instead of Pebble
+      --experimental.badger                   Experimental! StateMachine using BadgerDB instead of Pebble
+      --experimental.rocksdb                  Experimental! LogDB using Rocksdb instead of Pebble
   -h, --help                                  help for regatta
       --kafka.brokers strings                 Address of the Kafka broker. (default [localhost:9092])
       --kafka.client-cert-filename string     Kafka client certificate.
