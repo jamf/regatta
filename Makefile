@@ -13,17 +13,17 @@ run-client: proto
 check: proto
 	@echo "Running check"
 ifeq (, $(shell which golangci-lint))
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.30.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.32.0
 endif
 	golangci-lint run
 
 test:
-	go test ./... -coverprofile cover.out -race
+	go test ./kafka ./raft ./regattaserver ./storage ./util -coverprofile cover.out -race
 
 build: regatta
 
 regatta: proto *.go **/*.go
-	CGO_ENABLED=0 go build -o regatta
+	CGO_ENABLED=1 go build -o regatta
 
 proto: proto/regatta.pb.go proto/regatta.pb.gw.go proto/mvcc.pb.go
 

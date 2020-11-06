@@ -71,17 +71,21 @@ The node ID must be must be Integer >= 1. Example for the initial 3 node cluster
 	rootCmd.PersistentFlags().String("kafka.client-cert-filename", "", "Kafka client certificate.")
 	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
 
-	rootCmd.PersistentFlags().Bool("experimental.badger", false, "Experimental! state machine using BadgerDB instead of Pebble")
+	rootCmd.PersistentFlags().Bool("experimental.badger", false, "Experimental! StateMachine using BadgerDB instead of Pebble")
+	rootCmd.PersistentFlags().Bool("experimental.rocksdb", false, "Experimental! LogDB using Rocksdb instead of Pebble")
 
 	cobra.OnInitialize(initConfig)
 }
 
-var rootCmd = &cobra.Command{
-	Use:     "regatta",
-	Short:   "Regatta is read-optimized distributed key-value store.",
-	Run:     root,
-	PreRunE: validateConfig,
-}
+var (
+	logDBFactory config.LogDBFactoryFunc
+	rootCmd      = &cobra.Command{
+		Use:     "regatta",
+		Short:   "Regatta is read-optimized distributed key-value store.",
+		Run:     root,
+		PreRunE: validateConfig,
+	}
+)
 
 func initConfig() {
 	viper.SetConfigName("config")
@@ -145,6 +149,7 @@ func root(_ *cobra.Command, _ []string) {
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
 		LogDB:             config.GetSmallMemLogDBConfig(),
+		LogDBFactory:      logDBFactory,
 	}
 
 	err := nhc.Prepare()
