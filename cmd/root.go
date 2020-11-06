@@ -71,7 +71,8 @@ The node ID must be must be Integer >= 1. Example for the initial 3 node cluster
 	rootCmd.PersistentFlags().String("kafka.client-cert-filename", "", "Kafka client certificate.")
 	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
 
-	rootCmd.PersistentFlags().Bool("experimental.badger", false, "Experimental! state machine using BadgerDB instead of Pebble")
+	rootCmd.PersistentFlags().Bool("experimental.badger", false, "Experimental! StateMachine using BadgerDB instead of Pebble")
+	rootCmd.PersistentFlags().Bool("experimental.rocksdb", false, "Experimental! LogDB using Rocksdb instead of Pebble")
 
 	cobra.OnInitialize(initConfig)
 }
