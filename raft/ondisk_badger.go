@@ -22,10 +22,12 @@ import (
 )
 
 const (
-	// blockCacheSize inmemory block cache speeds up key lookups.
-	blockCacheSize = 4 * 1024 * 1024
+	// maxTableSize max inmemory table size.
+	maxTableSize = 4 * 1024 * 1024
+	// indexCacheSize inmemory indices cache size.
+	indexCacheSize = 32 * 1024 * 1024
 	// valueLogFileSize maximum size of a value log file.
-	valueLogFileSize = 250 * 1024 * 1024
+	valueLogFileSize = 128 * 1024 * 1024
 	// valueLogThreshold threshold for storing value data in LSM instead of in value log.
 	valueLogThreshold = 1024
 	// gcTick how often to trigger value log garbage collection.
@@ -106,8 +108,8 @@ func (p *KVBadgerStateMachine) openDB() (*badger.DB, error) {
 		WithCompression(options.Snappy).
 		WithSyncWrites(false).
 		WithInMemory(p.inMemory).
-		WithValueLogLoadingMode(options.FileIO).
-		WithBlockCacheSize(blockCacheSize).
+		WithMaxTableSize(maxTableSize).
+		WithIndexCacheSize(indexCacheSize).
 		WithValueLogFileSize(valueLogFileSize).
 		WithValueThreshold(valueLogThreshold)
 	return badger.Open(o)
