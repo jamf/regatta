@@ -76,13 +76,15 @@ The node ID must be must be Integer >= 1. Example for the initial 3 node cluster
 	cobra.OnInitialize(initConfig)
 }
 
-var logDBFactory config.LogDBFactoryFunc
-var rootCmd = &cobra.Command{
-	Use:     "regatta",
-	Short:   "Regatta is read-optimized distributed key-value store.",
-	Run:     root,
-	PreRunE: validateConfig,
-}
+var (
+	logDBFactory config.LogDBFactoryFunc
+	rootCmd      = &cobra.Command{
+		Use:     "regatta",
+		Short:   "Regatta is read-optimized distributed key-value store.",
+		Run:     root,
+		PreRunE: validateConfig,
+	}
+)
 
 func initConfig() {
 	viper.SetConfigName("config")
