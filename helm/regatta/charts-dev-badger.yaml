@@ -27,7 +27,7 @@ charts:
           - ReadWriteOnce
           resources:
             requests:
-              storage: 20Gi
+              storage: 30Gi
       raft:
         initialMembers: "1=regatta-badger-0.regatta-badger.regatta.svc.cluster.local:5012,2=regatta-badger-1.regatta-badger.regatta.svc.cluster.local:5012,3=regatta-badger-2.regatta-badger.regatta.svc.cluster.local:5012"
       kafka:
