@@ -53,7 +53,7 @@ spec:
 
     # RAFT
     - alert: TooManyRaftnodeCampaignsLaunched
-      expr: sum(increase(dragonboat_raftnode_campaign_launched_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      expr: sum(increase(dragonboat_raftnode_campaign_launched_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 1m
       labels:
         severity: warning
@@ -62,7 +62,7 @@ spec:
         description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign launched in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign launched'
     - alert: TooManyRaftnodeCampaignsSkipped
-      expr: sum(increase(dragonboat_raftnode_campaign_skipped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      expr: sum(increase(dragonboat_raftnode_campaign_skipped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 1m
       labels:
         severity: warning
@@ -71,7 +71,7 @@ spec:
         description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign skipped in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign skipped'
     - alert: RaftLeaderNotAvailable
-      expr: sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job) < 1
+      expr: sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace) < 1
       for: 2m
       labels:
         severity: critical
@@ -80,7 +80,7 @@ spec:
         description: 'Raft leader not available for cluster: {{ "{{" }}$labels.clusterid{{ "}}" }}, job: {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
     - alert: TooManyRaftNodeProposalsDropped
-      expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 1m
       labels:
         severity: warning
@@ -89,7 +89,7 @@ spec:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node proposals in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node proposals dropped'
     - alert: TooManyRaftNodeReadIndexesDropped
-      expr: sum(increase(dragonboat_raftnode_read_index_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      expr: sum(increase(dragonboat_raftnode_read_index_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 1m
       labels:
         severity: warning
@@ -98,7 +98,7 @@ spec:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node read index in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node read indexes dropped'
     - alert: TooManyRaftNodeReplicationsRejected
-      expr: sum(increase(dragonboat_raftnode_replication_rejected_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,pod) > 50
+      expr: sum(increase(dragonboat_raftnode_replication_rejected_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 1m
       labels:
         severity: warning
@@ -163,7 +163,7 @@ spec:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} GRPC requests in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC request error'
     - alert: TooSlowGRPCResponseP99
-      expr: histogram_quantile(0.99, sum by (grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.5
+      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.5
       for: 1m
       labels:
         severity: critical
@@ -172,7 +172,7 @@ spec:
         description: '95 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P99)'
     - alert: TooSlowGRPCResponseP50
-      expr: histogram_quantile(0.99, sum by (grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.05
+      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.05
       for: 1m
       labels:
         severity: warning
