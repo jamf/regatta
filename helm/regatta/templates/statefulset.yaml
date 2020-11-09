@@ -67,13 +67,6 @@ spec:
         - name: https
           containerPort: {{ .Values.internalPort }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8443
-            scheme: HTTPS
-          initialDelaySeconds: 30
-          periodSeconds: 60
         readinessProbe:
           httpGet:
             path: /healthz
