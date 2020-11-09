@@ -40,6 +40,10 @@ func init() {
 	rootCmd.PersistentFlags().Bool("api.reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
 
 	// Raft flags
+	rootCmd.PersistentFlags().Duration("raft.rtt", 50*time.Millisecond,
+		`RTTMillisecond defines the average Round Trip Time (RTT) between two NodeHost instances.
+Such a RTT interval is internally used as a logical clock tick, Raft heartbeat and election intervals are both defined in term of how many such RTT intervals.
+Note that RTTMillisecond is the combined delays between two NodeHost instances including all delays caused by network transmission, delays caused by NodeHost queuing and processing.`)
 	rootCmd.PersistentFlags().String("raft.wal-dir", "",
 		`WALDir is the directory used for storing the WAL of Raft entries. 
 It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
@@ -143,7 +147,7 @@ func root(_ *cobra.Command, _ []string) {
 	nhc := config.NodeHostConfig{
 		WALDir:            viper.GetString("raft.wal-dir"),
 		NodeHostDir:       viper.GetString("raft.node-host-dir"),
-		RTTMillisecond:    50,
+		RTTMillisecond:    uint64(viper.GetDuration("raft.rtt").Milliseconds()),
 		RaftAddress:       viper.GetString("raft.address"),
 		ListenAddress:     viper.GetString("raft.listen-address"),
 		EnableMetrics:     true,
@@ -169,7 +173,6 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
 
 	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDBShards)
-
 	for clusterID := uint64(1); clusterID <= partitioner.Capacity(); clusterID++ {
 		cfg := config.Config{
 			NodeID:                  viper.GetUint64("raft.node-id"),
@@ -191,14 +194,14 @@ func root(_ *cobra.Command, _ []string) {
 						clusterID,
 						nodeID,
 						viper.GetString("raft.state-machine-dir"),
-						viper.GetString("raft.state-machine-wal"),
+						viper.GetString("raft.state-machine-wal-dir"),
 					)
 				}
 				return raft.NewPebbleStateMachine(
 					clusterID,
 					nodeID,
 					viper.GetString("raft.state-machine-dir"),
-					viper.GetString("raft.state-machine-wal"),
+					viper.GetString("raft.state-machine-wal-dir"),
 					nil,
 				)
 			},
