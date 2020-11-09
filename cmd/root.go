@@ -153,7 +153,10 @@ func root(_ *cobra.Command, _ []string) {
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
 		LogDB:             config.GetSmallMemLogDBConfig(),
-		LogDBFactory:      logDBFactory,
+	}
+
+	if viper.GetBool("experimental.rocksdb") {
+		nhc.LogDBFactory = logDBFactory
 	}
 
 	err := nhc.Prepare()
