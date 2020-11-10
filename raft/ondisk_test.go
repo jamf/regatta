@@ -45,48 +45,6 @@ func TestKVStateMachine_Snapshot(t *testing.T) {
 				receivingSMFactory: emptyPebbleSM,
 			},
 		},
-		{
-			"Badger -> Badger",
-			args{
-				producingSMFactory: filledBadgerSM,
-				receivingSMFactory: emptyBadgerSM,
-			},
-		},
-		{
-			"Badger(large) -> Badger",
-			args{
-				producingSMFactory: filledBadgerLargeValuesSM,
-				receivingSMFactory: emptyBadgerSM,
-			},
-		},
-		{
-			"Pebble -> Badger",
-			args{
-				producingSMFactory: filledPebbleSM,
-				receivingSMFactory: emptyBadgerSM,
-			},
-		},
-		{
-			"Badger -> Pebble",
-			args{
-				producingSMFactory: filledBadgerSM,
-				receivingSMFactory: emptyPebbleSM,
-			},
-		},
-		{
-			"Pebble(large) -> Badger",
-			args{
-				producingSMFactory: filledPebbleLargeValuesSM,
-				receivingSMFactory: emptyBadgerSM,
-			},
-		},
-		{
-			"Badger(large) -> Pebble",
-			args{
-				producingSMFactory: filledBadgerLargeValuesSM,
-				receivingSMFactory: emptyPebbleSM,
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Log("Applying snapshot to the empty DB should produce the same hash")
@@ -184,45 +142,6 @@ func TestKVStateMachine_Lookup(t *testing.T) {
 				Count: 1,
 			},
 		},
-		{
-			name: "Badger - Lookup empty DB",
-			fields: fields{
-				smFactory: emptyBadgerSM,
-			},
-			args: args{key: &proto.RangeRequest{
-				Key: []byte("Hello"),
-			}},
-			wantErr: true,
-		},
-		{
-			name: "Badger - Lookup full DB with non-existent key",
-			fields: fields{
-				smFactory: filledBadgerSM,
-			},
-			args: args{key: &proto.RangeRequest{
-				Key: []byte("Hello"),
-			}},
-			wantErr: true,
-		},
-		{
-			name: "Badger - Lookup full DB with existing key",
-			fields: fields{
-				smFactory: filledBadgerSM,
-			},
-			args: args{key: &proto.RangeRequest{
-				Table: []byte(testTable),
-				Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
-			}},
-			want: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
-					{
-						Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
-						Value: []byte(testValue),
-					},
-				},
-				Count: 1,
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -298,106 +217,6 @@ func TestKVStateMachine_Update(t *testing.T) {
 			name: "Pebble - Successful update of a batch",
 			fields: fields{
 				smFactory: emptyPebbleSM,
-			},
-			args: args{
-				updates: []sm.Entry{
-					{
-						Index: 1,
-						Cmd: mustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_PUT,
-							Kv: &proto.KeyValue{
-								Key:   []byte("test"),
-								Value: []byte("test"),
-							},
-						}),
-					},
-					{
-						Index: 2,
-						Cmd: mustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_DELETE,
-							Kv: &proto.KeyValue{
-								Key: []byte("test"),
-							},
-						}),
-					},
-				},
-			},
-			want: []sm.Entry{
-				{
-					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_PUT,
-						Kv: &proto.KeyValue{
-							Key:   []byte("test"),
-							Value: []byte("test"),
-						},
-					}),
-					Result: sm.Result{
-						Value: 1,
-						Data:  nil,
-					},
-				},
-				{
-					Index: 2,
-					Cmd: mustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_DELETE,
-						Kv: &proto.KeyValue{
-							Key: []byte("test"),
-						},
-					}),
-					Result: sm.Result{
-						Value: 1,
-						Data:  nil,
-					},
-				},
-			},
-		},
-		{
-			name: "Badger - Successful update of a single item",
-			fields: fields{
-				smFactory: emptyBadgerSM,
-			},
-			args: args{
-				updates: []sm.Entry{
-					{
-						Index: 1,
-						Cmd: mustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_PUT,
-							Kv: &proto.KeyValue{
-								Key:   []byte("test"),
-								Value: []byte("test"),
-							},
-						}),
-					},
-				},
-			},
-			want: []sm.Entry{
-				{
-					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_PUT,
-						Kv: &proto.KeyValue{
-							Key:   []byte("test"),
-							Value: []byte("test"),
-						},
-					}),
-					Result: sm.Result{
-						Value: 1,
-						Data:  nil,
-					},
-				},
-			},
-		},
-		{
-			name: "Badger - Successful update of a batch",
-			fields: fields{
-				smFactory: emptyBadgerSM,
 			},
 			args: args{
 				updates: []sm.Entry{
