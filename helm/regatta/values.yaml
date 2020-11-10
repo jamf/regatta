@@ -13,10 +13,10 @@ branch: master
 resources:
   limits:
     cpu: 1
-    memory: 1Gi
+    memory: 1.5Gi
   requests:
     cpu: 500m
-    memory: 1Gi
+    memory: 1.5Gi
 
 internalPort: 8443
 

@@ -34,8 +34,6 @@ Flags:
       --api.key-filename string               Path to the API server private key file. (default "hack/server.key")
       --api.reflection-api                    Whether reflection API is provided. Should not be turned on in production.
       --dev-mode                              Dev mode enabled (verbose logging, human-friendly log format).
-      --experimental.badger                   Experimental! StateMachine using BadgerDB instead of Pebble
-      --experimental.rocksdb                  Experimental! LogDB using Rocksdb instead of Pebble
   -h, --help                                  help for regatta
       --kafka.brokers strings                 Address of the Kafka broker. (default [localhost:9092])
       --kafka.client-cert-filename string     Kafka client certificate.
@@ -55,6 +53,9 @@ Flags:
                                               When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.
       --raft.node-host-dir string             NodeHostDir raft internal storage (default "/tmp/regatta/raft")
       --raft.node-id uint                     Raft Node ID is a non-zero value used to identify a node within a Raft cluster. (default 1)
+      --raft.rtt duration                     RTTMillisecond defines the average Round Trip Time (RTT) between two NodeHost instances.
+                                              Such a RTT interval is internally used as a logical clock tick, Raft heartbeat and election intervals are both defined in term of how many such RTT intervals.
+                                              Note that RTTMillisecond is the combined delays between two NodeHost instances including all delays caused by network transmission, delays caused by NodeHost queuing and processing. (default 50ms)
       --raft.state-machine-dir string         StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false. (default "/tmp/regatta/state-machine")
       --raft.state-machine-wal-dir string     StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
                                               Applicable only when in-memory-state-machine=false.

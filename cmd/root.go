@@ -11,19 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
-
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
-	"github.com/spf13/cobra"
-	"github.com/wandera/regatta/kafka"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage"
+
+	"github.com/lni/dragonboat/v3"
+	"github.com/lni/dragonboat/v3/config"
+	"github.com/spf13/cobra"
+	"github.com/wandera/regatta/kafka"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -74,9 +74,6 @@ The node ID must be must be Integer >= 1. Example for the initial 3 node cluster
 	rootCmd.PersistentFlags().String("kafka.server-cert-filename", "", "Kafka broker CA.")
 	rootCmd.PersistentFlags().String("kafka.client-cert-filename", "", "Kafka client certificate.")
 	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
-
-	rootCmd.PersistentFlags().Bool("experimental.badger", false, "Experimental! StateMachine using BadgerDB instead of Pebble")
-	rootCmd.PersistentFlags().Bool("experimental.rocksdb", false, "Experimental! LogDB using Rocksdb instead of Pebble")
 
 	cobra.OnInitialize(initConfig)
 }
@@ -153,10 +150,7 @@ func root(_ *cobra.Command, _ []string) {
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
 		LogDB:             config.GetSmallMemLogDBConfig(),
-	}
-
-	if viper.GetBool("experimental.rocksdb") {
-		nhc.LogDBFactory = logDBFactory
+		LogDBFactory:      logDBFactory,
 	}
 
 	err := nhc.Prepare()
@@ -192,14 +186,6 @@ func root(_ *cobra.Command, _ []string) {
 			initialMembers(log),
 			false,
 			func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
-				if viper.GetBool("experimental.badger") {
-					return raft.NewBadgerStateMachine(
-						clusterID,
-						nodeID,
-						viper.GetString("raft.state-machine-dir"),
-						viper.GetString("raft.state-machine-wal-dir"),
-					)
-				}
 				return raft.NewPebbleStateMachine(
 					clusterID,
 					nodeID,

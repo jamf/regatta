@@ -50,9 +50,6 @@ spec:
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}
-          {{- if .Values.badger }}
-            --experimental.badger \
-          {{- end }}
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
             --kafka.timeout={{ .Values.kafka.dialerTimeout }} \

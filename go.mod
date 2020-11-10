@@ -8,9 +8,8 @@ require (
 	github.com/cockroachdb/errors v1.8.0 // indirect
 	github.com/cockroachdb/pebble v0.0.0-20201102015632-51fc020cf9c0
 	github.com/cockroachdb/redact v1.0.7 // indirect
-	github.com/dgraph-io/badger/v2 v2.2007.2
 	github.com/golang/protobuf v1.4.3
-	github.com/golang/snappy v0.0.2
+	github.com/golang/snappy v0.0.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway v1.15.2
 	github.com/kr/pretty v0.2.1 // indirect
