@@ -31,7 +31,7 @@ import (
 func init() {
 	// Root flags
 	rootCmd.PersistentFlags().Bool("dev-mode", false, "Dev mode enabled (verbose logging, human-friendly log format).")
-	rootCmd.PersistentFlags().String("log-level", "DEBUG", "Log level: DEBUG/INFO/WARN/ERROR.")
+	rootCmd.PersistentFlags().String("log-level", "INFO", "Log level: DEBUG/INFO/WARN/ERROR.")
 
 	// API flags
 	rootCmd.PersistentFlags().String("api.address", "localhost:8443", "Address the API server should listen on.")
