@@ -334,6 +334,7 @@ func buildLogger() *zap.Logger {
 func buildLogDBConfig() config.LogDBConfig {
 	cfg := config.GetSmallMemLogDBConfig()
 	cfg.KVRecycleLogFileNum = 4
+	cfg.KVMaxBytesForLevelBase = 128 * 1024 * 1024
 	return cfg
 }
 
