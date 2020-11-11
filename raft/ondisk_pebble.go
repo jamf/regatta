@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
@@ -52,6 +53,8 @@ const (
 	maxLogFileSize = 128 * 1024 * 1024
 	// maxBatchSize maximum size of inmemory batch before commit.
 	maxBatchSize = 16 * 1024 * 1024
+	// walMinSyncInterval minimum time between calls to WAL file Sync.
+	walMinSyncInterval = 500 * time.Microsecond
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string, fs vfs.FS) sm.IOnDiskStateMachine {
@@ -133,6 +136,10 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		WALDir:                      walDirname,
+		WALMinSyncInterval: func() time.Duration {
+			// TODO make interval dynamic based on the load
+			return walMinSyncInterval
+		},
 	})
 }
 
