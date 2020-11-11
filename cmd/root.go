@@ -64,6 +64,16 @@ When hostname or domain name is specified, it is locally resolved to IP addresse
 	rootCmd.PersistentFlags().Uint64("raft.node-id", 1, "Raft Node ID is a non-zero value used to identify a node within a Raft cluster.")
 	rootCmd.PersistentFlags().StringToString("raft.initial-members", map[string]string{}, `Raft cluster initial members defines a mapping of node IDs to their respective raft address.
 The node ID must be must be Integer >= 1. Example for the initial 3 node cluster setup on the localhost: "--raft.initial-members=1=127.0.0.1:5012,2=127.0.0.1:5013,3=127.0.0.1:5014".`)
+	rootCmd.PersistentFlags().Uint64("raft.snapshot-entries", 10000,
+		`SnapshotEntries defines how often the state machine should be snapshotted automatically.
+It is defined in terms of the number of applied Raft log entries.
+SnapshotEntries can be set to 0 to disable such automatic snapshotting.`)
+	rootCmd.PersistentFlags().Uint64("raft.compaction-overhead", 5000,
+		`CompactionOverhead defines the number of most recent entries to keep after each Raft log compaction.
+Raft log compaction is performed automatically every time when a snapshot is created.`)
+	rootCmd.PersistentFlags().Uint64("raft.max-in-mem-log-size", 6*1024*1024,
+		`MaxInMemLogSize is the target size in bytes allowed for storing in memory Raft logs on each Raft node.
+In memory Raft logs are the ones that have not been applied yet.`)
 
 	// Kafka flags
 	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"localhost:9092"}, "Address of the Kafka broker.")
@@ -177,9 +187,9 @@ func root(_ *cobra.Command, _ []string) {
 			CheckQuorum:             true,
 			ElectionRTT:             20,
 			HeartbeatRTT:            1,
-			SnapshotEntries:         10000,
-			CompactionOverhead:      5000,
-			MaxInMemLogSize:         6 * 1024 * 1024,
+			SnapshotEntries:         viper.GetUint64("raft.snapshot-entries"),
+			CompactionOverhead:      viper.GetUint64("raft.compaction-overhead"),
+			MaxInMemLogSize:         viper.GetUint64("raft.max-in-mem-log-size"),
 			SnapshotCompressionType: config.Snappy,
 		}
 		err = nh.StartOnDiskCluster(
