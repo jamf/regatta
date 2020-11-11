@@ -75,6 +75,7 @@ func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 // KVPebbleStateMachine is a IStateMachine struct used for testing purpose.
 type KVPebbleStateMachine struct {
 	pebble     *pebble.DB
+	wo         *pebble.WriteOptions
 	fs         vfs.FS
 	clusterID  uint64
 	nodeID     uint64
@@ -161,6 +162,7 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.pebble = db
+	p.wo = &pebble.WriteOptions{Sync: false}
 
 	indexVal, closer, err := p.pebble.Get(raftLogIndexKey)
 	if err != nil {
@@ -218,7 +220,7 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		return nil, err
 	}
 
-	if err := batch.Commit(nil); err != nil {
+	if err := batch.Commit(p.wo); err != nil {
 		return nil, err
 	}
 	return updates, nil
@@ -370,7 +372,7 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			batchSize = 0
 		}
 	}
-	return b.Commit(nil)
+	return b.Commit(p.wo)
 }
 
 // Close closes the KVStateMachine IStateMachine.
