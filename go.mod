@@ -19,6 +19,7 @@ require (
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/minio/highwayhash v1.0.1
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.3
 	github.com/prometheus/common v0.4.0
