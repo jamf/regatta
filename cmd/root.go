@@ -149,7 +149,7 @@ func root(_ *cobra.Command, _ []string) {
 		ListenAddress:     viper.GetString("raft.listen-address"),
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
-		LogDB:             config.GetSmallMemLogDBConfig(),
+		LogDB:             buildLogDBConfig(),
 		LogDBFactory:      logDBFactory,
 	}
 
@@ -319,6 +319,12 @@ func buildLogger() *zap.Logger {
 	}
 	zap.ReplaceGlobals(logger)
 	return logger
+}
+
+func buildLogDBConfig() config.LogDBConfig {
+	cfg := config.GetSmallMemLogDBConfig()
+	cfg.KVRecycleLogFileNum = 4
+	return cfg
 }
 
 func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
