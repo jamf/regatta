@@ -119,6 +119,15 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 		sz = sz * targetFileSizeGrowFactor
 		lvlOpts[l] = opt
 	}
+	// Do not create bloom filters for the last level (i.e. the largest level
+	// which contains data in the LSM store). This configuration reduces the size
+	// of the bloom filters by 10x. This is significant given that bloom filters
+	// require 1.25 bytes (10 bits) per key which can translate into 100s of megabytes of
+	// memory given typical key and value sizes. The downside is that bloom
+	// filters will only be usable on the higher levels, but that seems
+	// acceptable. We'll achieve 80-90% of the benefit of having bloom filters on every level for only 10% of the
+	// memory cost.
+	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
 
 	var fs vfs.FS
 	if p.fs != nil {
