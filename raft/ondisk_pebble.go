@@ -2,7 +2,6 @@ package raft
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/oxtoacart/bpool"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
@@ -26,7 +26,10 @@ const (
 	kindSystem byte = 0x1
 )
 
-var raftLogIndexKey = []byte{kindSystem, 0x1}
+var (
+	raftLogIndexKey = []byte{kindSystem, 0x1}
+	bufferPool      = bpool.NewSizedBufferPool(256, 128)
+)
 
 const (
 	// levels is number of Pebble levels.
@@ -179,7 +182,8 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 // Update updates the object.
 func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
-	buf := bytes.NewBuffer(make([]byte, 0))
+	buf := bufferPool.Get()
+	defer bufferPool.Put(buf)
 	batch := p.pebble.NewBatch()
 	defer batch.Close()
 
@@ -224,7 +228,8 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 	switch req := key.(type) {
 	case *proto.RangeRequest:
-		buf := bytes.NewBuffer(make([]byte, 0))
+		buf := bufferPool.Get()
+		defer bufferPool.Put(buf)
 		buf.WriteByte(kindUser)
 		buf.Write(req.Table)
 		buf.Write(req.Key)
@@ -239,13 +244,14 @@ func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 			}
 		}()
 
-		buf.Reset()
-		buf.Write(value)
+		tmp := make([]byte, len(value))
+		copy(tmp, value)
+
 		return &proto.RangeResponse{
 			Kvs: []*proto.KeyValue{
 				{
 					Key:   req.Key,
-					Value: buf.Bytes(),
+					Value: tmp,
 				},
 			},
 			Count: 1,
