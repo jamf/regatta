@@ -29,11 +29,11 @@ charts:
               storage: 5Gi
       resources:
         limits:
-          cpu: 1
-          memory: 1500Mi
-        requests:
           cpu: 200m
-          memory: 500Mi
+          memory: 600Mi
+        requests:
+          cpu: 100m
+          memory: 200Mi
       kafka:
         brokers: "core-kafka-bootstrap:9092"
         groupID: "regatta-fi-0"
