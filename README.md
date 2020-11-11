@@ -43,7 +43,7 @@ Flags:
       --kafka.timeout duration                Kafka dialer timeout. (default 10s)
       --kafka.tls                             Enables Kafka broker TLS connection.
       --kafka.topics strings                  Kafka topics to read from.
-      --log-level string                      Log level: DEBUG/INFO/WARN/ERROR. (default "DEBUG")
+      --log-level string                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
       --raft.address string                   RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
                                               This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.
       --raft.compaction-overhead uint         CompactionOverhead defines the number of most recent entries to keep after each Raft log compaction.
