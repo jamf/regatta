@@ -6,7 +6,6 @@ namespace: regatta
 charts:
 - .:
     values:
-      replicas: 3
       image:
         tag: {{ env "TAG" | default "latest" | quote }}
       reflectionAPI:
