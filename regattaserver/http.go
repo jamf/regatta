@@ -23,10 +23,10 @@ import (
 // RegattaServer is server where grpc/http services can be registered in.
 type RegattaServer struct {
 	Addr         string
-	GrpcServer   *grpc.Server
+	grpcServer   *grpc.Server
 	httpServer   *http.Server
-	GWMux        *gwruntime.ServeMux
-	GWContext    context.Context
+	gwMux        *gwruntime.ServeMux
+	gwContext    context.Context
 	gwCancelFunc context.CancelFunc
 	log          *zap.SugaredLogger
 }
@@ -36,7 +36,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	rs := new(RegattaServer)
 	rs.Addr = addr
 	rs.log = zap.S().Named("server")
-	rs.GWContext, rs.gwCancelFunc = context.WithCancel(context.Background())
+	rs.gwContext, rs.gwCancelFunc = context.WithCancel(context.Background())
 
 	var creds credentials.TransportCredentials
 	var err error
@@ -49,17 +49,17 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	}
-	rs.GrpcServer = grpc.NewServer(opts...)
+	rs.grpcServer = grpc.NewServer(opts...)
 
 	if reflectionAPI {
-		reflection.Register(rs.GrpcServer)
+		reflection.Register(rs.grpcServer)
 		rs.log.Info("reflection API is active")
 	}
 
 	mux := http.NewServeMux()
-	rs.GWMux = gwruntime.NewServeMux()
+	rs.gwMux = gwruntime.NewServeMux()
 
-	mux.Handle("/", rs.GWMux)
+	mux.Handle("/", rs.gwMux)
 	// expose the registered metrics at `/metrics` path.
 	mux.HandleFunc("/metrics", func(resp http.ResponseWriter, req *http.Request) {
 		metrics.WritePrometheus(resp, true)
@@ -76,7 +76,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 			}
 		}
 	})
-	grpc_prometheus.Register(rs.GrpcServer)
+	grpc_prometheus.Register(rs.grpcServer)
 
 	mux.HandleFunc("/healthz", func(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusOK)
@@ -102,7 +102,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 
 	rs.httpServer = &http.Server{
 		Addr:    rs.Addr,
-		Handler: grpcHandlerFunc(rs.GrpcServer, mux),
+		Handler: grpcHandlerFunc(rs.grpcServer, mux),
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
@@ -140,4 +140,9 @@ func (s *RegattaServer) Shutdown(ctx context.Context, d time.Duration) error {
 		cancel()
 	}()
 	return s.httpServer.Shutdown(ctx)
+}
+
+// RegisterService implements grpc.ServiceRegistrar interface so internals of this type does not need to be exposed.
+func (s *RegattaServer) RegisterService(desc *grpc.ServiceDesc, impl interface{}) {
+	s.grpcServer.RegisterService(desc, impl)
 }
