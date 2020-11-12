@@ -25,7 +25,7 @@ nodeSelector: {}
 affinity: {}
 
 raft:
-  initialMembers: "1=regatta-0:5012"
+  initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012"
 
 externalLoadBalancer: {}
 

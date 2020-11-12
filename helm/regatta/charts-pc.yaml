@@ -19,7 +19,7 @@ charts:
             requests:
               storage: 200Gi
       raft:
-        initialMembers: "1=regatta-0:5012,2=regatta-1:5012,3=regatta-2:5012"
+        initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
       kafka:
         brokers: kaf-101-core-prod.eu-west-1a.ie.wandera.com:9091,kaf-102-core-prod.eu-west-1b.ie.wandera.com:9091,kaf-103-core-prod.eu-west-1c.ie.wandera.com:9091
         groupID: regatta-pe-0

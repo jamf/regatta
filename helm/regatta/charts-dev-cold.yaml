@@ -30,7 +30,7 @@ charts:
             requests:
               storage: 30Gi
       raft:
-        initialMembers: "1=regatta-cold-0:5012,2=regatta-cold-1:5012,3=regatta-cold-2:5012"
+        initialMembers: "1=regatta-cold-0.regatta.regatta.svc.cluster.local:5012,2=regatta-cold-1.regatta.regatta.svc.cluster.local:5012,3=regatta-cold-2.regatta.regatta.svc.cluster.local:5012"
       kafka:
         brokers: kaf-101-dev.eu-west-1b.ie.wandera.co.uk:9091
         groupID: regatta-cold-0
