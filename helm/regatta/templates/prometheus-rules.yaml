@@ -183,8 +183,7 @@ spec:
 
     # Kafka
     - alert: TooManyKafkaReaderErrors
-      expr: increase(kafka_reader_error_count{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 0
-      for: 1m
+      expr: increase(kafka_reader_error_count{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
       labels:
         severity: warning
         team: {{ .Values.team }}
