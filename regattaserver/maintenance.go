@@ -21,7 +21,7 @@ type MaintenanceServer struct {
 
 // Register creates Maintenance server and registers it to regatta server.
 func (s *MaintenanceServer) Register(regatta *RegattaServer) error {
-	proto.RegisterMaintenanceServer(regatta.GrpcServer, s)
+	proto.RegisterMaintenanceServer(regatta, s)
 
 	opts := []grpc.DialOption{
 		// we do not need to check certificate between grpc-gateway and grpc server internally
@@ -30,7 +30,7 @@ func (s *MaintenanceServer) Register(regatta *RegattaServer) error {
 		})),
 	}
 
-	err := proto.RegisterMaintenanceHandlerFromEndpoint(regatta.GWContext, regatta.GWMux, regatta.Addr, opts)
+	err := proto.RegisterMaintenanceHandlerFromEndpoint(regatta.gwContext, regatta.gwMux, regatta.Addr, opts)
 	if err != nil {
 		zap.S().Errorf("Cannot register handler: %v", err)
 		return err

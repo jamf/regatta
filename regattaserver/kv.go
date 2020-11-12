@@ -23,7 +23,7 @@ type KVServer struct {
 
 // Register creates KV server and registers it to regatta server.
 func (s *KVServer) Register(regatta *RegattaServer) error {
-	proto.RegisterKVServer(regatta.GrpcServer, s)
+	proto.RegisterKVServer(regatta, s)
 
 	opts := []grpc.DialOption{
 		// we do not need to check certificate between grpc-gateway and grpc server internally
@@ -32,7 +32,7 @@ func (s *KVServer) Register(regatta *RegattaServer) error {
 		})),
 	}
 
-	err := proto.RegisterKVHandlerFromEndpoint(regatta.GWContext, regatta.GWMux, regatta.Addr, opts)
+	err := proto.RegisterKVHandlerFromEndpoint(regatta.gwContext, regatta.gwMux, regatta.Addr, opts)
 	if err != nil {
 		zap.S().Errorf("Cannot register handler: %v", err)
 		return err
