@@ -69,7 +69,7 @@ spec:
             path: /healthz
             port: 8443
             scheme: HTTPS
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 60
         volumeMounts:
         - mountPath: /cert
