@@ -2,7 +2,6 @@ package raft
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/oxtoacart/bpool"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
@@ -26,7 +26,10 @@ const (
 	kindSystem byte = 0x1
 )
 
-var raftLogIndexKey = []byte{kindSystem, 0x1}
+var (
+	raftLogIndexKey = []byte{kindSystem, 0x1}
+	bufferPool      = bpool.NewSizedBufferPool(256, 128)
+)
 
 const (
 	// levels is number of Pebble levels.
@@ -72,6 +75,7 @@ func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 // KVPebbleStateMachine is a IStateMachine struct used for testing purpose.
 type KVPebbleStateMachine struct {
 	pebble     *pebble.DB
+	wo         *pebble.WriteOptions
 	fs         vfs.FS
 	clusterID  uint64
 	nodeID     uint64
@@ -158,6 +162,7 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.pebble = db
+	p.wo = &pebble.WriteOptions{Sync: false}
 
 	indexVal, closer, err := p.pebble.Get(raftLogIndexKey)
 	if err != nil {
@@ -179,7 +184,8 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 // Update updates the object.
 func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
-	buf := bytes.NewBuffer(make([]byte, 0))
+	buf := bufferPool.Get()
+	defer bufferPool.Put(buf)
 	batch := p.pebble.NewBatch()
 	defer batch.Close()
 
@@ -214,7 +220,7 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		return nil, err
 	}
 
-	if err := batch.Commit(nil); err != nil {
+	if err := batch.Commit(p.wo); err != nil {
 		return nil, err
 	}
 	return updates, nil
@@ -224,7 +230,8 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 	switch req := key.(type) {
 	case *proto.RangeRequest:
-		buf := bytes.NewBuffer(make([]byte, 0))
+		buf := bufferPool.Get()
+		defer bufferPool.Put(buf)
 		buf.WriteByte(kindUser)
 		buf.Write(req.Table)
 		buf.Write(req.Key)
@@ -239,13 +246,14 @@ func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 			}
 		}()
 
-		buf.Reset()
-		buf.Write(value)
+		tmp := make([]byte, len(value))
+		copy(tmp, value)
+
 		return &proto.RangeResponse{
 			Kvs: []*proto.KeyValue{
 				{
 					Key:   req.Key,
-					Value: buf.Bytes(),
+					Value: tmp,
 				},
 			},
 			Count: 1,
@@ -364,7 +372,7 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			batchSize = 0
 		}
 	}
-	return b.Commit(nil)
+	return b.Commit(p.wo)
 }
 
 // Close closes the KVStateMachine IStateMachine.
