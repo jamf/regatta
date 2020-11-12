@@ -9,6 +9,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     team: {{ .Values.team }}
+    version: {{ .Values.image.tag | quote }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
@@ -21,6 +22,7 @@ spec:
       labels:
         app: {{ template "meta.name" . }}
         release: {{ .Release.Name }}
+        version: {{ .Values.image.tag | quote }}
     spec:
       serviceAccountName: {{ template "meta.name" . }}
       containers:
