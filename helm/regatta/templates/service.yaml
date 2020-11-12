@@ -10,7 +10,7 @@ metadata:
     heritage: {{ .Release.Service }}
     team: {{ .Values.team }}
 spec:
-  clusterIP: "None"
+  clusterIP: None
   selector:
     app: {{ template "meta.name" . }}
   ports:
