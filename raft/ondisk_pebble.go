@@ -29,6 +29,7 @@ const (
 var (
 	raftLogIndexKey = []byte{kindSystem, 0x1}
 	bufferPool      = bpool.NewSizedBufferPool(256, 128)
+	indexPool       = bpool.NewByteSlicePool(258, 8)
 )
 
 const (
@@ -214,9 +215,10 @@ func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		updates[i].Result = sm.Result{Value: 1}
 	}
 
-	raftIndexVal := make([]byte, 8)
-	binary.LittleEndian.PutUint64(raftIndexVal, updates[len(updates)-1].Index)
-	if err := batch.Set(raftLogIndexKey, raftIndexVal, nil); err != nil {
+	idxBuffer := indexPool.GetSlice()
+	defer indexPool.PutSlice(idxBuffer)
+	binary.LittleEndian.PutUint64(idxBuffer.Bytes(), updates[len(updates)-1].Index)
+	if err := batch.Set(raftLogIndexKey, idxBuffer.Bytes(), nil); err != nil {
 		return nil, err
 	}
 
