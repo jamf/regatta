@@ -101,7 +101,7 @@ func (c *Consumer) Close() {
 	if c.cancel != nil {
 		c.cancel()
 		for _, tc := range c.topicConsumers {
-			tc.Close()
+			_ = tc.Close()
 		}
 	}
 }
@@ -141,6 +141,7 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 		MaxBytes:       10e6, // 10MB
 		MaxWait:        3 * time.Second,
 		CommitInterval: 1 * time.Second,
+		RetentionTime:  7 * 24 * time.Hour,
 		ErrorLogger:    kafka.LoggerFunc(tc.log.Errorf),
 	}
 	tc.listener = listener
