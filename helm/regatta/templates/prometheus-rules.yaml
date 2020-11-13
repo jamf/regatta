@@ -107,8 +107,8 @@ spec:
         description: 'Rejected {{ "{{" }}$value{{ "}}" }} replications in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node replications rejected'
     - alert: TooManyFailedTransportMessageConnectionAttempts
-      expr: increase(dragonboat_transport_failed_message_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
-      for: 1m
+      expr: increase(dragonboat_transport_failed_message_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 20
+      for: 10m
       labels:
         severity: warning
         team: {{ .Values.team }}
@@ -154,7 +154,7 @@ spec:
 
     # GRPC
     - alert: GRPCFailedRequests
-      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection"}[5m]) > 0
+      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m]) > 0
       for: 1m
       labels:
         severity: warning
@@ -163,22 +163,22 @@ spec:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} GRPC requests in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC request error'
     - alert: TooSlowGRPCResponseP99
-      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.5
+      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV",grpc_method="Range"}[5m]))) > 0.5
       for: 1m
       labels:
         severity: critical
         team: {{ .Values.team }}
       annotations:
-        description: '95 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} for {{ "{{" }}$labels.job{{ "}}" }}'
+        description: '95 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} s for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P99)'
     - alert: TooSlowGRPCResponseP50
-      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV"}[5m]))) > 0.05
+      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV",grpc_method="Range"}[5m]))) > 0.05
       for: 1m
       labels:
         severity: warning
         team: {{ .Values.team }}
       annotations:
-        description: '50 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} for {{ "{{" }}$labels.job{{ "}}" }}'
+        description: '50 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} s for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P50)'
 
     # Kafka
