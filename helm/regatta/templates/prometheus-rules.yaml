@@ -71,14 +71,23 @@ spec:
         description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign skipped in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign skipped'
     - alert: RaftLeaderNotAvailable
-      expr: sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace) < 1
-      for: 2m
+      expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 1
+      for: 1m
       labels:
         severity: critical
         team: {{ .Values.team }}
       annotations:
-        description: 'Raft leader not available for cluster: {{ "{{" }}$labels.clusterid{{ "}}" }}, job: {{ "{{" }}$labels.job{{ "}}" }}'
+        description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
+    - alert: RaftClusterNodeNotAvailable
+      expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
+      for: 30m
+      labels:
+        severity: critical
+        team: {{ .Values.team }}
+      annotations:
+        description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes for time period longer than 30m.'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster node not available'
     - alert: TooManyRaftNodeProposalsDropped
       expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 1m
