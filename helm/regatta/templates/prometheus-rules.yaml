@@ -52,34 +52,16 @@ spec:
         summary: Statefulset replicas are outdated
 
     # RAFT
-    - alert: TooManyRaftnodeCampaignsLaunched
-      expr: sum(increase(dragonboat_raftnode_campaign_launched_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
-      for: 1m
-      labels:
-        severity: warning
-        team: {{ .Values.team }}
-      annotations:
-        description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign launched in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
-        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign launched'
-    - alert: TooManyRaftnodeCampaignsSkipped
-      expr: sum(increase(dragonboat_raftnode_campaign_skipped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
-      for: 1m
-      labels:
-        severity: warning
-        team: {{ .Values.team }}
-      annotations:
-        description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign skipped in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
-        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign skipped'
     - alert: RaftLeaderNotAvailable
       expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 1
-      for: 1m
+      for: 5m
       labels:
         severity: critical
         team: {{ .Values.team }}
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
-    - alert: RaftClusterNodeNotAvailable
+    - alert: RaftClusterNodeNotAvailableCritical
       expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
       for: 30m
       labels:
@@ -88,74 +70,111 @@ spec:
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes for time period longer than 30m.'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster node not available'
-    - alert: TooManyRaftNodeProposalsDropped
-      expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
-      for: 1m
+    - alert: RaftClusterNodeNotAvailableWarn
+      expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
+      for: 2m
       labels:
         severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes.'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster node not available'
+    - alert: TooManyRaftnodeCampaignsLaunched
+      expr: sum(increase(dragonboat_raftnode_campaign_launched_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
+      for: 5m
+      labels:
+        severity: warning
+        type: raftTransport
+        team: {{ .Values.team }}
+      annotations:
+        description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign launched in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign launched'
+    - alert: TooManyRaftnodeCampaignsSkipped
+      expr: sum(increase(dragonboat_raftnode_campaign_skipped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
+      for: 5m
+      labels:
+        severity: warning
+        type: raftTransport
+        team: {{ .Values.team }}
+      annotations:
+        description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign skipped in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign skipped'
+    - alert: TooManyRaftNodeProposalsDropped
+      expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
+      for: 5m
+      labels:
+        severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node proposals in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node proposals dropped'
     - alert: TooManyRaftNodeReadIndexesDropped
       expr: sum(increase(dragonboat_raftnode_read_index_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
-      for: 1m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node read index in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node read indexes dropped'
     - alert: TooManyRaftNodeReplicationsRejected
       expr: sum(increase(dragonboat_raftnode_replication_rejected_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
-      for: 1m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Rejected {{ "{{" }}$value{{ "}}" }} replications in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node replications rejected'
     - alert: TooManyFailedTransportMessageConnectionAttempts
       expr: increase(dragonboat_transport_failed_message_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 20
-      for: 10m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} transport message connection attempts in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport message connection attempts'
     - alert: TooManyFailedSnapshotConnectionAttempts
       expr: increase(dragonboat_transport_failed_snapshot_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
-      for: 1m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} snapshot connection attempts in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed snapshot connection attempts'
     - alert: TooManyTransportMessageSendFailures
       expr: increase(dragonboat_transport_failed_snapshot_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
-      for: 1m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} transport message send in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport message send'
     - alert: TooManyTransportReceiveMessagesDropped
       expr: increase(dragonboat_transport_received_message_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
-      for: 1m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} transport message receive in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many dropped transport message receive'
     - alert: TooManyTransportSnapshotSendFailures
       expr: increase(dragonboat_transport_snapshot_send_failure_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
-      for: 1m
+      for: 5m
       labels:
         severity: warning
+        type: raftTransport
         team: {{ .Values.team }}
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} transport snapshot send in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
