@@ -18,7 +18,13 @@ spec:
   - "{{ template "meta.name" . }}.{{ .Release.Namespace }}"
   - "{{ template "meta.name" . }}:{{ .Values.internalPort }}"
   - "{{ template "meta.name" . }}"
-{{ if .Values.externalLoadBalancer }}
+  - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}.svc.cluster.local"
+  - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}"
+  - "{{ template "meta.name" . }}-api:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}-api"
+{{- if .Values.externalLoadBalancer }}
   - {{ .Values.externalLoadBalancer.externalDomain }}
 {{- end }}
   issuerRef:

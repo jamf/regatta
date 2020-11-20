@@ -17,8 +17,29 @@ spec:
   - name: https
     targetPort: https
     port: {{ .Values.internalPort }}
+  publishNotReadyAddresses: true
 ---
-{{ if .Values.externalLoadBalancer }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "meta.name" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    team: {{ .Values.team }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ template "meta.name" . }}
+  ports:
+  - name: https
+    targetPort: https
+    port: {{ .Values.internalPort }}
+---
+{{- if .Values.externalLoadBalancer }}
 apiVersion: v1
 kind: Service
 metadata:
