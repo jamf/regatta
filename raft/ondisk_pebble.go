@@ -8,7 +8,10 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
@@ -62,6 +65,10 @@ const (
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string, fs vfs.FS) sm.IOnDiskStateMachine {
+	if fs == nil {
+		fs = vfs.Default
+	}
+
 	return &KVPebbleStateMachine{
 		pebble:     nil,
 		clusterID:  clusterID,
@@ -75,38 +82,19 @@ func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir stri
 
 // KVPebbleStateMachine is a IStateMachine struct used for testing purpose.
 type KVPebbleStateMachine struct {
-	pebble     *pebble.DB
+	pebble     unsafe.Pointer
 	wo         *pebble.WriteOptions
 	fs         vfs.FS
 	clusterID  uint64
 	nodeID     uint64
 	dirname    string
 	walDirname string
+	closed     bool
 	log        *zap.SugaredLogger
 }
 
-func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
-	if p.clusterID < 1 {
-		return nil, ErrInvalidClusterID
-	}
-	if p.nodeID < 1 {
-		return nil, ErrInvalidNodeID
-	}
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
-	var walDirname string
-	dirname := path.Join(p.dirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
-	if p.walDirname != "" {
-		walDirname = path.Join(p.walDirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
-	} else {
-		walDirname = dirname
-	}
-
-	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dirname, walDirname)
+func (p *KVPebbleStateMachine) openDB(dbdir string, walDirname string) (*pebble.DB, error) {
+	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirname)
 
 	cache := pebble.NewCache(cacheSize)
 	defer cache.Unref()
@@ -134,13 +122,9 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 	// memory cost.
 	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
 
-	var fs vfs.FS
-	if p.fs != nil {
-		fs = p.fs
-	}
-	return pebble.Open(dirname, &pebble.Options{
+	return pebble.Open(dbdir, &pebble.Options{
 		Cache:                       cache,
-		FS:                          fs,
+		FS:                          p.fs,
 		L0CompactionThreshold:       l0FileNumCompactionTrigger,
 		L0StopWritesThreshold:       l0StopWritesTrigger,
 		LBaseMaxBytes:               maxBytesForLevelBase,
@@ -158,14 +142,66 @@ func (p *KVPebbleStateMachine) openDB() (*pebble.DB, error) {
 }
 
 func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
-	db, err := p.openDB()
+	if p.clusterID < 1 {
+		return 0, ErrInvalidClusterID
+	}
+	if p.nodeID < 1 {
+		return 0, ErrInvalidNodeID
+	}
+
+	hostname, err := os.Hostname()
 	if err != nil {
 		return 0, err
 	}
-	p.pebble = db
+
+	dir := getNodeDBDirName(p.dirname, hostname, p.clusterID, p.nodeID)
+	if err := createNodeDataDir(p.fs, dir); err != nil {
+		return 0, err
+	}
+
+	randomDir := getNewRandomDBDirName()
+	var dbdir string
+	if isNewRun(p.fs, dir) {
+		dbdir = filepath.Join(dir, randomDir)
+		if err := saveCurrentDBDirName(p.fs, dir, randomDir); err != nil {
+			return 0, err
+		}
+		if err := replaceCurrentDBFile(p.fs, dir); err != nil {
+			return 0, err
+		}
+
+		if isMigration(p.fs, dir) {
+			if err := migrateDBDir(p.fs, dir, randomDir); err != nil {
+				return 0, err
+			}
+		}
+	} else {
+		if err := cleanupNodeDataDir(p.fs, dir); err != nil {
+			return 0, err
+		}
+		var err error
+		randomDir, err = getCurrentDBDirName(p.fs, dir)
+		if err != nil {
+			return 0, err
+		}
+		dbdir = filepath.Join(dir, randomDir)
+		if _, err := p.fs.Stat(filepath.Join(dir, randomDir)); err != nil {
+			if os.IsNotExist(err) {
+				return 0, err
+			}
+		}
+	}
+
+	walDirPath := p.getWalDirPath(hostname, randomDir, dbdir)
+
+	db, err := p.openDB(dbdir, walDirPath)
+	if err != nil {
+		return 0, err
+	}
+	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 
-	indexVal, closer, err := p.pebble.Get(raftLogIndexKey)
+	indexVal, closer, err := db.Get(raftLogIndexKey)
 	if err != nil {
 		if err != pebble.ErrNotFound {
 			return 0, err
@@ -182,12 +218,23 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	return binary.LittleEndian.Uint64(indexVal), nil
 }
 
+func (p *KVPebbleStateMachine) getWalDirPath(hostname string, randomDir string, dbdir string) string {
+	var walDirPath string
+	if p.walDirname != "" {
+		walDirPath = path.Join(p.walDirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID), randomDir)
+	} else {
+		walDirPath = dbdir
+	}
+	return walDirPath
+}
+
 // Update updates the object.
 func (p *KVPebbleStateMachine) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	buf := bufferPool.Get()
 	defer bufferPool.Put(buf)
-	batch := p.pebble.NewBatch()
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	batch := db.NewBatch()
 	defer batch.Close()
 
 	for i := 0; i < len(updates); i++ {
@@ -237,7 +284,8 @@ func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 		buf.WriteByte(kindUser)
 		buf.Write(req.Table)
 		buf.Write(req.Key)
-		value, closer, err := p.pebble.Get(buf.Bytes())
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		value, closer, err := db.Get(buf.Bytes())
 		if err != nil {
 			return nil, err
 		}
@@ -275,13 +323,15 @@ func (p *KVPebbleStateMachine) Lookup(key interface{}) (interface{}, error) {
 // storage so the state machine can continue from its latest state after
 // reboot.
 func (p *KVPebbleStateMachine) Sync() error {
-	return p.pebble.Flush()
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	return db.Flush()
 }
 
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *KVPebbleStateMachine) PrepareSnapshot() (interface{}, error) {
-	return p.pebble.NewSnapshot(), nil
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	return db.NewSnapshot(), nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
@@ -328,9 +378,35 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 	return nil
 }
 
-// RecoverFromSnapshot recovers the object from the snapshot specified by the
-// io.Reader object.
+// RecoverFromSnapshot recovers the state machine state from snapshot specified by
+// the io.Reader object. The snapshot is recovered into a new DB first and then
+// atomically swapped with the existing DB to complete the recovery.
 func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{}) error {
+	if p.closed {
+		p.log.Panic("recover from snapshot called after Close()")
+	}
+	if p.clusterID < 1 {
+		return ErrInvalidClusterID
+	}
+	if p.nodeID < 1 {
+		return ErrInvalidNodeID
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	dir := getNodeDBDirName(p.dirname, hostname, p.clusterID, p.nodeID)
+
+	randomDirName := getNewRandomDBDirName()
+	dbdir := filepath.Join(dir, randomDirName)
+	walDirPath := p.getWalDirPath(hostname, randomDirName, dbdir)
+
+	db, err := p.openDB(dbdir, walDirPath)
+	if err != nil {
+		return err
+	}
+
 	br := bufio.NewReaderSize(r, maxBatchSize)
 	var total uint64
 	if err := binary.Read(br, binary.LittleEndian, &total); err != nil {
@@ -339,9 +415,10 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 
 	kv := proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
-	b := p.pebble.NewBatch()
+	b := db.NewBatch()
 	defer b.Close()
 
+	p.log.Debugf("Starting snapshot recover to %s DB", dbdir)
 	var batchSize uint64
 	for i := uint64(0); i < total; i++ {
 		var toRead uint64
@@ -370,21 +447,42 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 			if err != nil {
 				return err
 			}
-			b = p.pebble.NewBatch()
+			b = db.NewBatch()
 			batchSize = 0
 		}
 	}
-	return b.Commit(p.wo)
+
+	if err := b.Commit(&pebble.WriteOptions{Sync: false}); err != nil {
+		return err
+	}
+
+	if err := saveCurrentDBDirName(p.fs, dir, randomDirName); err != nil {
+		return err
+	}
+	if err := replaceCurrentDBFile(p.fs, dir); err != nil {
+		return err
+	}
+	old := (*pebble.DB)(atomic.SwapPointer(&p.pebble, unsafe.Pointer(db)))
+	p.log.Debugf("Snapshot recovery finished")
+
+	if old != nil {
+		old.Close()
+	}
+	p.log.Debugf("Snapshot recovery cleanup")
+	return cleanupNodeDataDir(p.fs, dir)
 }
 
 // Close closes the KVStateMachine IStateMachine.
 func (p *KVPebbleStateMachine) Close() error {
-	return p.pebble.Close()
+	p.closed = true
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	return db.Close()
 }
 
 // GetHash gets the DB hash for test comparison.
 func (p *KVPebbleStateMachine) GetHash() (uint64, error) {
-	snap := p.pebble.NewSnapshot()
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	snap := db.NewSnapshot()
 	iter := snap.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {
