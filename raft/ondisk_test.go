@@ -82,6 +82,7 @@ func TestKVStateMachine_Snapshot(t *testing.T) {
 
 			wg.Wait()
 			t.Log("Recovery finished")
+
 			got, err := ep.(sm.IHash).GetHash()
 			r.NoError(err)
 			r.Equal(want, got, "the hash of recovered DB should be the same as of the original one")
