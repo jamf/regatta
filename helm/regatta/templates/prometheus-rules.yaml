@@ -61,11 +61,11 @@ spec:
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
-    - alert: RaftClusterNodeNotAvailableCritical
+    - alert: RaftClusterNodeNotAvailableError
       expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
       for: 30m
       labels:
-        severity: critical
+        severity: error
         team: {{ .Values.team }}
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes for time period longer than 30m.'
@@ -200,7 +200,7 @@ spec:
         description: '95 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} s for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P99)'
     - alert: TooSlowGRPCResponseP50
-      expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV",grpc_method="Range"}[5m]))) > 0.05
+      expr: histogram_quantile(0.50, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV",grpc_method="Range"}[5m]))) > 0.05
       for: 1m
       labels:
         severity: warning
