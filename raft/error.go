@@ -11,4 +11,6 @@ var (
 	ErrInvalidClusterID = errors.New("invalid cluster ID")
 	// ErrIsNotDir requested file is not a directory.
 	ErrIsNotDir = errors.New("is not a dir")
+	// ErrStateMachineClosed state machine is closed.
+	ErrStateMachineClosed = errors.New("calling action on closed state machine")
 )

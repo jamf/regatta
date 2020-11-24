@@ -2,9 +2,10 @@ package raft
 
 import (
 	"fmt"
-	"io"
-	"sync"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/stretchr/testify/require"
@@ -59,33 +60,89 @@ func TestKVStateMachine_Snapshot(t *testing.T) {
 			snp, err := p.PrepareSnapshot()
 			r.NoError(err)
 
-			pr, pw := io.Pipe()
 			ep := tt.args.receivingSMFactory()
 			defer ep.Close()
 
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				t.Log("Save snapshot routine started")
-				err := p.SaveSnapshot(snp, pw, nil)
-				r.NoError(err)
-			}()
+			snapf, err := os.Create(filepath.Join(t.TempDir(), "snapshot-file"))
+			if err == nil {
+				defer snapf.Close()
+			}
+			r.NoError(err)
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				t.Log("Recover from snapshot routine started")
-				err := ep.RecoverFromSnapshot(pr, nil)
-				r.NoError(err)
-			}()
+			t.Log("Save snapshot started")
+			err = p.SaveSnapshot(snp, snapf, nil)
+			r.NoError(err)
+			_, err = snapf.Seek(0, 0)
+			r.NoError(err)
 
-			wg.Wait()
+			t.Log("Recover from snapshot started")
+			stopc := make(chan struct{})
+			err = ep.RecoverFromSnapshot(snapf, stopc)
+			r.NoError(err)
+
 			t.Log("Recovery finished")
 
 			got, err := ep.(sm.IHash).GetHash()
 			r.NoError(err)
 			r.Equal(want, got, "the hash of recovered DB should be the same as of the original one")
+		})
+	}
+}
+
+func TestKVStateMachine_Snapshot_Stopped(t *testing.T) {
+	type args struct {
+		producingSMFactory func() sm.IOnDiskStateMachine
+		receivingSMFactory func() sm.IOnDiskStateMachine
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			"Pebble(large) -> Pebble",
+			args{
+				producingSMFactory: filledPebbleLargeValuesSM,
+				receivingSMFactory: emptyPebbleSM,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Log("Applying snapshot to the empty DB should be stopped")
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+			p := tt.args.producingSMFactory()
+			defer p.Close()
+
+			snp, err := p.PrepareSnapshot()
+			r.NoError(err)
+
+			ep := tt.args.receivingSMFactory()
+
+			snapf, err := os.Create(filepath.Join(t.TempDir(), "snapshot-file"))
+			r.NoError(err)
+			t.Log("Save snapshot started")
+			err = p.SaveSnapshot(snp, snapf, nil)
+			r.NoError(err)
+			_, err = snapf.Seek(0, 0)
+			r.NoError(err)
+
+			stopc := make(chan struct{})
+			go func() {
+				defer func() {
+					_ = snapf.Close()
+					_ = ep.Close()
+					_ = snapf.Close()
+				}()
+				t.Log("Recover from snapshot routine started")
+				err := ep.RecoverFromSnapshot(snapf, stopc)
+				r.Error(err)
+				r.Equal(sm.ErrSnapshotStopped, err)
+			}()
+
+			time.Sleep(100 * time.Millisecond)
+			close(stopc)
+
+			t.Log("Recovery stopped")
 		})
 	}
 }

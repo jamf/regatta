@@ -381,9 +381,9 @@ func (p *KVPebbleStateMachine) SaveSnapshot(ctx interface{}, w io.Writer, _ <-ch
 // RecoverFromSnapshot recovers the state machine state from snapshot specified by
 // the io.Reader object. The snapshot is recovered into a new DB first and then
 // atomically swapped with the existing DB to complete the recovery.
-func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{}) error {
+func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
 	if p.closed {
-		p.log.Panic("recover from snapshot called after Close()")
+		return ErrStateMachineClosed
 	}
 	if p.clusterID < 1 {
 		return ErrInvalidClusterID
@@ -417,38 +417,47 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, _ <-chan struct{
 	buffer := make([]byte, 0, 128*1024)
 	b := db.NewBatch()
 	defer b.Close()
-
 	p.log.Debugf("Starting snapshot recover to %s DB", dbdir)
 	var batchSize uint64
 	for i := uint64(0); i < total; i++ {
-		var toRead uint64
-		if err := binary.Read(br, binary.LittleEndian, &toRead); err != nil {
-			return err
-		}
-
-		batchSize = batchSize + toRead
-		if cap(buffer) < int(toRead) {
-			buffer = make([]byte, toRead)
-		}
-
-		if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
-			return err
-		}
-		if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
-			return err
-		}
-
-		if err := b.Set(kv.Key, kv.Value, nil); err != nil {
-			return err
-		}
-
-		if batchSize >= maxBatchSize {
-			err := b.Commit(nil)
-			if err != nil {
+		select {
+		case <-stopc:
+			db.Close()
+			if err := cleanupNodeDataDir(p.fs, dir); err != nil {
+				p.log.Debugf("unable to cleanup directory")
+			}
+			return sm.ErrSnapshotStopped
+		default:
+			p.log.Debugf("recover i %d", i)
+			var toRead uint64
+			if err := binary.Read(br, binary.LittleEndian, &toRead); err != nil {
 				return err
 			}
-			b = db.NewBatch()
-			batchSize = 0
+
+			batchSize = batchSize + toRead
+			if cap(buffer) < int(toRead) {
+				buffer = make([]byte, toRead)
+			}
+
+			if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
+				return err
+			}
+			if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
+				return err
+			}
+
+			if err := b.Set(kv.Key, kv.Value, nil); err != nil {
+				return err
+			}
+
+			if batchSize >= maxBatchSize {
+				err := b.Commit(nil)
+				if err != nil {
+					return err
+				}
+				b = db.NewBatch()
+				batchSize = 0
+			}
 		}
 	}
 
