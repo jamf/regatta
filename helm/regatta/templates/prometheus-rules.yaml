@@ -61,6 +61,7 @@ spec:
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-leader-not-available'
     - alert: RaftClusterNodeNotAvailableError
       expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
       for: 30m
@@ -70,6 +71,7 @@ spec:
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes for time period longer than 30m.'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster node not available'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-cluster-node-not-available'
     - alert: RaftClusterNodeNotAvailableWarn
       expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
       for: 2m
@@ -79,6 +81,7 @@ spec:
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes.'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster node not available'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-cluster-node-not-available'
     - alert: TooManyRaftnodeCampaignsLaunched
       expr: sum(increase(dragonboat_raftnode_campaign_launched_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 10m
@@ -89,6 +92,7 @@ spec:
       annotations:
         description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign launched in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign launched'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyRaftnodeCampaignsSkipped
       expr: sum(increase(dragonboat_raftnode_campaign_skipped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 10m
@@ -99,6 +103,7 @@ spec:
       annotations:
         description: There was {{ "{{" }}$value{{ "}}" }} raft node campaign skipped in the last 30 minutes for {{ "{{" }}$labels.job{{ "}}" }}
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many Raft node campaign skipped'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyRaftNodeProposalsDropped
       expr: sum(increase(dragonboat_raftnode_proposal_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 10m
@@ -109,6 +114,7 @@ spec:
       annotations:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node proposals in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node proposals dropped'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyRaftNodeReadIndexesDropped
       expr: sum(increase(dragonboat_raftnode_read_index_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 10m
@@ -119,6 +125,7 @@ spec:
       annotations:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} raft node read index in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many raft node read indexes dropped'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyRaftNodeReplicationsRejected
       expr: sum(increase(dragonboat_raftnode_replication_rejected_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) by (clusterid,nodeid,job,namespace,pod) > 50
       for: 10m
@@ -139,6 +146,7 @@ spec:
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} transport message connection attempts in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport message connection attempts'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyFailedSnapshotConnectionAttempts
       expr: increase(dragonboat_transport_failed_snapshot_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
       for: 10m
@@ -149,6 +157,7 @@ spec:
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} snapshot connection attempts in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed snapshot connection attempts'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyTransportMessageSendFailures
       expr: increase(dragonboat_transport_failed_snapshot_connection_attempt_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
       for: 10m
@@ -159,6 +168,7 @@ spec:
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} transport message send in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport message send'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyTransportReceiveMessagesDropped
       expr: increase(dragonboat_transport_received_message_dropped_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
       for: 10m
@@ -169,6 +179,7 @@ spec:
       annotations:
         description: 'Dropped {{ "{{" }}$value{{ "}}" }} transport message receive in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many dropped transport message receive'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
     - alert: TooManyTransportSnapshotSendFailures
       expr: increase(dragonboat_transport_snapshot_send_failure_total{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m]) > 50
       for: 10m
@@ -179,6 +190,7 @@ spec:
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} transport snapshot send in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many failed transport snapshot send'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-%2F-Transport-related-issues'
 
     # GRPC
     - alert: GRPCFailedRequests
@@ -190,6 +202,7 @@ spec:
       annotations:
         description: 'Failed {{ "{{" }}$value{{ "}}" }} GRPC requests in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC request error'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#gRPC-API-failed-requests'
     - alert: TooSlowGRPCResponseP99
       expr: histogram_quantile(0.99, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV",grpc_method="Range"}[5m]))) > 0.5
       for: 1m
@@ -199,6 +212,7 @@ spec:
       annotations:
         description: '95 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} s for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P99)'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#gRPC-API-slow-response'
     - alert: TooSlowGRPCResponseP50
       expr: histogram_quantile(0.50, sum by (job,namespace,pod,grpc_method,le) (rate(grpc_server_handling_seconds_bucket{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}",grpc_type="unary",grpc_service="regatta.v1.KV",grpc_method="Range"}[5m]))) > 0.05
       for: 1m
@@ -208,6 +222,7 @@ spec:
       annotations:
         description: '50 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} s for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P50)'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#gRPC-API-slow-response'
 
     # Kafka
     - alert: TooManyKafkaReaderErrors
@@ -218,6 +233,7 @@ spec:
       annotations:
         description: 'Observed {{ "{{" }}$value{{ "}}" }} kafka reader errors in 5 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Too many kafka reader errors'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-errors'
     - alert: HighKafkaReaderLag
       expr: kafka_reader_lag{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"} > 200
       for: 15m
@@ -227,4 +243,5 @@ spec:
       annotations:
         description: 'Kafka reader lag was over 200 for 15 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader lag to high'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-lag'
 {{- end -}}
