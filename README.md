@@ -7,8 +7,8 @@ Regatta is a read-optimised distributed key-value store.
 * [Go](https://golang.org/) >= 1.15 -- `brew install go`
 * Protocol Buffer compiler >= 3 -- `brew install protobuf`
 * Rocksdb >= 6 -- `brew install rocksdb`
-* Go protobuf compiler -- `go install google.golang.org/grpc/cmd/protoc-gen-go-grpc`
-* Go gRPC gateway compiler plugin -- `go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway`
+* Go protobuf compiler plugin -- `go get google.golang.org/protobuf/cmd/protoc-gen-go`
+* Go grpc generator protobuf compiler plugin -- `go get google.golang.org/grpc/cmd/protoc-gen-go-grpc`
 * Go gRPC gateway swagger plugin  -- `go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger`
 * gRPC curl (optional for testing) -- `brew install grpcurl`
 * [Docker](https://www.docker.com) (optional for testing)
@@ -196,8 +196,8 @@ $ curl -d'{}' -k https://localhost:8443/v1/maintenance/reset
 `$ kubectl --context <cluster> --namespace regatta delete persistentvolumeclaims data-regatta-0`\
 `$ kubectl --context <cluster> --namespace regatta delete persistentvolumeclaims data-regatta-1`\
 `$ kubectl --context <cluster> --namespace regatta delete persistentvolumeclaims data-regatta-2`
-3. Reset kafka offset for given consumer group ID
-   1. SSH to kafka node
+3. Reset kafka offset for given consumer group ID (The consumer group ID is defined in `charts-<env>.yaml` file in `.Values.kafka.brokers`.)
+   1. SSH to kafka node (Kafka broker configuration is defined in `charts-<env>.yaml` file in `.Values.kafka.groupID`.)
    2. List the topics to which the group is subscribed (use noSSL port 8091)\
     `$ /opt/kafka/bin/kafka-consumer-groups --bootstrap-server 127.0.0.1:8091 --group <consumer_group_id> --describe`
    3. Reset all topics the consumer group subsribes to (run without `--execute` flag for dry run)\
