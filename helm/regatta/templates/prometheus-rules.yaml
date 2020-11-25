@@ -57,6 +57,16 @@ spec:
       for: 5m
       labels:
         severity: critical
+        team: platform
+      annotations:
+        description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-leader-not-available'
+    - alert: RaftLeaderNotAvailable
+      expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 1
+      for: 5m
+      labels:
+        severity: critical
         team: {{ .Values.team }}
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
@@ -194,7 +204,7 @@ spec:
 
     # GRPC
     - alert: GRPCFailedRequests
-      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m]) > 0
+      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound|InvalidArgument", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m]) > 0
       for: 1m
       labels:
         severity: warning
