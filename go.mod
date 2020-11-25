@@ -5,8 +5,7 @@ go 1.15
 require (
 	github.com/VictoriaMetrics/metrics v1.12.3
 	github.com/cenkalti/backoff/v4 v4.1.0
-	github.com/cockroachdb/errors v1.8.1 // indirect
-	github.com/cockroachdb/pebble v0.0.0-20201110222031-01067adc85a5
+	github.com/cockroachdb/pebble v0.0.0-20201124214937-e325d9d1fd52
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
@@ -36,7 +35,7 @@ require (
 	golang.org/x/exp v0.0.0-20201008143054-e3b2a7f2fdc7 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
-	golang.org/x/sys v0.0.0-20201110211018-35f3e6cf4a65 // indirect
+	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20201014231627-1610a49f37af // indirect
 	google.golang.org/genproto v0.0.0-20201111145450-ac7456db90a6

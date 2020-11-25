@@ -55,7 +55,7 @@ const (
 	// maxBytesForLevelBase base for amount of data stored in a single level.
 	maxBytesForLevelBase = 256 * 1024 * 1024
 	// cacheSize LRU cache size.
-	cacheSize = 1024
+	cacheSize = 8 * 1024 * 1024
 	// maxLogFileSize maximum size of WAL files.
 	maxLogFileSize = 128 * 1024 * 1024
 	// maxBatchSize maximum size of inmemory batch before commit.
