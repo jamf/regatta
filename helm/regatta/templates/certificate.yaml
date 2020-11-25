@@ -32,7 +32,7 @@ spec:
     name: cert-manager-wandera-intermediary-ca
   secretName: {{ template "meta.name" . }}-cert
 {{- else }}
-  apiVersion: v1
+apiVersion: v1
 kind: Secret
 metadata:
   name: {{ template "meta.name" . }}-cert
