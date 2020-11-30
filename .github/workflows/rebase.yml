@@ -12,7 +12,7 @@ jobs:
 
     steps:
     - name: Checkout the latest code
-      uses: wandera/checkout@v2
+      uses: actions/checkout@v2
       with:
         fetch-depth: 0
     - name: Rebase/Autosquash
