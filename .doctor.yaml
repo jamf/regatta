@@ -1,0 +1,4 @@
+# List of tasks doctor will run
+tasks:
+# Dismiss stale reviews in PR when new commits are pushed.
+- name: dismissStaleReviews
