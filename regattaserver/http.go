@@ -17,8 +17,11 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 )
+
+const maxConnectionAge = 60 * time.Second
 
 // RegattaServer is server where grpc/http services can be registered in.
 type RegattaServer struct {
@@ -46,6 +49,9 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	opts := []grpc.ServerOption{
 		grpc.Creds(creds),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionAge: maxConnectionAge,
+		}),
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	}
