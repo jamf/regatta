@@ -21,6 +21,9 @@ charts:
         - "52.30.177.178/32"  # jes-101-dev.eu-west-1a.ie.wandera.co.uk
       reflectionAPI:
         enabled: true
+      affinity:
+        podAntiAffinity:
+          topologyKey: kubernetes.io/zone
       persistence:
         storage:
           storageClassName: ebs-gp2-zone-agnostic

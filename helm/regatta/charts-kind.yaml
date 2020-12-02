@@ -14,9 +14,11 @@ charts:
         tag: {{ env "TAG" | default "latest" | quote }}
       reflectionAPI:
         enabled: true
+      affinity:
+        podAntiAffinity:
+          topologyKey: kubernetes.io/hostname
       kafka:
         enabled: false
-      affinity: true
       persistence:
         storage:
           accessModes:

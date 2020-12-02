@@ -10,6 +10,9 @@ charts:
         tag: {{ env "TAG" | default "latest" | quote }}
       reflectionAPI:
         enabled: true
+      affinity:
+        podAntiAffinity:
+          topologyKey: kubernetes.io/zone
       persistence:
         storage:
           storageClassName: ebs-gp2-zone-agnostic

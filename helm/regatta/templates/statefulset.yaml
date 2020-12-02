@@ -103,7 +103,7 @@ spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-          - topologyKey: kubernetes.io/hostname
+          - topologyKey: {{ .Values.affinity.podAntiAffinity.topologyKey }}
             labelSelector:
               matchLabels:
                 app: {{ template "meta.name" . }}
