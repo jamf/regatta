@@ -2,15 +2,11 @@ package regattaserver
 
 import (
 	"context"
-	"crypto/tls"
 	"sort"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
@@ -19,25 +15,6 @@ type KVServer struct {
 	proto.UnimplementedKVServer
 	Storage       storage.KVStorage
 	ManagedTables []string
-}
-
-// Register creates KV server and registers it to regatta server.
-func (s *KVServer) Register(regatta *RegattaServer) error {
-	proto.RegisterKVServer(regatta, s)
-
-	opts := []grpc.DialOption{
-		// we do not need to check certificate between grpc-gateway and grpc server internally
-		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})),
-	}
-
-	err := proto.RegisterKVHandlerFromEndpoint(regatta.gwContext, regatta.gwMux, regatta.Addr, opts)
-	if err != nil {
-		zap.S().Errorf("Cannot register handler: %v", err)
-		return err
-	}
-	return nil
 }
 
 // Range implements proto/regatta.proto KV.Range method.
