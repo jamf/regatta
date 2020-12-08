@@ -11,12 +11,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// RESTServer is server exposing debug/healthcheck/metrics services of Regatta.
 type RESTServer struct {
 	addr       string
 	httpServer *http.Server
 	log        *zap.SugaredLogger
 }
 
+// NewServer returns initialized REST server.
 func NewRESTServer(addr string) *RESTServer {
 	mux := http.NewServeMux()
 	// expose the registered metrics at `/metrics` path.
@@ -67,11 +69,13 @@ func NewRESTServer(addr string) *RESTServer {
 	}
 }
 
+// ListenAndServe starts underlying HTTP server.
 func (s *RESTServer) ListenAndServe() error {
 	s.log.Infof("listen REST on: %s", s.addr)
 	return s.httpServer.ListenAndServe()
 }
 
+// Shutdown stops underlying HTTP server.
 func (s *RESTServer) Shutdown() {
 	s.log.Infof("stopping REST on: %s", s.addr)
 	_ = s.httpServer.Shutdown(context.TODO())

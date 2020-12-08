@@ -15,14 +15,14 @@ import (
 
 const maxConnectionAge = 60 * time.Second
 
-// RegattaServer is server where grpc/http services can be registered in.
+// RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
 	addr       string
 	grpcServer *grpc.Server
 	log        *zap.SugaredLogger
 }
 
-// NewServer returns initialized grpc/http server.
+// NewServer returns initialized gRPC server.
 func NewServer(addr string, certFilename string, keyFilename string, reflectionAPI bool) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.addr = addr
@@ -52,7 +52,7 @@ func NewServer(addr string, certFilename string, keyFilename string, reflectionA
 	return rs
 }
 
-// ListenAndServe starts underlying http server.
+// ListenAndServe starts underlying gRPC server.
 func (s *RegattaServer) ListenAndServe() error {
 	s.log.Infof("listen gRPC on: %s", s.addr)
 	l, err := net.Listen("tcp", s.addr)
@@ -64,7 +64,7 @@ func (s *RegattaServer) ListenAndServe() error {
 	return s.grpcServer.Serve(l)
 }
 
-// Shutdown stops underlying http server.
+// Shutdown stops underlying gRPC server.
 func (s *RegattaServer) Shutdown() {
 	s.log.Infof("stopping gRPC on: %s", s.addr)
 	s.grpcServer.GracefulStop()
