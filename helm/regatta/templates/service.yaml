@@ -17,6 +17,9 @@ spec:
   - name: https
     targetPort: https
     port: {{ .Values.internalPort }}
+  - name: http-metrics
+    targetPort: http-metrics
+    port: {{ .Values.metricsPort }}
   publishNotReadyAddresses: true
 ---
 apiVersion: v1

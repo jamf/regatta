@@ -19,6 +19,7 @@ resources:
     memory: 1.5Gi
 
 internalPort: 8443
+metricsPort: 8079
 
 tolerations: []
 nodeSelector: {}

@@ -18,9 +18,6 @@ spec:
     matchNames:
     -  {{ .Release.Namespace }}
   endpoints:
-  - port: https
-    scheme: https
-    tlsConfig:
-      insecureSkipVerify: true
+  - port: http-metrics
     interval: 30s
 {{ end }}
