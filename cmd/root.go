@@ -39,6 +39,9 @@ func init() {
 	rootCmd.PersistentFlags().String("api.key-filename", "hack/server.key", "Path to the API server private key file.")
 	rootCmd.PersistentFlags().Bool("api.reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
 
+	// REST API flags
+	rootCmd.PersistentFlags().String("rest.address", "localhost:8079", "Address the REST API server should listen on.")
+
 	// Raft flags
 	rootCmd.PersistentFlags().Duration("raft.rtt", 50*time.Millisecond,
 		`RTTMillisecond defines the average Round Trip Time (RTT) between two NodeHost instances.
@@ -226,7 +229,7 @@ func root(_ *cobra.Command, _ []string) {
 		viper.GetString("api.key-filename"),
 		viper.GetBool("api.reflection-api"),
 	)
-	defer regatta.Shutdown(context.Background(), 30*time.Second)
+	defer regatta.Shutdown()
 
 	// Create and register grpc/rest endpoints
 	mTables := viper.GetStringSlice("kafka.topics")
@@ -234,22 +237,27 @@ func root(_ *cobra.Command, _ []string) {
 		Storage:       st,
 		ManagedTables: mTables,
 	}
-	if err := kvs.Register(regatta); err != nil {
-		log.Panicf("registerKVServer failed: %v", err)
-	}
+	proto.RegisterKVServer(regatta, kvs)
+
 	ms := &regattaserver.MaintenanceServer{
 		Storage: st,
 	}
-	if err := ms.Register(regatta); err != nil {
-		log.Panicf("registerMaintenanceServer failed: %v", err)
-	}
+	proto.RegisterMaintenanceServer(regatta, ms)
 
 	// Start server
 	go func() {
-		if err := regatta.ListenAndServe(); err != http.ErrServerClosed {
-			log.Panicf("listenAndServe failed: %v", err)
+		if err := regatta.ListenAndServe(); err != nil {
+			log.Panicf("grpc listenAndServe failed: %v", err)
 		}
 	}()
+
+	hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))
+	go func() {
+		if err := hs.ListenAndServe(); err != http.ErrServerClosed {
+			log.Panicf("REST listenAndServe failed: %v", err)
+		}
+	}()
+	defer hs.Shutdown()
 
 	var tc []kafka.TopicConfig
 	for _, topic := range viper.GetStringSlice("kafka.topics") {
@@ -278,14 +286,14 @@ func root(_ *cobra.Command, _ []string) {
 	defer consumer.Close()
 	prometheus.MustRegister(consumer)
 
-	log.Info("Start consuming...")
+	log.Info("start consuming...")
 	if err := consumer.Start(context.Background()); err != nil {
 		log.Panicf("failed to start consumer: %v", err)
 	}
 
 	// Cleanup
 	<-shutdown
-	log.Info("Shutting down...")
+	log.Info("shutting down...")
 }
 
 // waitForClusterInit checks state of clusters for `nh`. It blocks until no clusters are pending.
