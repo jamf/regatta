@@ -8,34 +8,18 @@ option go_package = ".;proto";
 
 package regatta.v1;
 
-import "google/api/annotations.proto";
 import "mvcc.proto";
 
 // KV for handling the read/put requests
 service KV {
   // Range gets the keys in the range from the key-value store.
-  rpc Range(RangeRequest) returns (RangeResponse) {
-    option (google.api.http) = {
-      post : "/v1/kv/range"
-      body : "*"
-    };
-  }
+  rpc Range(RangeRequest) returns (RangeResponse);
 
   // Put puts the given key into the key-value store.
-  rpc Put(PutRequest) returns (PutResponse) {
-    option (google.api.http) = {
-      post : "/v1/kv/put"
-      body : "*"
-    };
-  }
+  rpc Put(PutRequest) returns (PutResponse);
 
   // DeleteRange deletes the given range from the key-value store.
-  rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse) {
-    option (google.api.http) = {
-      post : "/v1/kv/deleterange"
-      body : "*"
-    };
-  }
+  rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse);
 }
 
 // Maintenance service provides methods for testing and maintenance purposes.
@@ -45,21 +29,11 @@ service Maintenance {
   // This is designed for testing ONLY!
   // This operation does not hols lock on the underlying storage
   // so it might produce inconsistent results while keep writing to the DB.
-  rpc Hash(HashRequest) returns (HashResponse) {
-    option (google.api.http) = {
-      post : "/v1/maintenance/hash"
-      body : "*"
-    };
-  }
+  rpc Hash(HashRequest) returns (HashResponse);
 
   // Reset method does reset the complete state of either the selected node or the whole cluster.
   // The functionality is intended mainly for testing purposes.
-  rpc Reset(ResetRequest) returns (ResetResponse) {
-    option (google.api.http) = {
-      post : "/v1/maintenance/reset"
-      body : "*"
-    };
-  }
+  rpc Reset(ResetRequest) returns (ResetResponse);
 }
 
 message ResponseHeader {
