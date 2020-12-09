@@ -9,14 +9,12 @@ Regatta is a read-optimised distributed key-value store.
 * Rocksdb >= 6 -- `brew install rocksdb`
 * Go protobuf compiler plugin -- `go get google.golang.org/protobuf/cmd/protoc-gen-go`
 * Go grpc generator protobuf compiler plugin -- `go get google.golang.org/grpc/cmd/protoc-gen-go-grpc`
-* Go gRPC gateway swagger plugin  -- `go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger`
 * gRPC curl (optional for testing) -- `brew install grpcurl`
 * [Docker](https://www.docker.com) (optional for testing)
 * [kind](https://kind.sigs.k8s.io/) (optional for testing)
 
 ## Other links
 * [gRPC in Golang](https://grpc.io/docs/languages/go/)
-* [gRPC REST Gateway](https://github.com/grpc-ecosystem/grpc-gateway)
 * [Protobuffers in JSON](https://developers.google.com/protocol-buffers/docs/proto3#json)
 * [Dragonboat](https://github.com/lni/dragonboat)
 
@@ -69,6 +67,7 @@ Flags:
       --raft.wal-dir string                   WALDir is the directory used for storing the WAL of Raft entries. 
                                               It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
+      --rest.address string                   Address the REST API server should listen on. (default "localhost:8079")
 ```
 
 ## Running regatta locally
@@ -168,25 +167,6 @@ $ grpcurl -insecure -d='{"table": "dGFibGVfMQ==", "key": "a2V5XzE="}' 127.0.0.1:
 {"kvs":[{"key":"a2V5XzE=","value":"dGFibGVfMXZhbHVlXzE="}],"count":"1"}
 $ echo "dGFibGVfMXZhbHVlXzE=" | base64 -d
 table_1value_1
-```
-
-### REST
-It is also possible to communicate with regatta using REST API:
-```bash
-
-$ echo -n 'table_1' | base64
-dGFibGVfMQ==
-
-$ echo -n 'key_1' | base64
-a2V5XzE=
-
-$ curl -d'{"table": "dGFibGVfMQ==", "key": "a2V5XzE="}' -k https://localhost:8443/v1/kv/range
-{"kvs":[{"key":"a2V5XzE=","value":"dGFibGVfMXZhbHVlXzE="}],"count":"1"}
-$ echo "dGFibGVfMXZhbHVlXzE=" | base64 -d
-table_1value_1
-
-$ curl -d'{}' -k https://localhost:8443/v1/maintenance/reset
-{}
 ```
 
 ## Reset cluster data

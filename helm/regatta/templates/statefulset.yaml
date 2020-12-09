@@ -43,6 +43,7 @@ spec:
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
+            --rest.address=0.0.0.0:{{ .Values.metricsPort }} \
             --raft.address=$(POD_NAME).{{ template "meta.name" . }}.{{ .Release.Namespace }}.svc.cluster.local:5012 \
             --raft.listen-address=0.0.0.0:5012 \
             --raft.node-id=${NODE_ID} \
@@ -65,12 +66,13 @@ spec:
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
+        - name: http-metrics
+          containerPort: {{ .Values.metricsPort }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 8443
-            scheme: HTTPS
+            port: {{ .Values.metricsPort }}
           initialDelaySeconds: 60
           periodSeconds: 60
         volumeMounts:
