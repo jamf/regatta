@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -19,7 +18,7 @@ const (
 	updatingDBFilename string = "current.updating"
 )
 
-func syncDir(fs vfs.FS, dir string) (err error) {
+func syncDir(fs vfs.FS, dir string) error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}
@@ -35,9 +34,7 @@ func syncDir(fs vfs.FS, dir string) (err error) {
 		return err
 	}
 	defer func() {
-		if cerr := df.Close(); err == nil {
-			err = cerr
-		}
+		_ = df.Close()
 	}()
 	return df.Sync()
 }
@@ -45,41 +42,10 @@ func syncDir(fs vfs.FS, dir string) (err error) {
 // functions below are used to manage the current data directory of Pebble DB.
 func isNewRun(fs vfs.FS, dir string) bool {
 	fp := filepath.Join(dir, currentDBFilename)
-	if _, err := fs.Stat(fp); os.IsNotExist(err) {
+	if _, err := fs.Stat(fp); err != nil {
 		return true
 	}
 	return false
-}
-
-// function used to migrate from old system - if the directory is not empty but there is no currentDBFilename/updatingDBFilename.
-func isMigration(fs vfs.FS, dir string) bool {
-	fp := filepath.Join(dir, "CURRENT")
-	if _, err := fs.Stat(fp); err != nil {
-		return false
-	}
-	return true
-}
-
-func migrateDBDir(fs vfs.FS, dir string, current string) error {
-	if err := fs.MkdirAll(filepath.Join(dir, current), 0755); err != nil {
-		return err
-	}
-	files, err := fs.List(dir)
-	if err != nil {
-		return err
-	}
-	for _, fi := range files {
-		if fi == currentDBFilename || fi == updatingDBFilename {
-			continue
-		}
-		toMigrate := filepath.Join(dir, fi)
-		if toMigrate != filepath.Join(dir, current) {
-			if err := fs.Rename(toMigrate, filepath.Join(dir, current, fi)); err != nil {
-				return err
-			}
-		}
-	}
-	return syncDir(fs, dir)
 }
 
 func getNodeDBDirName(baseDir string, hostname string, clusterID uint64, nodeID uint64) string {
@@ -99,7 +65,7 @@ func replaceCurrentDBFile(fs vfs.FS, dir string) error {
 	return syncDir(fs, dir)
 }
 
-func saveCurrentDBDirName(fs vfs.FS, dir string, dbdir string) (er error) {
+func saveCurrentDBDirName(fs vfs.FS, dir string, dbdir string) error {
 	h := md5.New()
 	if _, err := h.Write([]byte(dbdir)); err != nil {
 		return err
@@ -110,35 +76,29 @@ func saveCurrentDBDirName(fs vfs.FS, dir string, dbdir string) (er error) {
 		return err
 	}
 	defer func() {
-		if err := f.Close(); err != nil {
-			er = err
-		}
-		if err := syncDir(fs, dir); err != nil {
-			er = err
-		}
+		_ = f.Close()
+		_ = syncDir(fs, dir)
 	}()
-	if _, err := f.Write(h.Sum(nil)[:8]); err != nil {
+	if _, err = f.Write(h.Sum(nil)[:8]); err != nil {
 		return err
 	}
-	if _, err := f.Write([]byte(dbdir)); err != nil {
+	if _, err = f.Write([]byte(dbdir)); err != nil {
 		return err
 	}
-	if err := f.Sync(); err != nil {
+	if err = f.Sync(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func getCurrentDBDirName(fs vfs.FS, dir string) (dbdir string, err error) {
+func getCurrentDBDirName(fs vfs.FS, dir string) (string, error) {
 	fp := filepath.Join(dir, currentDBFilename)
-	f, cerr := fs.Open(fp)
-	if cerr != nil {
+	f, err := fs.Open(fp)
+	if err != nil {
 		return "", err
 	}
 	defer func() {
-		if e := f.Close(); err != nil {
-			err = e
-		}
+		_ = f.Close()
 	}()
 	data, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -150,14 +110,13 @@ func getCurrentDBDirName(fs vfs.FS, dir string) (dbdir string, err error) {
 	crc := data[:8]
 	content := data[8:]
 	h := md5.New()
-	if _, err := h.Write(content); err != nil {
+	if _, err = h.Write(content); err != nil {
 		return "", err
 	}
 	if !bytes.Equal(crc, h.Sum(nil)[:8]) {
 		return "", err
 	}
-	dbdir = string(content)
-	return dbdir, nil
+	return string(content), nil
 }
 
 func createNodeDataDir(fs vfs.FS, dir string) error {

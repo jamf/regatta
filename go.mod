@@ -4,12 +4,14 @@ go 1.15
 
 require (
 	github.com/VictoriaMetrics/metrics v1.12.3
+	github.com/axw/gocov v1.0.0
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/cockroachdb/pebble v0.0.0-20201124214937-e325d9d1fd52
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024
 	github.com/klauspost/compress v1.11.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lni/dragonboat/v3 v3.1.1-0.20201030030649-b6a0b38bee67
