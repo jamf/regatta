@@ -169,12 +169,6 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		if err := replaceCurrentDBFile(p.fs, dir); err != nil {
 			return 0, err
 		}
-
-		if isMigration(p.fs, dir) {
-			if err := migrateDBDir(p.fs, dir, randomDir); err != nil {
-				return 0, err
-			}
-		}
 	} else {
 		if err := cleanupNodeDataDir(p.fs, dir); err != nil {
 			return 0, err
@@ -186,9 +180,7 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		}
 		dbdir = filepath.Join(dir, randomDir)
 		if _, err := p.fs.Stat(filepath.Join(dir, randomDir)); err != nil {
-			if os.IsNotExist(err) {
-				return 0, err
-			}
+			return 0, err
 		}
 	}
 
