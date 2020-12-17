@@ -234,8 +234,8 @@ spec:
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P50)'
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#gRPC-API-slow-response'
     - alert: HighNotFoundRequestsRatio
-      expr:  (sum(increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m])) by (pod) > 50) AND ((sum(increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code="NotFound", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m])) by (pod) / sum(increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m])) by (pod))*100 > 15)
-      for: 1m
+      expr:  sum by(pod) (rate(grpc_server_handled_total{grpc_code="NotFound",grpc_method="Range",grpc_service!="grpc.reflection.v1alpha.ServerReflection",job="{{ template "meta.name" . }}",namespace="{{ .Release.Namespace }}"}[1m])) / sum by (pod) (rate(grpc_server_handled_total{grpc_method="Range",grpc_service!="grpc.reflection.v1alpha.ServerReflection",job="{{ template "meta.name" . }}",namespace="{{ .Release.Namespace }}"}[1m])) * 100 > 40 AND on(pod) sum by (pod) (rate(grpc_server_handled_total{grpc_method="Range",grpc_service!="grpc.reflection.v1alpha.ServerReflection",job="{{ template "meta.name" . }}",namespace="{{ .Release.Namespace }}"}[1m])) > 20
+      for: 5m
       labels:
         severity: warning
         team: {{ .Values.team }}
