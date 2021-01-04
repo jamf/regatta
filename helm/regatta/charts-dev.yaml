@@ -30,8 +30,8 @@ charts:
             requests:
               storage: 200Gi
       resources:
-        limits:
-          cpu: 1500m
+        requests:
+          cpu: 750m
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
       kafka:
