@@ -18,17 +18,16 @@ func startRaftNode() (*dragonboat.NodeHost, *raft.Metadata) {
 	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
 	meta := &raft.Metadata{}
 	nhc := config.NodeHostConfig{
-		WALDir:         "wal",
-		NodeHostDir:    "dragonboat",
-		RTTMillisecond: 1,
-		RaftAddress:    testNodeAddress,
-		FS:             vfs.NewMem(),
-		Expert: config.ExpertConfig{
-			ExecShards:  1,
-			LogDBShards: 1,
-		},
+		WALDir:            "wal",
+		NodeHostDir:       "dragonboat",
+		RTTMillisecond:    1,
+		RaftAddress:       testNodeAddress,
 		RaftEventListener: meta,
 	}
+	_ = nhc.Prepare()
+	nhc.Expert.FS = vfs.NewMem()
+	nhc.Expert.ExecShards = 1
+	nhc.Expert.LogDB.Shards = 1
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
 		zap.S().Panic(err)

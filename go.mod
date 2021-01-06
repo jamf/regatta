@@ -9,12 +9,11 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20210105220221-ba9f44899152
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/golang/protobuf v1.4.3
-	github.com/golang/snappy v0.0.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024
 	github.com/klauspost/compress v1.11.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lni/dragonboat/v3 v3.1.1-0.20201030030649-b6a0b38bee67
+	github.com/lni/dragonboat/v3 v3.1.1-0.20210105093335-5934f848ea7c
 	github.com/lni/goutils v1.2.3-0.20201010045919-3885c6f6643f
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/minio/highwayhash v1.0.1
