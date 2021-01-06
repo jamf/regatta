@@ -162,9 +162,9 @@ func root(_ *cobra.Command, _ []string) {
 		ListenAddress:     viper.GetString("raft.listen-address"),
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
-		LogDB:             buildLogDBConfig(),
 		LogDBFactory:      logDBFactory,
 	}
+	nhc.Expert.LogDB = buildLogDBConfig()
 
 	err := nhc.Prepare()
 	if err != nil {
@@ -182,7 +182,7 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.GetLogger("dragonboat").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
 
-	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDBShards)
+	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDB.Shards)
 	for clusterID := uint64(1); clusterID <= partitioner.Capacity(); clusterID++ {
 		cfg := config.Config{
 			NodeID:                  viper.GetUint64("raft.node-id"),
