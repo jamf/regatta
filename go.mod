@@ -6,7 +6,7 @@ require (
 	github.com/VictoriaMetrics/metrics v1.12.3
 	github.com/axw/gocov v1.0.0
 	github.com/cenkalti/backoff/v4 v4.1.0
-	github.com/cockroachdb/pebble v0.0.0-20201124214937-e325d9d1fd52
+	github.com/cockroachdb/pebble v0.0.0-20210105220221-ba9f44899152
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
