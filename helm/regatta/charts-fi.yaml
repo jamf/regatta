@@ -22,7 +22,7 @@ charts:
       affinity: false
       persistence:
         storage:
-          storageClassName: gp2-b
+          storageClassName: ebs-gp2-zone-agnostic
           accessModes:
           - ReadWriteOnce
           resources:
