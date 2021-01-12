@@ -322,6 +322,8 @@ github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20190605223551-b
 github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0UBX0ZE6WURAspgAczcDHrL4=
 github.com/lni/dragonboat/v3 v3.1.1-0.20210105093335-5934f848ea7c h1:q0FXFIdCWLKHOCPIT9tT8E77Q4n91EHfakj3g+W3vks=
 github.com/lni/dragonboat/v3 v3.1.1-0.20210105093335-5934f848ea7c/go.mod h1:NTRe9DQNg34M6goNgXeJaT+lEiOwkQLr/Gm92Xlcw7s=
+github.com/lni/dragonboat/v3 v3.1.1-0.20210112135854-d0fda5d2eee4 h1:RBpTs7TlAMY2FZKdokyBeZ8SjqLOaaM81xgPP1/etUc=
+github.com/lni/dragonboat/v3 v3.1.1-0.20210112135854-d0fda5d2eee4/go.mod h1:NTRe9DQNg34M6goNgXeJaT+lEiOwkQLr/Gm92Xlcw7s=
 github.com/lni/goutils v1.2.3-0.20201010045919-3885c6f6643f h1:1nMbXuZjsUsxOYWu08fasNftOnW9sK53ZslvRTweCZ4=
 github.com/lni/goutils v1.2.3-0.20201010045919-3885c6f6643f/go.mod h1:PUPtBAnZlRPUKWUXCsYkIRWubJbtNHpTAee0sczhlf4=
 github.com/lyft/protoc-gen-validate v0.0.13/go.mod h1:XbGvPuh87YZc5TdIa2/I4pLk0QoUACkjt2znoq26NVQ=
