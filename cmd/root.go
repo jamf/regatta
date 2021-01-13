@@ -79,7 +79,7 @@ Raft log compaction is performed automatically every time when a snapshot is cre
 In memory Raft logs are the ones that have not been applied yet.`)
 
 	// Kafka flags
-	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"localhost:9092"}, "Address of the Kafka broker.")
+	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
 	rootCmd.PersistentFlags().Duration("kafka.timeout", 10*time.Second, "Kafka dialer timeout.")
 	rootCmd.PersistentFlags().String("kafka.group-id", "regatta-local", "Kafka consumer group ID.")
 	rootCmd.PersistentFlags().StringSlice("kafka.topics", nil, "Kafka topics to read from.")
@@ -87,6 +87,8 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().String("kafka.server-cert-filename", "", "Kafka broker CA.")
 	rootCmd.PersistentFlags().String("kafka.client-cert-filename", "", "Kafka client certificate.")
 	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
+	rootCmd.PersistentFlags().Bool("kafka.check-topics", false, `Enables checking if all "--kafka.topics" exist before kafka client connection attempt.`)
+	rootCmd.PersistentFlags().Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
 
 	cobra.OnInitialize(initConfig)
 }
@@ -275,7 +277,14 @@ func root(_ *cobra.Command, _ []string) {
 		ClientCertFilename: viper.GetString("kafka.client-cert-filename"),
 		ClientKeyFilename:  viper.GetString("kafka.client-key-filename"),
 		Topics:             tc,
-		DebugLogs:          false,
+		DebugLogs:          viper.GetBool("kafka.debug-logs"),
+	}
+
+	// wait until kafka is ready
+	checkTopics := viper.GetBool("kafka.check-topics")
+	if checkTopics && !waitForKafkaInit(shutdown, kafkaCfg) {
+		log.Info("Shutting down...")
+		return
 	}
 
 	// Start Kafka consumer
@@ -313,6 +322,26 @@ func waitForClusterInit(shutdown chan os.Signal, nh *dragonboat.NodeHost) bool {
 				ready = ready && !ci.Pending
 			}
 			if ready {
+				return true
+			}
+		}
+	}
+}
+
+// waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
+// It can be interrupted with signal in `shutdown` channel.
+func waitForKafkaInit(shutdown chan os.Signal, cfg kafka.Config) bool {
+	ch := kafka.NewChecker(cfg, 30*time.Second)
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-shutdown:
+			return false
+		case <-ticker.C:
+			if ch.Check() {
 				return true
 			}
 		}
