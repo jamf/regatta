@@ -33,9 +33,11 @@ Flags:
       --api.reflection-api                    Whether reflection API is provided. Should not be turned on in production.
       --dev-mode                              Dev mode enabled (verbose logging, human-friendly log format).
   -h, --help                                  help for regatta
-      --kafka.brokers strings                 Address of the Kafka broker. (default [localhost:9092])
+      --kafka.brokers strings                 Address of the Kafka broker. (default [127.0.0.1:9092])
+      --kafka.check-topics                    Enables checking if all "--kafka.topics" exist before kafka client connection attempt.
       --kafka.client-cert-filename string     Kafka client certificate.
       --kafka.client-key-filename string      Kafka client key.
+      --kafka.debug-logs                      Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.
       --kafka.group-id string                 Kafka consumer group ID. (default "regatta-local")
       --kafka.server-cert-filename string     Kafka broker CA.
       --kafka.timeout duration                Kafka dialer timeout. (default 10s)
@@ -119,7 +121,7 @@ Run regatta:
 ```
 Produce message to kafka:
 ```bash
-echo "key_1:val_1" | docker run --rm -i --network host edenhill/kafkacat:1.6.0 -K: -b localhost:9092 -t regatta-test
+echo "key_1:val_1" | docker run --rm -i --network host edenhill/kafkacat:1.6.0 -K: -b 127.0.0.1:9092 -t regatta-test
 ```
 Read out from regatta:
 ```bash
