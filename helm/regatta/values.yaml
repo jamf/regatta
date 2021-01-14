@@ -40,6 +40,7 @@ persistence: {}
 kafka:
   enabled: true
   brokers: ""
+  checkTopics: false
   dialerTimeout: 10s
   groupID: ""
   topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy

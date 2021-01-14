@@ -134,15 +134,16 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 	tc.log = zap.S().Named(fmt.Sprintf("consumer:%s", config.Name))
 
 	rc := kafka.ReaderConfig{
-		Brokers:        brokers,
-		GroupID:        config.GroupID,
-		Topic:          config.Name,
-		Dialer:         dialer,
-		MaxBytes:       10e6, // 10MB
-		MaxWait:        3 * time.Second,
-		CommitInterval: 1 * time.Second,
-		RetentionTime:  7 * 24 * time.Hour,
-		ErrorLogger:    kafka.LoggerFunc(tc.log.Errorf),
+		Brokers:               brokers,
+		GroupID:               config.GroupID,
+		Topic:                 config.Name,
+		Dialer:                dialer,
+		MaxBytes:              10e6, // 10MB
+		MaxWait:               3 * time.Second,
+		CommitInterval:        1 * time.Second,
+		RetentionTime:         7 * 24 * time.Hour,
+		WatchPartitionChanges: true,
+		ErrorLogger:           kafka.LoggerFunc(tc.log.Errorf),
 	}
 	tc.listener = listener
 	if debugLogs {

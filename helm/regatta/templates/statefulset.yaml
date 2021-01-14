@@ -55,6 +55,7 @@ spec:
           {{- end }}
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
+            --kafka.check-topics={{ .Values.kafka.checkTopics }} \
             --kafka.timeout={{ .Values.kafka.dialerTimeout }} \
             --kafka.group-id={{ .Values.kafka.groupID }} \
             --kafka.topics={{ .Values.kafka.topics }} \
