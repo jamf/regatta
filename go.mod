@@ -40,7 +40,7 @@ require (
 	golang.org/x/tools v0.0.0-20201014231627-1610a49f37af // indirect
 	google.golang.org/genproto v0.0.0-20201111145450-ac7456db90a6 // indirect
 	google.golang.org/grpc v1.35.0
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.0.1
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 )

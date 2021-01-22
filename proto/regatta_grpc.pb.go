@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // KVClient is the client API for KV service.
@@ -96,7 +97,7 @@ type UnsafeKVServer interface {
 }
 
 func RegisterKVServer(s grpc.ServiceRegistrar, srv KVServer) {
-	s.RegisterService(&_KV_serviceDesc, srv)
+	s.RegisterService(&KV_ServiceDesc, srv)
 }
 
 func _KV_Range_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -153,7 +154,10 @@ func _KV_DeleteRange_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-var _KV_serviceDesc = grpc.ServiceDesc{
+// KV_ServiceDesc is the grpc.ServiceDesc for KV service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var KV_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "regatta.v1.KV",
 	HandlerType: (*KVServer)(nil),
 	Methods: []grpc.MethodDesc{
@@ -251,7 +255,7 @@ type UnsafeMaintenanceServer interface {
 }
 
 func RegisterMaintenanceServer(s grpc.ServiceRegistrar, srv MaintenanceServer) {
-	s.RegisterService(&_Maintenance_serviceDesc, srv)
+	s.RegisterService(&Maintenance_ServiceDesc, srv)
 }
 
 func _Maintenance_Hash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -290,7 +294,10 @@ func _Maintenance_Reset_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-var _Maintenance_serviceDesc = grpc.ServiceDesc{
+// Maintenance_ServiceDesc is the grpc.ServiceDesc for Maintenance service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Maintenance_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "regatta.v1.Maintenance",
 	HandlerType: (*MaintenanceServer)(nil),
 	Methods: []grpc.MethodDesc{
