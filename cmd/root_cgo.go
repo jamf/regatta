@@ -7,5 +7,5 @@ import (
 )
 
 func init() {
-	logDBFactory = rocksdb.NewLogDB
+	logDBFactory = &rocksdb.Factory{}
 }
