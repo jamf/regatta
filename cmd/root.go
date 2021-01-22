@@ -47,6 +47,14 @@ func init() {
 		`RTTMillisecond defines the average Round Trip Time (RTT) between two NodeHost instances.
 Such a RTT interval is internally used as a logical clock tick, Raft heartbeat and election intervals are both defined in term of how many such RTT intervals.
 Note that RTTMillisecond is the combined delays between two NodeHost instances including all delays caused by network transmission, delays caused by NodeHost queuing and processing.`)
+	rootCmd.PersistentFlags().Int("raft.heartbeat-rtt", 1,
+		`HeartbeatRTT is the number of message RTT between heartbeats. Message RTT is defined by NodeHostConfig.RTTMillisecond. The Raft paper suggest the heartbeat interval to be close to the average RTT between nodes.
+As an example, assuming NodeHostConfig.RTTMillisecond is 100 millisecond, to set the heartbeat interval to be every 200 milliseconds, then HeartbeatRTT should be set to 2.`)
+	rootCmd.PersistentFlags().Int("raft.election-rtt", 20,
+		`ElectionRTT is the minimum number of message RTT between elections. Message RTT is defined by NodeHostConfig.RTTMillisecond. 
+The Raft paper suggests it to be a magnitude greater than HeartbeatRTT, which is the interval between two heartbeats. In Raft, the actual interval between elections is randomized to be between ElectionRTT and 2 * ElectionRTT.
+As an example, assuming NodeHostConfig.RTTMillisecond is 100 millisecond, to set the election interval to be 1 second, then ElectionRTT should be set to 10.
+When CheckQuorum is enabled, ElectionRTT also defines the interval for checking leader quorum.`)
 	rootCmd.PersistentFlags().String("raft.wal-dir", "",
 		`WALDir is the directory used for storing the WAL of Raft entries. 
 It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
@@ -94,7 +102,7 @@ In memory Raft logs are the ones that have not been applied yet.`)
 }
 
 var (
-	logDBFactory config.LogDBFactoryFunc
+	logDBFactory config.LogDBFactory
 	rootCmd      = &cobra.Command{
 		Use:     "regatta",
 		Short:   "Regatta is read-optimized distributed key-value store.",
@@ -164,9 +172,9 @@ func root(_ *cobra.Command, _ []string) {
 		ListenAddress:     viper.GetString("raft.listen-address"),
 		EnableMetrics:     true,
 		RaftEventListener: metadata,
-		LogDBFactory:      logDBFactory,
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
+	nhc.Expert.LogDBFactory = logDBFactory
 
 	err := nhc.Prepare()
 	if err != nil {
@@ -190,8 +198,8 @@ func root(_ *cobra.Command, _ []string) {
 			NodeID:                  viper.GetUint64("raft.node-id"),
 			ClusterID:               clusterID,
 			CheckQuorum:             true,
-			ElectionRTT:             20,
-			HeartbeatRTT:            1,
+			HeartbeatRTT:            viper.GetUint64("raft.heartbeat-rtt"),
+			ElectionRTT:             viper.GetUint64("raft.election-rtt"),
 			SnapshotEntries:         viper.GetUint64("raft.snapshot-entries"),
 			CompactionOverhead:      viper.GetUint64("raft.compaction-overhead"),
 			MaxInMemLogSize:         viper.GetUint64("raft.max-in-mem-log-size"),
