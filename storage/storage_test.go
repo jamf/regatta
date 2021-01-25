@@ -26,7 +26,7 @@ func startRaftNode() (*dragonboat.NodeHost, *raft.Metadata) {
 	}
 	_ = nhc.Prepare()
 	nhc.Expert.FS = vfs.NewMem()
-	nhc.Expert.ExecShards = 1
+	nhc.Expert.Engine.ExecShards = 1
 	nhc.Expert.LogDB.Shards = 1
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
