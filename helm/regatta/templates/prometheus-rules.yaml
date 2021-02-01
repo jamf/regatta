@@ -262,6 +262,16 @@ spec:
         team: {{ .Values.team }}
       annotations:
         description: 'Kafka reader lag was over 200 for 15 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
-        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader lag to high'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader lag too high'
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-lag'
+    - alert: LowKafkaFetchCount
+      expr: sum by (topic, pod, job) (increase(kafka_reader_fetch_count{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) == 0
+      for: 15m
+      labels:
+        severity: warning
+        team: {{ .Values.team }}
+      annotations:
+        description: 'Kafka reader fetch count increase is 0 for 15 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}, pod {{ "{{" }}$labels.pod{{ "}}" }}'
+        summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader fetch count too low'
+        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-fetch-count'
 {{- end -}}

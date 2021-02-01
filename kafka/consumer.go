@@ -137,7 +137,6 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 		GroupID:               config.GroupID,
 		Topic:                 config.Name,
 		Dialer:                dialer,
-		QueueCapacity:         1000,
 		MaxBytes:              10e6, // 10MB
 		MaxWait:               3 * time.Second,
 		CommitInterval:        1 * time.Second,
