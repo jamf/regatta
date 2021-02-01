@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -175,12 +174,15 @@ func (tc *TopicConsumer) Consume(ctx context.Context, wg *sync.WaitGroup) {
 	b.MaxElapsedTime = 0 // infinite
 	wg.Done()
 	for {
+		select {
+		case <-ctx.Done():
+			tc.log.Infof("stop reading topic: %s, reader has been closed", tc.config.Name)
+			return
+		default:
+		}
+
 		m, err := tc.reader.FetchMessage(ctx)
 		if err != nil {
-			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
-				tc.log.Infof("stop reading topic: %s, reader has been closed", tc.config.Name)
-				break
-			}
 			tc.log.Error(err)
 			continue
 		}
