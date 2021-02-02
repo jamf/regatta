@@ -13,7 +13,7 @@ require (
 	github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024
 	github.com/klauspost/compress v1.11.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lni/dragonboat/v3 v3.3.0
+	github.com/lni/dragonboat/v3 v3.3.1
 	github.com/lni/goutils v1.3.0
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/minio/highwayhash v1.0.1
