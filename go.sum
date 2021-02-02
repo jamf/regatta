@@ -324,8 +324,8 @@ github.com/labstack/echo/v4 v4.1.11/go.mod h1:i541M3Fj6f76NZtHSj7TXnyM8n2gaodfvf
 github.com/labstack/gommon v0.3.0/go.mod h1:MULnywXg0yavhxWKc+lOruYdAhDwPK9wf0OL7NoOu+k=
 github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20190605223551-bc2310a04743/go.mod h1:qklhhLq1aX+mtWk9cPHPzaBjWImj5ULL6C7HFJtXQMM=
 github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0UBX0ZE6WURAspgAczcDHrL4=
-github.com/lni/dragonboat/v3 v3.3.0 h1:kiZGIJQgvCZCwMh5cdFzg4bvaeHbCceUX23eaQYvumE=
-github.com/lni/dragonboat/v3 v3.3.0/go.mod h1:Fj90Qomp0ccgn+ckCvW3j5aGI+79+LULpJxy1DPzOeA=
+github.com/lni/dragonboat/v3 v3.3.1 h1:1ddulfz1+8cMeg8FkKltSk0xfZztH2CbPS/b01wYb+A=
+github.com/lni/dragonboat/v3 v3.3.1/go.mod h1:Fj90Qomp0ccgn+ckCvW3j5aGI+79+LULpJxy1DPzOeA=
 github.com/lni/goutils v1.3.0 h1:oBhV7Z5DjNWbcy/c3fFj6qo4SnHcpyTY28qfKvLy6UM=
 github.com/lni/goutils v1.3.0/go.mod h1:PUPtBAnZlRPUKWUXCsYkIRWubJbtNHpTAee0sczhlf4=
 github.com/lyft/protoc-gen-validate v0.0.13/go.mod h1:XbGvPuh87YZc5TdIa2/I4pLk0QoUACkjt2znoq26NVQ=
