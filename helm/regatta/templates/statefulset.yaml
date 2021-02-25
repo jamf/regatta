@@ -50,6 +50,7 @@ spec:
             --raft.node-host-dir=/data/raft \
             --raft.initial-members={{ .Values.raft.initialMembers }} \
             --raft.state-machine-dir=/data/state-machine \
+            --raft.rtt={{ .Values.raft.rtt }} \
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}

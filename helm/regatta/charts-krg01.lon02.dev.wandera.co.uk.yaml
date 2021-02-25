@@ -23,6 +23,7 @@ charts:
               storage: 20Gi
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
+        rtt: 100ms
       imagePullSecrets: awsecr-cred
       kafka:
         brokers: kaf-101-dev.eu-west-1b.ie.wandera.co.uk:9091
