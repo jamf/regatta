@@ -1,5 +1,5 @@
 # Build the regatta binary
-FROM golang:1.15.3-alpine3.12 as builder
+FROM golang:1.16-alpine3.13 as builder
 RUN echo 'http://dl-4.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories && \
     echo 'http://dl-4.alpinelinux.org/alpine/edge/main' >> /etc/apk/repositories && \
     echo 'http://dl-4.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
@@ -22,7 +22,7 @@ COPY . ./
 RUN CGO_ENABLED=1 go build -a -o regatta
 
 # Runtime
-FROM alpine:3.12
+FROM alpine:3.13
 RUN echo 'http://dl-4.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories && \
     echo 'http://dl-4.alpinelinux.org/alpine/edge/main' >> /etc/apk/repositories && \
     echo 'http://dl-4.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \

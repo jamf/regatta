@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"path/filepath"
 	"runtime"
@@ -100,7 +100,7 @@ func getCurrentDBDirName(fs vfs.FS, dir string) (string, error) {
 	defer func() {
 		_ = f.Close()
 	}()
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return "", err
 	}
