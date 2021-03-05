@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -48,7 +48,7 @@ func NewConsumer(config Config, listener OnMessageFunc) (*Consumer, error) {
 			return nil, err
 		}
 
-		caCert, err = ioutil.ReadFile(c.config.ServerCertFilename)
+		caCert, err = os.ReadFile(c.config.ServerCertFilename)
 		if err != nil {
 			return nil, err
 		}
