@@ -1,6 +1,6 @@
 module github.com/wandera/regatta
 
-go 1.15
+go 1.16
 
 require (
 	github.com/VictoriaMetrics/metrics v1.12.3

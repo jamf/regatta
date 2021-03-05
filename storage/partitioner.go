@@ -18,8 +18,7 @@ type Partitioner interface {
 }
 
 // StaticPartitioner is the Partitioner that always return 1.
-type StaticPartitioner struct {
-}
+type StaticPartitioner struct{}
 
 // ClusterID returns the partition ID for the specified raft cluster.
 func (p *StaticPartitioner) ClusterID(key []byte) uint64 {
