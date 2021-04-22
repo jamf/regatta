@@ -1,9 +1,6 @@
 # Build the regatta binary
-FROM golang:1.16-alpine3.13 as builder
-RUN echo 'http://dl-4.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories && \
-    echo 'http://dl-4.alpinelinux.org/alpine/edge/main' >> /etc/apk/repositories && \
-    echo 'http://dl-4.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
-    apk add --update --no-cache rocksdb-dev build-base
+FROM golang:1.16 as builder
+RUN apt-get update -y --fix-missing && apt-get install -y librocksdb-dev
 
 WORKDIR /github.com/wandera/regatta
 
@@ -22,11 +19,8 @@ COPY . ./
 RUN CGO_ENABLED=1 go build -a -o regatta
 
 # Runtime
-FROM alpine:3.13
-RUN echo 'http://dl-4.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories && \
-    echo 'http://dl-4.alpinelinux.org/alpine/edge/main' >> /etc/apk/repositories && \
-    echo 'http://dl-4.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
-    apk add --update --no-cache bash ca-certificates rocksdb
+FROM debian:10-slim as runtime
+RUN apt-get update -y --fix-missing && apt-get install -y bash librocksdb5.17 && rm -rf /var/lib/apt/lists/*
 WORKDIR /
 COPY --from=builder /github.com/wandera/regatta/regatta /bin/regatta
 ENTRYPOINT ["regatta"]

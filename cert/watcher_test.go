@@ -20,7 +20,7 @@ var (
 )
 
 func TestWatcher_TLSConfig(t *testing.T) {
-	validTLSConf := tlsConfigFromFile(filepath.Join("testdata", "server-valid.crt"), filepath.Join("testdata", "server-valid.key"))
+	validTLSConf := tlsConfigFromFile(validCertFile, validKeyFile)
 
 	testCertFile := filepath.Join(t.TempDir(), "server.crt")
 	testKeyFile := filepath.Join(t.TempDir(), "server.key")
