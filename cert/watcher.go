@@ -15,7 +15,7 @@ type Watcher struct {
 	KeyFile  string
 	keyPair  *tls.Certificate
 	watcher  *fsnotify.Watcher
-	close    chan struct{}
+	stop     chan struct{}
 	Log      Logger
 }
 
@@ -42,7 +42,7 @@ func (w *Watcher) Watch() error {
 	if err := w.load(); err != nil {
 		return fmt.Errorf("can't load cert or key file: %w", err)
 	}
-	w.close = make(chan struct{})
+	w.stop = make(chan struct{})
 	go w.run()
 	return nil
 }
@@ -61,7 +61,7 @@ func (w *Watcher) load() error {
 func (w *Watcher) run() {
 	for {
 		select {
-		case <-w.close:
+		case <-w.stop:
 			w.Log.Infof("stopped watching")
 			_ = w.watcher.Close()
 			return
@@ -78,7 +78,7 @@ func (w *Watcher) run() {
 
 // Stop tells Watcher to stop watching for changes to the certificate and key files.
 func (w *Watcher) Stop() {
-	w.close <- struct{}{}
+	w.stop <- struct{}{}
 }
 
 // TLSConfig creates a new dynamically loaded tls.Config, in which changes to the certificate are reflected in.
