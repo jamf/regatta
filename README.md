@@ -117,7 +117,7 @@ Created topic regatta-test.
 ```
 Run regatta:
 ```bash
-./regatta --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012'  --kafka.group-id=regatta-test-local --kafka.topics=regatta-test
+./regatta --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --kafka.group-id=regatta-test-local --kafka.topics=regatta-test
 ```
 Produce message to kafka:
 ```bash
