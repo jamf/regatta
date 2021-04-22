@@ -35,7 +35,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         command:
-        - "sh"
+        - "bash"
         - "-c"
         - >-
           NODE_ID=$(expr $(echo "${POD_NAME: -1}") + 1) &&
