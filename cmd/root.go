@@ -15,6 +15,7 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
+	"github.com/wandera/regatta/cert"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/regattaserver"
@@ -232,11 +233,25 @@ func root(_ *cobra.Command, _ []string) {
 		return
 	}
 
+	// Load API certificate
+	watcher := &cert.Watcher{
+		CertFile: viper.GetString("api.cert-filename"),
+		KeyFile:  viper.GetString("api.key-filename"),
+		Log:      logger.Named("cert").Sugar(),
+	}
+	if err != nil {
+		log.Panicf("cannot load certificate: %v", err)
+	}
+	err = watcher.Watch()
+	if err != nil {
+		log.Panicf("cannot watch certificate: %v", err)
+	}
+	defer watcher.Stop()
+
 	// Create regatta server
 	regatta := regattaserver.NewServer(
 		viper.GetString("api.address"),
-		viper.GetString("api.cert-filename"),
-		viper.GetString("api.key-filename"),
+		watcher.TLSConfig(),
 		viper.GetBool("api.reflection-api"),
 	)
 	defer regatta.Shutdown()

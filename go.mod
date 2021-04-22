@@ -8,6 +8,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/cockroachdb/pebble v0.0.0-20210113182756-a53f229c8c9c
 	github.com/frankban/quicktest v1.11.2 // indirect
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/protobuf v1.4.3
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024

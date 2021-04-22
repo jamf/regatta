@@ -1,6 +1,7 @@
 package regattaserver
 
 import (
+	"crypto/tls"
 	"net"
 	"time"
 
@@ -23,19 +24,14 @@ type RegattaServer struct {
 }
 
 // NewServer returns initialized gRPC server.
-func NewServer(addr string, certFilename string, keyFilename string, reflectionAPI bool) *RegattaServer {
+func NewServer(addr string, tls *tls.Config, reflectionAPI bool) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.addr = addr
 	rs.log = zap.S().Named("server")
 
-	var creds credentials.TransportCredentials
-	var err error
-	if creds, err = credentials.NewServerTLSFromFile(certFilename, keyFilename); err != nil {
-		rs.log.Panicf("cannot create server credentials: %v", err)
-	}
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	opts := []grpc.ServerOption{
-		grpc.Creds(creds),
+		grpc.Creds(credentials.NewTLS(tls)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionAge: maxConnectionAge,
 		}),
