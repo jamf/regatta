@@ -239,9 +239,6 @@ func root(_ *cobra.Command, _ []string) {
 		KeyFile:  viper.GetString("api.key-filename"),
 		Log:      logger.Named("cert").Sugar(),
 	}
-	if err != nil {
-		log.Panicf("cannot load certificate: %v", err)
-	}
 	err = watcher.Watch()
 	if err != nil {
 		log.Panicf("cannot watch certificate: %v", err)
