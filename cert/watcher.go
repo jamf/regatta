@@ -8,14 +8,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// A Watcher represents a certificate manager able to watch certificate and key pairs for changes.
+// Watcher represents a certificate manager able to watch certificate and key pairs for changes.
 type Watcher struct {
 	mu       sync.RWMutex
 	CertFile string
 	KeyFile  string
 	keyPair  *tls.Certificate
 	watcher  *fsnotify.Watcher
-	watching chan bool
+	close    chan struct{}
 	Log      Logger
 }
 
@@ -42,7 +42,7 @@ func (w *Watcher) Watch() error {
 	if err := w.load(); err != nil {
 		return fmt.Errorf("can't load cert or key file: %w", err)
 	}
-	w.watching = make(chan bool)
+	w.close = make(chan struct{})
 	go w.run()
 	return nil
 }
@@ -59,11 +59,12 @@ func (w *Watcher) load() error {
 }
 
 func (w *Watcher) run() {
-loop:
 	for {
 		select {
-		case <-w.watching:
-			break loop
+		case <-w.close:
+			w.Log.Infof("stopped watching")
+			_ = w.watcher.Close()
+			return
 		case event := <-w.watcher.Events:
 			w.Log.Debugf("watch event: %v", event)
 			if err := w.load(); err != nil {
@@ -73,13 +74,11 @@ loop:
 			w.Log.Debugf("error watching files: %v", err)
 		}
 	}
-	w.Log.Infof("stopped watching")
-	_ = w.watcher.Close()
 }
 
 // Stop tells Watcher to stop watching for changes to the certificate and key files.
 func (w *Watcher) Stop() {
-	w.watching <- false
+	w.close <- struct{}{}
 }
 
 // TLSConfig creates a new dynamically loaded tls.Config, in which changes to the certificate are reflected in.
