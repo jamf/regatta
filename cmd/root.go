@@ -102,15 +102,12 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	cobra.OnInitialize(initConfig)
 }
 
-var (
-	logDBFactory config.LogDBFactory
-	rootCmd      = &cobra.Command{
-		Use:     "regatta",
-		Short:   "Regatta is read-optimized distributed key-value store.",
-		Run:     root,
-		PreRunE: validateConfig,
-	}
-)
+var rootCmd = &cobra.Command{
+	Use:     "regatta",
+	Short:   "Regatta is read-optimized distributed key-value store.",
+	Run:     root,
+	PreRunE: validateConfig,
+}
 
 func initConfig() {
 	viper.SetConfigName("config")
@@ -175,7 +172,6 @@ func root(_ *cobra.Command, _ []string) {
 		RaftEventListener: metadata,
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
-	nhc.Expert.LogDBFactory = logDBFactory
 
 	err := nhc.Prepare()
 	if err != nil {
@@ -186,7 +182,6 @@ func root(_ *cobra.Command, _ []string) {
 		log.Panic(err)
 	}
 	defer nh.Stop()
-
 	dragonboatlogger.GetLogger("raft").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("rsm").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("transport").SetLevel(dragonboatlogger.DEBUG)
