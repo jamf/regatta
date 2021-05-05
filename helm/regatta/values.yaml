@@ -23,6 +23,7 @@ resources:
 internalPort: 8443
 metricsPort: 8079
 
+priorityClassName: service-cluster-critical
 tolerations: []
 nodeSelector: {}
 affinity:

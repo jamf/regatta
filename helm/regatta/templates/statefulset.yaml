@@ -27,6 +27,9 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: {{ .Values.safeToEvict | quote }}
     spec:
       serviceAccountName: {{ template "meta.name" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
       containers:
       - name: {{ template "meta.name" . }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}

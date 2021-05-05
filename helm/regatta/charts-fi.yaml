@@ -20,6 +20,7 @@ charts:
 #        - "54.246.181.160/32" # VPN
       reflectionAPI:
         enabled: true
+      priorityClassName: false
       affinity: false
       persistence:
         storage:
