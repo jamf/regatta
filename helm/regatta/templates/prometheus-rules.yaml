@@ -72,11 +72,11 @@ spec:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Raft leader not available'
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Raft-leader-not-available'
-    - alert: RaftClusterNodeNotAvailableError
+    - alert: RaftClusterNodeNotAvailableCritical
       expr: min(sum(dragonboat_raftnode_has_leader{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}) by (clusterid,job,namespace)) by (job,namespace) < 3
       for: 30m
       labels:
-        severity: error
+        severity: critical
         team: {{ .Values.team }}
       annotations:
         description: '{{ "{{" }}$labels.job{{ "}}" }}: Raft cluster has only {{ "{{" }}$value{{ "}}" }} nodes for time period longer than 30m.'
