@@ -477,6 +477,9 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, stopc <-chan str
 func (p *KVPebbleStateMachine) Close() error {
 	p.closed = true
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	if db == nil {
+		return nil
+	}
 	return db.Close()
 }
 
