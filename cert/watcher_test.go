@@ -1,9 +1,16 @@
 package cert
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"io"
+	"math/big"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -13,15 +20,11 @@ import (
 )
 
 var (
-	validCertFile   = filepath.Join("testdata", "server-valid.crt")
-	validKeyFile    = filepath.Join("testdata", "server-valid.key")
 	invalidCertFile = filepath.Join("testdata", "server-invalid.crt")
 	invalidKeyFile  = filepath.Join("testdata", "server-invalid.key")
 )
 
 func TestWatcher_TLSConfig(t *testing.T) {
-	validTLSConf := tlsConfigFromFile(validCertFile, validKeyFile)
-
 	testCertFile := filepath.Join(t.TempDir(), "server.crt")
 	testKeyFile := filepath.Join(t.TempDir(), "server.key")
 
@@ -32,47 +35,48 @@ func TestWatcher_TLSConfig(t *testing.T) {
 		Log:      zaptest.NewLogger(t).Sugar(),
 	}
 
-	validateCert := func() {
+	validateCert := func(tlsConf *tls.Config) {
 		time.Sleep(250 * time.Millisecond)
 		cert, err := w.TLSConfig().GetCertificate(nil)
 		r.NoError(err)
-		r.Equal(validTLSConf.Certificates[0], *cert)
+		r.Equal(tlsConf.Certificates[0], *cert)
 	}
 
 	t.Log("watch empty cert and key fail should fail")
 	r.Error(w.Watch())
 
 	t.Log("watch valid cert and key")
+	validKeyFile, validCertFile, validTLSConf := createValidTLSPairInDir(t.TempDir(), "valid")
 	mustCopyFile(validCertFile, testCertFile)
 	mustCopyFile(validKeyFile, testKeyFile)
 	r.NoError(w.Watch())
 	defer w.Stop()
-	validateCert()
+	validateCert(validTLSConf)
 
 	t.Log("replace with invalid cert and key")
 	mustCopyFile(invalidCertFile, testCertFile)
 	mustCopyFile(invalidKeyFile, testKeyFile)
-	validateCert()
+	validateCert(validTLSConf)
 
 	t.Log("replace with valid cert and key")
 	mustCopyFile(validCertFile, testCertFile)
 	mustCopyFile(validKeyFile, testKeyFile)
-	validateCert()
-}
+	validateCert(validTLSConf)
 
-func mustCopyFile(src, dst string) {
-	sf, _ := os.Open(src)
-	defer sf.Close()
-	df, _ := os.Create(dst)
-	_, _ = io.Copy(df, sf)
-}
+	t.Log("delete files")
+	_ = os.Remove(testCertFile)
+	_ = os.Remove(testKeyFile)
+	validateCert(validTLSConf)
 
-func tlsConfigFromFile(certFile, keyFile string) *tls.Config {
-	cert, _ := tls.LoadX509KeyPair(certFile, keyFile)
-	return &tls.Config{Certificates: []tls.Certificate{cert}}
+	t.Log("replace with different valid cert and key")
+	validKeyFile2, validCertFile2, validTLSConf2 := createValidTLSPairInDir(t.TempDir(), "valid")
+	mustCopyFile(validCertFile2, testCertFile)
+	mustCopyFile(validKeyFile2, testKeyFile)
+	validateCert(validTLSConf2)
 }
 
 func TestWatcher_load(t *testing.T) {
+	validKeyFile, validCertFile, _ := createValidTLSPairInDir(t.TempDir(), "valid")
 	type fields struct {
 		CertFile string
 		KeyFile  string
@@ -130,4 +134,59 @@ func TestWatcher_load(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustCopyFile(src, dst string) {
+	sf, err := os.Open(src)
+	if err != nil {
+		panic(err)
+	}
+	defer sf.Close()
+	df, err := os.Create(dst)
+	if err != nil {
+		panic(err)
+	}
+	_, err = io.Copy(df, sf)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func createValidTLSPairInDir(dir string, name string) (string, string, *tls.Config) {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		panic(err)
+	}
+
+	keyFileName := path.Join(dir, fmt.Sprintf("%s.key", name))
+	kf, err := os.Create(keyFileName)
+	if err != nil {
+		panic(err)
+	}
+	certFileName := path.Join(dir, fmt.Sprintf("%s.crt", name))
+	cf, err := os.Create(certFileName)
+	if err != nil {
+		panic(err)
+	}
+	if err := pem.Encode(kf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}); err != nil {
+		panic(err)
+	}
+	if err := pem.Encode(cf, &pem.Block{Type: "CERTIFICATE", Bytes: certDER}); err != nil {
+		panic(err)
+	}
+
+	return keyFileName, certFileName, tlsConfigFromFile(keyFileName, certFileName)
+}
+
+func tlsConfigFromFile(keyFile, certFile string) *tls.Config {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		panic(err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{cert}}
 }

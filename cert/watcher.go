@@ -3,6 +3,7 @@ package cert
 import (
 	"crypto/tls"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -49,13 +50,23 @@ func (w *Watcher) Watch() error {
 
 func (w *Watcher) load() error {
 	keyPair, err := tls.LoadX509KeyPair(w.CertFile, w.KeyFile)
-	if err == nil {
-		w.mu.Lock()
-		w.keyPair = &keyPair
-		w.mu.Unlock()
-		w.Log.Infof("certificate and key loaded")
+	if err != nil {
+		return err
 	}
-	return err
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.keyPair = &keyPair
+	w.Log.Infof("certificate and key loaded")
+	return nil
+}
+
+func (w *Watcher) respawnFile(filepath string) error {
+	respawned, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	return respawned.Close()
 }
 
 func (w *Watcher) run() {
@@ -66,6 +77,14 @@ func (w *Watcher) run() {
 			_ = w.watcher.Close()
 			return
 		case event := <-w.watcher.Events:
+			if event.Op == fsnotify.Remove {
+				if err := w.respawnFile(event.Name); err != nil {
+					w.Log.Debugf("can't re-spawn file: %v", err)
+				}
+				if err := w.watcher.Add(event.Name); err != nil {
+					w.Log.Debugf("can't re-add watch: %v", err)
+				}
+			}
 			w.Log.Debugf("watch event: %v", event)
 			if err := w.load(); err != nil {
 				w.Log.Errorf("can't load cert or key file: %v", err)
@@ -81,11 +100,15 @@ func (w *Watcher) Stop() {
 	w.stop <- struct{}{}
 }
 
+func (w *Watcher) GetCertificate() *tls.Certificate {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.keyPair
+}
+
 // TLSConfig creates a new dynamically loaded tls.Config, in which changes to the certificate are reflected in.
 func (w *Watcher) TLSConfig() *tls.Config {
 	return &tls.Config{GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		w.mu.RLock()
-		defer w.mu.RUnlock()
-		return w.keyPair, nil
+		return w.GetCertificate(), nil
 	}}
 }
