@@ -147,6 +147,28 @@ val_1
 ```
 
 ## Communicating with regatta
+### API
+Regatta has gRPC API defined in `proto/regatta.proto` and `proto/mvcc.proto`. For the detailed description of individual
+methods see the mentioned proto files. Some parts of the API are not implemented yet:
+- `KV.Range`
+    - not implemented features:
+        - range search - regatta can get only single KV pair
+        - paging
+        - KV versioning  
+    - not implemented fields:
+        - `range_end`, `limit`, `keys_only`, `count_only`, `min_mod_revision`, `max_mod_revision`, `min_create_revision`, `max_create_revision`
+- `KV.Put`
+    - not implemented features:
+        - return previous KV
+    - not implemented fields:
+        - `prev_kv`
+- `KV.DeleteRange`
+    - not implemented features:
+        - range search - regatta can delete only single KV pair
+        - return previous KV
+    - not implemented fields:
+        - `range_end`, `prev_kv`
+
 ### Example client binary
 The example client is located in `client/main.go`. You can run it by invoking the following command:
 ```bash
