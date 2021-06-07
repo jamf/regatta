@@ -181,7 +181,7 @@ func root(_ *cobra.Command, _ []string) {
 	if err != nil {
 		log.Panic(err)
 	}
-	defer nh.Stop()
+	defer nh.Close()
 	dragonboatlogger.GetLogger("raft").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("rsm").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("transport").SetLevel(dragonboatlogger.DEBUG)
