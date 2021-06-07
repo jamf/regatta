@@ -10,16 +10,15 @@ import (
 	"path"
 	"path/filepath"
 	"sync/atomic"
-	"time"
 	"unsafe"
 
-	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/oxtoacart/bpool"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v3/statemachine"
+	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
 	pb "google.golang.org/protobuf/proto"
 )
@@ -36,39 +35,14 @@ var (
 )
 
 const (
-	// levels is number of Pebble levels.
-	levels = 7
-	// targetFileSizeBase base file size (in L0).
-	targetFileSizeBase = 16 * 1024 * 1024
-	// blockSize FS block size.
-	blockSize = 32 * 1024
-	// targetFileSizeGrowFactor the factor of growth of targetFileSizeBase between levels.
-	targetFileSizeGrowFactor = 2
-	// writeBufferSize inmemory write buffer size.
-	writeBufferSize = 4 * 1024 * 1024
-	// maxWriteBufferNumber number of write buffers.
-	maxWriteBufferNumber = 4
-	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
-	l0FileNumCompactionTrigger = 8
-	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
-	l0StopWritesTrigger = 24
-	// maxBytesForLevelBase base for amount of data stored in a single level.
-	maxBytesForLevelBase = 256 * 1024 * 1024
-	// cacheSize LRU cache size.
-	cacheSize = 8 * 1024 * 1024
-	// maxLogFileSize maximum size of WAL files.
-	maxLogFileSize = 128 * 1024 * 1024
 	// maxBatchSize maximum size of inmemory batch before commit.
 	maxBatchSize = 16 * 1024 * 1024
-	// walMinSyncInterval minimum time between calls to WAL file Sync.
-	walMinSyncInterval = 500 * time.Microsecond
 )
 
 func NewPebbleStateMachine(clusterID uint64, nodeID uint64, stateMachineDir string, walDirname string, fs vfs.FS) sm.IOnDiskStateMachine {
 	if fs == nil {
 		fs = vfs.Default
 	}
-
 	return &KVPebbleStateMachine{
 		pebble:     nil,
 		clusterID:  clusterID,
@@ -93,54 +67,6 @@ type KVPebbleStateMachine struct {
 	log        *zap.SugaredLogger
 }
 
-func (p *KVPebbleStateMachine) openDB(dbdir string, walDirname string) (*pebble.DB, error) {
-	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirname)
-
-	cache := pebble.NewCache(cacheSize)
-	defer cache.Unref()
-
-	lvlOpts := make([]pebble.LevelOptions, levels)
-	sz := targetFileSizeBase
-	for l := int64(0); l < levels; l++ {
-		opt := pebble.LevelOptions{
-			Compression:    pebble.SnappyCompression,
-			BlockSize:      blockSize,
-			TargetFileSize: int64(sz),
-			FilterPolicy:   bloom.FilterPolicy(10),
-			FilterType:     pebble.TableFilter,
-		}
-		sz = sz * targetFileSizeGrowFactor
-		lvlOpts[l] = opt
-	}
-	// Do not create bloom filters for the last level (i.e. the largest level
-	// which contains data in the LSM store). This configuration reduces the size
-	// of the bloom filters by 10x. This is significant given that bloom filters
-	// require 1.25 bytes (10 bits) per key which can translate into 100s of megabytes of
-	// memory given typical key and value sizes. The downside is that bloom
-	// filters will only be usable on the higher levels, but that seems
-	// acceptable. We'll achieve 80-90% of the benefit of having bloom filters on every level for only 10% of the
-	// memory cost.
-	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
-
-	return pebble.Open(dbdir, &pebble.Options{
-		Cache:                       cache,
-		FS:                          p.fs,
-		L0CompactionThreshold:       l0FileNumCompactionTrigger,
-		L0StopWritesThreshold:       l0StopWritesTrigger,
-		LBaseMaxBytes:               maxBytesForLevelBase,
-		Levels:                      lvlOpts,
-		Logger:                      zap.S().Named("pebble"),
-		MaxManifestFileSize:         maxLogFileSize,
-		MemTableSize:                writeBufferSize,
-		MemTableStopWritesThreshold: maxWriteBufferNumber,
-		WALDir:                      walDirname,
-		WALMinSyncInterval: func() time.Duration {
-			// TODO make interval dynamic based on the load
-			return walMinSyncInterval
-		},
-	})
-}
-
 func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 	if p.clusterID < 1 {
 		return 0, ErrInvalidClusterID
@@ -154,27 +80,27 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 
-	dir := getNodeDBDirName(p.dirname, hostname, p.clusterID, p.nodeID)
-	if err := createNodeDataDir(p.fs, dir); err != nil {
+	dir := rp.GetNodeDBDirName(p.dirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
+	if err := rp.CreateNodeDataDir(p.fs, dir); err != nil {
 		return 0, err
 	}
 
-	randomDir := getNewRandomDBDirName()
+	randomDir := rp.GetNewRandomDBDirName()
 	var dbdir string
-	if isNewRun(p.fs, dir) {
+	if rp.IsNewRun(p.fs, dir) {
 		dbdir = filepath.Join(dir, randomDir)
-		if err := saveCurrentDBDirName(p.fs, dir, randomDir); err != nil {
+		if err := rp.SaveCurrentDBDirName(p.fs, dir, randomDir); err != nil {
 			return 0, err
 		}
-		if err := replaceCurrentDBFile(p.fs, dir); err != nil {
+		if err := rp.ReplaceCurrentDBFile(p.fs, dir); err != nil {
 			return 0, err
 		}
 	} else {
-		if err := cleanupNodeDataDir(p.fs, dir); err != nil {
+		if err := rp.CleanupNodeDataDir(p.fs, dir); err != nil {
 			return 0, err
 		}
 		var err error
-		randomDir, err = getCurrentDBDirName(p.fs, dir)
+		randomDir, err = rp.GetCurrentDBDirName(p.fs, dir)
 		if err != nil {
 			return 0, err
 		}
@@ -186,7 +112,8 @@ func (p *KVPebbleStateMachine) Open(_ <-chan struct{}) (uint64, error) {
 
 	walDirPath := p.getWalDirPath(hostname, randomDir, dbdir)
 
-	db, err := p.openDB(dbdir, walDirPath)
+	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
+	db, err := rp.OpenDB(p.fs, dbdir, walDirPath)
 	if err != nil {
 		return 0, err
 	}
@@ -388,13 +315,14 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, stopc <-chan str
 	if err != nil {
 		return err
 	}
-	dir := getNodeDBDirName(p.dirname, hostname, p.clusterID, p.nodeID)
+	dir := rp.GetNodeDBDirName(p.dirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID))
 
-	randomDirName := getNewRandomDBDirName()
+	randomDirName := rp.GetNewRandomDBDirName()
 	dbdir := filepath.Join(dir, randomDirName)
 	walDirPath := p.getWalDirPath(hostname, randomDirName, dbdir)
 
-	db, err := p.openDB(dbdir, walDirPath)
+	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
+	db, err := rp.OpenDB(p.fs, dbdir, walDirPath)
 	if err != nil {
 		return err
 	}
@@ -414,8 +342,8 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, stopc <-chan str
 	for i := uint64(0); i < total; i++ {
 		select {
 		case <-stopc:
-			db.Close()
-			if err := cleanupNodeDataDir(p.fs, dir); err != nil {
+			_ = db.Close()
+			if err := rp.CleanupNodeDataDir(p.fs, dir); err != nil {
 				p.log.Debugf("unable to cleanup directory")
 			}
 			return sm.ErrSnapshotStopped
@@ -457,10 +385,10 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, stopc <-chan str
 		return err
 	}
 
-	if err := saveCurrentDBDirName(p.fs, dir, randomDirName); err != nil {
+	if err := rp.SaveCurrentDBDirName(p.fs, dir, randomDirName); err != nil {
 		return err
 	}
-	if err := replaceCurrentDBFile(p.fs, dir); err != nil {
+	if err := rp.ReplaceCurrentDBFile(p.fs, dir); err != nil {
 		return err
 	}
 	old := (*pebble.DB)(atomic.SwapPointer(&p.pebble, unsafe.Pointer(db)))
@@ -470,7 +398,7 @@ func (p *KVPebbleStateMachine) RecoverFromSnapshot(r io.Reader, stopc <-chan str
 		old.Close()
 	}
 	p.log.Debugf("Snapshot recovery cleanup")
-	return cleanupNodeDataDir(p.fs, dir)
+	return rp.CleanupNodeDataDir(p.fs, dir)
 }
 
 // Close closes the KVStateMachine IStateMachine.
