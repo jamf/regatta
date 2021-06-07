@@ -105,7 +105,7 @@ func TestRaft_Put(t *testing.T) {
 					mtx      sync.RWMutex
 				}{sessions: make(map[uint64]*client.Session)},
 			}
-			defer nh.Stop()
+			defer nh.Close()
 			r := require.New(t)
 			t.Log("store the value")
 			got, err := st.Put(tt.args.ctx, tt.args.req)
@@ -231,7 +231,7 @@ func TestRaft_Delete(t *testing.T) {
 					mtx      sync.RWMutex
 				}{sessions: make(map[uint64]*client.Session)},
 			}
-			defer nh.Stop()
+			defer nh.Close()
 			r := require.New(t)
 
 			if len(tt.preInsertedData) > 0 {
@@ -395,7 +395,7 @@ func TestRaft_Range(t *testing.T) {
 					mtx      sync.RWMutex
 				}{sessions: make(map[uint64]*client.Session)},
 			}
-			defer nh.Stop()
+			defer nh.Close()
 			r := require.New(t)
 
 			if len(tt.preInsertedData) > 0 {
