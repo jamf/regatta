@@ -139,7 +139,7 @@ func TestKVStateMachine_Snapshot_Stopped(t *testing.T) {
 				r.Equal(sm.ErrSnapshotStopped, err)
 			}()
 
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			close(stopc)
 
 			t.Log("Recovery stopped")
