@@ -22,7 +22,7 @@ func TestDecoder_Decode(t *testing.T) {
 			name:   "Decode - V1 System key",
 			fields: fields{r: bytes.NewBuffer(append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeSystem)}, []byte("test")...))},
 			wantKey: Key{
-				Version: V1,
+				version: V1,
 				KeyType: TypeSystem,
 				Key:     []byte("test"),
 			},
@@ -31,7 +31,7 @@ func TestDecoder_Decode(t *testing.T) {
 			name:   "Decode - V1 User key",
 			fields: fields{r: bytes.NewBuffer(append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
 			wantKey: Key{
-				Version: V1,
+				version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			},
@@ -77,7 +77,7 @@ func TestEncoder_Encode(t *testing.T) {
 			name:   "Encode - V1 System key",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1024))},
 			args: args{key: &Key{
-				Version: V1,
+				version: V1,
 				KeyType: TypeSystem,
 				Key:     []byte("test"),
 			}},
@@ -87,7 +87,7 @@ func TestEncoder_Encode(t *testing.T) {
 			name:   "Encode - V1 User key",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1024))},
 			args: args{key: &Key{
-				Version: V1,
+				version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			}},
@@ -97,20 +97,20 @@ func TestEncoder_Encode(t *testing.T) {
 			name:   "Encode - V1 System key - small buffer",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1))},
 			args: args{key: &Key{
-				Version: V1,
+				version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			}},
 			wantWriter: append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...),
 		},
 		{
-			name:   "Encode - Unknown Key Version",
+			name:   "Encode - Auto-pick Latest Key Version",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1))},
 			args: args{key: &Key{
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			}},
-			wantErr: true,
+			wantWriter: append([]byte{LatestVersion, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...),
 		},
 	}
 	for _, tt := range tests {
@@ -164,13 +164,13 @@ func TestKey_reset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			k := &Key{
-				Version: tt.fields.version,
+				version: tt.fields.version,
 				KeyType: tt.fields.KeyType,
 				Key:     tt.fields.Key,
 			}
 			k.reset()
 
-			r.Empty(k.Version)
+			r.Empty(k.version)
 			r.Empty(k.KeyType)
 			r.Empty(k.Key)
 		})
