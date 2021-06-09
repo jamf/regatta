@@ -20,24 +20,24 @@ func TestDecoder_Decode(t *testing.T) {
 	}{
 		{
 			name:   "Decode - V1 System key",
-			fields: fields{r: bytes.NewBuffer(append([]byte{keyV1Version, 0x0, 0x0, 0x0, byte(TypeSystem)}, []byte("test")...))},
+			fields: fields{r: bytes.NewBuffer(append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeSystem)}, []byte("test")...))},
 			wantKey: Key{
-				version: keyV1Version,
+				Version: V1,
 				KeyType: TypeSystem,
 				Key:     []byte("test"),
 			},
 		},
 		{
 			name:   "Decode - V1 User key",
-			fields: fields{r: bytes.NewBuffer(append([]byte{keyV1Version, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
+			fields: fields{r: bytes.NewBuffer(append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
 			wantKey: Key{
-				version: keyV1Version,
+				Version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			},
 		},
 		{
-			name:    "Decode - Unknown Key version",
+			name:    "Decode - Unknown Key Version",
 			fields:  fields{r: bytes.NewBuffer(append([]byte{0x0, byte(TypeUser)}, []byte("test")...))},
 			wantErr: true,
 		},
@@ -77,34 +77,34 @@ func TestEncoder_Encode(t *testing.T) {
 			name:   "Encode - V1 System key",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1024))},
 			args: args{key: &Key{
-				version: keyV1Version,
+				Version: V1,
 				KeyType: TypeSystem,
 				Key:     []byte("test"),
 			}},
-			wantWriter: append([]byte{keyV1Version, 0x0, 0x0, 0x0, byte(TypeSystem)}, []byte("test")...),
+			wantWriter: append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeSystem)}, []byte("test")...),
 		},
 		{
 			name:   "Encode - V1 User key",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1024))},
 			args: args{key: &Key{
-				version: keyV1Version,
+				Version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			}},
-			wantWriter: append([]byte{keyV1Version, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...),
+			wantWriter: append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...),
 		},
 		{
 			name:   "Encode - V1 System key - small buffer",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1))},
 			args: args{key: &Key{
-				version: keyV1Version,
+				Version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			}},
-			wantWriter: append([]byte{keyV1Version, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...),
+			wantWriter: append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...),
 		},
 		{
-			name:   "Encode - Unknown Key version",
+			name:   "Encode - Unknown Key Version",
 			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1))},
 			args: args{key: &Key{
 				KeyType: TypeUser,
@@ -142,7 +142,7 @@ func TestKey_reset(t *testing.T) {
 		{
 			name: "Reset - V1 System key",
 			fields: fields{
-				version: keyV1Version,
+				version: V1,
 				KeyType: TypeSystem,
 				Key:     []byte("test"),
 			},
@@ -150,7 +150,7 @@ func TestKey_reset(t *testing.T) {
 		{
 			name: "Reset - V1 User key",
 			fields: fields{
-				version: keyV1Version,
+				version: V1,
 				KeyType: TypeUser,
 				Key:     []byte("test"),
 			},
@@ -164,13 +164,13 @@ func TestKey_reset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			k := &Key{
-				version: tt.fields.version,
+				Version: tt.fields.version,
 				KeyType: tt.fields.KeyType,
 				Key:     tt.fields.Key,
 			}
 			k.reset()
 
-			r.Empty(k.version)
+			r.Empty(k.Version)
 			r.Empty(k.KeyType)
 			r.Empty(k.Key)
 		})
