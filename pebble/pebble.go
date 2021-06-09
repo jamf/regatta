@@ -117,6 +117,7 @@ func OpenDB(fs vfs.FS, dbdir string, walDirname string) (*pebble.DB, error) {
 			// TODO make interval dynamic based on the load
 			return walMinSyncInterval
 		},
+		EventListener: pebble.MakeLoggingEventListener(zap.S().Named("pebble").Named("events")),
 	})
 }
 

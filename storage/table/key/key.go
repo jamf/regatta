@@ -24,13 +24,13 @@ var (
 )
 
 type Key struct {
-	version uint8
+	Version uint8
 	KeyType Type
 	Key     []byte
 }
 
 func (k *Key) reset() {
-	k.version = 0
+	k.Version = 0
 	k.KeyType = 0
 	k.Key = k.Key[0:0]
 }
@@ -52,13 +52,13 @@ func (d Decoder) Decode(key *Key) error {
 	}
 
 	switch header[keyVersionHeaderPos] {
-	case keyV1Version:
+	case V1:
 		k := keyV1{}
 		err := k.Decode(d.r)
 		if err != nil {
 			return err
 		}
-		key.version = keyV1Version
+		key.Version = V1
 		key.KeyType = k.keyType
 		key.Key = k.key
 		return nil
@@ -76,12 +76,12 @@ func NewEncoder(writer io.Writer) *Encoder {
 
 func (e Encoder) Encode(key *Key) (int, error) {
 	var header [keyHeaderLen]byte
-	header[keyVersionHeaderPos] = key.version
+	header[keyVersionHeaderPos] = key.Version
 	if _, err := e.w.Write(header[:]); err != nil {
 		return 0, err
 	}
-	switch key.version {
-	case keyV1Version:
+	switch key.Version {
+	case V1:
 		k := keyV1{}
 		k.keyType = key.KeyType
 		k.key = key.Key

@@ -9,8 +9,8 @@ import (
 var ErrMissingKeyType = errors.New("missing key type")
 
 const (
-	keyV1Version uint8  = 1
-	keyV1Len     uint32 = 1024
+	V1       uint8  = 1
+	keyV1Len uint32 = 1024 - keyHeaderLen
 )
 
 type keyV1 struct {
