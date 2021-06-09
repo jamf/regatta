@@ -9,8 +9,9 @@ import (
 var ErrMissingKeyType = errors.New("missing key type")
 
 const (
-	V1       uint8  = 1
-	keyV1Len uint32 = 1024 - keyHeaderLen
+	V1           uint8 = 1
+	V1KeyLen           = 1024
+	keyV1BodyLen       = V1KeyLen - keyHeaderLen
 )
 
 type keyV1 struct {
@@ -29,7 +30,7 @@ func (k keyV1) Encode(writer io.Writer) (int, error) {
 }
 
 func (k *keyV1) Decode(reader io.Reader) error {
-	bytes, err := io.ReadAll(io.LimitReader(reader, int64(keyV1Len)))
+	bytes, err := io.ReadAll(io.LimitReader(reader, int64(keyV1BodyLen)))
 	if err != nil {
 		return err
 	}
