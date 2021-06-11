@@ -31,6 +31,8 @@ var (
 	ErrUnknownKeyVersion = errors.New("unknown key version")
 	// ErrMissingKeyHeader missing header part of the key.
 	ErrMissingKeyHeader = errors.New("missing key header")
+	// ErrMalformedKeyHeader key header is malformed.
+	ErrMalformedKeyHeader = errors.New("missing key header")
 )
 
 // Key generic internal Key (not that field support might be dependant on the stored key version).
@@ -64,6 +66,13 @@ func (d Decoder) Decode(key *Key) error {
 	_, err := io.ReadFull(d.r, header[:])
 	if err != nil {
 		return ErrMissingKeyHeader
+	}
+
+	// Check header padding
+	for i := 1; i < len(header); i++ {
+		if header[i] != 0x0 {
+			return ErrMalformedKeyHeader
+		}
 	}
 
 	switch header[keyVersionHeaderPos] {
