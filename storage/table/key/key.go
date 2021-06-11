@@ -22,6 +22,8 @@ const (
 
 	// LatestVersion latest key version implemented.
 	LatestVersion = V1
+	// LatestVersionLen latest key version maximum length.
+	LatestVersionLen = V1KeyLen
 	// UnknownVersion unknown key version (versions are numbered from 1).
 	UnknownVersion = 0
 )
@@ -32,7 +34,7 @@ var (
 	// ErrMissingKeyHeader missing header part of the key.
 	ErrMissingKeyHeader = errors.New("missing key header")
 	// ErrMalformedKeyHeader key header is malformed.
-	ErrMalformedKeyHeader = errors.New("missing key header")
+	ErrMalformedKeyHeader = errors.New("malformed key header")
 )
 
 // Key generic internal Key (not that field support might be dependant on the stored key version).
