@@ -28,13 +28,17 @@ import (
 
 var (
 	bufferPool = bpool.NewSizedBufferPool(256, 128)
-	indexPool  = bpool.NewByteSlicePool(258, 8)
 )
 
 const (
 	// maxBatchSize maximum size of inmemory batch before commit.
 	maxBatchSize = 16 * 1024 * 1024
 )
+
+var localIndexKey = key.Key{
+	KeyType: key.TypeSystem,
+	Key:     []byte("localIndex"),
+}
 
 func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
@@ -121,11 +125,7 @@ func (p *SM) Open(_ <-chan struct{}) (uint64, error) {
 	p.wo = &pebble.WriteOptions{Sync: false}
 
 	buf := bytes.NewBuffer(make([]byte, 0))
-	k := key.Key{
-		KeyType: key.TypeSystem,
-		Key:     []byte{0x1},
-	}
-	if _, err := key.NewEncoder(buf).Encode(&k); err != nil {
+	if _, err := key.NewEncoder(buf).Encode(&localIndexKey); err != nil {
 		return 0, err
 	}
 	indexVal, closer, err := db.Get(buf.Bytes())
@@ -159,7 +159,7 @@ func (p *SM) getWalDirPath(hostname string, randomDir string, dbdir string) stri
 func (p *SM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-	buf := bytes.NewBuffer(make([]byte, key.V1KeyLen))
+	buf := bytes.NewBuffer(make([]byte, key.LatestVersionLen))
 	enc := key.NewEncoder(buf)
 
 	batch := db.NewBatch()
@@ -189,25 +189,17 @@ func (p *SM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				return nil, err
 			}
 		}
-
 		updates[i].Result = sm.Result{Value: 1}
 	}
 
-	k := key.Key{
-		KeyType: key.TypeSystem,
-		Key:     []byte{0x1},
-	}
-
 	buf.Reset()
-	if _, err := enc.Encode(&k); err != nil {
+	if _, err := enc.Encode(&localIndexKey); err != nil {
 		return nil, err
 	}
 
-	idxBuffer := indexPool.GetSlice()
-	defer indexPool.PutSlice(idxBuffer)
-
-	binary.LittleEndian.PutUint64(idxBuffer.Bytes(), updates[len(updates)-1].Index)
-	if err := batch.Set(buf.Bytes(), idxBuffer.Bytes(), nil); err != nil {
+	idx := make([]byte, 8)
+	binary.BigEndian.PutUint64(idx, updates[len(updates)-1].Index)
+	if err := batch.Set(buf.Bytes(), idx, nil); err != nil {
 		return nil, err
 	}
 
