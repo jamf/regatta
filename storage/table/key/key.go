@@ -47,8 +47,8 @@ type Key struct {
 }
 
 func (k *Key) reset() {
-	k.version = 0
-	k.KeyType = 0
+	k.version = UnknownVersion
+	k.KeyType = TypeUnknown
 	k.Key = k.Key[0:0]
 }
 
