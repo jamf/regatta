@@ -27,18 +27,17 @@ import (
 )
 
 var (
-	bufferPool = bpool.NewSizedBufferPool(256, 128)
+	bufferPool    = bpool.NewSizedBufferPool(256, 128)
+	localIndexKey = key.Key{
+		KeyType: key.TypeSystem,
+		Key:     []byte("index"),
+	}
 )
 
 const (
 	// maxBatchSize maximum size of inmemory batch before commit.
 	maxBatchSize = 16 * 1024 * 1024
 )
-
-var localIndexKey = key.Key{
-	KeyType: key.TypeSystem,
-	Key:     []byte("localIndex"),
-}
 
 func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
