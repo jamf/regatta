@@ -14,6 +14,7 @@ charts:
         tag: {{ env "TAG" | default "latest" | quote }}
       reflectionAPI:
         enabled: true
+      priorityClassName: false
       affinity:
         podAntiAffinity:
           topologyKey: kubernetes.io/hostname
