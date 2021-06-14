@@ -50,13 +50,13 @@ func startRaftNode() (*dragonboat.NodeHost, *raft.Metadata) {
 		zap.S().Panic(err)
 	}
 
-	ready := make(chan struct{}, 1)
+	ready := make(chan struct{})
 	go func() {
 		for {
 			i := nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
 			if i.ClusterInfoList[0].IsLeader {
-				ready <- struct{}{}
-				break
+				close(ready)
+				return
 			}
 			time.Sleep(500 * time.Millisecond)
 		}

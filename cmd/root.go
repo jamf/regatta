@@ -11,20 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lni/dragonboat/v3"
+	"github.com/lni/dragonboat/v3/config"
 	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
+	"github.com/wandera/regatta/kafka"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage"
-
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	"github.com/spf13/cobra"
-	"github.com/wandera/regatta/kafka"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -248,8 +247,8 @@ func root(_ *cobra.Command, _ []string) {
 	)
 	defer regatta.Shutdown()
 
-	// Create and register grpc/rest endpoints
 	mTables := viper.GetStringSlice("kafka.topics")
+	// Create and register grpc/rest endpoints
 	kvs := &regattaserver.KVServer{
 		Storage:       st,
 		ManagedTables: mTables,
