@@ -37,8 +37,18 @@ func TestDecoder_Decode(t *testing.T) {
 			},
 		},
 		{
+			name:    "Decode - Malformed header",
+			fields:  fields{r: bytes.NewBuffer(append([]byte{0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
+			wantErr: true,
+		},
+		{
+			name:    "Decode - Missing header",
+			fields:  fields{r: bytes.NewBuffer([]byte{0x0, 0x0})},
+			wantErr: true,
+		},
+		{
 			name:    "Decode - Unknown Key Version",
-			fields:  fields{r: bytes.NewBuffer(append([]byte{0x0, byte(TypeUser)}, []byte("test")...))},
+			fields:  fields{r: bytes.NewBuffer(append([]byte{0x0, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
 			wantErr: true,
 		},
 	}
