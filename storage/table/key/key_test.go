@@ -48,7 +48,7 @@ func TestDecoder_Decode(t *testing.T) {
 		},
 		{
 			name:    "Decode - Unknown Key Version",
-			fields:  fields{r: bytes.NewBuffer(append([]byte{0x0, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
+			fields:  fields{r: bytes.NewBuffer(append([]byte{UnknownVersion, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...))},
 			wantErr: true,
 		},
 	}
@@ -85,7 +85,7 @@ func TestEncoder_Encode(t *testing.T) {
 	}{
 		{
 			name:   "Encode - V1 System key",
-			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1024))},
+			fields: fields{w: bytes.NewBuffer(make([]byte, 0, V1KeyLen))},
 			args: args{key: &Key{
 				version: V1,
 				KeyType: TypeSystem,
@@ -95,7 +95,7 @@ func TestEncoder_Encode(t *testing.T) {
 		},
 		{
 			name:   "Encode - V1 User key",
-			fields: fields{w: bytes.NewBuffer(make([]byte, 0, 1024))},
+			fields: fields{w: bytes.NewBuffer(make([]byte, 0, V1KeyLen))},
 			args: args{key: &Key{
 				version: V1,
 				KeyType: TypeUser,
