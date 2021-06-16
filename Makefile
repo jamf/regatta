@@ -31,7 +31,7 @@ endif
 
 test: prepare
 	mkdir -p report
-	go test ./kafka/... ./raft/... ./regattaserver/... ./storage/... ./util/... -coverprofile report/coverage.txt -race | tee report/report.txt
+	go test ./... -coverprofile report/coverage.txt -race | tee report/report.txt
 	go-junit-report -set-exit-code < report/report.txt > report/report.xml
 	gocov convert report/coverage.txt | gocov-xml > report/coverage.xml
 
