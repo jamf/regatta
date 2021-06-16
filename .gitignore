@@ -1,4 +1,6 @@
 .idea
+**/*.iml
+
 .vscode
 /helm/regatta/charts-*-compiled.yaml
 /regatta
