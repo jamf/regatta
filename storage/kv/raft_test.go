@@ -1,38 +1,45 @@
 package kv
 
 import (
-	"context"
-	"fmt"
+	"os"
 	"path"
 	"testing"
-	"time"
 
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
 
 const snapshotFileName = "snapshot-000000000000000B"
 
 func TestLFSM_RecoverFromSnapshot(t *testing.T) {
-	fs := vfs.NewMem()
-	rs := newRaftStore(fs)
-	fillData(rs, testData)
 	r := require.New(t)
+	snapshotPath := path.Join(t.TempDir(), snapshotFileName)
+	stateMachine := NewLFSM()(1, 1).(*LFSM)
+	stateMachine.data = map[string]Pair{
+		"/foo": {
+			Key:   "/foo",
+			Value: "bar",
+			Ver:   1,
+		},
+		"/foo/user": {
+			Key:   "/foo/user",
+			Value: "user",
+			Ver:   2,
+		},
+	}
 
-	snapshotPath := path.Join("tmp", "snapshot")
-	r.NoError(fs.MkdirAll(snapshotPath, 0777))
+	t.Log("store snapshot")
+	ctx, err := stateMachine.PrepareSnapshot()
+	r.NoError(err)
+	file, err := os.Create(snapshotPath)
+	r.NoError(err)
+	r.NoError(stateMachine.SaveSnapshot(ctx, file, nil, nil))
+	r.NoError(file.Close())
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-	_, err := rs.NodeHost.SyncRequestSnapshot(ctx, rs.ClusterID, dragonboat.SnapshotOption{
-		ExportPath: snapshotPath,
-		Exported:   true,
-	})
+	t.Log("load from snapshot")
+	file, err = os.Open(snapshotPath)
 	r.NoError(err)
+	stateMachine2 := NewLFSM()(1, 1).(*LFSM)
+	r.NoError(stateMachine2.RecoverFromSnapshot(file, nil, nil))
 
-	_, err = fs.Stat(path.Join(snapshotPath, snapshotFileName, fmt.Sprintf("%s.gbsnap", snapshotFileName)))
-	r.NoError(err)
-	_, err = fs.Stat(path.Join(snapshotPath, snapshotFileName, "snapshot.metadata"))
-	r.NoError(err)
+	r.Equal(stateMachine.data, stateMachine2.data)
 }

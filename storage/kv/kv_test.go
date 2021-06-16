@@ -3,6 +3,7 @@ package kv
 import (
 	"fmt"
 	"net"
+	"path"
 	"testing"
 	"time"
 
@@ -13,15 +14,10 @@ import (
 )
 
 var testData = map[string]string{
-	"/app/db/pass":               "foo",
-	"/app/db/user":               "admin",
-	"/app/port":                  "443",
-	"/app/url":                   "app.example.com",
-	"/app/vhosts/host1":          "app.example.com",
-	"/app/upstream/host1":        "203.0.113.0.1:8080",
-	"/app/upstream/host1/domain": "app.example.com",
-	"/app/upstream/host2":        "203.0.113.0.2:8080",
-	"/app/upstream/host2/domain": "app.example.com",
+	"/app/db/pass":  "foo",
+	"/app/db/user":  "admin",
+	"/app/web/port": "443",
+	"/app/web/url":  "app.example.com",
 }
 
 var dirTestData = map[string]string{
@@ -69,49 +65,57 @@ var (
 	_ store = &RaftStore{}
 )
 
+func mapStoreFunc() store {
+	return &MapStore{}
+}
+
+func raftStoreFunc() store {
+	return newRaftStore(vfs.NewMem())
+}
+
 func TestStore_Exists(t *testing.T) {
 	type args struct {
 		key string
 	}
 	tests := []struct {
 		name  string
-		store store
+		store func() store
 		args  args
 		want  bool
 	}{
 		{
 			name:  "Get specific key - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{key: "/app/db/pass"},
 			want:  true,
 		},
 		{
 			name:  "Get nonexistent key - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{key: "/nonenexistent"},
 			want:  false,
 		},
 		{
 			name:  "Get invalid pattern - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{key: "/non\\&6/=="},
 			want:  false,
 		},
 		{
 			name:  "Get specific key - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{key: "/app/db/pass"},
 			want:  true,
 		},
 		{
 			name:  "Get nonexistent key - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{key: "/nonenexistent/*"},
 			want:  false,
 		},
 		{
 			name:  "Get invalid pattern - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{key: "/non\\&6/=="},
 			want:  false,
 		},
@@ -119,9 +123,13 @@ func TestStore_Exists(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, testData)
-			got := tt.store.Exists(tt.args.key)
+			store := tt.store()
+			fillData(store, testData)
+			got := store.Exists(tt.args.key)
 			r.Equal(tt.want, got)
+			if rs, ok := store.(*RaftStore); ok {
+				rs.NodeHost.Close()
+			}
 		})
 	}
 }
@@ -132,61 +140,63 @@ func TestStore_Get(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		store   store
+		store   func() store
 		args    args
 		want    Pair
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name:  "Get specific key - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{key: "/app/db/pass"},
 			want:  Pair{Key: "/app/db/pass", Value: "foo"},
 		},
 		{
 			name:    "Get nonexistent key - MapStore",
-			store:   &MapStore{},
+			store:   mapStoreFunc,
 			args:    args{key: "/nonenexistent"},
-			wantErr: true,
+			wantErr: ErrNotExist,
 		},
 		{
 			name:    "Get invalid pattern - MapStore",
-			store:   &MapStore{},
+			store:   mapStoreFunc,
 			args:    args{key: "/non\\&6/=="},
-			wantErr: true,
+			wantErr: ErrNotExist,
 		},
 		{
 			name:  "Get specific key - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{key: "/app/db/pass"},
 			want:  Pair{Key: "/app/db/pass", Value: "foo"},
 		},
 		{
 			name:    "Get nonexistent key - RaftStore",
-			store:   newRaftStore(vfs.NewMem()),
+			store:   raftStoreFunc,
 			args:    args{key: "/nonenexistent/*"},
-			wantErr: true,
+			wantErr: ErrNotExist,
 		},
 		{
 			name:    "Get invalid pattern - RaftStore",
-			store:   newRaftStore(vfs.NewMem()),
+			store:   raftStoreFunc,
 			args:    args{key: "/non\\&6/=="},
-			wantErr: true,
+			wantErr: ErrNotExist,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, testData)
-			got, err := tt.store.Get(tt.args.key)
-			if tt.wantErr {
-				r.Error(err)
+			store := tt.store()
+			fillData(store, testData)
+			got, err := store.Get(tt.args.key)
+			if tt.wantErr != nil {
+				r.ErrorIs(err, tt.wantErr)
 				return
 			}
 			r.NoError(err)
 			r.Equal(tt.want.Key, got.Key)
 			r.Equal(tt.want.Value, got.Value)
-			if _, ok := tt.store.(*RaftStore); ok {
+			if rs, ok := store.(*RaftStore); ok {
+				rs.NodeHost.Close()
 				r.GreaterOrEqual(got.Ver, uint64(0))
 			}
 		})
@@ -200,14 +210,14 @@ func TestStore_GetAll(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		store     store
+		store     func() store
 		want      Pairs
 		wantCount int
-		wantErr   bool
+		wantErr   error
 	}{
 		{
 			name:  "GetAll /deis/database/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/deis/database/*"},
 			want: []Pair{
 				{
@@ -222,7 +232,7 @@ func TestStore_GetAll(t *testing.T) {
 		},
 		{
 			name:  "GetAll /deis/services/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/deis/services/*"},
 			want: []Pair{
 				{
@@ -233,7 +243,7 @@ func TestStore_GetAll(t *testing.T) {
 		},
 		{
 			name:  "GetAll /deis/services/*/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/deis/services/*/*"},
 			want: []Pair{
 				{
@@ -264,54 +274,57 @@ func TestStore_GetAll(t *testing.T) {
 		},
 		{
 			name:  "GetAll /nonenexistent/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/nonenexistent/*"},
 			want:  []Pair{},
 		},
 		{
-			name:  "GetAll invalid pattern - MapStore",
-			store: &MapStore{},
-			args:  args{pattern: "/non\\&6/=="},
-			want:  []Pair{},
+			name:    "GetAll invalid pattern - MapStore",
+			store:   mapStoreFunc,
+			args:    args{pattern: "/non\\&6/==[]"},
+			want:    []Pair{},
+			wantErr: path.ErrBadPattern,
 		},
 		{
 			name:      "GetAll /deis/database/* - RaftStore",
-			store:     newRaftStore(vfs.NewMem()),
+			store:     raftStoreFunc,
 			args:      args{pattern: "/deis/database/*"},
 			wantCount: 2,
 		},
 		{
 			name:      "GetAll /deis/services/* - RaftStore",
-			store:     newRaftStore(vfs.NewMem()),
+			store:     raftStoreFunc,
 			args:      args{pattern: "/deis/services/*"},
 			wantCount: 1,
 		},
 		{
 			name:      "GetAll /deis/services/*/* - RaftStore",
-			store:     newRaftStore(vfs.NewMem()),
+			store:     raftStoreFunc,
 			args:      args{pattern: "/deis/services/*/*"},
 			wantCount: 6,
 		},
 		{
 			name:  "GetAll /nonenexistent/* - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{pattern: "/nonenexistent/*"},
 			want:  []Pair{},
 		},
 		{
-			name:  "GetAll invalid pattern - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
-			args:  args{pattern: "/non\\&6/=="},
-			want:  []Pair{},
+			name:    "GetAll invalid pattern - RaftStore",
+			store:   raftStoreFunc,
+			args:    args{pattern: "/non\\&6/==[]"},
+			want:    []Pair{},
+			wantErr: path.ErrBadPattern,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, dirTestData)
-			got, err := tt.store.GetAll(tt.args.pattern)
-			if tt.wantErr {
-				r.Error(err)
+			store := tt.store()
+			fillData(store, dirTestData)
+			got, err := store.GetAll(tt.args.pattern)
+			if tt.wantErr != nil {
+				r.ErrorIs(err, tt.wantErr)
 				return
 			}
 			r.NoError(err)
@@ -319,6 +332,9 @@ func TestStore_GetAll(t *testing.T) {
 				r.Equal(tt.wantCount, got.Len())
 			} else {
 				r.Equal(tt.want, got)
+			}
+			if rs, ok := store.(*RaftStore); ok {
+				rs.NodeHost.Close()
 			}
 		})
 	}
@@ -331,81 +347,88 @@ func TestStore_GetAllValues(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		store   store
+		store   func() store
 		want    []string
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name:  "GetAllValues /deis/database/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/deis/database/*"},
 			want:  []string{"pass", "user"},
 		},
 		{
 			name:  "GetAllValues /deis/services/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/deis/services/*"},
 			want:  []string{"value"},
 		},
 		{
 			name:  "GetAllValues /deis/services/*/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/deis/services/*/*"},
 			want:  []string{"10.244.1.1:80", "10.244.1.2:80", "10.244.1.3:80", "10.244.2.1:80", "10.244.2.2:80", "bar"},
 		},
 		{
 			name:  "GetAllValues /nonenexistent/* - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{pattern: "/nonenexistent/*"},
 			want:  []string{},
 		},
 		{
-			name:  "GetAllValues invalid pattern - MapStore",
-			store: &MapStore{},
-			args:  args{pattern: "/non\\&6/=="},
-			want:  []string{},
+			name:    "GetAllValues invalid pattern - MapStore",
+			store:   mapStoreFunc,
+			args:    args{pattern: "/non\\&6/==[]"},
+			want:    []string{},
+			wantErr: path.ErrBadPattern,
 		},
 		{
 			name:  "GetAllValues /deis/database/* - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{pattern: "/deis/database/*"},
 			want:  []string{"pass", "user"},
 		},
 		{
 			name:  "GetAllValues /deis/services/* - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{pattern: "/deis/services/*"},
 			want:  []string{"value"},
 		},
 		{
 			name:  "GetAllValues /deis/services/*/* - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{pattern: "/deis/services/*/*"},
 			want:  []string{"10.244.1.1:80", "10.244.1.2:80", "10.244.1.3:80", "10.244.2.1:80", "10.244.2.2:80", "bar"},
 		},
 		{
 			name:  "GetAllValues /nonenexistent/* - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{pattern: "/nonenexistent/*"},
 			want:  []string{},
 		},
 		{
-			name:  "GetAllValues invalid pattern - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
-			args:  args{pattern: "/non\\&6/=="},
-			want:  []string{},
+			name:    "GetAllValues invalid pattern - RaftStore",
+			store:   raftStoreFunc,
+			args:    args{pattern: "/non\\&6/==[]"},
+			want:    []string{},
+			wantErr: path.ErrBadPattern,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, dirTestData)
-			got, err := tt.store.GetAllValues(tt.args.pattern)
-			if tt.wantErr {
-				r.Error(err)
+			store := tt.store()
+			fillData(store, dirTestData)
+			got, err := store.GetAllValues(tt.args.pattern)
+			if tt.wantErr != nil {
+				r.ErrorIs(err, tt.wantErr)
 				return
 			}
+			r.NoError(err)
 			r.Equal(tt.want, got)
+			if rs, ok := store.(*RaftStore); ok {
+				rs.NodeHost.Close()
+			}
 		})
 	}
 }
@@ -417,31 +440,31 @@ func TestStore_List(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		store   store
+		store   func() store
 		want    []string
 		wantErr bool
 	}{
 		{
 			name:  "List /deis/database - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{filePath: "/deis/database"},
 			want:  []string{"pass", "user"},
 		},
 		{
 			name:  "List /deis/services - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{filePath: "/deis/services"},
 			want:  []string{"key", "notaservice", "srv1", "srv2"},
 		},
 		{
 			name:  "List /deis/database - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{filePath: "/deis/database"},
 			want:  []string{"pass", "user"},
 		},
 		{
 			name:  "List /deis/services - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{filePath: "/deis/services"},
 			want:  []string{"key", "notaservice", "srv1", "srv2"},
 		},
@@ -449,13 +472,17 @@ func TestStore_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, dirTestData)
-			got, err := tt.store.List(tt.args.filePath)
+			store := tt.store()
+			fillData(store, dirTestData)
+			got, err := store.List(tt.args.filePath)
 			if tt.wantErr {
 				r.Error(err)
 				return
 			}
 			r.Equal(tt.want, got)
+			if rs, ok := store.(*RaftStore); ok {
+				rs.NodeHost.Close()
+			}
 		})
 	}
 }
@@ -466,32 +493,32 @@ func TestStore_ListDir(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		store   store
+		store   func() store
 		args    args
 		want    []string
 		wantErr bool
 	}{
 		{
 			name:  "List /deis/database - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{filePath: "/deis/database"},
 			want:  []string{},
 		},
 		{
 			name:  "List /deis/services - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{filePath: "/deis/services"},
 			want:  []string{"notaservice", "srv1", "srv2"},
 		},
 		{
 			name:  "List /deis/database - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{filePath: "/deis/database"},
 			want:  []string{},
 		},
 		{
 			name:  "List /deis/services - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{filePath: "/deis/services"},
 			want:  []string{"notaservice", "srv1", "srv2"},
 		},
@@ -499,13 +526,17 @@ func TestStore_ListDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, dirTestData)
-			got, err := tt.store.ListDir(tt.args.filePath)
+			store := tt.store()
+			fillData(store, dirTestData)
+			got, err := store.ListDir(tt.args.filePath)
 			if tt.wantErr {
 				r.Error(err)
 				return
 			}
 			r.Equal(tt.want, got)
+			if rs, ok := store.(*RaftStore); ok {
+				rs.NodeHost.Close()
+			}
 		})
 	}
 }
@@ -520,12 +551,12 @@ func TestStore_Set(t *testing.T) {
 	type args []arg
 	tests := []struct {
 		name  string
-		store store
+		store func() store
 		args  args
 	}{
 		{
 			name:  "Key overwrite test - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args: args{
 				{key: "/key", value: "val", ver: 0},
 				{key: "/key", value: "val", ver: 0},
@@ -533,7 +564,7 @@ func TestStore_Set(t *testing.T) {
 		},
 		{
 			name:  "Key overwrite test - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args: args{
 				{key: "/key", value: "val", ver: 0},
 				{key: "/key", value: "val", ver: 0, wantErr: true},
@@ -543,14 +574,15 @@ func TestStore_Set(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
+			store := tt.store()
 			for k, v := range testData {
-				set, err := tt.store.Set(k, v, 0)
+				set, err := store.Set(k, v, 0)
 				r.NoError(err)
 				r.Equal(set.Key, k)
 				r.Equal(set.Value, v)
 			}
 			for _, a := range tt.args {
-				set, err := tt.store.Set(a.key, a.value, a.ver)
+				set, err := store.Set(a.key, a.value, a.ver)
 				if a.wantErr {
 					r.Error(err)
 					return
@@ -558,6 +590,9 @@ func TestStore_Set(t *testing.T) {
 				r.NoError(err)
 				r.Equal(set.Key, a.key)
 				r.Equal(set.Value, a.value)
+				if rs, ok := store.(*RaftStore); ok {
+					rs.NodeHost.Close()
+				}
 			}
 		})
 	}
@@ -571,50 +606,58 @@ func TestStore_Delete(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		store   store
+		store   func() store
 		args    args
 		wantErr bool
 	}{
 		{
 			name:  "Simple delete - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{key: "/app/db/pass"},
 		},
 		{
 			name:    "Simple delete - RaftStore",
-			store:   newRaftStore(vfs.NewMem()),
+			store:   raftStoreFunc,
 			args:    args{key: "/app/db/pass"},
 			wantErr: true,
 		},
 		{
 			name:  "Delete with version - MapStore",
-			store: &MapStore{},
+			store: mapStoreFunc,
 			args:  args{key: "/app/db/pass", fetchVersion: true},
 		},
 		{
 			name:  "Delete with version  - RaftStore",
-			store: newRaftStore(vfs.NewMem()),
+			store: raftStoreFunc,
 			args:  args{key: "/app/db/pass", fetchVersion: true},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			fillData(tt.store, testData)
+			store := tt.store()
+			fillData(store, testData)
 			if tt.args.fetchVersion {
-				val, err := tt.store.Get(tt.args.key)
+				val, err := store.Get(tt.args.key)
 				r.NoError(err)
 				tt.args.ver = val.Ver
 			}
 
-			err := tt.store.Delete(tt.args.key, tt.args.ver)
+			err := store.Delete(tt.args.key, tt.args.ver)
 			if tt.wantErr {
 				r.Error(err)
 				return
 			}
 			r.NoError(err)
-			_, err = tt.store.Get(tt.args.key)
+
+			t.Log("check that record got deleted")
+			_, err = store.Get(tt.args.key)
 			r.Equal(ErrNotExist, err)
+
+			t.Log("check that just a single record got deleted")
+			all, err := store.GetAllValues("/*/*/*")
+			r.NoError(err)
+			r.Len(all, len(testData)-1)
 		})
 	}
 }

@@ -21,12 +21,6 @@ const (
 	ResultCodeVersionMismatch
 )
 
-type Entry struct {
-	Key string `json:"key"`
-	Ver uint64 `json:"ver"`
-	Val string `json:"val"`
-}
-
 func NewLFSM() dbsm.CreateConcurrentStateMachineFunc {
 	return func(clusterID, nodeID uint64) dbsm.IConcurrentStateMachine {
 		data := make(map[string]Pair)
