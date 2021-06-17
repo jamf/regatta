@@ -2,8 +2,6 @@ package table
 
 import (
 	"context"
-	"encoding/binary"
-	"hash/fnv"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/lni/dragonboat/v3/client"
@@ -114,14 +112,9 @@ func (t *ActiveTable) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 
 // Hash calculates a fnv hash of a stored data, suitable for tests only.
 func (t *ActiveTable) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
-	h64 := fnv.New64()
 	val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
 	if err != nil {
 		return nil, err
 	}
-	err = binary.Write(h64, binary.LittleEndian, val.(*proto.HashResponse).Hash)
-	if err != nil {
-		return nil, err
-	}
-	return &proto.HashResponse{Hash: h64.Sum64()}, nil
+	return val.(*proto.HashResponse), nil
 }
