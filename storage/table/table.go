@@ -20,20 +20,24 @@ type raftHandler interface {
 	GetNoOPSession(id uint64) *client.Session
 }
 
+// Table stored representation of a table.
 type Table struct {
 	Name      string `json:"name"`
 	ClusterID uint64 `json:"cluster_id"`
 }
 
-func (t Table) AsActive(host raftHandler) *ActiveTable {
-	return &ActiveTable{nh: host, Table: t}
+// AsActive returns ActiveTable wrapper of this table.
+func (t Table) AsActive(host raftHandler) ActiveTable {
+	return ActiveTable{nh: host, Table: t}
 }
 
+// ActiveTable could be queried and new proposals could be made through it.
 type ActiveTable struct {
 	Table
 	nh raftHandler
 }
 
+// Range performs a Range query in the Raft data, supplied context must have a deadline set.
 func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	var (
 		err error
@@ -55,6 +59,7 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 	return response, nil
 }
 
+// Put performs a Put proposal into the Raft, supplied context must have a deadline set.
 func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if len(req.Key) == 0 {
 		return nil, storage.ErrEmptyKey
@@ -78,6 +83,7 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 	return &proto.PutResponse{}, nil
 }
 
+// Delete performs a DeleteRange proposal into the Raft, supplied context must have a deadline set.
 func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if len(req.Key) == 0 {
 		return nil, storage.ErrEmptyKey
@@ -101,10 +107,12 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 	return &proto.DeleteRangeResponse{Deleted: int64(res.Value)}, nil
 }
 
+// Reset not implemented yet (should reset Follower data to fetch them from the Leader again).
 func (t *ActiveTable) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
-	panic("implement me")
+	return nil, nil
 }
 
+// Hash calculates a fnv hash of a stored data, suitable for tests only.
 func (t *ActiveTable) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
 	h64 := fnv.New64()
 	val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
