@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	ErrTableExists       = errors.New("table already exist")
+	ErrTableExists       = errors.New("table already exists")
 	ErrTableDoesNotExist = errors.New("table does not exist")
 	ErrManagerClosed     = errors.New("manager closed")
 )
@@ -59,6 +59,14 @@ type Manager struct {
 }
 
 func (t *Manager) CreateTable(name string) error {
+	err := t.createTable(name)
+	if err != nil {
+		return err
+	}
+	return t.startTable(name)
+}
+
+func (t *Manager) createTable(name string) error {
 	storeName := keyPrefix + name
 	if t.store.Exists(storeName) {
 		return ErrTableExists
@@ -82,7 +90,7 @@ func (t *Manager) CreateTable(name string) error {
 		}
 		return err
 	}
-	return t.startTable(name)
+	return nil
 }
 
 func (t *Manager) DeleteTable(name string) error {

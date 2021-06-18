@@ -147,7 +147,7 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(tm.Start())
 	defer tm.Close()
 	r.NoError(tm.WaitUntilReady())
-	r.NoError(tm.CreateTable(testTableName))
+	r.NoError(tm.createTable(testTableName))
 	time.Sleep(reconcileInterval * 2)
 	at, err := tm.GetTable(testTableName)
 	r.NoError(err)
@@ -157,6 +157,11 @@ func TestManager_reconcile(t *testing.T) {
 	t.Log("test table is started")
 	_, err = at.Hash(ctx, &proto.HashRequest{})
 	r.NoError(err)
+
+	r.NoError(tm.DeleteTable(testTableName))
+	time.Sleep(reconcileInterval * 2)
+	_, err = tm.GetTable(testTableName)
+	r.ErrorIs(err, ErrTableDoesNotExist)
 }
 
 func Test_diffTables(t *testing.T) {
