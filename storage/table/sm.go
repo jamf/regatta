@@ -13,16 +13,15 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
+	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/oxtoacart/bpool"
+	rp "github.com/wandera/regatta/pebble"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
-
-	"github.com/cockroachdb/pebble"
-	sm "github.com/lni/dragonboat/v3/statemachine"
-	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/proto"
 	pb "google.golang.org/protobuf/proto"
 )
 

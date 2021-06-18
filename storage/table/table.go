@@ -48,10 +48,10 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 	}
 
 	if err != nil {
-		if err != pebble.ErrNotFound {
-			return nil, err
+		if err == pebble.ErrNotFound {
+			return nil, storage.ErrNotFound
 		}
-		return nil, storage.ErrNotFound
+		return nil, err
 	}
 	response := val.(*proto.RangeResponse)
 	return response, nil
@@ -74,8 +74,7 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 	if err != nil {
 		return nil, err
 	}
-	_, err = t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes)
-	if err != nil {
+	if _, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes); err != nil {
 		return nil, err
 	}
 	return &proto.PutResponse{}, nil
