@@ -13,9 +13,7 @@ linters:
   - unused
   - varcheck
   - gofmt
-  - golint
-    # there is a bug in gci, already fixed, but not yet released
-    #- gci
+  - gci
   - godot
   - gofumpt
   - whitespace
