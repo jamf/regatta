@@ -82,7 +82,7 @@ func (p *SM) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 
-	dir := rp.GetNodeDBDirName(p.dirname, hostname, p.tableName)
+	dir := rp.GetNodeDBDirName(p.dirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID))
 	if err := rp.CreateNodeDataDir(p.fs, dir); err != nil {
 		return 0, err
 	}
@@ -146,7 +146,7 @@ func (p *SM) Open(_ <-chan struct{}) (uint64, error) {
 func (p *SM) getWalDirPath(hostname string, randomDir string, dbdir string) string {
 	var walDirPath string
 	if p.walDirname != "" {
-		walDirPath = path.Join(p.walDirname, hostname, fmt.Sprintf("%d-%d", p.nodeID, p.clusterID), randomDir)
+		walDirPath = path.Join(p.walDirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID), randomDir)
 	} else {
 		walDirPath = dbdir
 	}
@@ -333,7 +333,7 @@ func (p *SM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) 
 	if err != nil {
 		return err
 	}
-	dir := rp.GetNodeDBDirName(p.dirname, hostname, p.tableName)
+	dir := rp.GetNodeDBDirName(p.dirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID))
 
 	randomDirName := rp.GetNewRandomDBDirName()
 	dbdir := filepath.Join(dir, randomDirName)
