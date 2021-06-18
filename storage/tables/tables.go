@@ -27,13 +27,19 @@ const (
 	tableIDsRangeStart uint64 = 10000
 )
 
-var ErrTableExists = errors.New("table already exist")
+var (
+	ErrTableExists       = errors.New("table already exist")
+	ErrTableDoesNotExist = errors.New("table does not exist")
+	ErrManagerClosed     = errors.New("manager closed")
+)
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
 	return &Manager{
-		nh:      nh,
-		members: members,
-		cfg:     cfg,
+		nh:                nh,
+		reconcileInterval: 30 * time.Second,
+		readyChan:         make(chan struct{}),
+		members:           members,
+		cfg:               cfg,
 		store: &kv.RaftStore{
 			NodeHost:  nh,
 			ClusterID: metaFSMClusterID,
@@ -43,11 +49,13 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 }
 
 type Manager struct {
-	store   store
-	nh      *dragonboat.NodeHost
-	members map[uint64]string
-	closed  chan struct{}
-	cfg     Config
+	store             store
+	nh                *dragonboat.NodeHost
+	members           map[uint64]string
+	closed            chan struct{}
+	cfg               Config
+	readyChan         chan struct{}
+	reconcileInterval time.Duration
 }
 
 func (t *Manager) CreateTable(name string) error {
@@ -89,6 +97,9 @@ func (t *Manager) DeleteTable(name string) error {
 func (t *Manager) GetTable(name string) (table.ActiveTable, error) {
 	v, err := t.store.Get(keyPrefix + name)
 	if err != nil {
+		if err == kv.ErrNotExist {
+			return table.ActiveTable{}, ErrTableDoesNotExist
+		}
 		return table.ActiveTable{}, err
 	}
 	tab := table.Table{}
@@ -100,30 +111,28 @@ func (t *Manager) GetTable(name string) (table.ActiveTable, error) {
 }
 
 func (t *Manager) Start() error {
-	err := t.nh.StartConcurrentCluster(t.members, false, kv.NewLFSM(), metaRaftConfig(t.cfg.NodeID, t.cfg.Meta))
-	if err != nil {
-		return err
-	}
-
-	ready := make(chan struct{})
 	go func() {
 		for {
 			_, ok, _ := t.nh.GetLeaderID(metaFSMClusterID)
 			if ok {
-				close(ready)
+				go t.reconcileLoop()
+				close(t.readyChan)
 				return
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
+	return t.nh.StartConcurrentCluster(t.members, false, kv.NewLFSM(), metaRaftConfig(t.cfg.NodeID, t.cfg.Meta))
+}
 
-	// Listen on our channel AND a timeout channel - which ever happens first.
-	select {
-	case <-ready:
-		go t.reconcileLoop()
-		return nil
-	case <-time.After(30 * time.Second):
-		return errors.New("failed to start table.Manager")
+func (t *Manager) WaitUntilReady() error {
+	for {
+		select {
+		case <-t.readyChan:
+			return nil
+		case <-t.closed:
+			return ErrManagerClosed
+		}
 	}
 }
 
@@ -137,30 +146,32 @@ func (t *Manager) reconcileLoop() {
 		case <-t.closed:
 			return
 		default:
-			time.Sleep(30 * time.Second)
-			t.reconcile()
+			time.Sleep(t.reconcileInterval)
+			// TODO log err
+			_ = t.reconcile()
 		}
 	}
 }
 
-func (t *Manager) reconcile() {
+func (t *Manager) reconcile() error {
 	tabs, err := t.getTables()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	start, stop := diffTables(tabs, t.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption).ClusterInfoList)
 	for _, tab := range start {
 		err = t.startTable(tab)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 	for _, tab := range stop {
 		err = t.nh.StopCluster(tab)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (t *Manager) incAndGetIDSeq() (uint64, error) {
