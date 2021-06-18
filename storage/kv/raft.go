@@ -146,7 +146,7 @@ const (
 	UpdateOpSet    = "set"
 	UpdateOpDelete = "delete"
 
-	proposalTimeout = 1 * time.Second
+	proposalTimeout = 30 * time.Second
 )
 
 type Update struct {
