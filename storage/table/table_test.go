@@ -287,7 +287,7 @@ func TestActiveTable_Delete(t *testing.T) {
 		fields  fields
 		args    args
 		want    *proto.DeleteRangeResponse
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "Delete with empty key",
@@ -299,7 +299,7 @@ func TestActiveTable_Delete(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{},
 			},
-			wantErr: true,
+			wantErr: storage.ErrEmptyKey,
 		},
 		{
 			name: "Delete existing key",
@@ -337,7 +337,7 @@ func TestActiveTable_Delete(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{Key: []byte("foo")},
 			},
-			wantErr: true,
+			wantErr: errUnknown,
 		},
 	}
 	for _, tt := range tests {
@@ -348,8 +348,8 @@ func TestActiveTable_Delete(t *testing.T) {
 				nh:    tt.fields.nh,
 			}
 			got, err := at.Delete(tt.args.ctx, tt.args.req)
-			if tt.wantErr {
-				r.Error(err)
+			if tt.wantErr != nil {
+				r.ErrorIs(err, tt.wantErr)
 				return
 			}
 			r.NoError(err)
