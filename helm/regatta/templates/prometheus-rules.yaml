@@ -256,12 +256,12 @@ spec:
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-errors'
     - alert: HighKafkaReaderLag
       expr: kafka_reader_lag{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"} > 200
-      for: 15m
+      for: 60m
       labels:
         severity: warning
         team: {{ .Values.team }}
       annotations:
-        description: 'Kafka reader lag was over 200 for 15 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
+        description: 'Kafka reader lag was over 200 for 60 minutes for topic {{ "{{" }}$labels.topic{{ "}}" }}, job {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader lag too high'
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-lag'
     - alert: LowKafkaFetchCount
