@@ -37,7 +37,7 @@ func NewTopicConsumerMock(brokers []string, dialer *kafka.Dialer, config TopicCo
 	tc.listener = listener
 	tc.log = zap.S().Named(fmt.Sprintf("consumer:%s", config.Name))
 	tc.reader = &ReaderMock{log: tc.log}
-	tc.metrics = newTopicConsumerMetrics(config.Name, tc.reader)
+	tc.metrics = newTopicConsumerMetrics(config.Name, config.GroupID, tc.reader)
 	return &tc
 }
 

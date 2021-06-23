@@ -146,7 +146,7 @@ func NewTopicConsumer(brokers []string, dialer *kafka.Dialer, config TopicConfig
 		rc.Logger = kafka.LoggerFunc(tc.log.Debugf)
 	}
 	tc.reader = kafka.NewReader(rc)
-	tc.metrics = newTopicConsumerMetrics(config.Name, tc.reader)
+	tc.metrics = newTopicConsumerMetrics(config.Name, config.GroupID, tc.reader)
 	return &tc
 }
 
