@@ -41,7 +41,7 @@ spec:
   - name: https-api
     targetPort: https
     port: {{ .Values.internalPort }}
-  - name: https-api-tables
+  - name: https-tables
     targetPort: https-tables
     port: {{ .Values.internalPortTables }}
 ---
@@ -69,7 +69,7 @@ spec:
     targetPort: https
     port: 443
   - protocol: TCP
-    targetPort: https-api-tables
+    targetPort: https-tables
     port: {{ .Values.internalPortTables }}
   {{ if .Values.externalLoadBalancer.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
