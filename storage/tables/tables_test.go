@@ -13,7 +13,6 @@ import (
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
 	"go.uber.org/zap"
 )
@@ -132,23 +131,14 @@ func TestManager_reconcile(t *testing.T) {
 	defer node.Close()
 
 	const reconcileInterval = 1 * time.Second
-	tm := &Manager{
-		nh:                node,
-		reconcileInterval: reconcileInterval,
-		readyChan:         make(chan struct{}),
-		members:           m,
-		cfg:               minimalTestConfig,
-		store: &kv.RaftStore{
-			NodeHost:  node,
-			ClusterID: metaFSMClusterID,
-		},
-		closed: make(chan struct{}),
-	}
+	tm := NewManager(node, m, minimalTestConfig)
+	tm.reconcileInterval = reconcileInterval
+
 	r.NoError(tm.Start())
 	defer tm.Close()
 	r.NoError(tm.WaitUntilReady())
 	r.NoError(tm.createTable(testTableName))
-	time.Sleep(reconcileInterval * 2)
+	time.Sleep(reconcileInterval * 3)
 	at, err := tm.GetTable(testTableName)
 	r.NoError(err)
 
@@ -159,7 +149,7 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(err)
 
 	r.NoError(tm.DeleteTable(testTableName))
-	time.Sleep(reconcileInterval * 2)
+	time.Sleep(reconcileInterval * 3)
 	_, err = tm.GetTable(testTableName)
 	r.ErrorIs(err, ErrTableDoesNotExist)
 }

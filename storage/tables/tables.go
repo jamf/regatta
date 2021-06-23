@@ -10,6 +10,7 @@ import (
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
+	"go.uber.org/zap"
 )
 
 type store interface {
@@ -45,6 +46,7 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 			ClusterID: metaFSMClusterID,
 		},
 		closed: make(chan struct{}),
+		log:    zap.S().Named("manager"),
 	}
 }
 
@@ -56,6 +58,7 @@ type Manager struct {
 	cfg               Config
 	readyChan         chan struct{}
 	reconcileInterval time.Duration
+	log               *zap.SugaredLogger
 }
 
 func (t *Manager) CreateTable(name string) error {
@@ -155,8 +158,10 @@ func (t *Manager) reconcileLoop() {
 			return
 		default:
 			time.Sleep(t.reconcileInterval)
-			// TODO log err
-			_ = t.reconcile()
+			err := t.reconcile()
+			if err != nil {
+				t.log.Errorf("reconcile failed: %v", err)
+			}
 		}
 	}
 }

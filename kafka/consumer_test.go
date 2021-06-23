@@ -78,37 +78,34 @@ func TestKafka_CreateConsumer(t *testing.T) {
 		Brokers: []string{"localhost:9092"},
 	}
 
-	l := ListenerMock{}
-	consumer, err := NewConsumer(cfg, l.OnMessage)
+	consumer, err := NewConsumer(cfg)
 	r.NoError(err, "Failed to create consumer")
-	r.NotNil(consumer.listener, "Failed to set listener function")
 	r.EqualValues(0, len(consumer.topicConsumers), "No topic consumers should exist")
 
 	cfg.TLS = true
 
-	consumer, err = NewConsumer(cfg, l.OnMessage)
+	consumer, err = NewConsumer(cfg)
 	r.EqualError(err, "open : no such file or directory", "Should return error")
 
 	cfg.ClientCertFilename = "testdata/test.crt"
 	cfg.ClientKeyFilename = "testdata/test.key"
 
-	consumer, err = NewConsumer(cfg, l.OnMessage)
+	consumer, err = NewConsumer(cfg)
 	r.EqualError(err, "open : no such file or directory", "Should return error")
 
 	cfg.ServerCertFilename = "testdata/test.crt"
 
-	consumer, err = NewConsumer(cfg, l.OnMessage)
+	consumer, err = NewConsumer(cfg)
 	r.NoError(err, "Failed to create consumer")
 
 	cfg.Topics = topics
-	consumer, err = NewConsumer(cfg, l.OnMessage)
+	consumer, err = NewConsumer(cfg)
 	r.NoError(err, "Failed to create consumer")
 	r.EqualValues(2, len(consumer.topicConsumers), "Two topic consumers should exist")
 
 	for i, tc := range consumer.topicConsumers {
 		r.EqualValues(cfg.Topics[i], tc.config, "Topic config should be set")
 		r.NotNil(tc.reader, "Reader should be created")
-		r.NotNil(tc.listener, "Listener function should be set")
 		r.EqualValues(cfg.Brokers, tc.reader.Config().Brokers, "Reader config should be set correctly: brokers")
 		r.EqualValues(cfg.Topics[i].Name, tc.reader.Config().Topic, "Reader config should be set correctly: topic")
 		r.EqualValues(cfg.Topics[i].GroupID, tc.reader.Config().GroupID, "Reader config should be set correctly: groupID")
@@ -126,15 +123,14 @@ func TestKafka_StartConsumer(t *testing.T) {
 		DebugLogs: true,
 	}
 
-	w := ListenerMock{}
-	consumer, err := NewConsumer(cfg, w.OnMessage)
+	consumer, err := NewConsumer(cfg)
 	r.NoError(err, "Failed to create consumer")
 
 	consumer.Start(context.Background())
 	r.NotNil(consumer.cancel, "Cancel function should be set")
 
 	cfg.Topics = topics
-	consumer, err = NewConsumer(cfg, w.OnMessage)
+	consumer, err = NewConsumer(cfg)
 	r.NoError(err, "Failed to create consumer")
 
 	err = consumer.Start(context.Background())
@@ -164,8 +160,7 @@ func TestKafka_CloseConsumer(t *testing.T) {
 		Brokers: []string{"localhost:9092"},
 	}
 
-	w := ListenerMock{}
-	consumer, err := NewConsumer(cfg, w.OnMessage)
+	consumer, err := NewConsumer(cfg)
 	r.NoError(err, "Failed to create consumer")
 	consumer.Close()
 }

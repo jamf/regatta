@@ -17,7 +17,7 @@ const maxConnectionAge = 60 * time.Second
 
 // RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
-	addr       string
+	Addr       string
 	grpcServer *grpc.Server
 	log        *zap.SugaredLogger
 }
@@ -25,7 +25,7 @@ type RegattaServer struct {
 // NewServer returns initialized gRPC server.
 func NewServer(addr string, tls *tls.Config, reflectionAPI bool) *RegattaServer {
 	rs := new(RegattaServer)
-	rs.addr = addr
+	rs.Addr = addr
 	rs.log = zap.S().Named("server")
 
 	grpc_prometheus.EnableHandlingTimeHistogram()
@@ -49,8 +49,8 @@ func NewServer(addr string, tls *tls.Config, reflectionAPI bool) *RegattaServer 
 
 // ListenAndServe starts underlying gRPC server.
 func (s *RegattaServer) ListenAndServe() error {
-	s.log.Infof("listen gRPC on: %s", s.addr)
-	l, err := net.Listen("tcp", s.addr)
+	s.log.Infof("listen gRPC on: %s", s.Addr)
+	l, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		return err
 	}
@@ -61,9 +61,9 @@ func (s *RegattaServer) ListenAndServe() error {
 
 // Shutdown stops underlying gRPC server.
 func (s *RegattaServer) Shutdown() {
-	s.log.Infof("stopping gRPC on: %s", s.addr)
+	s.log.Infof("stopping gRPC on: %s", s.Addr)
 	s.grpcServer.GracefulStop()
-	s.log.Infof("stopped gRPC on: %s", s.addr)
+	s.log.Infof("stopped gRPC on: %s", s.Addr)
 }
 
 // RegisterService implements grpc.ServiceRegistrar interface so internals of this type does not need to be exposed.
