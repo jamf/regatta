@@ -25,13 +25,12 @@ type Consumer struct {
 	dialer         *kafka.Dialer
 	config         Config
 	topicConsumers []*TopicConsumer
-	listener       OnMessageFunc
 	cancel         context.CancelFunc
 	log            *zap.SugaredLogger
 }
 
 // NewConsumer constructs Consumer with `config` and `listener`.
-func NewConsumer(config Config, listener OnMessageFunc) (*Consumer, error) {
+func NewConsumer(config Config) (*Consumer, error) {
 	c := new(Consumer)
 	c.config = config
 	c.log = zap.S().Named("consumer")
@@ -68,12 +67,10 @@ func NewConsumer(config Config, listener OnMessageFunc) (*Consumer, error) {
 		TLS:       tlsConf,
 	}
 
-	c.listener = listener
-
 	c.topicConsumers = make([]*TopicConsumer, 0, len(c.config.Topics))
 	for _, tc := range c.config.Topics {
 		c.topicConsumers = append(c.topicConsumers,
-			NewTopicConsumer(c.config.Brokers, c.dialer, tc, c.listener, c.config.DebugLogs))
+			NewTopicConsumer(c.config.Brokers, c.dialer, tc, tc.Listener, c.config.DebugLogs))
 	}
 	return c, nil
 }
@@ -86,7 +83,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 	wg.Add(len(c.topicConsumers))
 
 	for _, tc := range c.topicConsumers {
-		c.log.Infof("starting topic consumer: %s", tc.config.Name)
+		c.log.Infof("starting topic consumer (groupID/topic): %s/%s", tc.config.GroupID, tc.config.Name)
 		if err := tc.Start(ctx, &wg); err != nil {
 			c.log.Panicf("failed to start topic consumer: %s. Error: %v", tc.config.Name, err)
 		}

@@ -21,6 +21,7 @@ resources:
     memory: 1.5Gi
 
 internalPort: 8443
+internalPortTables: 9443
 metricsPort: 8079
 
 priorityClassName: service-cluster-critical
@@ -56,3 +57,6 @@ kafka:
 kind: false
 
 noServiceMonitor: false
+
+experimental:
+  tablesConsumeKafka: false

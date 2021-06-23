@@ -19,13 +19,16 @@ spec:
   - "{{ template "meta.name" . }}:{{ .Values.internalPort }}"
   - "{{ template "meta.name" . }}"
   - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.internalPortTables }}"
   - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}.svc.cluster.local"
   - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}:{{ .Values.internalPort }}"
+  - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}:{{ .Values.internalPortTables }}"
   - "{{ template "meta.name" . }}-api.{{ .Release.Namespace }}"
   - "{{ template "meta.name" . }}-api:{{ .Values.internalPort }}"
   - "{{ template "meta.name" . }}-api"
 {{- if .Values.externalLoadBalancer }}
   - {{ .Values.externalLoadBalancer.externalDomain }}
+  - "{{ .Values.externalLoadBalancer.externalDomain }}:{{ .Values.internalPortTables }}"
 {{- end }}
   issuerRef:
     kind: ClusterIssuer

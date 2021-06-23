@@ -16,7 +16,8 @@ type Config struct {
 
 // TopicConfig for Kafka reader.
 type TopicConfig struct {
-	Name    string
-	GroupID string
-	Table   string
+	Name     string
+	GroupID  string
+	Table    string
+	Listener OnMessageFunc
 }

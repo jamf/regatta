@@ -41,8 +41,10 @@ spec:
   - name: https-api
     targetPort: https
     port: {{ .Values.internalPort }}
+  - name: https-api-tables
+    targetPort: https-tables
+    port: {{ .Values.internalPortTables }}
 ---
-{{- if .Values.externalLoadBalancer }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -66,8 +68,10 @@ spec:
   - protocol: TCP
     targetPort: https
     port: 443
+  - protocol: TCP
+    targetPort: https-api-tables
+    port: {{ .Values.internalPortTables }}
   {{ if .Values.externalLoadBalancer.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
   {{ .Values.externalLoadBalancer.loadBalancerSourceRanges | toYaml | nindent 2 }}
   {{- end }}
-{{- end }}

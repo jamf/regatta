@@ -196,7 +196,7 @@ func (p *SM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}
 
 	idx := make([]byte, 8)
-	binary.BigEndian.PutUint64(idx, updates[len(updates)-1].Index)
+	binary.LittleEndian.PutUint64(idx, updates[len(updates)-1].Index)
 	if err := batch.Set(buf.Bytes(), idx, nil); err != nil {
 		return nil, err
 	}

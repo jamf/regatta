@@ -24,6 +24,7 @@ import (
 	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -35,6 +36,8 @@ func init() {
 
 	// API flags
 	rootCmd.PersistentFlags().String("api.address", "localhost:8443", "Address the API server should listen on.")
+	rootCmd.PersistentFlags().String("experimental.tables.api.address", "localhost:9443",
+		"Address the API server should listen on. Serves content of the tables state machines.")
 	rootCmd.PersistentFlags().String("api.cert-filename", "hack/server.crt", "Path to the API server certificate.")
 	rootCmd.PersistentFlags().String("api.key-filename", "hack/server.key", "Path to the API server private key file.")
 	rootCmd.PersistentFlags().Bool("api.reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
@@ -90,6 +93,7 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
 	rootCmd.PersistentFlags().Duration("kafka.timeout", 10*time.Second, "Kafka dialer timeout.")
 	rootCmd.PersistentFlags().String("kafka.group-id", "regatta-local", "Kafka consumer group ID.")
+	rootCmd.PersistentFlags().String("kafka.group-id-tables-suffix", "-tables", "Kafka consumer group ID (used for filling up per Table SM).")
 	rootCmd.PersistentFlags().StringSlice("kafka.topics", nil, "Kafka topics to read from.")
 	rootCmd.PersistentFlags().Bool("kafka.tls", false, "Enables Kafka broker TLS connection.")
 	rootCmd.PersistentFlags().String("kafka.server-cert-filename", "", "Kafka broker CA.")
@@ -97,6 +101,12 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().String("kafka.client-key-filename", "", "Kafka client key.")
 	rootCmd.PersistentFlags().Bool("kafka.check-topics", false, `Enables checking if all "--kafka.topics" exist before kafka client connection attempt.`)
 	rootCmd.PersistentFlags().Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
+
+	// Other flags
+	rootCmd.PersistentFlags().Bool("experimental.disableTablesWriteProtection", false,
+		"Disables the write protection for managed tables for the new state machines. For testing purposes only.")
+	rootCmd.PersistentFlags().Bool("experimental.tablesConsumeKafka", false,
+		"Enables kafka consuming to per table state machines.")
 
 	cobra.OnInitialize(initConfig)
 }
@@ -187,6 +197,54 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.GetLogger("dragonboat").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
 
+	mTables := viper.GetStringSlice("kafka.topics")
+	tm := tables.NewManager(nh, initialMembers(log),
+		tables.Config{
+			NodeID: viper.GetUint64("raft.node-id"),
+			Table: tables.Table{
+				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
+				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
+				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
+				CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
+				MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
+				WALDir:             viper.GetString("raft.state-machine-wal-dir"),
+				NodeHostDir:        viper.GetString("raft.state-machine-dir"),
+			},
+			Meta: tables.Meta{
+				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
+				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
+				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
+				CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
+				MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
+			},
+		})
+	err = tm.Start()
+	if err != nil {
+		// TODO switch to `Panic` when `experimental.tablesConsumeKafka` is removed
+		log.Error(err)
+	}
+	defer tm.Close()
+
+	go func() {
+		if err := tm.WaitUntilReady(); err == nil {
+			log.Info("table manager started")
+			for _, table := range mTables {
+				log.Debugf("creating table %s", table)
+				err := tm.CreateTable(table)
+				if err != nil {
+					if err == tables.ErrTableExists {
+						log.Infof("table %s already exist, skipping creation", table)
+					} else {
+						log.Errorf("failed to create table %s: %v", table, err)
+					}
+				}
+			}
+		} else {
+			// TODO switch to `Panicf` when `experimental.tablesConsumeKafka` is removed
+			log.Errorf("table manager failed to start: %v", err)
+		}
+	}()
+
 	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDB.Shards)
 	for clusterID := uint64(1); clusterID <= partitioner.Capacity(); clusterID++ {
 		cfg := config.Config{
@@ -221,6 +279,7 @@ func root(_ *cobra.Command, _ []string) {
 
 	// Create storage
 	st := storage.NewRaft(nh, partitioner, metadata)
+	stTables := &tables.KVStorageWrapper{Manager: tm}
 
 	if !waitForClusterInit(shutdown, nh) {
 		log.Info("Shutting down...")
@@ -247,7 +306,13 @@ func root(_ *cobra.Command, _ []string) {
 	)
 	defer regatta.Shutdown()
 
-	mTables := viper.GetStringSlice("kafka.topics")
+	regattaTables := regattaserver.NewServer(
+		viper.GetString("experimental.tables.api.address"),
+		watcher.TLSConfig(),
+		viper.GetBool("api.reflection-api"),
+	)
+	defer regattaTables.Shutdown()
+
 	// Create and register grpc/rest endpoints
 	kvs := &regattaserver.KVServer{
 		Storage:       st,
@@ -255,15 +320,43 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	proto.RegisterKVServer(regatta, kvs)
 
+	var kvsTables *regattaserver.KVServer
+	if viper.GetBool("experimental.disableTablesWriteProtection") {
+		kvsTables = &regattaserver.KVServer{
+			Storage: stTables,
+		}
+	} else {
+		kvsTables = &regattaserver.KVServer{
+			Storage:       stTables,
+			ManagedTables: mTables,
+		}
+	}
+
+	proto.RegisterKVServer(regattaTables, kvsTables)
+
 	ms := &regattaserver.MaintenanceServer{
 		Storage: st,
 	}
 	proto.RegisterMaintenanceServer(regatta, ms)
 
+	msTables := &regattaserver.MaintenanceServer{
+		Storage: stTables,
+	}
+	proto.RegisterMaintenanceServer(regattaTables, msTables)
+
 	// Start server
+	log.Infof("regatta listening at %s", regatta.Addr)
 	go func() {
 		if err := regatta.ListenAndServe(); err != nil {
 			log.Panicf("grpc listenAndServe failed: %v", err)
+		}
+	}()
+
+	log.Infof("regattaTables listening at %s", regattaTables.Addr)
+	go func() {
+		if err := regattaTables.ListenAndServe(); err != nil {
+			// TODO switch to `Errorf` when `experimental.tablesConsumeKafka` is removed
+			log.Errorf("grpc listenAndServe failed: %v", err)
 		}
 	}()
 
@@ -276,12 +369,21 @@ func root(_ *cobra.Command, _ []string) {
 	defer hs.Shutdown()
 
 	var tc []kafka.TopicConfig
-	for _, topic := range viper.GetStringSlice("kafka.topics") {
+	for _, topic := range mTables {
 		tc = append(tc, kafka.TopicConfig{
-			Name:    topic,
-			GroupID: viper.GetString("kafka.group-id"),
-			Table:   topic,
+			Name:     topic,
+			GroupID:  viper.GetString("kafka.group-id"),
+			Table:    topic,
+			Listener: onMessage(st),
 		})
+		if viper.GetBool("experimental.tablesConsumeKafka") {
+			tc = append(tc, kafka.TopicConfig{
+				Name:     topic,
+				GroupID:  viper.GetString("kafka.group-id") + viper.GetString("kafka.group-id-tables-suffix"),
+				Table:    topic,
+				Listener: onMessageTables(tm),
+			})
+		}
 	}
 	kafkaCfg := kafka.Config{
 		Brokers:            viper.GetStringSlice("kafka.brokers"),
@@ -302,7 +404,7 @@ func root(_ *cobra.Command, _ []string) {
 	}
 
 	// Start Kafka consumer
-	consumer, err := kafka.NewConsumer(kafkaCfg, onMessage(st))
+	consumer, err := kafka.NewConsumer(kafkaCfg)
 	if err != nil {
 		log.Panicf("failed to create consumer: %v", err)
 	}
@@ -404,6 +506,26 @@ func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
 			Key:   key,
 		})
 		return err
+	}
+}
+
+func onMessageTables(tm *tables.Manager) kafka.OnMessageFunc {
+	return func(ctx context.Context, table, key, value []byte) error {
+		stTables := &tables.KVStorageWrapper{Manager: tm}
+		if value != nil {
+			_, err := stTables.Put(ctx, &proto.PutRequest{
+				Table: table,
+				Key:   key,
+				Value: value,
+			})
+			return err
+		} else {
+			_, err := stTables.Delete(ctx, &proto.DeleteRangeRequest{
+				Table: table,
+				Key:   key,
+			})
+			return err
+		}
 	}
 }
 
