@@ -5,8 +5,9 @@ import (
 )
 
 type topicConsumerMetrics struct {
-	topic  string
-	reader Reader
+	topic   string
+	groupID string
+	reader  Reader
 
 	kafkaReaderDialCount      *prometheus.CounterVec
 	kafkaReaderFetchCount     *prometheus.CounterVec
@@ -25,87 +26,88 @@ type topicConsumerMetrics struct {
 	kafkaReaderQueueCapacity  *prometheus.GaugeVec
 }
 
-func newTopicConsumerMetrics(topic string, reader Reader) *topicConsumerMetrics {
+func newTopicConsumerMetrics(topic string, groupID string, reader Reader) *topicConsumerMetrics {
 	return &topicConsumerMetrics{
-		topic:  topic,
-		reader: reader,
+		topic:   topic,
+		groupID: groupID,
+		reader:  reader,
 		kafkaReaderDialCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_dial_count",
 			Help: "Kafka reader dials",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderFetchCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_fetch_count",
 			Help: "Kafka reader fetches",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderMessageCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_message_count",
 			Help: "Kafka reader messages",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderBytesCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_message_bytes",
 			Help: "Kafka reader bytes",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderRebalanceCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_rebalance_count",
 			Help: "Kafka reader rebalances",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderTimeoutCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_timeout_count",
 			Help: "Kafka reader timeouts",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderErrorCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kafka_reader_error_count",
 			Help: "Kafka reader errors",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 
 		kafkaReaderOffset: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_offset",
 			Help: "Kafka reader offset",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderLag: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_lag",
 			Help: "Kafka reader lag",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderMinBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_min_bytes",
 			Help: "Kafka reader min bytes",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderMaxBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_max_bytes",
 			Help: "Kafka reader max bytes",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderMaxWaitSeconds: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_max_wait_seconds",
 			Help: "Kafka reader max wait seconds",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderQueueLength: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_queue_length",
 			Help: "Kafka reader queue length",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 		kafkaReaderQueueCapacity: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "kafka_reader_queue_capacity",
 			Help: "Kafka reader queue capacity",
-		}, []string{"topic"}),
+		}, []string{"topic", "group_id"}),
 	}
 }
 
 func (c *topicConsumerMetrics) update() {
 	stats := c.reader.Stats()
-	c.kafkaReaderDialCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Dials))
-	c.kafkaReaderFetchCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Fetches))
-	c.kafkaReaderMessageCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Messages))
-	c.kafkaReaderBytesCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Bytes))
-	c.kafkaReaderRebalanceCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Rebalances))
-	c.kafkaReaderTimeoutCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Timeouts))
-	c.kafkaReaderErrorCount.With(prometheus.Labels{"topic": c.topic}).Add(float64(stats.Errors))
+	c.kafkaReaderDialCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Dials))
+	c.kafkaReaderFetchCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Fetches))
+	c.kafkaReaderMessageCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Messages))
+	c.kafkaReaderBytesCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Bytes))
+	c.kafkaReaderRebalanceCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Rebalances))
+	c.kafkaReaderTimeoutCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Timeouts))
+	c.kafkaReaderErrorCount.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Add(float64(stats.Errors))
 
-	c.kafkaReaderOffset.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.Offset))
-	c.kafkaReaderLag.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.Lag))
-	c.kafkaReaderMinBytes.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.MinBytes))
-	c.kafkaReaderMaxBytes.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.MaxBytes))
-	c.kafkaReaderMaxWaitSeconds.With(prometheus.Labels{"topic": c.topic}).Set(stats.MaxWait.Seconds())
-	c.kafkaReaderQueueLength.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.QueueLength))
-	c.kafkaReaderQueueCapacity.With(prometheus.Labels{"topic": c.topic}).Set(float64(stats.QueueCapacity))
+	c.kafkaReaderOffset.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(float64(stats.Offset))
+	c.kafkaReaderLag.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(float64(stats.Lag))
+	c.kafkaReaderMinBytes.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(float64(stats.MinBytes))
+	c.kafkaReaderMaxBytes.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(float64(stats.MaxBytes))
+	c.kafkaReaderMaxWaitSeconds.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(stats.MaxWait.Seconds())
+	c.kafkaReaderQueueLength.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(float64(stats.QueueLength))
+	c.kafkaReaderQueueCapacity.With(prometheus.Labels{"topic": c.topic, "group_id": c.groupID}).Set(float64(stats.QueueCapacity))
 }
 
 func (c *topicConsumerMetrics) Describe(ch chan<- *prometheus.Desc) {

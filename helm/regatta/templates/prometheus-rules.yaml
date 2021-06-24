@@ -265,7 +265,7 @@ spec:
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: Kafka reader lag too high'
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#Kafka-reader-lag'
     - alert: LowKafkaFetchCount
-      expr: sum by (topic, pod, job) (increase(kafka_reader_fetch_count{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) == 0
+      expr: sum by (topic, groupID, pod, job) (increase(kafka_reader_fetch_count{namespace="{{ .Release.Namespace }}",job="{{ template "meta.name" . }}"}[5m])) == 0
       for: 15m
       labels:
         severity: warning
