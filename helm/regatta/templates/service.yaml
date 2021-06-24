@@ -44,6 +44,7 @@ spec:
   - name: https-tables
     targetPort: https-tables
     port: {{ .Values.internalPortTables }}
+{{ if .Values.externalLoadBalancer.externalDomain }}
 ---
 apiVersion: v1
 kind: Service
@@ -77,3 +78,4 @@ spec:
   loadBalancerSourceRanges:
   {{ .Values.externalLoadBalancer.loadBalancerSourceRanges | toYaml | nindent 2 }}
   {{- end }}
+{{ end }}
