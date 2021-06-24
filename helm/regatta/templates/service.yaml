@@ -65,10 +65,12 @@ spec:
   selector:
     app: {{ template "meta.name" . }}
   ports:
-  - protocol: TCP
+  - name: https
+    protocol: TCP
     targetPort: https
     port: 443
-  - protocol: TCP
+  - name: https-tables
+    protocol: TCP
     targetPort: https-tables
     port: {{ .Values.internalPortTables }}
   {{ if .Values.externalLoadBalancer.loadBalancerSourceRanges }}
