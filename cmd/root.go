@@ -104,8 +104,6 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().String("experimental.tables-api-address", "localhost:9443",
 		"Address the API server should listen on. Serves content of the tables state machines.")
 	rootCmd.PersistentFlags().StringSlice("experimental.tables-names", nil, "Create Regatta tables with given names")
-	rootCmd.PersistentFlags().Bool("experimental.disable-tables-write-protection", false,
-		"Disables the write protection for managed tables for the new state machines. For testing purposes only.")
 	rootCmd.PersistentFlags().Bool("experimental.tables-consume-kafka", false,
 		"Enables kafka consuming to per table state machines.")
 
@@ -321,16 +319,9 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	proto.RegisterKVServer(regatta, kvs)
 
-	var kvsTables *regattaserver.KVServer
-	if viper.GetBool("experimental.disable-tables-write-protection") {
-		kvsTables = &regattaserver.KVServer{
-			Storage: stTables,
-		}
-	} else {
-		kvsTables = &regattaserver.KVServer{
-			Storage:       stTables,
-			ManagedTables: mTables,
-		}
+	kvsTables := &regattaserver.KVServer{
+		Storage:       stTables,
+		ManagedTables: mTables,
 	}
 
 	proto.RegisterKVServer(regattaTables, kvsTables)
