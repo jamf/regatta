@@ -6,12 +6,12 @@ type Config struct {
 	// NodeID is a non-zero value used to identify a node within a Raft cluster.
 	NodeID uint64
 	// Table is a configuration for table OnDisk state machines.
-	Table Table
+	Table TableConfig
 	// Meta is a configuration for metadata inmemory state machine.
-	Meta Meta
+	Meta MetaConfig
 }
 
-type Table struct {
+type TableConfig struct {
 	// ElectionRTT is the minimum number of message RTT between elections. Message
 	// RTT is defined by NodeHostConfig.RTTMillisecond. The Raft paper suggests it
 	// to be a magnitude greater than HeartbeatRTT, which is the interval between
@@ -84,7 +84,7 @@ type Table struct {
 	// FS is the filesystem to use for IOnDiskStateMachine, useful for testing,
 	// uses the real vfs.Default if nil.
 	FS vfs.FS
-	// WALDir is the directory used for storing the WAL of Table entries. It is
+	// WALDir is the directory used for storing the WAL of TableConfig entries. It is
 	// recommended to use low latency storage such as NVME SSD with power loss
 	// protection to store such WAL data. Leave WALDir to have zero value will
 	// have everything stored in NodeHostDir.
@@ -93,7 +93,7 @@ type Table struct {
 	NodeHostDir string
 }
 
-type Meta struct {
+type MetaConfig struct {
 	// ElectionRTT is the minimum number of message RTT between elections. Message
 	// RTT is defined by NodeHostConfig.RTTMillisecond. The Raft paper suggests it
 	// to be a magnitude greater than HeartbeatRTT, which is the interval between
