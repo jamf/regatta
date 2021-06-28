@@ -14,6 +14,10 @@ var (
 	ErrEmptyKey = errors.New("key must not be empty")
 	// ErrEmptyTable returned when the table is not provided.
 	ErrEmptyTable = errors.New("table must not be empty")
+	// ErrKeyLengthExceeded key length exceeded max allowed value.
+	ErrKeyLengthExceeded = errors.New("key length exceeded max allowed value")
+	// ErrValueLengthExceeded value length exceeded max allowed value.
+	ErrValueLengthExceeded = errors.New("value length exceeded max allowed value")
 )
 
 type KVStorage interface {
