@@ -3,6 +3,11 @@
 
 Regatta is a read-optimised distributed key-value store.
 
+## Limits
+* Key limit - 1KB
+* Value limit - 2MB
+* Single gRPC message limit - 4MB
+
 ## Development environment prerequisites
 * [Go](https://golang.org/) >= 1.15 -- `brew install go`
 * Protocol Buffer compiler >= 3 -- `brew install protobuf`
