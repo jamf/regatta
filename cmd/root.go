@@ -36,8 +36,6 @@ func init() {
 
 	// API flags
 	rootCmd.PersistentFlags().String("api.address", "localhost:8443", "Address the API server should listen on.")
-	rootCmd.PersistentFlags().String("experimental.tables.api.address", "localhost:9443",
-		"Address the API server should listen on. Serves content of the tables state machines.")
 	rootCmd.PersistentFlags().String("api.cert-filename", "hack/server.crt", "Path to the API server certificate.")
 	rootCmd.PersistentFlags().String("api.key-filename", "hack/server.key", "Path to the API server private key file.")
 	rootCmd.PersistentFlags().Bool("api.reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
@@ -102,10 +100,12 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().Bool("kafka.check-topics", false, `Enables checking if all "--kafka.topics" exist before kafka client connection attempt.`)
 	rootCmd.PersistentFlags().Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
 
-	// Other flags
-	rootCmd.PersistentFlags().Bool("experimental.disableTablesWriteProtection", false,
+	// Experimental flags
+	rootCmd.PersistentFlags().String("experimental.tables-api-address", "localhost:9443",
+		"Address the API server should listen on. Serves content of the tables state machines.")
+	rootCmd.PersistentFlags().Bool("experimental.disable-tables-write-protection", false,
 		"Disables the write protection for managed tables for the new state machines. For testing purposes only.")
-	rootCmd.PersistentFlags().Bool("experimental.tablesConsumeKafka", false,
+	rootCmd.PersistentFlags().Bool("experimental.tables-consume-kafka", false,
 		"Enables kafka consuming to per table state machines.")
 
 	cobra.OnInitialize(initConfig)
@@ -220,7 +220,7 @@ func root(_ *cobra.Command, _ []string) {
 		})
 	err = tm.Start()
 	if err != nil {
-		// TODO switch to `Panic` when `experimental.tablesConsumeKafka` is removed
+		// TODO switch to `Panic` when `experimental.tables-consume-kafka` is removed
 		log.Error(err)
 	}
 	defer tm.Close()
@@ -240,7 +240,7 @@ func root(_ *cobra.Command, _ []string) {
 				}
 			}
 		} else {
-			// TODO switch to `Panicf` when `experimental.tablesConsumeKafka` is removed
+			// TODO switch to `Panicf` when `experimental.tables-consume-kafka` is removed
 			log.Errorf("table manager failed to start: %v", err)
 		}
 	}()
@@ -307,7 +307,7 @@ func root(_ *cobra.Command, _ []string) {
 	defer regatta.Shutdown()
 
 	regattaTables := regattaserver.NewServer(
-		viper.GetString("experimental.tables.api.address"),
+		viper.GetString("experimental.tables-api-address"),
 		watcher.TLSConfig(),
 		viper.GetBool("api.reflection-api"),
 	)
@@ -321,7 +321,7 @@ func root(_ *cobra.Command, _ []string) {
 	proto.RegisterKVServer(regatta, kvs)
 
 	var kvsTables *regattaserver.KVServer
-	if viper.GetBool("experimental.disableTablesWriteProtection") {
+	if viper.GetBool("experimental.disable-tables-write-protection") {
 		kvsTables = &regattaserver.KVServer{
 			Storage: stTables,
 		}
@@ -355,7 +355,7 @@ func root(_ *cobra.Command, _ []string) {
 	log.Infof("regattaTables listening at %s", regattaTables.Addr)
 	go func() {
 		if err := regattaTables.ListenAndServe(); err != nil {
-			// TODO switch to `Errorf` when `experimental.tablesConsumeKafka` is removed
+			// TODO switch to `Errorf` when `experimental.tables-consume-kafka` is removed
 			log.Errorf("grpc listenAndServe failed: %v", err)
 		}
 	}()
@@ -376,12 +376,12 @@ func root(_ *cobra.Command, _ []string) {
 			Table:    topic,
 			Listener: onMessage(st),
 		})
-		if viper.GetBool("experimental.tablesConsumeKafka") {
+		if viper.GetBool("experimental.tables-consume-kafka") {
 			tc = append(tc, kafka.TopicConfig{
 				Name:     topic,
 				GroupID:  viper.GetString("kafka.group-id") + viper.GetString("kafka.group-id-tables-suffix"),
 				Table:    topic,
-				Listener: onMessageTables(tm),
+				Listener: onMessage(stTables),
 			})
 		}
 	}
@@ -506,26 +506,6 @@ func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
 			Key:   key,
 		})
 		return err
-	}
-}
-
-func onMessageTables(tm *tables.Manager) kafka.OnMessageFunc {
-	return func(ctx context.Context, table, key, value []byte) error {
-		stTables := &tables.KVStorageWrapper{Manager: tm}
-		if value != nil {
-			_, err := stTables.Put(ctx, &proto.PutRequest{
-				Table: table,
-				Key:   key,
-				Value: value,
-			})
-			return err
-		} else {
-			_, err := stTables.Delete(ctx, &proto.DeleteRangeRequest{
-				Table: table,
-				Key:   key,
-			})
-			return err
-		}
 	}
 }
 
