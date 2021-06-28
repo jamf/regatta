@@ -8,6 +8,7 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/table/key"
 	pb "google.golang.org/protobuf/proto"
 )
 
@@ -17,6 +18,9 @@ type raftHandler interface {
 	SyncPropose(ctx context.Context, session *client.Session, bytes []byte) (sm.Result, error)
 	GetNoOPSession(id uint64) *client.Session
 }
+
+// maxValueLen 2MB max value.
+const maxValueLen = 2 * 1024 * 1024
 
 // Table stored representation of a table.
 type Table struct {
@@ -62,6 +66,12 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 	if len(req.Key) == 0 {
 		return nil, storage.ErrEmptyKey
 	}
+	if len(req.Key) > key.LatestVersionLen {
+		return nil, storage.ErrKeyLengthExceeded
+	}
+	if len(req.Value) > maxValueLen {
+		return nil, storage.ErrValueLengthExceeded
+	}
 	cmd := &proto.Command{
 		Type:  proto.Command_PUT,
 		Table: req.Table,
@@ -84,6 +94,9 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if len(req.Key) == 0 {
 		return nil, storage.ErrEmptyKey
+	}
+	if len(req.Key) > key.LatestVersionLen {
+		return nil, storage.ErrKeyLengthExceeded
 	}
 	cmd := &proto.Command{
 		Type:  proto.Command_DELETE,
