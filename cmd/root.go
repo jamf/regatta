@@ -226,22 +226,21 @@ func root(_ *cobra.Command, _ []string) {
 	defer tm.Close()
 
 	go func() {
-		if err := tm.WaitUntilReady(); err == nil {
-			log.Info("table manager started")
-			for _, table := range mTables {
-				log.Debugf("creating table %s", table)
-				err := tm.CreateTable(table)
-				if err != nil {
-					if err == tables.ErrTableExists {
-						log.Infof("table %s already exist, skipping creation", table)
-					} else {
-						log.Errorf("failed to create table %s: %v", table, err)
-					}
+		if err := tm.WaitUntilReady(); err != nil {
+			log.Infof("table manager failed to start: %v", err)
+			return
+		}
+		log.Info("table manager started")
+		for _, table := range mTables {
+			log.Debugf("creating table %s", table)
+			err := tm.CreateTable(table)
+			if err != nil {
+				if err == tables.ErrTableExists {
+					log.Infof("table %s already exist, skipping creation", table)
+				} else {
+					log.Errorf("failed to create table %s: %v", table, err)
 				}
 			}
-		} else {
-			// TODO switch to `Panicf` when `experimental.tables-consume-kafka` is removed
-			log.Errorf("table manager failed to start: %v", err)
 		}
 	}()
 
