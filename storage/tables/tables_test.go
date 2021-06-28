@@ -137,7 +137,8 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(tm.Start())
 	defer tm.Close()
 	r.NoError(tm.WaitUntilReady())
-	r.NoError(tm.createTable(testTableName))
+	_, err := tm.createTable(testTableName)
+	r.NoError(err)
 	time.Sleep(reconcileInterval * 3)
 	at, err := tm.GetTable(testTableName)
 	r.NoError(err)
@@ -162,7 +163,7 @@ func Test_diffTables(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        args
-		wantToStart []string
+		wantToStart []table.Table
 		wantToStop  []uint64
 	}{
 		{
@@ -176,8 +177,13 @@ func Test_diffTables(t *testing.T) {
 				},
 				raftInfo: []dragonboat.ClusterInfo{},
 			},
-			wantToStart: []string{"foo"},
-			wantToStop:  nil,
+			wantToStart: []table.Table{
+				{
+					Name: "foo",
+					ClusterID: 10001,
+				},
+			},
+			wantToStop: nil,
 		},
 		{
 			name: "Start a single table with invalid ClusterID",
