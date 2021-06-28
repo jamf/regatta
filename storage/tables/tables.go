@@ -62,21 +62,21 @@ type Manager struct {
 }
 
 func (t *Manager) CreateTable(name string) error {
-	err := t.createTable(name)
+	created, err := t.createTable(name)
 	if err != nil {
 		return err
 	}
-	return t.startTable(name)
+	return t.startTable(created)
 }
 
-func (t *Manager) createTable(name string) error {
-	storeName := keyPrefix + name
+func (t *Manager) createTable(name string) (table.Table, error) {
+	storeName := storedTableName(name)
 	if t.store.Exists(storeName) {
-		return ErrTableExists
+		return table.Table{}, ErrTableExists
 	}
 	seq, err := t.incAndGetIDSeq()
 	if err != nil {
-		return err
+		return table.Table{}, err
 	}
 	tab := table.Table{
 		Name:      name,
@@ -84,29 +84,33 @@ func (t *Manager) createTable(name string) error {
 	}
 	bytes, err := json.Marshal(&tab)
 	if err != nil {
-		return err
+		return table.Table{}, err
 	}
 	_, err = t.store.Set(storeName, string(bytes), 0)
 	if err != nil {
 		if err == kv.ErrVersionMismatch {
-			return ErrTableExists
+			return table.Table{}, ErrTableExists
 		}
-		return err
+		return table.Table{}, err
 	}
-	return nil
+	return tab, nil
 }
 
 func (t *Manager) DeleteTable(name string) error {
-	storedName := keyPrefix + name
-	tab, err := t.store.Get(storedName)
+	storeName := storedTableName(name)
+	tab, err := t.store.Get(storeName)
 	if err != nil {
 		return err
 	}
-	return t.store.Delete(storedName, tab.Ver)
+	return t.store.Delete(storeName, tab.Ver)
+}
+
+func storedTableName(name string) string {
+	return keyPrefix + name
 }
 
 func (t *Manager) GetTable(name string) (table.ActiveTable, error) {
-	v, err := t.store.Get(keyPrefix + name)
+	v, err := t.store.Get(storedTableName(name))
 	if err != nil {
 		if err == kv.ErrNotExist {
 			return table.ActiveTable{}, ErrTableDoesNotExist
@@ -228,10 +232,10 @@ func (t *Manager) getTables() (map[string]table.Table, error) {
 	return tables, nil
 }
 
-func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart []string, toStop []uint64) {
-	tableIDs := make(map[uint64]string)
+func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart []table.Table, toStop []uint64) {
+	tableIDs := make(map[uint64]table.Table)
 	for _, t := range tables {
-		tableIDs[t.ClusterID] = t.Name
+		tableIDs[t.ClusterID] = t
 	}
 	raftTableIDs := make(map[uint64]struct{})
 	for _, t := range raftInfo {
@@ -254,21 +258,12 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 	return
 }
 
-func (t *Manager) startTable(name string) error {
-	get, err := t.store.Get(keyPrefix + name)
-	if err != nil {
-		return err
-	}
-	tab := table.Table{}
-	err = json.Unmarshal([]byte(get.Value), &tab)
-	if err != nil {
-		return err
-	}
+func (t *Manager) startTable(tbl table.Table) error {
 	return t.nh.StartOnDiskCluster(
 		t.members,
 		false,
-		table.New(name, t.cfg.Table.NodeHostDir, t.cfg.Table.WALDir, t.cfg.Table.FS),
-		tableRaftConfig(t.cfg.NodeID, tab.ClusterID, t.cfg.Table),
+		table.New(tbl.Name, t.cfg.Table.NodeHostDir, t.cfg.Table.WALDir, t.cfg.Table.FS),
+		tableRaftConfig(t.cfg.NodeID, tbl.ClusterID, t.cfg.Table),
 	)
 }
 
