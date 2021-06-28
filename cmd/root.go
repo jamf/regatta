@@ -199,7 +199,7 @@ func root(_ *cobra.Command, _ []string) {
 	tm := tables.NewManager(nh, initialMembers(log),
 		tables.Config{
 			NodeID: viper.GetUint64("raft.node-id"),
-			Table: tables.Table{
+			Table: tables.TableConfig{
 				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
 				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
 				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
@@ -208,7 +208,7 @@ func root(_ *cobra.Command, _ []string) {
 				WALDir:             viper.GetString("raft.state-machine-wal-dir"),
 				NodeHostDir:        viper.GetString("raft.state-machine-dir"),
 			},
-			Meta: tables.Meta{
+			Meta: tables.MetaConfig{
 				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
 				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
 				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),

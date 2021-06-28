@@ -19,8 +19,8 @@ import (
 
 var minimalTestConfig = Config{
 	NodeID: 1,
-	Table:  Table{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem()},
-	Meta:   Meta{HeartbeatRTT: 1, ElectionRTT: 5},
+	Table:  TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem()},
+	Meta:   MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 }
 
 func TestManager_CreateTable(t *testing.T) {

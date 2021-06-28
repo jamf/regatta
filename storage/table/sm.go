@@ -38,12 +38,12 @@ const (
 	maxBatchSize = 16 * 1024 * 1024
 )
 
-func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.CreateOnDiskStateMachineFunc {
+func NewFSM(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
 	return func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
-		return &SM{
+		return &FSM{
 			pebble:     nil,
 			tableName:  tableName,
 			clusterID:  clusterID,
@@ -56,8 +56,8 @@ func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.Cre
 	}
 }
 
-// SM is a statemachine.IOnDiskStateMachine impl.
-type SM struct {
+// FSM is a statemachine.IOnDiskStateMachine impl.
+type FSM struct {
 	pebble     unsafe.Pointer
 	wo         *pebble.WriteOptions
 	fs         vfs.FS
@@ -70,7 +70,7 @@ type SM struct {
 	log        *zap.SugaredLogger
 }
 
-func (p *SM) Open(_ <-chan struct{}) (uint64, error) {
+func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	if p.clusterID < 1 {
 		return 0, raft.ErrInvalidClusterID
 	}
@@ -143,7 +143,7 @@ func (p *SM) Open(_ <-chan struct{}) (uint64, error) {
 	return binary.LittleEndian.Uint64(indexVal), nil
 }
 
-func (p *SM) getWalDirPath(hostname string, randomDir string, dbdir string) string {
+func (p *FSM) getWalDirPath(hostname string, randomDir string, dbdir string) string {
 	var walDirPath string
 	if p.walDirname != "" {
 		walDirPath = path.Join(p.walDirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID), randomDir)
@@ -154,7 +154,7 @@ func (p *SM) getWalDirPath(hostname string, randomDir string, dbdir string) stri
 }
 
 // Update updates the object.
-func (p *SM) Update(updates []sm.Entry) ([]sm.Entry, error) {
+func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	buf := bytes.NewBuffer(make([]byte, key.LatestVersionLen))
@@ -208,7 +208,7 @@ func (p *SM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 }
 
 // Lookup locally looks up the data.
-func (p *SM) Lookup(l interface{}) (interface{}, error) {
+func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	switch req := l.(type) {
 	case *proto.RangeRequest:
 		buf := bufferPool.Get()
@@ -259,20 +259,20 @@ func (p *SM) Lookup(l interface{}) (interface{}, error) {
 // Sync synchronizes all in-core state of the state machine to permanent
 // storage so the state machine can continue from its latest state after
 // reboot.
-func (p *SM) Sync() error {
+func (p *FSM) Sync() error {
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	return db.Flush()
 }
 
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
-func (p *SM) PrepareSnapshot() (interface{}, error) {
+func (p *FSM) PrepareSnapshot() (interface{}, error) {
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	return db.NewSnapshot(), nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (p *SM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
+func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
 	snapshot := ctx.(*pebble.Snapshot)
 	iter := snapshot.NewIter(nil)
 	defer func() {
@@ -318,7 +318,7 @@ func (p *SM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error
 // RecoverFromSnapshot recovers the state machine state from snapshot specified by
 // the io.Reader object. The snapshot is recovered into a new DB first and then
 // atomically swapped with the existing DB to complete the recovery.
-func (p *SM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
+func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
 	if p.closed {
 		return raft.ErrStateMachineClosed
 	}
@@ -420,7 +420,7 @@ func (p *SM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) 
 }
 
 // Close closes the KVStateMachine IStateMachine.
-func (p *SM) Close() error {
+func (p *FSM) Close() error {
 	p.closed = true
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	if db == nil {
@@ -430,7 +430,7 @@ func (p *SM) Close() error {
 }
 
 // GetHash gets the DB hash for test comparison.
-func (p *SM) GetHash() (uint64, error) {
+func (p *FSM) GetHash() (uint64, error) {
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	snap := db.NewSnapshot()
 	iter := snap.NewIter(nil)
