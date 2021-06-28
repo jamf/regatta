@@ -35,6 +35,7 @@ Flags:
       --experimental.disable-tables-write-protection   Disables the write protection for managed tables for the new state machines. For testing purposes only.
       --experimental.tables-api-address string         Address the API server should listen on. Serves content of the tables state machines. (default "localhost:9443")
       --experimental.tables-consume-kafka              Enables kafka consuming to per table state machines.
+      --experimental.tables-names strings              Create Regatta tables with given names
   -h, --help                                           help for regatta
       --kafka.brokers strings                          Address of the Kafka broker. (default [127.0.0.1:9092])
       --kafka.check-topics                             Enables checking if all "--kafka.topics" exist before kafka client connection attempt.

@@ -46,3 +46,4 @@ charts:
         topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,regatta-test
       experimental:
         tablesConsumeKafka: true
+        tablesNames: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,regatta-test
