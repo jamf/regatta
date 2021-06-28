@@ -103,8 +103,7 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	// Experimental flags
 	rootCmd.PersistentFlags().String("experimental.tables-api-address", "localhost:9443",
 		"Address the API server should listen on. Serves content of the tables state machines.")
-	rootCmd.PersistentFlags().Bool("experimental.disable-tables-write-protection", false,
-		"Disables the write protection for managed tables for the new state machines. For testing purposes only.")
+	rootCmd.PersistentFlags().StringSlice("experimental.tables-names", nil, "Create Regatta tables with given names")
 	rootCmd.PersistentFlags().Bool("experimental.tables-consume-kafka", false,
 		"Enables kafka consuming to per table state machines.")
 
@@ -197,7 +196,6 @@ func root(_ *cobra.Command, _ []string) {
 	dragonboatlogger.GetLogger("dragonboat").SetLevel(dragonboatlogger.DEBUG)
 	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
 
-	mTables := viper.GetStringSlice("kafka.topics")
 	tm := tables.NewManager(nh, initialMembers(log),
 		tables.Config{
 			NodeID: viper.GetUint64("raft.node-id"),
@@ -231,7 +229,8 @@ func root(_ *cobra.Command, _ []string) {
 			return
 		}
 		log.Info("table manager started")
-		for _, table := range mTables {
+		exTables := viper.GetStringSlice("experimental.tables-names")
+		for _, table := range exTables {
 			log.Debugf("creating table %s", table)
 			err := tm.CreateTable(table)
 			if err != nil {
@@ -244,6 +243,7 @@ func root(_ *cobra.Command, _ []string) {
 		}
 	}()
 
+	mTables := viper.GetStringSlice("kafka.topics")
 	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDB.Shards)
 	for clusterID := uint64(1); clusterID <= partitioner.Capacity(); clusterID++ {
 		cfg := config.Config{
@@ -319,16 +319,9 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	proto.RegisterKVServer(regatta, kvs)
 
-	var kvsTables *regattaserver.KVServer
-	if viper.GetBool("experimental.disable-tables-write-protection") {
-		kvsTables = &regattaserver.KVServer{
-			Storage: stTables,
-		}
-	} else {
-		kvsTables = &regattaserver.KVServer{
-			Storage:       stTables,
-			ManagedTables: mTables,
-		}
+	kvsTables := &regattaserver.KVServer{
+		Storage:       stTables,
+		ManagedTables: mTables,
 	}
 
 	proto.RegisterKVServer(regattaTables, kvsTables)
@@ -351,10 +344,10 @@ func root(_ *cobra.Command, _ []string) {
 		}
 	}()
 
+	// TODO remove when `experimental.tables-consume-kafka` is removed
 	log.Infof("regattaTables listening at %s", regattaTables.Addr)
 	go func() {
 		if err := regattaTables.ListenAndServe(); err != nil {
-			// TODO switch to `Errorf` when `experimental.tables-consume-kafka` is removed
 			log.Errorf("grpc listenAndServe failed: %v", err)
 		}
 	}()

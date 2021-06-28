@@ -59,4 +59,5 @@ kind: false
 noServiceMonitor: false
 
 experimental:
+  tablesNames: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy
   tablesConsumeKafka: false

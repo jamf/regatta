@@ -48,6 +48,7 @@ spec:
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
             --experimental.tables-api-address=0.0.0.0:{{ .Values.internalPortTables }} \
             --experimental.tables-consume-kafka={{ .Values.experimental.tablesConsumeKafka }} \
+            --experimental.tables-names={{ .Values.experimental.tablesNames }}
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
             --rest.address=0.0.0.0:{{ .Values.metricsPort }} \
