@@ -93,6 +93,45 @@ func TestSM_Open(t *testing.T) {
 	}
 }
 
+func TestSMReOpen(t *testing.T) {
+	r := require.New(t)
+	fs := vfs.NewMem()
+	const testIndex uint64 = 10
+	p := &SM{
+		fs:         fs,
+		clusterID:  1,
+		nodeID:     1,
+		dirname:    "/tmp/dir",
+		walDirname: "/tmp/dir",
+		log:        zap.S(),
+	}
+
+	t.Log("open SM")
+	index, err := p.Open(nil)
+	r.NoError(err)
+	r.Equal(uint64(0), index)
+
+	t.Log("propose into SM")
+	_, err = p.Update([]sm.Entry{
+		{
+			Index: testIndex,
+			Cmd: mustMarshallProto(&proto.Command{
+				Kv: &proto.KeyValue{
+					Key:   []byte("foo"),
+					Value: []byte("bar"),
+				},
+			}),
+		},
+	})
+	r.NoError(err)
+	r.NoError(p.Close())
+
+	t.Log("reopen SM")
+	index, err = p.Open(nil)
+	r.NoError(err)
+	r.Equal(testIndex, index)
+}
+
 func emptySM() sm.IOnDiskStateMachine {
 	p := &SM{
 		fs:        vfs.NewMem(),

@@ -46,8 +46,8 @@ spec:
           NODE_ID=$(expr $(echo "${POD_NAME: -1}") + 1) &&
           regatta \
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
-            --experimental.tables.api.address=0.0.0.0:{{ .Values.internalPortTables }} \
-            --experimental.tablesConsumeKafka={{ .Values.experimental.tablesConsumeKafka }} \
+            --experimental.tables-api-address=0.0.0.0:{{ .Values.internalPortTables }} \
+            --experimental.tables-consume-kafka={{ .Values.experimental.tablesConsumeKafka }} \
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
             --rest.address=0.0.0.0:{{ .Values.metricsPort }} \
