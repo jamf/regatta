@@ -11,12 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/table/key"
 	"github.com/wandera/regatta/util"
 )
 
 var (
-	longKey    = []byte(util.RandString(1025))
-	longValue  = []byte(util.RandString(1024 * 1024 * 3))
+	longKey    = []byte(util.RandString(key.LatestVersionLen + 1))
+	longValue  = []byte(util.RandString(MaxValueLen + 1))
 	errUnknown = errors.New("unknown error")
 )
 
@@ -111,6 +112,30 @@ func TestActiveTable_Range(t *testing.T) {
 				Key:   []byte("foo"),
 				Value: []byte("bar"),
 			}}},
+		},
+		{
+			name: "Query key too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{Key: longKey},
+			},
+			wantErr: storage.ErrKeyLengthExceeded,
+		},
+		{
+			name: "Query range end too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{Key: []byte("foo"), RangeEnd: longKey},
+			},
+			wantErr: storage.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Query unknown error",

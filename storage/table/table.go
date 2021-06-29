@@ -19,8 +19,8 @@ type raftHandler interface {
 	GetNoOPSession(id uint64) *client.Session
 }
 
-// maxValueLen 2MB max value.
-const maxValueLen = 2 * 1024 * 1024
+// MaxValueLen 2MB max value.
+const MaxValueLen = 2 * 1024 * 1024
 
 // Table stored representation of a table.
 type Table struct {
@@ -41,6 +41,12 @@ type ActiveTable struct {
 
 // Range performs a Range query in the Raft data, supplied context must have a deadline set.
 func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+	if len(req.Key) > key.LatestVersionLen {
+		return nil, storage.ErrKeyLengthExceeded
+	}
+	if len(req.RangeEnd) > key.LatestVersionLen {
+		return nil, storage.ErrKeyLengthExceeded
+	}
 	var (
 		err error
 		val interface{}
@@ -69,7 +75,7 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 	if len(req.Key) > key.LatestVersionLen {
 		return nil, storage.ErrKeyLengthExceeded
 	}
-	if len(req.Value) > maxValueLen {
+	if len(req.Value) > MaxValueLen {
 		return nil, storage.ErrValueLengthExceeded
 	}
 	cmd := &proto.Command{
