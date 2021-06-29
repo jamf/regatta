@@ -61,22 +61,22 @@ type Manager struct {
 	log               *zap.SugaredLogger
 }
 
-func (t *Manager) CreateTable(name string) error {
-	err := t.createTable(name)
+func (m *Manager) CreateTable(name string) error {
+	created, err := m.createTable(name)
 	if err != nil {
 		return err
 	}
-	return t.startTable(name)
+	return m.startTable(created)
 }
 
-func (t *Manager) createTable(name string) error {
-	storeName := keyPrefix + name
-	if t.store.Exists(storeName) {
-		return ErrTableExists
+func (m *Manager) createTable(name string) (table.Table, error) {
+	storeName := storedTableName(name)
+	if m.store.Exists(storeName) {
+		return table.Table{}, ErrTableExists
 	}
-	seq, err := t.incAndGetIDSeq()
+	seq, err := m.incAndGetIDSeq()
 	if err != nil {
-		return err
+		return table.Table{}, err
 	}
 	tab := table.Table{
 		Name:      name,
@@ -84,29 +84,33 @@ func (t *Manager) createTable(name string) error {
 	}
 	bytes, err := json.Marshal(&tab)
 	if err != nil {
-		return err
+		return table.Table{}, err
 	}
-	_, err = t.store.Set(storeName, string(bytes), 0)
+	_, err = m.store.Set(storeName, string(bytes), 0)
 	if err != nil {
 		if err == kv.ErrVersionMismatch {
-			return ErrTableExists
+			return table.Table{}, ErrTableExists
 		}
-		return err
+		return table.Table{}, err
 	}
-	return nil
+	return tab, nil
 }
 
-func (t *Manager) DeleteTable(name string) error {
-	storedName := keyPrefix + name
-	tab, err := t.store.Get(storedName)
+func (m *Manager) DeleteTable(name string) error {
+	storeName := storedTableName(name)
+	tab, err := m.store.Get(storeName)
 	if err != nil {
 		return err
 	}
-	return t.store.Delete(storedName, tab.Ver)
+	return m.store.Delete(storeName, tab.Ver)
 }
 
-func (t *Manager) GetTable(name string) (table.ActiveTable, error) {
-	v, err := t.store.Get(keyPrefix + name)
+func storedTableName(name string) string {
+	return keyPrefix + name
+}
+
+func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
+	v, err := m.store.Get(storedTableName(name))
 	if err != nil {
 		if err == kv.ErrNotExist {
 			return table.ActiveTable{}, ErrTableDoesNotExist
@@ -118,68 +122,68 @@ func (t *Manager) GetTable(name string) (table.ActiveTable, error) {
 	if err != nil {
 		return table.ActiveTable{}, err
 	}
-	return tab.AsActive(t.nh), nil
+	return tab.AsActive(m.nh), nil
 }
 
-func (t *Manager) Start() error {
+func (m *Manager) Start() error {
 	go func() {
 		for {
-			_, ok, _ := t.nh.GetLeaderID(metaFSMClusterID)
+			_, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
 			if ok {
-				go t.reconcileLoop()
-				close(t.readyChan)
+				go m.reconcileLoop()
+				close(m.readyChan)
 				return
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
-	return t.nh.StartConcurrentCluster(t.members, false, kv.NewLFSM(), metaRaftConfig(t.cfg.NodeID, t.cfg.Meta))
+	return m.nh.StartConcurrentCluster(m.members, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
 }
 
-func (t *Manager) WaitUntilReady() error {
+func (m *Manager) WaitUntilReady() error {
 	for {
 		select {
-		case <-t.readyChan:
+		case <-m.readyChan:
 			return nil
-		case <-t.closed:
+		case <-m.closed:
 			return ErrManagerClosed
 		}
 	}
 }
 
-func (t *Manager) Close() {
-	close(t.closed)
+func (m *Manager) Close() {
+	close(m.closed)
 }
 
-func (t *Manager) reconcileLoop() {
+func (m *Manager) reconcileLoop() {
 	for {
 		select {
-		case <-t.closed:
+		case <-m.closed:
 			return
 		default:
-			time.Sleep(t.reconcileInterval)
-			err := t.reconcile()
+			time.Sleep(m.reconcileInterval)
+			err := m.reconcile()
 			if err != nil {
-				t.log.Errorf("reconcile failed: %v", err)
+				m.log.Errorf("reconcile failed: %v", err)
 			}
 		}
 	}
 }
 
-func (t *Manager) reconcile() error {
-	tabs, err := t.getTables()
+func (m *Manager) reconcile() error {
+	tabs, err := m.getTables()
 	if err != nil {
 		return err
 	}
-	start, stop := diffTables(tabs, t.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption).ClusterInfoList)
+	start, stop := diffTables(tabs, m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption).ClusterInfoList)
 	for _, tab := range start {
-		err = t.startTable(tab)
+		err = m.startTable(tab)
 		if err != nil {
 			return err
 		}
 	}
 	for _, tab := range stop {
-		err = t.nh.StopCluster(tab)
+		err = m.nh.StopCluster(tab)
 		if err != nil {
 			return err
 		}
@@ -187,8 +191,8 @@ func (t *Manager) reconcile() error {
 	return nil
 }
 
-func (t *Manager) incAndGetIDSeq() (uint64, error) {
-	seq, err := t.store.Get(sequenceKey)
+func (m *Manager) incAndGetIDSeq() (uint64, error) {
+	seq, err := m.store.Get(sequenceKey)
 	if err != nil {
 		if err == kv.ErrNotExist {
 			seq = kv.Pair{
@@ -206,13 +210,13 @@ func (t *Manager) incAndGetIDSeq() (uint64, error) {
 	}
 	next := currSeq + 1
 
-	_, err = t.store.Set(seq.Key, strconv.FormatUint(next, 10), seq.Ver)
+	_, err = m.store.Set(seq.Key, strconv.FormatUint(next, 10), seq.Ver)
 	return next, err
 }
 
-func (t *Manager) getTables() (map[string]table.Table, error) {
+func (m *Manager) getTables() (map[string]table.Table, error) {
 	tables := make(map[string]table.Table)
-	all, err := t.store.GetAll(keyPrefix + "*")
+	all, err := m.store.GetAll(keyPrefix + "*")
 	if err != nil {
 		return nil, err
 	}
@@ -228,10 +232,10 @@ func (t *Manager) getTables() (map[string]table.Table, error) {
 	return tables, nil
 }
 
-func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart []string, toStop []uint64) {
-	tableIDs := make(map[uint64]string)
+func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart []table.Table, toStop []uint64) {
+	tableIDs := make(map[uint64]table.Table)
 	for _, t := range tables {
-		tableIDs[t.ClusterID] = t.Name
+		tableIDs[t.ClusterID] = t
 	}
 	raftTableIDs := make(map[uint64]struct{})
 	for _, t := range raftInfo {
@@ -254,50 +258,41 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 	return
 }
 
-func (t *Manager) startTable(name string) error {
-	get, err := t.store.Get(keyPrefix + name)
-	if err != nil {
-		return err
-	}
-	tab := table.Table{}
-	err = json.Unmarshal([]byte(get.Value), &tab)
-	if err != nil {
-		return err
-	}
-	return t.nh.StartOnDiskCluster(
-		t.members,
+func (m *Manager) startTable(tbl table.Table) error {
+	return m.nh.StartOnDiskCluster(
+		m.members,
 		false,
-		table.New(name, t.cfg.Table.NodeHostDir, t.cfg.Table.WALDir, t.cfg.Table.FS),
-		tableRaftConfig(t.cfg.NodeID, tab.ClusterID, t.cfg.Table),
+		table.NewFSM(tbl.Name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS),
+		tableRaftConfig(m.cfg.NodeID, tbl.ClusterID, m.cfg.Table),
 	)
 }
 
-func tableRaftConfig(nodeID, clusterID uint64, tcfg Table) config.Config {
+func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
 	return config.Config{
 		NodeID:                  nodeID,
 		ClusterID:               clusterID,
 		CheckQuorum:             true,
-		ElectionRTT:             tcfg.ElectionRTT,
-		HeartbeatRTT:            tcfg.HeartbeatRTT,
-		SnapshotEntries:         tcfg.SnapshotEntries,
-		CompactionOverhead:      tcfg.CompactionOverhead,
+		ElectionRTT:             cfg.ElectionRTT,
+		HeartbeatRTT:            cfg.HeartbeatRTT,
+		SnapshotEntries:         cfg.SnapshotEntries,
+		CompactionOverhead:      cfg.CompactionOverhead,
 		OrderedConfigChange:     true,
-		MaxInMemLogSize:         tcfg.MaxInMemLogSize,
+		MaxInMemLogSize:         cfg.MaxInMemLogSize,
 		SnapshotCompressionType: config.Snappy,
 	}
 }
 
-func metaRaftConfig(nodeID uint64, mcfg Meta) config.Config {
+func metaRaftConfig(nodeID uint64, cfg MetaConfig) config.Config {
 	return config.Config{
 		NodeID:              nodeID,
 		ClusterID:           metaFSMClusterID,
 		CheckQuorum:         true,
 		PreVote:             true,
-		ElectionRTT:         mcfg.ElectionRTT,
-		HeartbeatRTT:        mcfg.HeartbeatRTT,
-		SnapshotEntries:     mcfg.SnapshotEntries,
-		CompactionOverhead:  mcfg.CompactionOverhead,
+		ElectionRTT:         cfg.ElectionRTT,
+		HeartbeatRTT:        cfg.HeartbeatRTT,
+		SnapshotEntries:     cfg.SnapshotEntries,
+		CompactionOverhead:  cfg.CompactionOverhead,
 		OrderedConfigChange: true,
-		MaxInMemLogSize:     mcfg.MaxInMemLogSize,
+		MaxInMemLogSize:     cfg.MaxInMemLogSize,
 	}
 }

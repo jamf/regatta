@@ -11,9 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/table/key"
+	"github.com/wandera/regatta/util"
 )
 
-var errUnknown = errors.New("unknown error")
+var (
+	longKey    = []byte(util.RandString(key.LatestVersionLen + 1))
+	longValue  = []byte(util.RandString(MaxValueLen + 1))
+	errUnknown = errors.New("unknown error")
+)
 
 type mockRaftHandler struct {
 	queryResult    interface{}
@@ -106,6 +112,30 @@ func TestActiveTable_Range(t *testing.T) {
 				Key:   []byte("foo"),
 				Value: []byte("bar"),
 			}}},
+		},
+		{
+			name: "Query key too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{Key: longKey},
+			},
+			wantErr: storage.ErrKeyLengthExceeded,
+		},
+		{
+			name: "Query range end too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.RangeRequest{Key: []byte("foo"), RangeEnd: longKey},
+			},
+			wantErr: storage.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Query unknown error",
@@ -240,6 +270,36 @@ func TestActiveTable_Put(t *testing.T) {
 			wantErr: storage.ErrEmptyKey,
 		},
 		{
+			name: "Put KV key too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.PutRequest{
+					Key:   longKey,
+					Value: []byte("bar"),
+				},
+			},
+			wantErr: storage.ErrKeyLengthExceeded,
+		},
+		{
+			name: "Put KV value too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.PutRequest{
+					Key:   []byte("foo"),
+					Value: longValue,
+				},
+			},
+			wantErr: storage.ErrValueLengthExceeded,
+		},
+		{
 			name: "Put KV unknown error",
 			fields: fields{
 				Table: Table{},
@@ -324,6 +384,18 @@ func TestActiveTable_Delete(t *testing.T) {
 				req: &proto.DeleteRangeRequest{Key: []byte("foo")},
 			},
 			want: &proto.DeleteRangeResponse{Deleted: 0},
+		},
+		{
+			name: "Delete key too long",
+			fields: fields{
+				Table: Table{},
+				nh:    mockRaftHandler{},
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{Key: longKey},
+			},
+			wantErr: storage.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Delete unknown error",

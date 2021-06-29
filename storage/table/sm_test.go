@@ -74,7 +74,7 @@ func TestSM_Open(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			p := &SM{
+			p := &FSM{
 				fs:         vfs.NewMem(),
 				clusterID:  tt.fields.clusterID,
 				nodeID:     tt.fields.nodeID,
@@ -97,7 +97,7 @@ func TestSMReOpen(t *testing.T) {
 	r := require.New(t)
 	fs := vfs.NewMem()
 	const testIndex uint64 = 10
-	p := &SM{
+	p := &FSM{
 		fs:         fs,
 		clusterID:  1,
 		nodeID:     1,
@@ -106,12 +106,12 @@ func TestSMReOpen(t *testing.T) {
 		log:        zap.S(),
 	}
 
-	t.Log("open SM")
+	t.Log("open FSM")
 	index, err := p.Open(nil)
 	r.NoError(err)
 	r.Equal(uint64(0), index)
 
-	t.Log("propose into SM")
+	t.Log("propose into FSM")
 	_, err = p.Update([]sm.Entry{
 		{
 			Index: testIndex,
@@ -126,14 +126,14 @@ func TestSMReOpen(t *testing.T) {
 	r.NoError(err)
 	r.NoError(p.Close())
 
-	t.Log("reopen SM")
+	t.Log("reopen FSM")
 	index, err = p.Open(nil)
 	r.NoError(err)
 	r.Equal(testIndex, index)
 }
 
 func emptySM() sm.IOnDiskStateMachine {
-	p := &SM{
+	p := &FSM{
 		fs:        vfs.NewMem(),
 		clusterID: 1,
 		nodeID:    1,
@@ -178,7 +178,7 @@ func filledSM() sm.IOnDiskStateMachine {
 			}),
 		})
 	}
-	p := &SM{
+	p := &FSM{
 		fs:        vfs.NewMem(),
 		clusterID: 1,
 		nodeID:    1,
@@ -211,7 +211,7 @@ func filledLargeValuesSM() sm.IOnDiskStateMachine {
 			}),
 		}
 	}
-	p := &SM{
+	p := &FSM{
 		fs:        vfs.NewMem(),
 		clusterID: 1,
 		nodeID:    1,
