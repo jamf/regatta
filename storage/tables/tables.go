@@ -161,11 +161,11 @@ func (m *Manager) reconcileLoop() {
 		case <-m.closed:
 			return
 		default:
-			time.Sleep(m.reconcileInterval)
 			err := m.reconcile()
 			if err != nil {
 				m.log.Errorf("reconcile failed: %v", err)
 			}
+			time.Sleep(m.reconcileInterval)
 		}
 	}
 }
