@@ -72,8 +72,9 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
+	tableString := string(req.GetTable())
 	for _, t := range s.ManagedTables {
-		if t == string(req.GetTable()) {
+		if t == tableString {
 			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
 		}
 	}
@@ -103,8 +104,9 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
+	tableString := string(req.GetTable())
 	for _, t := range s.ManagedTables {
-		if t == string(req.GetTable()) {
+		if t == tableString {
 			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
 		}
 	}
