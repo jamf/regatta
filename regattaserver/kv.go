@@ -2,7 +2,6 @@ package regattaserver
 
 import (
 	"context"
-	"sort"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
@@ -73,8 +72,9 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
+	tableString := string(req.GetTable())
 	for _, t := range s.ManagedTables {
-		if t == string(req.GetTable()) {
+		if t == tableString {
 			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
 		}
 	}
@@ -104,8 +104,11 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
-	if sort.SearchStrings(s.ManagedTables, string(req.GetTable())) != len(s.ManagedTables) {
-		return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
+	tableString := string(req.GetTable())
+	for _, t := range s.ManagedTables {
+		if t == tableString {
+			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
+		}
 	}
 
 	r, err := s.Storage.Delete(ctx, req)
