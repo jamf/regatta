@@ -13,7 +13,10 @@ import (
 	"github.com/wandera/regatta/storage"
 )
 
-const managedTable = "managed-table"
+const (
+	managedTable  = "managed-table"
+	managedTable2 = "managed-table-2"
+)
 
 func setup() {
 	s := MockStorage{}
@@ -21,7 +24,7 @@ func setup() {
 
 	kv = KVServer{
 		Storage:       &s,
-		ManagedTables: []string{managedTable},
+		ManagedTables: []string{managedTable, managedTable2},
 	}
 
 	ms = MaintenanceServer{
