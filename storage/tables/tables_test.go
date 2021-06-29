@@ -179,7 +179,7 @@ func Test_diffTables(t *testing.T) {
 			},
 			wantToStart: []table.Table{
 				{
-					Name: "foo",
+					Name:      "foo",
 					ClusterID: 10001,
 				},
 			},
