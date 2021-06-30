@@ -198,7 +198,6 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	defer nh.Close()
 
-
 	tm := tables.NewManager(nh, initialMembers(log),
 		tables.Config{
 			NodeID: viper.GetUint64("raft.node-id"),
