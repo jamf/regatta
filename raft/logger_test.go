@@ -6,6 +6,7 @@ import (
 	"github.com/lni/dragonboat/v3/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestNewLogger(t *testing.T) {
@@ -43,7 +44,7 @@ func TestNewLogger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			NewLogger(tt.args.pkgName)
+			LoggerFactory(zaptest.NewLogger(t))(tt.args.pkgName)
 		})
 	}
 }
@@ -79,7 +80,7 @@ func Test_zapLogger_SetLevel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			NewLogger("").SetLevel(tt.args.level)
+			LoggerFactory(zaptest.NewLogger(t))("").SetLevel(tt.args.level)
 		})
 	}
 }

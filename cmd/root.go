@@ -13,7 +13,7 @@ import (
 
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
-	dragonboatlogger "github.com/lni/dragonboat/v3/logger"
+	dbl "github.com/lni/dragonboat/v3/logger"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
@@ -162,8 +162,15 @@ func initialMembers(log *zap.SugaredLogger) map[uint64]string {
 func root(_ *cobra.Command, _ []string) {
 	logger := buildLogger()
 	defer logger.Sync()
-	dragonboatlogger.SetLoggerFactory(raft.NewLogger)
-	log := zap.S().Named("root")
+
+	dbl.SetLoggerFactory(raft.LoggerFactory(logger))
+	dbl.GetLogger("raft").SetLevel(dbl.DEBUG)
+	dbl.GetLogger("rsm").SetLevel(dbl.DEBUG)
+	dbl.GetLogger("transport").SetLevel(dbl.DEBUG)
+	dbl.GetLogger("dragonboat").SetLevel(dbl.DEBUG)
+	dbl.GetLogger("logdb").SetLevel(dbl.DEBUG)
+
+	log := logger.Sugar().Named("root")
 
 	// Check signals
 	shutdown := make(chan os.Signal, 1)
@@ -190,11 +197,6 @@ func root(_ *cobra.Command, _ []string) {
 		log.Panic(err)
 	}
 	defer nh.Close()
-	dragonboatlogger.GetLogger("raft").SetLevel(dragonboatlogger.DEBUG)
-	dragonboatlogger.GetLogger("rsm").SetLevel(dragonboatlogger.DEBUG)
-	dragonboatlogger.GetLogger("transport").SetLevel(dragonboatlogger.DEBUG)
-	dragonboatlogger.GetLogger("dragonboat").SetLevel(dragonboatlogger.DEBUG)
-	dragonboatlogger.GetLogger("logdb").SetLevel(dragonboatlogger.DEBUG)
 
 	tm := tables.NewManager(nh, initialMembers(log),
 		tables.Config{
@@ -470,7 +472,7 @@ func buildLogger() *zap.Logger {
 	logCfg.Level.SetLevel(level)
 	logger, err := logCfg.Build()
 	if err != nil {
-		zap.S().Panicf("failed to build logger: %v", err)
+		panic(err)
 	}
 	zap.ReplaceGlobals(logger)
 	return logger

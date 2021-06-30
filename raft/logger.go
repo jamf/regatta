@@ -7,9 +7,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// NewLogger builds a Dragonboat compatible named zap logger.
-func NewLogger(pkgName string) logger.ILogger {
-	return &zapLogger{z: zap.New(zap.L().Core(), zap.AddCaller(), zap.AddCallerSkip(2)).Named(pkgName).Sugar()}
+// LoggerFactory builds a Dragonboat compatible logger factory.
+func LoggerFactory(log *zap.Logger) func(pkgName string) logger.ILogger {
+	return func(pkgName string) logger.ILogger {
+		return &zapLogger{z: zap.New(log.Core(), zap.AddCaller(), zap.AddCallerSkip(2)).Named(pkgName).Sugar()}
+	}
 }
 
 type zapLogger struct {
