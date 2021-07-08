@@ -14,7 +14,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lni/dragonboat/v3 v3.1.1-0.20210605150813-01d1dcbb062c
 	github.com/lni/vfs v0.2.0
-	github.com/minio/highwayhash v1.0.1
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/common v0.18.0

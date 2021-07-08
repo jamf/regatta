@@ -67,6 +67,7 @@ func TestManager_DeleteTable(t *testing.T) {
 
 	t.Log("delete table")
 	r.NoError(tm.DeleteTable(testTableName))
+	r.NoError(tm.reconcile())
 
 	t.Log("check table")
 	_, err = tm.GetTable(testTableName)
