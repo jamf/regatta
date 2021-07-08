@@ -3,7 +3,9 @@ package tables
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/lni/dragonboat/v3"
@@ -45,14 +47,24 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 			NodeHost:  nh,
 			ClusterID: metaFSMClusterID,
 		},
+		cache: struct {
+			mu     sync.RWMutex
+			tables map[string]table.ActiveTable
+		}{
+			tables: make(map[string]table.ActiveTable),
+		},
 		closed: make(chan struct{}),
 		log:    zap.S().Named("manager"),
 	}
 }
 
 type Manager struct {
-	store             store
-	nh                *dragonboat.NodeHost
+	store store
+	nh    *dragonboat.NodeHost
+	cache struct {
+		mu     sync.RWMutex
+		tables map[string]table.ActiveTable
+	}
 	members           map[uint64]string
 	closed            chan struct{}
 	cfg               Config
@@ -106,10 +118,16 @@ func (m *Manager) DeleteTable(name string) error {
 }
 
 func storedTableName(name string) string {
-	return keyPrefix + name
+	return fmt.Sprintf("%s%s", keyPrefix, name)
 }
 
 func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
+	m.cache.mu.RLock()
+	defer m.cache.mu.RUnlock()
+	if t, ok := m.cache.tables[name]; ok {
+		return t, nil
+	}
+
 	v, err := m.store.Get(storedTableName(name))
 	if err != nil {
 		if err == kv.ErrNotExist {
@@ -183,7 +201,7 @@ func (m *Manager) reconcile() error {
 		}
 	}
 	for _, tab := range stop {
-		err = m.nh.StopCluster(tab)
+		err = m.stopTable(tab)
 		if err != nil {
 			return err
 		}
@@ -259,12 +277,36 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 }
 
 func (m *Manager) startTable(tbl table.Table) error {
-	return m.nh.StartOnDiskCluster(
+	err := m.nh.StartOnDiskCluster(
 		m.members,
 		false,
 		table.NewFSM(tbl.Name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS),
 		tableRaftConfig(m.cfg.NodeID, tbl.ClusterID, m.cfg.Table),
 	)
+	if err != nil {
+		return err
+	}
+
+	m.cache.mu.Lock()
+	defer m.cache.mu.Unlock()
+	m.cache.tables[tbl.Name] = tbl.AsActive(m.nh)
+	return nil
+}
+
+func (m *Manager) stopTable(clusterID uint64) error {
+	m.cache.mu.Lock()
+	defer m.cache.mu.Unlock()
+
+	err := m.nh.StopCluster(clusterID)
+	if err != nil {
+		return err
+	}
+	for name, activeTable := range m.cache.tables {
+		if activeTable.ClusterID == clusterID {
+			delete(m.cache.tables, name)
+		}
+	}
+	return nil
 }
 
 func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
