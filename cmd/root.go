@@ -90,7 +90,6 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
 	rootCmd.PersistentFlags().Duration("kafka.timeout", 10*time.Second, "Kafka dialer timeout.")
 	rootCmd.PersistentFlags().String("kafka.group-id", "regatta-local", "Kafka consumer group ID.")
-	rootCmd.PersistentFlags().String("kafka.group-id-tables-suffix", "-tables", "Kafka consumer group ID (used for filling up per Table SM).")
 	rootCmd.PersistentFlags().StringSlice("kafka.topics", nil, "Kafka topics to read from.")
 	rootCmd.PersistentFlags().Bool("kafka.tls", false, "Enables Kafka broker TLS connection.")
 	rootCmd.PersistentFlags().String("kafka.server-cert-filename", "", "Kafka broker CA.")
@@ -300,7 +299,7 @@ func root(_ *cobra.Command, _ []string) {
 	for _, topic := range mTables {
 		tc = append(tc, kafka.TopicConfig{
 			Name:     topic,
-			GroupID:  viper.GetString("kafka.group-id") + viper.GetString("kafka.group-id-tables-suffix"),
+			GroupID:  viper.GetString("kafka.group-id"),
 			Table:    topic,
 			Listener: onMessage(st),
 		})
