@@ -41,9 +41,6 @@ spec:
   - name: https-api
     targetPort: https
     port: {{ .Values.internalPort }}
-  - name: https-tables
-    targetPort: https-tables
-    port: {{ .Values.internalPortTables }}
 {{ if .Values.externalLoadBalancer.externalDomain }}
 ---
 apiVersion: v1
@@ -70,10 +67,6 @@ spec:
     protocol: TCP
     targetPort: https
     port: 443
-  - name: https-tables
-    protocol: TCP
-    targetPort: https-tables
-    port: {{ .Values.internalPortTables }}
   {{ if .Values.externalLoadBalancer.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
   {{ .Values.externalLoadBalancer.loadBalancerSourceRanges | toYaml | nindent 2 }}

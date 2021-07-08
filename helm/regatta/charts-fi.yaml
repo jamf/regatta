@@ -39,6 +39,6 @@ charts:
           memory: 200Mi
       kafka:
         brokers: "core-kafka-bootstrap:9092"
-        groupID: "regatta-fi-0"
+        groupID: "regatta-fi-0-tables"
         tls: false
         checkTopics: true

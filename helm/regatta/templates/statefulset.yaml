@@ -46,9 +46,6 @@ spec:
           NODE_ID=$(expr $(echo "${POD_NAME: -1}") + 1) &&
           regatta \
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
-            --experimental.tables-api-address=0.0.0.0:{{ .Values.internalPortTables }} \
-            --experimental.tables-consume-kafka={{ .Values.experimental.tablesConsumeKafka }} \
-            --experimental.tables-names={{ .Values.experimental.tablesNames }} \
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
             --rest.address=0.0.0.0:{{ .Values.metricsPort }} \
@@ -71,8 +68,9 @@ spec:
             --kafka.tls={{ .Values.kafka.tls }} \
             --kafka.server-cert-filename=/kafka-cert/ca.crt \
             --kafka.client-cert-filename=/kafka-cert/tls.crt \
-            --kafka.client-key-filename=/kafka-cert/tls.key
+            --kafka.client-key-filename=/kafka-cert/tls.key \
           {{- end }}
+            --tables.names={{ .Values.tables.names }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}

@@ -21,7 +21,6 @@ resources:
     memory: 1.5Gi
 
 internalPort: 8443
-internalPortTables: 9443
 metricsPort: 8079
 
 priorityClassName: service-cluster-critical
@@ -58,6 +57,5 @@ kind: false
 
 noServiceMonitor: false
 
-experimental:
-  tablesNames: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy
-  tablesConsumeKafka: true
+tables:
+  names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy

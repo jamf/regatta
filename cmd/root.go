@@ -14,7 +14,6 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	dbl "github.com/lni/dragonboat/v3/logger"
-	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -91,7 +90,6 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
 	rootCmd.PersistentFlags().Duration("kafka.timeout", 10*time.Second, "Kafka dialer timeout.")
 	rootCmd.PersistentFlags().String("kafka.group-id", "regatta-local", "Kafka consumer group ID.")
-	rootCmd.PersistentFlags().String("kafka.group-id-tables-suffix", "-tables", "Kafka consumer group ID (used for filling up per Table SM).")
 	rootCmd.PersistentFlags().StringSlice("kafka.topics", nil, "Kafka topics to read from.")
 	rootCmd.PersistentFlags().Bool("kafka.tls", false, "Enables Kafka broker TLS connection.")
 	rootCmd.PersistentFlags().String("kafka.server-cert-filename", "", "Kafka broker CA.")
@@ -100,12 +98,8 @@ In memory Raft logs are the ones that have not been applied yet.`)
 	rootCmd.PersistentFlags().Bool("kafka.check-topics", false, `Enables checking if all "--kafka.topics" exist before kafka client connection attempt.`)
 	rootCmd.PersistentFlags().Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
 
-	// Experimental flags
-	rootCmd.PersistentFlags().String("experimental.tables-api-address", "localhost:9443",
-		"Address the API server should listen on. Serves content of the tables state machines.")
-	rootCmd.PersistentFlags().StringSlice("experimental.tables-names", nil, "Create Regatta tables with given names")
-	rootCmd.PersistentFlags().Bool("experimental.tables-consume-kafka", false,
-		"Enables kafka consuming to per table state machines.")
+	// Tables flags
+	rootCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
 
 	cobra.OnInitialize(initConfig)
 }
@@ -220,8 +214,7 @@ func root(_ *cobra.Command, _ []string) {
 		})
 	err = tm.Start()
 	if err != nil {
-		// TODO switch to `Panic` when `experimental.tables-consume-kafka` is removed
-		log.Error(err)
+		log.Panic(err)
 	}
 	defer tm.Close()
 
@@ -231,8 +224,8 @@ func root(_ *cobra.Command, _ []string) {
 			return
 		}
 		log.Info("table manager started")
-		exTables := viper.GetStringSlice("experimental.tables-names")
-		for _, table := range exTables {
+		tNames := viper.GetStringSlice("tables.names")
+		for _, table := range tNames {
 			log.Debugf("creating table %s", table)
 			err := tm.CreateTable(table)
 			if err != nil {
@@ -246,42 +239,9 @@ func root(_ *cobra.Command, _ []string) {
 	}()
 
 	mTables := viper.GetStringSlice("kafka.topics")
-	partitioner := storage.NewHashPartitioner(nhc.Expert.LogDB.Shards)
-	for clusterID := uint64(1); clusterID <= partitioner.Capacity(); clusterID++ {
-		cfg := config.Config{
-			NodeID:                  viper.GetUint64("raft.node-id"),
-			ClusterID:               clusterID,
-			CheckQuorum:             true,
-			HeartbeatRTT:            viper.GetUint64("raft.heartbeat-rtt"),
-			ElectionRTT:             viper.GetUint64("raft.election-rtt"),
-			SnapshotEntries:         viper.GetUint64("raft.snapshot-entries"),
-			CompactionOverhead:      viper.GetUint64("raft.compaction-overhead"),
-			MaxInMemLogSize:         viper.GetUint64("raft.max-in-mem-log-size"),
-			SnapshotCompressionType: config.Snappy,
-		}
-		err = nh.StartOnDiskCluster(
-			initialMembers(log),
-			false,
-			func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
-				return raft.NewPebbleStateMachine(
-					clusterID,
-					nodeID,
-					viper.GetString("raft.state-machine-dir"),
-					viper.GetString("raft.state-machine-wal-dir"),
-					nil,
-				)
-			},
-			cfg,
-		)
-		if err != nil {
-			log.Panicf("failed to start raft cluster: %v", err)
-		}
-	}
 
 	// Create storage
-	st := storage.NewRaft(nh, partitioner, metadata)
-	stTables := &tables.KVStorageWrapper{Manager: tm}
-
+	st := &tables.KVStorageWrapper{Manager: tm}
 	if !waitForClusterInit(shutdown, nh) {
 		log.Info("Shutting down...")
 		return
@@ -307,13 +267,6 @@ func root(_ *cobra.Command, _ []string) {
 	)
 	defer regatta.Shutdown()
 
-	regattaTables := regattaserver.NewServer(
-		viper.GetString("experimental.tables-api-address"),
-		watcher.TLSConfig(),
-		viper.GetBool("api.reflection-api"),
-	)
-	defer regattaTables.Shutdown()
-
 	// Create and register grpc/rest endpoints
 	kvs := &regattaserver.KVServer{
 		Storage:       st,
@@ -321,36 +274,16 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	proto.RegisterKVServer(regatta, kvs)
 
-	kvsTables := &regattaserver.KVServer{
-		Storage:       stTables,
-		ManagedTables: mTables,
-	}
-
-	proto.RegisterKVServer(regattaTables, kvsTables)
-
 	ms := &regattaserver.MaintenanceServer{
 		Storage: st,
 	}
 	proto.RegisterMaintenanceServer(regatta, ms)
-
-	msTables := &regattaserver.MaintenanceServer{
-		Storage: stTables,
-	}
-	proto.RegisterMaintenanceServer(regattaTables, msTables)
 
 	// Start server
 	log.Infof("regatta listening at %s", regatta.Addr)
 	go func() {
 		if err := regatta.ListenAndServe(); err != nil {
 			log.Panicf("grpc listenAndServe failed: %v", err)
-		}
-	}()
-
-	// TODO remove when `experimental.tables-consume-kafka` is removed
-	log.Infof("regattaTables listening at %s", regattaTables.Addr)
-	go func() {
-		if err := regattaTables.ListenAndServe(); err != nil {
-			log.Errorf("grpc listenAndServe failed: %v", err)
 		}
 	}()
 
@@ -370,14 +303,6 @@ func root(_ *cobra.Command, _ []string) {
 			Table:    topic,
 			Listener: onMessage(st),
 		})
-		if viper.GetBool("experimental.tables-consume-kafka") {
-			tc = append(tc, kafka.TopicConfig{
-				Name:     topic,
-				GroupID:  viper.GetString("kafka.group-id") + viper.GetString("kafka.group-id-tables-suffix"),
-				Table:    topic,
-				Listener: onMessage(stTables),
-			})
-		}
 	}
 	kafkaCfg := kafka.Config{
 		Brokers:            viper.GetStringSlice("kafka.brokers"),
