@@ -19,8 +19,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
 	"github.com/wandera/regatta/kafka"
+	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/raft"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/tables"
@@ -157,7 +157,7 @@ func root(_ *cobra.Command, _ []string) {
 	logger := buildLogger()
 	defer logger.Sync()
 
-	dbl.SetLoggerFactory(raft.LoggerFactory(logger))
+	dbl.SetLoggerFactory(rl.LoggerFactory(logger))
 	dbl.GetLogger("raft").SetLevel(dbl.DEBUG)
 	dbl.GetLogger("rsm").SetLevel(dbl.DEBUG)
 	dbl.GetLogger("transport").SetLevel(dbl.DEBUG)
