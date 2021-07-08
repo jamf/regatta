@@ -170,15 +170,13 @@ func root(_ *cobra.Command, _ []string) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	metadata := &raft.Metadata{}
 	nhc := config.NodeHostConfig{
-		WALDir:            viper.GetString("raft.wal-dir"),
-		NodeHostDir:       viper.GetString("raft.node-host-dir"),
-		RTTMillisecond:    uint64(viper.GetDuration("raft.rtt").Milliseconds()),
-		RaftAddress:       viper.GetString("raft.address"),
-		ListenAddress:     viper.GetString("raft.listen-address"),
-		EnableMetrics:     true,
-		RaftEventListener: metadata,
+		WALDir:         viper.GetString("raft.wal-dir"),
+		NodeHostDir:    viper.GetString("raft.node-host-dir"),
+		RTTMillisecond: uint64(viper.GetDuration("raft.rtt").Milliseconds()),
+		RaftAddress:    viper.GetString("raft.address"),
+		ListenAddress:  viper.GetString("raft.listen-address"),
+		EnableMetrics:  true,
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
 
