@@ -19,7 +19,7 @@ import (
 	"github.com/oxtoacart/bpool"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/raft"
+	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
@@ -72,10 +72,10 @@ type FSM struct {
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	if p.clusterID < 1 {
-		return 0, raft.ErrInvalidClusterID
+		return 0, storage.ErrInvalidClusterID
 	}
 	if p.nodeID < 1 {
-		return 0, raft.ErrInvalidNodeID
+		return 0, storage.ErrInvalidNodeID
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -253,7 +253,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		return &proto.HashResponse{Hash: hash}, nil
 	}
 
-	return nil, raft.ErrUnknownQueryType
+	return nil, storage.ErrUnknownQueryType
 }
 
 // Sync synchronizes all in-core state of the state machine to permanent
@@ -320,13 +320,13 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) erro
 // atomically swapped with the existing DB to complete the recovery.
 func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
 	if p.closed {
-		return raft.ErrStateMachineClosed
+		return storage.ErrStateMachineClosed
 	}
 	if p.clusterID < 1 {
-		return raft.ErrInvalidClusterID
+		return storage.ErrInvalidClusterID
 	}
 	if p.nodeID < 1 {
-		return raft.ErrInvalidNodeID
+		return storage.ErrInvalidNodeID
 	}
 
 	hostname, err := os.Hostname()
