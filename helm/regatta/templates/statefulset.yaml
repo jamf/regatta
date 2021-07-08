@@ -74,8 +74,6 @@ spec:
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
-        - name: https-tables
-          containerPort: {{ .Values.internalPortTables }}
         - name: http-metrics
           containerPort: {{ .Values.metricsPort }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
