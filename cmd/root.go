@@ -225,8 +225,8 @@ func root(_ *cobra.Command, _ []string) {
 			return
 		}
 		log.Info("table manager started")
-		exTables := viper.GetStringSlice("tables.names")
-		for _, table := range exTables {
+		tNames := viper.GetStringSlice("tables.names")
+		for _, table := range tNames {
 			log.Debugf("creating table %s", table)
 			err := tm.CreateTable(table)
 			if err != nil {
