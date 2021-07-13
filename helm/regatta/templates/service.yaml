@@ -41,6 +41,32 @@ spec:
   - name: https-api
     targetPort: https
     port: {{ .Values.internalPort }}
+{{ if .Values.replication.server.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "meta.name" . }}-replication
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    team: {{ .Values.team }}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.replication.server.hostname }}
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "900"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: ssl
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ template "meta.name" . }}
+  ports:
+  - name: https-repl
+    targetPort: https-repl
+    port: {{ .Values.replication.server.port }}
+{{ end }}
 {{ if .Values.externalLoadBalancer.externalDomain }}
 ---
 apiVersion: v1

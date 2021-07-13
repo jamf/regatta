@@ -70,12 +70,22 @@ spec:
             --kafka.client-cert-filename=/kafka-cert/tls.crt \
             --kafka.client-key-filename=/kafka-cert/tls.key \
           {{- end }}
-            --tables.names={{ .Values.tables.names }}
+            --tables.names={{ .Values.tables.names }} \
+          {{- if .Values.replication.server.enabled }}
+            --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
+            --replication.cert-filename=/replication-cert/tls.crt \
+            --replication.key-filename=/replication-cert/tls.key \
+            --replication.ca-filename=/replication-cert/ca.crt
+          {{- end }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
         - name: http-metrics
           containerPort: {{ .Values.metricsPort }}
+        {{- if .Values.replication.server.enabled }}
+        - name: https-repl
+          containerPort: {{ .Values.replication.server.port }}
+        {{- end }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
         readinessProbe:
           httpGet:
@@ -102,6 +112,12 @@ spec:
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-kafka-cert
+      {{- end }}
+      {{- if .Values.replication.server.enabled }}
+      - name: replication-cert
+        secret:
+          defaultMode: 420
+          secretName: {{ template "meta.name" . }}-replication-cert
       {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
