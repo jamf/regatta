@@ -97,18 +97,12 @@ func (w *Watcher) run() {
 
 // Stop tells Watcher to stop watching for changes to the certificate and key files.
 func (w *Watcher) Stop() {
-	w.stop <- struct{}{}
+	close(w.stop)
 }
 
+// GetCertificate returns a TLS keypair built from the watched files. In case of a reload failure it returns the last correctly loaded value.
 func (w *Watcher) GetCertificate() *tls.Certificate {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.keyPair
-}
-
-// TLSConfig creates a new dynamically loaded tls.Config, in which changes to the certificate are reflected in.
-func (w *Watcher) TLSConfig() *tls.Config {
-	return &tls.Config{GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		return w.GetCertificate(), nil
-	}}
 }
