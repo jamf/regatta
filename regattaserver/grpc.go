@@ -1,19 +1,13 @@
 package regattaserver
 
 import (
-	"crypto/tls"
 	"net"
-	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 )
-
-const maxConnectionAge = 60 * time.Second
 
 // RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
@@ -23,20 +17,10 @@ type RegattaServer struct {
 }
 
 // NewServer returns initialized gRPC server.
-func NewServer(addr string, tls *tls.Config, reflectionAPI bool) *RegattaServer {
+func NewServer(addr string, reflectionAPI bool, opts ...grpc.ServerOption) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.Addr = addr
 	rs.log = zap.S().Named("server")
-
-	grpc_prometheus.EnableHandlingTimeHistogram()
-	opts := []grpc.ServerOption{
-		grpc.Creds(credentials.NewTLS(tls)),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionAge: maxConnectionAge,
-		}),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	}
 	rs.grpcServer = grpc.NewServer(opts...)
 
 	if reflectionAPI {
