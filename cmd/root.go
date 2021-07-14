@@ -316,16 +316,16 @@ func root(_ *cobra.Command, _ []string) {
 	}
 	err = watcherReplication.Watch()
 	if err != nil {
-		log.Panicf("cannot watch certificate: %v", err)
+		log.Panicf("cannot watch replication certificate: %v", err)
 	}
 	defer watcherReplication.Stop()
 
-	b, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
+	caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
 	if err != nil {
 		log.Panicf("cannot load clients CA: %v", err)
 	}
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(b)
+	cp.AppendCertsFromPEM(caBytes)
 
 	// Create regatta replication server
 	replication := regattaserver.NewServer(
@@ -342,6 +342,9 @@ func root(_ *cobra.Command, _ []string) {
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
 
+	// TODO next PR
+	// proto.RegisterMetadataServer(replication, proto.UnimplementedMetadataServer{})
+
 	// Start server
 	log.Infof("regatta replication listening at %s", replication.Addr)
 	go func() {
@@ -350,9 +353,6 @@ func root(_ *cobra.Command, _ []string) {
 		}
 	}()
 	defer replication.Shutdown()
-
-	// TODO next PR
-	// proto.RegisterMetadataServer(replication, proto.UnimplementedMetadataServer{})
 
 	hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))
 	go func() {
