@@ -16,7 +16,7 @@ ifeq (, $(shell which gocov-xml))
 endif
 
 run: build
-	./regatta --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
+	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
 
 run-client: proto
 	go run client/main.go
@@ -40,13 +40,16 @@ build: regatta
 regatta: proto *.go **/*.go
 	CGO_ENABLED=1 go build -o regatta
 
-proto: proto/regatta.pb.go proto/regatta_grpc.pb.go proto/mvcc.pb.go
+proto: proto/regatta.pb.go proto/regatta_grpc.pb.go proto/mvcc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go
 
 proto/regatta.pb.go: proto/regatta.proto
 	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/regatta.proto
 
 proto/mvcc.pb.go: proto/mvcc.proto
 	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative proto/mvcc.proto
+
+proto/replication.pb.go: proto/mvcc.proto
+	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative proto/replication.proto
 
 # Build the docker image
 docker-build: proto
