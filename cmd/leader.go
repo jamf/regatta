@@ -43,6 +43,7 @@ func init() {
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
 
 	// Replication flags
+	leaderCmd.PersistentFlags().Bool("replication.enabled", false, "Replication API enabled")
 	leaderCmd.PersistentFlags().String("replication.address", "localhost:8444", "Address the replication API server should listen on.")
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
@@ -210,50 +211,52 @@ func leader(_ *cobra.Command, _ []string) {
 	}()
 	defer regatta.Shutdown()
 
-	// Load replication API certificate
-	watcherReplication := &cert.Watcher{
-		CertFile: viper.GetString("replication.cert-filename"),
-		KeyFile:  viper.GetString("replication.key-filename"),
-		Log:      logger.Named("cert").Sugar(),
-	}
-	err = watcherReplication.Watch()
-	if err != nil {
-		log.Panicf("cannot watch replication certificate: %v", err)
-	}
-	defer watcherReplication.Stop()
-
-	caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
-	if err != nil {
-		log.Panicf("cannot load clients CA: %v", err)
-	}
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(caBytes)
-
-	// Create regatta replication server
-	replication := regattaserver.NewServer(
-		viper.GetString("replication.address"),
-		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
-			ClientAuth: tls.RequireAndVerifyClientCert,
-			ClientCAs:  cp,
-			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return watcherReplication.GetCertificate(), nil
-			},
-		})),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	)
-
-	proto.RegisterMetadataServer(replication, &proto.UnimplementedMetadataServer{})
-
-	// Start server
-	log.Infof("regatta replication listening at %s", replication.Addr)
-	go func() {
-		if err := replication.ListenAndServe(); err != nil {
-			log.Panicf("grpc listenAndServe failed: %v", err)
+	if viper.GetBool("replication.enabled") {
+		// Load replication API certificate
+		watcherReplication := &cert.Watcher{
+			CertFile: viper.GetString("replication.cert-filename"),
+			KeyFile:  viper.GetString("replication.key-filename"),
+			Log:      logger.Named("cert").Sugar(),
 		}
-	}()
-	defer replication.Shutdown()
+		err = watcherReplication.Watch()
+		if err != nil {
+			log.Panicf("cannot watch replication certificate: %v", err)
+		}
+		defer watcherReplication.Stop()
+
+		caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
+		if err != nil {
+			log.Panicf("cannot load clients CA: %v", err)
+		}
+		cp := x509.NewCertPool()
+		cp.AppendCertsFromPEM(caBytes)
+
+		// Create regatta replication server
+		replication := regattaserver.NewServer(
+			viper.GetString("replication.address"),
+			viper.GetBool("api.reflection-api"),
+			grpc.Creds(credentials.NewTLS(&tls.Config{
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs:  cp,
+				GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+					return watcherReplication.GetCertificate(), nil
+				},
+			})),
+			grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+			grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		)
+
+		proto.RegisterMetadataServer(replication, &proto.UnimplementedMetadataServer{})
+
+		// Start server
+		log.Infof("regatta replication listening at %s", replication.Addr)
+		go func() {
+			if err := replication.ListenAndServe(); err != nil {
+				log.Panicf("grpc listenAndServe failed: %v", err)
+			}
+		}()
+		defer replication.Shutdown()
+	}
 
 	hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))
 	go func() {

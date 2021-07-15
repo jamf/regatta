@@ -72,6 +72,7 @@ spec:
           {{- end }}
             --tables.names={{ .Values.tables.names }} \
           {{- if .Values.replication.server.enabled }}
+            --replication.enabled=true \
             --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \
