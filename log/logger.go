@@ -5,7 +5,28 @@ import (
 
 	"github.com/lni/dragonboat/v3/logger"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
+
+// NewLogger builds an new application logger, all application loggers should be initialized as a child of it.
+func NewLogger(devMode bool, logLevel string) *zap.Logger {
+	logCfg := zap.NewProductionConfig()
+	if devMode {
+		logCfg = zap.NewDevelopmentConfig()
+	}
+
+	logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	var level zapcore.Level
+	if err := level.Set(logLevel); err != nil {
+		panic(err)
+	}
+	logCfg.Level.SetLevel(level)
+	log, err := logCfg.Build()
+	if err != nil {
+		panic(err)
+	}
+	return log
+}
 
 // LoggerFactory builds a Dragonboat compatible logger factory.
 func LoggerFactory(log *zap.Logger) func(pkgName string) logger.ILogger {
