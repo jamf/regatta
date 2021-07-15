@@ -44,7 +44,7 @@ spec:
         - "-c"
         - >-
           NODE_ID=$(expr $(echo "${POD_NAME: -1}") + 1) &&
-          regatta \
+          regatta leader \
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
