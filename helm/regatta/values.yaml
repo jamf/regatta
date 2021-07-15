@@ -23,6 +23,12 @@ resources:
 internalPort: 8443
 metricsPort: 8079
 
+replication:
+  server:
+    enabled: false
+    port: 8444
+    hostname: foo
+
 priorityClassName: service-cluster-critical
 tolerations: []
 nodeSelector: {}

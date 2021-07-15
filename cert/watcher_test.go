@@ -37,8 +37,7 @@ func TestWatcher_TLSConfig(t *testing.T) {
 
 	validateCert := func(tlsConf *tls.Config) {
 		time.Sleep(250 * time.Millisecond)
-		cert, err := w.TLSConfig().GetCertificate(nil)
-		r.NoError(err)
+		cert := w.GetCertificate()
 		r.Equal(tlsConf.Certificates[0], *cert)
 	}
 
