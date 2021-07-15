@@ -100,6 +100,10 @@ spec:
         - mountPath: /kafka-cert
           name: kafka-cert
         {{- end }}
+        {{- if .Values.replication.server.enabled }}
+        - mountPath: /replication-cert
+          name: replication-cert
+        {{- end }}
         - mountPath: /data
           name: data
       volumes:
