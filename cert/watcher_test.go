@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -36,9 +37,10 @@ func TestWatcher_TLSConfig(t *testing.T) {
 	}
 
 	validateCert := func(tlsConf *tls.Config) {
-		time.Sleep(250 * time.Millisecond)
-		cert := w.GetCertificate()
-		r.Equal(tlsConf.Certificates[0], *cert)
+		r.Eventually(func() bool {
+			cert := w.GetCertificate()
+			return reflect.DeepEqual(tlsConf.Certificates[0], *cert)
+		}, 10*time.Second, 250*time.Millisecond, "certificate not loaded")
 	}
 
 	t.Log("watch empty cert and key fail should fail")
