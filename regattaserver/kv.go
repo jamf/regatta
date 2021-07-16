@@ -22,9 +22,9 @@ type KVServer struct {
 // You can get exactly one kv, no versioning, no output configuration.
 func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if req.GetLimit() < 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "limit must be positive")
+		return nil, status.Errorf(codes.InvalidArgument, "limit must be a positive number")
 	} else if req.GetKeysOnly() && req.GetCountOnly() {
-		return nil, status.Errorf(codes.InvalidArgument, "both keys_only and count_only must not be set")
+		return nil, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time")
 	} else if req.GetMinModRevision() > 0 {
 		return nil, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented")
 	} else if req.GetMaxModRevision() > 0 {
@@ -44,7 +44,7 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 	}
 
 	if req.RangeEnd != nil && bytes.Compare(req.Key, req.RangeEnd) > 0 {
-		return &proto.RangeResponse{}, nil
+		return nil, status.Errorf(codes.InvalidArgument, "range_end cannot be smaller than key")
 	}
 
 	val, err := s.Storage.Range(ctx, req)
