@@ -1,6 +1,7 @@
 package regattaserver
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/wandera/regatta/proto"
@@ -20,14 +21,10 @@ type KVServer struct {
 // Currently only subset of functionality is implemented.
 // You can get exactly one kv, no versioning, no output configuration.
 func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
-	if req.GetRangeEnd() != nil {
-		return nil, status.Errorf(codes.Unimplemented, "range_end not implemented")
-	} else if req.GetLimit() > 0 {
-		return nil, status.Errorf(codes.Unimplemented, "limit not implemented")
-	} else if req.GetKeysOnly() {
-		return nil, status.Errorf(codes.Unimplemented, "keys_only not implemented")
-	} else if req.GetCountOnly() {
-		return nil, status.Errorf(codes.Unimplemented, "count_only not implemented")
+	if req.GetLimit() < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "limit must be positive")
+	} else if req.GetKeysOnly() && req.GetCountOnly() {
+		return nil, status.Errorf(codes.InvalidArgument, "both keys_only and count_only must not be set")
 	} else if req.GetMinModRevision() > 0 {
 		return nil, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented")
 	} else if req.GetMaxModRevision() > 0 {
@@ -44,6 +41,10 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 
 	if len(req.GetKey()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
+	}
+
+	if req.RangeEnd != nil && bytes.Compare(req.Key, req.RangeEnd) > 0 {
+		return &proto.RangeResponse{}, nil
 	}
 
 	val, err := s.Storage.Range(ctx, req)
