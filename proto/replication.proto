@@ -1,0 +1,24 @@
+//
+// Regatta replication protobuffer specification
+//
+
+syntax = "proto3";
+
+option go_package = "./proto";
+
+package replication.v1;
+
+message TablesRequest {
+
+}
+
+message TablesResponse {
+  message Table {
+    string name = 1;
+  }
+  repeated Table tables = 1;
+}
+
+service Metadata {
+  rpc GetTables(TablesRequest) returns (TablesResponse);
+}
