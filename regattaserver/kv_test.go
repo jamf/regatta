@@ -175,17 +175,6 @@ func TestRegatta_Get(t *testing.T) {
 				{Count: 2},
 			},
 		},
-		{
-			name: "Get empty response when Key > RangeEnd",
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:    table1Name,
-					Key:      key2Name,
-					RangeEnd: key1Name,
-				},
-			},
-			expectedValues: []*proto.RangeResponse{{}},
-		},
 	}
 
 	for _, test := range tests {
@@ -306,7 +295,7 @@ func TestRegatta_RangeInvalidArgument(t *testing.T) {
 		Key:   key1Name,
 		Limit: -1,
 	})
-	r.EqualError(err, status.Errorf(codes.InvalidArgument, "limit must be positive").Error())
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "limit must be a positive number").Error())
 
 	t.Log("Get with both CountOnly and KeysOnly")
 	_, err = kv.Range(context.Background(), &proto.RangeRequest{
@@ -315,7 +304,15 @@ func TestRegatta_RangeInvalidArgument(t *testing.T) {
 		KeysOnly:  true,
 		CountOnly: true,
 	})
-	r.EqualError(err, status.Errorf(codes.InvalidArgument, "both keys_only and count_only must not be set").Error())
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time").Error())
+
+	t.Log("Get with smaller rangeEnd than key")
+	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+		Table:    table1Name,
+		Key:      key2Name,
+		RangeEnd: key1Name,
+	})
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "range_end cannot be smaller than key").Error())
 }
 
 func TestRegatta_RangeUnimplemented(t *testing.T) {
