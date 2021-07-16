@@ -31,6 +31,8 @@ var (
 		KeyType: key.TypeSystem,
 		Key:     []byte("index"),
 	}
+
+	wildcard = []byte{0}
 )
 
 const (
@@ -211,17 +213,34 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	switch req := l.(type) {
 	case *proto.RangeRequest:
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		if req.RangeEnd != nil {
+			iter, fill, err := iterator(db, req)
+			if err != nil {
+				return nil, err
+			}
+
+			defer func() {
+				if err := iter.Close(); err != nil {
+					p.log.Error(err)
+				}
+			}()
+
+			response := &proto.RangeResponse{}
+			if err = iterate(iter, int(req.Limit), fill, response); err != nil {
+				return nil, err
+			}
+
+			return response, nil
+		}
+
 		buf := bufferPool.Get()
 		defer bufferPool.Put(buf)
-		enc := key.NewEncoder(buf)
-		k := key.Key{
-			KeyType: key.TypeUser,
-			Key:     req.Key,
-		}
-		if _, err := enc.Encode(&k); err != nil {
+		err := encodeKey(buf, req.Key)
+		if err != nil {
 			return nil, err
 		}
-		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+
 		value, closer, err := db.Get(buf.Bytes())
 		if err != nil {
 			return nil, err
@@ -233,16 +252,20 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 			}
 		}()
 
-		tmp := make([]byte, len(value))
-		copy(tmp, value)
+		kv := &proto.KeyValue{Key: req.Key}
+
+		if !(req.KeysOnly || req.CountOnly) {
+			kv.Value = make([]byte, len(value))
+			copy(kv.Value, value)
+		}
+
+		var kvs []*proto.KeyValue
+		if !req.CountOnly {
+			kvs = append(kvs, kv)
+		}
 
 		return &proto.RangeResponse{
-			Kvs: []*proto.KeyValue{
-				{
-					Key:   req.Key,
-					Value: tmp,
-				},
-			},
+			Kvs:   kvs,
 			Count: 1,
 		}, nil
 	case *proto.HashRequest:
@@ -455,4 +478,105 @@ func (p *FSM) GetHash() (uint64, error) {
 	}
 
 	return hash64.Sum64(), nil
+}
+
+// fillEntriesFunc fills proto.RangeResponse response.
+type fillEntriesFunc func(k key.Key, value []byte, response *proto.RangeResponse) error
+
+// iterator prepares new pebble.Iterator with upper and lower bound.
+func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEntriesFunc, error) {
+	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.Key))))
+	err := encodeKey(lowerBuf, req.Key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
+	if req.RangeEnd != nil && !bytes.Equal(req.RangeEnd, wildcard) {
+		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RangeEnd))))
+		err = encodeKey(upperBuf, req.RangeEnd)
+		if err != nil {
+			return nil, nil, err
+		}
+		iterOptions.UpperBound = upperBuf.Bytes()
+	}
+
+	fill := addKVPair
+	if req.KeysOnly {
+		fill = addKeyOnly
+	} else if req.CountOnly {
+		fill = addCountOnly
+	}
+
+	return db.NewIter(iterOptions), fill, nil
+}
+
+// iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
+// Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
+func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.RangeResponse) error {
+	i := 0
+	for iter.First(); iter.Valid(); iter.Next() {
+		k := key.Key{}
+		r := bytes.NewReader(iter.Key())
+		decoder := key.NewDecoder(r)
+		if err := decoder.Decode(&k); err != nil {
+			return err
+		}
+
+		if k.KeyType != key.TypeUser {
+			continue
+		}
+
+		if i == limit && limit != 0 {
+			break
+		}
+		i++
+
+		if err := f(k, iter.Value(), response); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
+func addKVPair(k key.Key, valueBytes []byte, response *proto.RangeResponse) error {
+	tmpVal := make([]byte, len(valueBytes))
+	copy(tmpVal, valueBytes)
+
+	kv := &proto.KeyValue{
+		Key:   k.Key,
+		Value: tmpVal,
+	}
+	response.Kvs = append(response.Kvs, kv)
+	response.Count++
+	return nil
+}
+
+// addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
+func addKeyOnly(k key.Key, _ []byte, response *proto.RangeResponse) error {
+	response.Kvs = append(response.Kvs, &proto.KeyValue{Key: k.Key})
+	response.Count++
+	return nil
+}
+
+// addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
+func addCountOnly(_ key.Key, _ []byte, response *proto.RangeResponse) error {
+	response.Count++
+	return nil
+}
+
+// encodeKey into bytes.
+func encodeKey(dst io.Writer, keyBytes []byte) error {
+	enc := key.NewEncoder(dst)
+	k := &key.Key{
+		KeyType: key.TypeUser,
+		Key:     keyBytes,
+	}
+
+	if _, err := enc.Encode(k); err != nil {
+		return err
+	}
+
+	return nil
 }

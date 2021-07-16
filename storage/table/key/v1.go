@@ -14,6 +14,11 @@ const (
 	keyV1BodyLen       = V1KeyLen - keyHeaderLen
 )
 
+// V1Len computes length of a key.
+func V1Len(userkeyLen int) int {
+	return keyHeaderLen + 1 + userkeyLen
+}
+
 type keyV1 struct {
 	keyType Type
 	key     []byte
