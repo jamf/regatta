@@ -19,8 +19,8 @@ func init() {
 
 	// Replication flags
 	followerCmd.PersistentFlags().String("replication.leader-address", "localhost:8444", "Address of the leader replication API to connect to.")
-	followerCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the client certificate.")
-	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the client private key file.")
+	followerCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/client.crt", "Path to the client certificate.")
+	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/client.key", "Path to the client private key file.")
 	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file.")
 }
 
