@@ -11,12 +11,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var ms MaintenanceServer
-
 func TestRegatta_Reset(t *testing.T) {
 	// TODO: Use proper mock from testify in order to check individual calls on the mock.
 	r := require.New(t)
-
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 	t.Log("Put kv")
 	_, err := kv.Put(context.Background(), &proto.PutRequest{
 		Table: table1Name,
@@ -32,6 +32,9 @@ func TestRegatta_Reset(t *testing.T) {
 	})
 	r.NoError(err, "Failed to get value")
 
+	ms := MaintenanceServer{
+		Storage: &MockStorage{},
+	}
 	t.Log("Reset")
 	_, err = ms.Reset(context.Background(), &proto.ResetRequest{})
 	r.NoError(err, "Failed to reset")
@@ -48,6 +51,10 @@ func TestRegatta_Reset(t *testing.T) {
 func TestRegatta_Hash(t *testing.T) {
 	// TODO: Use proper mock from testify in order to check individual calls on the mock.
 	r := require.New(t)
+	ms := MaintenanceServer{
+		Storage: &MockStorage{},
+	}
+
 	t.Log("Reset")
 	_, err := ms.Reset(context.Background(), &proto.ResetRequest{})
 	r.NoError(err)

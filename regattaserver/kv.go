@@ -12,7 +12,7 @@ import (
 // KVServer implements KV service from proto/regatta.proto.
 type KVServer struct {
 	proto.UnimplementedKVServer
-	Storage       storage.KVStorage
+	Storage       KVService
 	ManagedTables []string
 }
 
