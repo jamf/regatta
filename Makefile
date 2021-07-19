@@ -43,15 +43,15 @@ build: regatta
 regatta: proto *.go **/*.go
 	CGO_ENABLED=1 go build -o regatta
 
-proto: proto/regatta.pb.go proto/regatta_grpc.pb.go proto/mvcc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go
-
-proto/regatta.pb.go: proto/regatta.proto
-	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/regatta.proto
+proto: proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go
 
 proto/mvcc.pb.go: proto/mvcc.proto
 	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative proto/mvcc.proto
 
-proto/replication.pb.go: proto/replication.proto
+proto/regatta.pb.go proto/regatta_grpc.pb.go: proto/regatta.proto
+	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/regatta.proto
+
+proto/replication.pb.go proto/replication_grpc.pb.go: proto/replication.proto
 	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/replication.proto
 
 # Build the docker image
