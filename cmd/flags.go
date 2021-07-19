@@ -22,13 +22,13 @@ func init() {
 	rootFlagSet.String("log-level", "INFO", "Log level: DEBUG/INFO/WARN/ERROR.")
 
 	// API flags
-	apiFlagSet.String("api.address", "localhost:8443", "Address the API server should listen on.")
+	apiFlagSet.String("api.address", ":8443", "Address the API server should listen on.")
 	apiFlagSet.String("api.cert-filename", "hack/server.crt", "Path to the API server certificate.")
 	apiFlagSet.String("api.key-filename", "hack/server.key", "Path to the API server private key file.")
 	apiFlagSet.Bool("api.reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
 
 	// REST API flags
-	restFlagSet.String("rest.address", "localhost:8079", "Address the REST API server should listen on.")
+	restFlagSet.String("rest.address", ":8079", "Address the REST API server should listen on.")
 
 	// Raft flags
 	raftFlagSet.Duration("raft.rtt", 50*time.Millisecond,

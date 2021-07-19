@@ -8,17 +8,22 @@ option go_package = "./proto";
 
 package replication.v1;
 
-message TablesRequest {
-
+service Metadata {
+  rpc Get(MetadataRequest) returns (MetadataResponse);
 }
 
-message TablesResponse {
-  message Table {
-    string name = 1;
-  }
+message MetadataRequest {
+}
+
+message MetadataResponse {
   repeated Table tables = 1;
 }
 
-service Metadata {
-  rpc GetTables(TablesRequest) returns (TablesResponse);
+message Table {
+  enum Type {
+    REPLICATED = 0;
+    LOCAL = 1;
+  }
+  string name = 1;
+  Type type = 2;
 }
