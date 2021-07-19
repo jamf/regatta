@@ -35,7 +35,7 @@ func TestRegatta_Get(t *testing.T) {
 		ms             storage.KVStorage
 	}{
 		{
-			name: "Put new kv",
+			name: "Get one key without rangeEnd",
 			ms: &MockStorage{
 				rangeResponse: proto.RangeResponse{
 					Kvs: []*proto.KeyValue{
