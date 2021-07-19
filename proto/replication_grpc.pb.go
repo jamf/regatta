@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MetadataClient interface {
-	GetTables(ctx context.Context, in *TablesRequest, opts ...grpc.CallOption) (*TablesResponse, error)
+	Get(ctx context.Context, in *MetadataRequest, opts ...grpc.CallOption) (*MetadataResponse, error)
 }
 
 type metadataClient struct {
@@ -29,9 +29,9 @@ func NewMetadataClient(cc grpc.ClientConnInterface) MetadataClient {
 	return &metadataClient{cc}
 }
 
-func (c *metadataClient) GetTables(ctx context.Context, in *TablesRequest, opts ...grpc.CallOption) (*TablesResponse, error) {
-	out := new(TablesResponse)
-	err := c.cc.Invoke(ctx, "/replication.v1.Metadata/GetTables", in, out, opts...)
+func (c *metadataClient) Get(ctx context.Context, in *MetadataRequest, opts ...grpc.CallOption) (*MetadataResponse, error) {
+	out := new(MetadataResponse)
+	err := c.cc.Invoke(ctx, "/replication.v1.Metadata/Get", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (c *metadataClient) GetTables(ctx context.Context, in *TablesRequest, opts 
 // All implementations must embed UnimplementedMetadataServer
 // for forward compatibility
 type MetadataServer interface {
-	GetTables(context.Context, *TablesRequest) (*TablesResponse, error)
+	Get(context.Context, *MetadataRequest) (*MetadataResponse, error)
 	mustEmbedUnimplementedMetadataServer()
 }
 
@@ -50,8 +50,8 @@ type MetadataServer interface {
 type UnimplementedMetadataServer struct {
 }
 
-func (UnimplementedMetadataServer) GetTables(context.Context, *TablesRequest) (*TablesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetTables not implemented")
+func (UnimplementedMetadataServer) Get(context.Context, *MetadataRequest) (*MetadataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
 func (UnimplementedMetadataServer) mustEmbedUnimplementedMetadataServer() {}
 
@@ -66,20 +66,20 @@ func RegisterMetadataServer(s grpc.ServiceRegistrar, srv MetadataServer) {
 	s.RegisterService(&Metadata_ServiceDesc, srv)
 }
 
-func _Metadata_GetTables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TablesRequest)
+func _Metadata_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MetadataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetadataServer).GetTables(ctx, in)
+		return srv.(MetadataServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/replication.v1.Metadata/GetTables",
+		FullMethod: "/replication.v1.Metadata/Get",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetadataServer).GetTables(ctx, req.(*TablesRequest))
+		return srv.(MetadataServer).Get(ctx, req.(*MetadataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -92,8 +92,8 @@ var Metadata_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MetadataServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetTables",
-			Handler:    _Metadata_GetTables_Handler,
+			MethodName: "Get",
+			Handler:    _Metadata_Get_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
