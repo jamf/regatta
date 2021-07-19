@@ -29,9 +29,8 @@ var (
 func TestRegatta_Get(t *testing.T) {
 	tests := []struct {
 		name           string
-		putRequests    []*proto.PutRequest
-		rangeRequests  []*proto.RangeRequest
-		expectedValues []*proto.RangeResponse
+		rangeRequests  *proto.RangeRequest
+		expectedValues *proto.RangeResponse
 		ms             storage.KVStorage
 	}{
 		{
@@ -47,22 +46,18 @@ func TestRegatta_Get(t *testing.T) {
 					Count: 1,
 				},
 			},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table: table1Name,
-					Key:   key1Name,
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table: table1Name,
+				Key:   key1Name,
 			},
-			expectedValues: []*proto.RangeResponse{
-				{
-					Kvs: []*proto.KeyValue{
-						{
-							Key:   key1Name,
-							Value: table1Value1,
-						},
+			expectedValues: &proto.RangeResponse{
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   key1Name,
+						Value: table1Value1,
 					},
-					Count: 1,
 				},
+				Count: 1,
 			},
 		},
 		{
@@ -79,27 +74,23 @@ func TestRegatta_Get(t *testing.T) {
 					},
 				}},
 			},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:    table1Name,
-					Key:      key1Name,
-					RangeEnd: key3Name,
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table:    table1Name,
+				Key:      key1Name,
+				RangeEnd: key3Name,
 			},
-			expectedValues: []*proto.RangeResponse{
-				{
-					Kvs: []*proto.KeyValue{
-						{
-							Key:   key1Name,
-							Value: table1Value1,
-						},
-						{
-							Key:   key2Name,
-							Value: table1Value2,
-						},
+			expectedValues: &proto.RangeResponse{
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   key1Name,
+						Value: table1Value1,
 					},
-					Count: 2,
+					{
+						Key:   key2Name,
+						Value: table1Value2,
+					},
 				},
+				Count: 2,
 			},
 		},
 		{
@@ -110,37 +101,31 @@ func TestRegatta_Get(t *testing.T) {
 					{Key: key2Name},
 				}},
 			},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:    table1Name,
-					Key:      key1Name,
-					RangeEnd: key3Name,
-					KeysOnly: true,
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table:    table1Name,
+				Key:      key1Name,
+				RangeEnd: key3Name,
+				KeysOnly: true,
 			},
-			expectedValues: []*proto.RangeResponse{
-				{
-					Kvs: []*proto.KeyValue{
-						{Key: key1Name},
-						{Key: key2Name},
-					},
-					Count: 2,
+			expectedValues: &proto.RangeResponse{
+				Kvs: []*proto.KeyValue{
+					{Key: key1Name},
+					{Key: key2Name},
 				},
+				Count: 2,
 			},
 		},
 		{
 			name: "Get CountOnly from range",
 			ms:   &MockStorage{rangeResponse: proto.RangeResponse{Count: 2}},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:     table1Name,
-					Key:       key1Name,
-					RangeEnd:  key3Name,
-					CountOnly: true,
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table:     table1Name,
+				Key:       key1Name,
+				RangeEnd:  key3Name,
+				CountOnly: true,
 			},
-			expectedValues: []*proto.RangeResponse{
-				{Count: 2},
+			expectedValues: &proto.RangeResponse{
+				Count: 2,
 			},
 		},
 		{
@@ -161,31 +146,27 @@ func TestRegatta_Get(t *testing.T) {
 					},
 				}},
 			},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:    table1Name,
-					Key:      key1Name,
-					RangeEnd: []byte{0},
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table:    table1Name,
+				Key:      key1Name,
+				RangeEnd: []byte{0},
 			},
-			expectedValues: []*proto.RangeResponse{
-				{
-					Kvs: []*proto.KeyValue{
-						{
-							Key:   key1Name,
-							Value: table1Value1,
-						},
-						{
-							Key:   key2Name,
-							Value: table1Value2,
-						},
-						{
-							Key:   key3Name,
-							Value: table1Value1,
-						},
+			expectedValues: &proto.RangeResponse{
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   key1Name,
+						Value: table1Value1,
 					},
-					Count: 3,
+					{
+						Key:   key2Name,
+						Value: table1Value2,
+					},
+					{
+						Key:   key3Name,
+						Value: table1Value1,
+					},
 				},
+				Count: 3,
 			},
 		},
 		{
@@ -206,31 +187,27 @@ func TestRegatta_Get(t *testing.T) {
 					},
 				}},
 			},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:    table1Name,
-					Key:      []byte{0},
-					RangeEnd: []byte{0},
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table:    table1Name,
+				Key:      []byte{0},
+				RangeEnd: []byte{0},
 			},
-			expectedValues: []*proto.RangeResponse{
-				{
-					Kvs: []*proto.KeyValue{
-						{
-							Key:   key1Name,
-							Value: table1Value1,
-						},
-						{
-							Key:   key2Name,
-							Value: table1Value2,
-						},
-						{
-							Key:   key3Name,
-							Value: table1Value1,
-						},
+			expectedValues: &proto.RangeResponse{
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   key1Name,
+						Value: table1Value1,
 					},
-					Count: 3,
+					{
+						Key:   key2Name,
+						Value: table1Value2,
+					},
+					{
+						Key:   key3Name,
+						Value: table1Value1,
+					},
 				},
+				Count: 3,
 			},
 		},
 		{
@@ -238,14 +215,12 @@ func TestRegatta_Get(t *testing.T) {
 			ms: &MockStorage{
 				rangeResponse: proto.RangeResponse{},
 			},
-			rangeRequests: []*proto.RangeRequest{
-				{
-					Table:    table1Name,
-					Key:      key2Name,
-					RangeEnd: key1Name,
-				},
+			rangeRequests: &proto.RangeRequest{
+				Table:    table1Name,
+				Key:      key2Name,
+				RangeEnd: key1Name,
 			},
-			expectedValues: []*proto.RangeResponse{{}},
+			expectedValues: &proto.RangeResponse{},
 		},
 	}
 
@@ -254,12 +229,10 @@ func TestRegatta_Get(t *testing.T) {
 			r := require.New(t)
 			kv.Storage = test.ms
 
-			t.Log("Get kvs")
-			for i, rreq := range test.rangeRequests {
-				rresp, err := kv.Range(context.Background(), rreq)
-				r.NoError(err, "Failed to get value")
-				r.Equal(test.expectedValues[i], rresp)
-			}
+			t.Log(test.name)
+			rresp, err := kv.Range(context.Background(), test.rangeRequests)
+			r.NoError(err, "Failed to get value")
+			r.Equal(test.expectedValues, rresp)
 		})
 	}
 }
