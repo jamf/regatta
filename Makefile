@@ -18,6 +18,9 @@ endif
 run: build
 	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
 
+run-follower: build
+	./regatta follower --dev-mode --api.reflection-api --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --replication.leader-address=127.0.0.1:8444
+
 run-client: proto
 	go run client/main.go
 
@@ -48,8 +51,8 @@ proto/regatta.pb.go: proto/regatta.proto
 proto/mvcc.pb.go: proto/mvcc.proto
 	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative proto/mvcc.proto
 
-proto/replication.pb.go: proto/mvcc.proto
-	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative proto/replication.proto
+proto/replication.pb.go: proto/replication.proto
+	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/replication.proto
 
 # Build the docker image
 docker-build: proto
