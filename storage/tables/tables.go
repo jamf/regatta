@@ -143,6 +143,18 @@ func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
 	return tab.AsActive(m.nh), nil
 }
 
+func (m *Manager) GetTables() ([]table.Table, error) {
+	tabs, err := m.getTables()
+	if err != nil {
+		return nil, err
+	}
+	rtabs := make([]table.Table, 0, len(tabs))
+	for _, t := range tabs {
+		rtabs = append(rtabs, t)
+	}
+	return rtabs, nil
+}
+
 func (m *Manager) Start() error {
 	go func() {
 		for {
