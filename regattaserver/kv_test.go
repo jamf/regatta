@@ -15,16 +15,15 @@ import (
 var kv KVServer
 
 var (
-	table1Name           = []byte("table_1")
-	table2Name           = []byte("table_2")
-	key1Name             = []byte("key_1")
-	key2Name             = []byte("key_2")
-	key3Name             = []byte("key_3")
-	table1Value1         = []byte("table_1/value_1")
-	table1Value1Modified = []byte("table_1/value_1_modified")
-	table1Value2         = []byte("table_1/value_2")
-	table2Value1         = []byte("table_2/value_1")
-	table2Value2         = []byte("table_2/value_2")
+	table1Name   = []byte("table_1")
+	table2Name   = []byte("table_2")
+	key1Name     = []byte("key_1")
+	key2Name     = []byte("key_2")
+	key3Name     = []byte("key_3")
+	table1Value1 = []byte("table_1/value_1")
+	table1Value2 = []byte("table_1/value_2")
+	table2Value1 = []byte("table_2/value_1")
+	table2Value2 = []byte("table_2/value_2")
 )
 
 func TestRegatta_Get(t *testing.T) {
@@ -50,37 +49,6 @@ func TestRegatta_Get(t *testing.T) {
 			},
 			rangeRequests: []*proto.RangeRequest{
 				{
-					Table: table1Value1,
-					Key:   key1Name,
-				},
-			},
-			expectedValues: []*proto.RangeResponse{
-				{
-					Kvs: []*proto.KeyValue{
-						{
-							Key:   key1Name,
-							Value: table1Value1,
-						},
-					},
-					Count: 1,
-				},
-			},
-		},
-		{
-			name: "Rewrite existing kv",
-			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{
-					Kvs: []*proto.KeyValue{
-						{
-							Key:   key1Name,
-							Value: table1Value1Modified,
-						},
-					},
-					Count: 1,
-				},
-			},
-			rangeRequests: []*proto.RangeRequest{
-				{
 					Table: table1Name,
 					Key:   key1Name,
 				},
@@ -90,7 +58,7 @@ func TestRegatta_Get(t *testing.T) {
 					Kvs: []*proto.KeyValue{
 						{
 							Key:   key1Name,
-							Value: table1Value1Modified,
+							Value: table1Value1,
 						},
 					},
 					Count: 1,
@@ -174,6 +142,110 @@ func TestRegatta_Get(t *testing.T) {
 			expectedValues: []*proto.RangeResponse{
 				{Count: 2},
 			},
+		},
+		{
+			name: "Get response with rangeEnd set to \\0",
+			ms: &MockStorage{
+				rangeResponse: proto.RangeResponse{Count: 3, Kvs: []*proto.KeyValue{
+					{
+						Key:   key1Name,
+						Value: table1Value1,
+					},
+					{
+						Key:   key2Name,
+						Value: table1Value2,
+					},
+					{
+						Key:   key3Name,
+						Value: table1Value1,
+					},
+				}},
+			},
+			rangeRequests: []*proto.RangeRequest{
+				{
+					Table:    table1Name,
+					Key:      key1Name,
+					RangeEnd: []byte{0},
+				},
+			},
+			expectedValues: []*proto.RangeResponse{
+				{
+					Kvs: []*proto.KeyValue{
+						{
+							Key:   key1Name,
+							Value: table1Value1,
+						},
+						{
+							Key:   key2Name,
+							Value: table1Value2,
+						},
+						{
+							Key:   key3Name,
+							Value: table1Value1,
+						},
+					},
+					Count: 3,
+				},
+			},
+		},
+		{
+			name: "Get response with key and rangeEnd set to \\0",
+			ms: &MockStorage{
+				rangeResponse: proto.RangeResponse{Count: 3, Kvs: []*proto.KeyValue{
+					{
+						Key:   key1Name,
+						Value: table1Value1,
+					},
+					{
+						Key:   key2Name,
+						Value: table1Value2,
+					},
+					{
+						Key:   key3Name,
+						Value: table1Value1,
+					},
+				}},
+			},
+			rangeRequests: []*proto.RangeRequest{
+				{
+					Table:    table1Name,
+					Key:      []byte{0},
+					RangeEnd: []byte{0},
+				},
+			},
+			expectedValues: []*proto.RangeResponse{
+				{
+					Kvs: []*proto.KeyValue{
+						{
+							Key:   key1Name,
+							Value: table1Value1,
+						},
+						{
+							Key:   key2Name,
+							Value: table1Value2,
+						},
+						{
+							Key:   key3Name,
+							Value: table1Value1,
+						},
+					},
+					Count: 3,
+				},
+			},
+		},
+		{
+			name: "Get response with rangeEnd < key",
+			ms: &MockStorage{
+				rangeResponse: proto.RangeResponse{},
+			},
+			rangeRequests: []*proto.RangeRequest{
+				{
+					Table:    table1Name,
+					Key:      key2Name,
+					RangeEnd: key1Name,
+				},
+			},
+			expectedValues: []*proto.RangeResponse{{}},
 		},
 	}
 
@@ -305,14 +377,6 @@ func TestRegatta_RangeInvalidArgument(t *testing.T) {
 		CountOnly: true,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time").Error())
-
-	t.Log("Get with smaller rangeEnd than key")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
-		Table:    table1Name,
-		Key:      key2Name,
-		RangeEnd: key1Name,
-	})
-	r.EqualError(err, status.Errorf(codes.InvalidArgument, "range_end cannot be smaller than key").Error())
 }
 
 func TestRegatta_RangeUnimplemented(t *testing.T) {
