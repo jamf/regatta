@@ -85,7 +85,7 @@ func createAPIServer(watcher *cert.Watcher, st *tables.KVStorageWrapper, mTables
 	return regatta
 }
 
-func createReplicationServer(watcherReplication *cert.Watcher, ca []byte) *regattaserver.RegattaServer {
+func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manager *tables.Manager) *regattaserver.RegattaServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
 
@@ -104,7 +104,7 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte) *regat
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
 
-	proto.RegisterMetadataServer(replication, &proto.UnimplementedMetadataServer{})
+	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Manager: manager})
 	return replication
 }
 

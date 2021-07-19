@@ -151,7 +151,7 @@ func leader(_ *cobra.Command, _ []string) {
 				log.Panicf("cannot load clients CA: %v", err)
 			}
 
-			replication := createReplicationServer(watcherReplication, caBytes)
+			replication := createReplicationServer(watcherReplication, caBytes, tm)
 			// Start server
 			go func() {
 				log.Infof("regatta replication listening at %s", replication.Addr)
