@@ -21,7 +21,6 @@ import (
 	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
-	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -246,7 +245,7 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
 
-	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Manager: manager})
+	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
 	return replication
 }
 
@@ -270,7 +269,7 @@ func waitForKafkaInit(shutdown chan os.Signal, cfg kafka.Config) bool {
 	}
 }
 
-func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
+func onMessage(st regattaserver.KVService) kafka.OnMessageFunc {
 	return func(ctx context.Context, table, key, value []byte) error {
 		if value != nil {
 			_, err := st.Put(ctx, &proto.PutRequest{
