@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,9 +19,13 @@ import (
 	"github.com/wandera/regatta/cert"
 	"github.com/wandera/regatta/kafka"
 	rl "github.com/wandera/regatta/log"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
+	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func init() {
@@ -34,7 +41,7 @@ func init() {
 
 	// Replication flags
 	leaderCmd.PersistentFlags().Bool("replication.enabled", false, "Replication API enabled")
-	leaderCmd.PersistentFlags().String("replication.address", "localhost:8444", "Address the replication API server should listen on.")
+	leaderCmd.PersistentFlags().String("replication.address", ":8444", "Address the replication API server should listen on.")
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
@@ -218,4 +225,65 @@ func leader(_ *cobra.Command, _ []string) {
 	// Cleanup
 	<-shutdown
 	log.Info("shutting down...")
+}
+
+func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manager *tables.Manager) *regattaserver.RegattaServer {
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(ca)
+
+	// Create regatta replication server
+	replication := regattaserver.NewServer(
+		viper.GetString("replication.address"),
+		viper.GetBool("api.reflection-api"),
+		grpc.Creds(credentials.NewTLS(&tls.Config{
+			ClientAuth: tls.RequireAndVerifyClientCert,
+			ClientCAs:  cp,
+			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return watcherReplication.GetCertificate(), nil
+			},
+		})),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
+
+	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Manager: manager})
+	return replication
+}
+
+// waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
+// It can be interrupted with signal in `shutdown` channel.
+func waitForKafkaInit(shutdown chan os.Signal, cfg kafka.Config) bool {
+	ch := kafka.NewChecker(cfg, 30*time.Second)
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-shutdown:
+			return false
+		case <-ticker.C:
+			if ch.Check() {
+				return true
+			}
+		}
+	}
+}
+
+func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
+	return func(ctx context.Context, table, key, value []byte) error {
+		if value != nil {
+			_, err := st.Put(ctx, &proto.PutRequest{
+				Table: table,
+				Key:   key,
+				Value: value,
+			})
+			return err
+		}
+		_, err := st.Delete(ctx, &proto.DeleteRangeRequest{
+			Table: table,
+			Key:   key,
+		})
+		return err
+	}
 }

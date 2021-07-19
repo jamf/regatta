@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"context"
 	"crypto/tls"
-	"crypto/x509"
-	"os"
 	"strconv"
 	"time"
 
@@ -14,11 +11,9 @@ import (
 	dbl "github.com/lni/dragonboat/v3/logger"
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
-	"github.com/wandera/regatta/kafka"
 	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
-	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -85,29 +80,6 @@ func createAPIServer(watcher *cert.Watcher, st *tables.KVStorageWrapper, mTables
 	return regatta
 }
 
-func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manager *tables.Manager) *regattaserver.RegattaServer {
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(ca)
-
-	// Create regatta replication server
-	replication := regattaserver.NewServer(
-		viper.GetString("replication.address"),
-		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
-			ClientAuth: tls.RequireAndVerifyClientCert,
-			ClientCAs:  cp,
-			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return watcherReplication.GetCertificate(), nil
-			},
-		})),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	)
-
-	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Manager: manager})
-	return replication
-}
-
 func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 	dbl.SetLoggerFactory(rl.LoggerFactory(logger))
 	dbl.GetLogger("raft").SetLevel(dbl.DEBUG)
@@ -149,47 +121,9 @@ func parseInitialMembers(members map[string]string) (map[uint64]string, error) {
 	return initialMembers, nil
 }
 
-// waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
-// It can be interrupted with signal in `shutdown` channel.
-func waitForKafkaInit(shutdown chan os.Signal, cfg kafka.Config) bool {
-	ch := kafka.NewChecker(cfg, 30*time.Second)
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-shutdown:
-			return false
-		case <-ticker.C:
-			if ch.Check() {
-				return true
-			}
-		}
-	}
-}
-
 func buildLogDBConfig() config.LogDBConfig {
 	cfg := config.GetSmallMemLogDBConfig()
 	cfg.KVRecycleLogFileNum = 4
 	cfg.KVMaxBytesForLevelBase = 128 * 1024 * 1024
 	return cfg
-}
-
-func onMessage(st storage.KVStorage) kafka.OnMessageFunc {
-	return func(ctx context.Context, table, key, value []byte) error {
-		if value != nil {
-			_, err := st.Put(ctx, &proto.PutRequest{
-				Table: table,
-				Key:   key,
-				Value: value,
-			})
-			return err
-		}
-		_, err := st.Delete(ctx, &proto.DeleteRangeRequest{
-			Table: table,
-			Key:   key,
-		})
-		return err
-	}
 }
