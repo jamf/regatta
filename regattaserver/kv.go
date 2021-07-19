@@ -1,7 +1,6 @@
 package regattaserver
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/wandera/regatta/proto"
@@ -41,10 +40,6 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 
 	if len(req.GetKey()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
-	}
-
-	if req.RangeEnd != nil && bytes.Compare(req.Key, req.RangeEnd) > 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "range_end cannot be smaller than key")
 	}
 
 	val, err := s.Storage.Range(ctx, req)
