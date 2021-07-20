@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,9 +15,13 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
 	rl "github.com/wandera/regatta/log"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
+	"github.com/wandera/regatta/replication"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func init() {
@@ -79,6 +86,37 @@ func follower(_ *cobra.Command, _ []string) {
 	}
 	defer tm.Close()
 
+	// Replication
+	{
+		watcher := &cert.Watcher{
+			CertFile: viper.GetString("replication.cert-filename"),
+			KeyFile:  viper.GetString("replication.key-filename"),
+			Log:      logger.Named("cert").Sugar(),
+		}
+		err = watcher.Watch()
+		if err != nil {
+			log.Panicf("cannot watch certificate: %v", err)
+		}
+		defer watcher.Stop()
+
+		caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
+		if err != nil {
+			log.Panicf("cannot load clients CA: %v", err)
+		}
+		cp := x509.NewCertPool()
+		cp.AppendCertsFromPEM(caBytes)
+
+		conn, err := createReplicationConn(err, cp, watcher)
+		if err != nil {
+			log.Panicf("cannot create replication conn: %v", err)
+		}
+
+		mc := proto.NewMetadataClient(conn)
+		mr := replication.NewMetadata(mc, tm)
+		mr.Replicate()
+		defer mr.Close()
+	}
+
 	// Create storage
 	st := &tables.KVStorageWrapper{Manager: tm}
 	mTables := viper.GetStringSlice("kafka.topics")
@@ -122,4 +160,19 @@ func follower(_ *cobra.Command, _ []string) {
 	// Cleanup
 	<-shutdown
 	log.Info("shutting down...")
+}
+
+func createReplicationConn(err error, cp *x509.CertPool, replicationWatcher *cert.Watcher) (*grpc.ClientConn, error) {
+	creds := credentials.NewTLS(&tls.Config{
+		RootCAs: cp,
+		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return replicationWatcher.GetCertificate(), nil
+		},
+	})
+
+	replConn, err := grpc.Dial(viper.GetString("replication.leader-address"), grpc.WithTransportCredentials(creds))
+	if err != nil {
+		return nil, err
+	}
+	return replConn, nil
 }
