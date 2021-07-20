@@ -104,7 +104,7 @@ func follower(_ *cobra.Command, _ []string) {
 
 		caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
 		if err != nil {
-			log.Panicf("cannot load clients CA: %v", err)
+			log.Panicf("cannot load server CA: %v", err)
 		}
 		cp := x509.NewCertPool()
 		cp.AppendCertsFromPEM(caBytes)

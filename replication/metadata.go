@@ -15,6 +15,7 @@ func NewMetadata(client proto.MetadataClient, manager *tables.Manager) *Metadata
 	return &Metadata{
 		MetadataClient: client,
 		TableManager:   manager,
+		Timeout:        5 * time.Second,
 		Interval:       30 * time.Second,
 		closer:         make(chan struct{}),
 		log:            zap.S().Named("replication").Named("metadata"),
@@ -26,6 +27,7 @@ type Metadata struct {
 	MetadataClient proto.MetadataClient
 	TableManager   *tables.Manager
 	Interval       time.Duration
+	Timeout        time.Duration
 	closer         chan struct{}
 	log            *zap.SugaredLogger
 }
@@ -39,12 +41,14 @@ func (m *Metadata) Replicate() {
 		for {
 			select {
 			case <-t.C:
-				metadataResponse, err := m.MetadataClient.Get(context.TODO(), &proto.MetadataRequest{})
+				ctx, cancel := context.WithTimeout(context.Background(), m.Timeout)
+				response, err := m.MetadataClient.Get(ctx, &proto.MetadataRequest{})
+				cancel()
 				if err != nil {
 					m.log.Errorf("metadata request failed: %v", err)
 					continue
 				}
-				for _, tabs := range metadataResponse.GetTables() {
+				for _, tabs := range response.GetTables() {
 					if err := m.TableManager.CreateTable(tabs.Name); err != nil && !errors.Is(err, tables.ErrTableExists) {
 						m.log.Errorf("cannot create table %s: %v", tabs.Name, err)
 					}
