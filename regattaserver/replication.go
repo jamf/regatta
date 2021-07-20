@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/tables"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -12,9 +11,20 @@ import (
 // MetadataServer implements Metadata service from proto/replication.proto.
 type MetadataServer struct {
 	proto.UnimplementedMetadataServer
-	Manager *tables.Manager
+	Tables TableService
 }
 
 func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.MetadataResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+	tabs, err := m.Tables.GetTables()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unknown err %v", err)
+	}
+	resp := &proto.MetadataResponse{}
+	for _, tab := range tabs {
+		resp.Tables = append(resp.Tables, &proto.Table{
+			Type: proto.Table_REPLICATED,
+			Name: tab.Name,
+		})
+	}
+	return resp, nil
 }

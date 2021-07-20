@@ -12,8 +12,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var kv KVServer
-
 var (
 	table1Name   = []byte("table_1")
 	table2Name   = []byte("table_2")
@@ -31,7 +29,7 @@ func TestRegatta_Get(t *testing.T) {
 		name          string
 		rangeRequest  *proto.RangeRequest
 		expectedValue *proto.RangeResponse
-		ms            storage.KVStorage
+		ms            KVService
 	}{
 		{
 			name: "Get one key without rangeEnd",
@@ -227,7 +225,10 @@ func TestRegatta_Get(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			r := require.New(t)
-			kv.Storage = test.ms
+			kv := KVServer{
+				Storage:       test.ms,
+				ManagedTables: nil,
+			}
 
 			t.Log(test.name)
 			rresp, err := kv.Range(context.Background(), test.rangeRequest)
@@ -238,18 +239,14 @@ func TestRegatta_Get(t *testing.T) {
 }
 
 func TestRegatta_Parallel(t *testing.T) {
-	kv.Storage = &MockStorage{}
+	kv := KVServer{Storage: &MockStorage{}}
 	for i := 0; i < 1000; i++ {
 		t.Run("Run parallel reads/writes", func(t *testing.T) {
 			t.Parallel()
 			r := require.New(t)
 
-			t.Log("Reset")
-			_, err := ms.Reset(context.Background(), &proto.ResetRequest{})
-			r.NoError(err, "Failed to reset")
-
 			t.Log("Put kv")
-			_, err = kv.Put(context.Background(), &proto.PutRequest{
+			_, err := kv.Put(context.Background(), &proto.PutRequest{
 				Table: table1Name,
 				Key:   key1Name,
 				Value: table1Value1,
@@ -295,7 +292,10 @@ func TestRegatta_RangeNotFound(t *testing.T) {
 	}
 
 	t.Log("Put initial data")
-	kv.Storage = &MockStorage{}
+
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 	for _, pr := range putRequests {
 		_, err := kv.Put(context.Background(), pr)
 		r.NoError(err, "Failed to put kv")
@@ -319,6 +319,9 @@ func TestRegatta_RangeNotFound(t *testing.T) {
 
 func TestRegatta_RangeInvalidArgument(t *testing.T) {
 	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 
 	t.Log("Get with empty table name")
 	_, err := kv.Range(context.Background(), &proto.RangeRequest{
@@ -354,6 +357,9 @@ func TestRegatta_RangeInvalidArgument(t *testing.T) {
 
 func TestRegatta_RangeUnimplemented(t *testing.T) {
 	a := assert.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 
 	t.Log("Get kv with unimplemented min_mod_revision")
 	_, err := kv.Range(context.Background(), &proto.RangeRequest{
@@ -390,6 +396,10 @@ func TestRegatta_RangeUnimplemented(t *testing.T) {
 
 func TestRegatta_PutInvalidArgument(t *testing.T) {
 	r := require.New(t)
+	kv := KVServer{
+		Storage:       &MockStorage{},
+		ManagedTables: []string{managedTable},
+	}
 
 	t.Log("Put with empty table name")
 	_, err := kv.Put(context.Background(), &proto.PutRequest{
@@ -418,6 +428,9 @@ func TestRegatta_PutInvalidArgument(t *testing.T) {
 
 func TestRegatta_PutUnimplemented(t *testing.T) {
 	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 
 	t.Log("Put kv with unimplemented prev_kv")
 	_, err := kv.Put(context.Background(), &proto.PutRequest{
@@ -430,6 +443,10 @@ func TestRegatta_PutUnimplemented(t *testing.T) {
 
 func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 	r := require.New(t)
+	kv := KVServer{
+		Storage:       &MockStorage{},
+		ManagedTables: []string{managedTable},
+	}
 
 	t.Log("Delete with empty table name")
 	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
@@ -455,6 +472,9 @@ func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 
 func TestRegatta_DeleteRangeUnimplemented(t *testing.T) {
 	a := assert.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 
 	t.Log("Delete kv with unimplemented range_end")
 	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
@@ -475,6 +495,9 @@ func TestRegatta_DeleteRangeUnimplemented(t *testing.T) {
 
 func TestRegatta_DeleteRange(t *testing.T) {
 	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
 
 	t.Log("Delete existing kv")
 	kv.Storage = &MockStorage{deleteRangeResponse: proto.DeleteRangeResponse{Deleted: 1}}

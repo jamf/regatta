@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -12,7 +11,7 @@ import (
 // MaintenanceServer implements Maintenance service from proto/regatta.proto.
 type MaintenanceServer struct {
 	proto.UnimplementedMaintenanceServer
-	Storage storage.KVStorage
+	Storage KVService
 }
 
 // Reset implements proto/regatta.proto Maintenance.Reset method.
