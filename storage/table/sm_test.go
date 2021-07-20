@@ -507,7 +507,7 @@ func TestSM_Range(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Pebble - Range lookup of 2 incident keys",
+			name: "Pebble - Range lookup of 2 adjacent keys",
 			fields: fields{
 				smFactory: filledSM,
 			},
@@ -532,7 +532,7 @@ func TestSM_Range(t *testing.T) {
 			},
 		},
 		{
-			name: "Pebble - Range lookup of incident keys with limit set to 1",
+			name: "Pebble - Range lookup of adjacent keys with limit set to 1",
 			fields: fields{
 				smFactory: filledSM,
 			},
@@ -554,7 +554,7 @@ func TestSM_Range(t *testing.T) {
 			},
 		},
 		{
-			name: "Pebble - Range lookup of incident short keys with range_end == '\\0'",
+			name: "Pebble - Range lookup of adjacent short keys with range_end == '\\0'",
 			fields: fields{
 				smFactory: filledSM,
 			},
@@ -584,7 +584,7 @@ func TestSM_Range(t *testing.T) {
 			},
 		},
 		{
-			name: "Pebble - Range lookup of incident long keys with range_end == '\\0'",
+			name: "Pebble - Range lookup of adjacent long keys with range_end == '\\0'",
 			fields: fields{
 				smFactory: filledSM,
 			},
@@ -629,7 +629,7 @@ func TestSM_Range(t *testing.T) {
 			},
 		},
 		{
-			name: "Pebble - Range lookup of incident keys with KeysOnly, RangeEnd, and Limit (stops on limit)",
+			name: "Pebble - Range lookup of adjacent keys with KeysOnly, RangeEnd, and Limit (stops on limit)",
 			fields: fields{
 				smFactory: filledSM,
 			},
@@ -651,7 +651,7 @@ func TestSM_Range(t *testing.T) {
 			},
 		},
 		{
-			name: "Pebble - Range lookup of incident keys with KeysOnly, RangeEnd, and Limit (stops on RangeEnd)",
+			name: "Pebble - Range lookup of adjacent keys with KeysOnly, RangeEnd, and Limit (stops on RangeEnd)",
 			fields: fields{
 				smFactory: filledSM,
 			},
