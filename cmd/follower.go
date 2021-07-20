@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -11,9 +12,11 @@ import (
 	"syscall"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
+	"github.com/wandera/regatta/kafka"
 	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
@@ -106,7 +109,10 @@ func follower(_ *cobra.Command, _ []string) {
 		cp := x509.NewCertPool()
 		cp.AppendCertsFromPEM(caBytes)
 
-		conn, err := createReplicationConn(err, cp, watcher)
+		conn, err := createReplicationConn(cp, watcher)
+		defer func() {
+			_ = conn.Close()
+		}()
 		if err != nil {
 			log.Panicf("cannot create replication conn: %v", err)
 		}
@@ -157,12 +163,55 @@ func follower(_ *cobra.Command, _ []string) {
 		defer hs.Shutdown()
 	}
 
+	// Start Kafka
+	{
+		var tc []kafka.TopicConfig
+		for _, topic := range mTables {
+			tc = append(tc, kafka.TopicConfig{
+				Name:     topic,
+				GroupID:  viper.GetString("kafka.group-id"),
+				Table:    topic,
+				Listener: onMessage(st),
+			})
+		}
+		kafkaCfg := kafka.Config{
+			Brokers:            viper.GetStringSlice("kafka.brokers"),
+			DialerTimeout:      viper.GetDuration("kafka.timeout"),
+			TLS:                viper.GetBool("kafka.tls"),
+			ServerCertFilename: viper.GetString("kafka.server-cert-filename"),
+			ClientCertFilename: viper.GetString("kafka.client-cert-filename"),
+			ClientKeyFilename:  viper.GetString("kafka.client-key-filename"),
+			Topics:             tc,
+			DebugLogs:          viper.GetBool("kafka.debug-logs"),
+		}
+
+		// wait until kafka is ready
+		checkTopics := viper.GetBool("kafka.check-topics")
+		if checkTopics && !waitForKafkaInit(shutdown, kafkaCfg) {
+			log.Info("Shutting down...")
+			return
+		}
+
+		// Start Kafka consumer
+		consumer, err := kafka.NewConsumer(kafkaCfg)
+		if err != nil {
+			log.Panicf("failed to create consumer: %v", err)
+		}
+		defer consumer.Close()
+		prometheus.MustRegister(consumer)
+
+		log.Info("start consuming...")
+		if err := consumer.Start(context.Background()); err != nil {
+			log.Panicf("failed to start consumer: %v", err)
+		}
+	}
+
 	// Cleanup
 	<-shutdown
 	log.Info("shutting down...")
 }
 
-func createReplicationConn(err error, cp *x509.CertPool, replicationWatcher *cert.Watcher) (*grpc.ClientConn, error) {
+func createReplicationConn(cp *x509.CertPool, replicationWatcher *cert.Watcher) (*grpc.ClientConn, error) {
 	creds := credentials.NewTLS(&tls.Config{
 		RootCAs: cp,
 		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
