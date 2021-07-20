@@ -550,6 +550,7 @@ func TestSM_Range(t *testing.T) {
 					},
 				},
 				Count: 1,
+				More:  true,
 			},
 		},
 		{
@@ -579,6 +580,7 @@ func TestSM_Range(t *testing.T) {
 					},
 				},
 				Count: 3,
+				More:  true,
 			},
 		},
 		{
@@ -608,6 +610,7 @@ func TestSM_Range(t *testing.T) {
 					},
 				},
 				Count: 3,
+				More:  true,
 			},
 		},
 		{
@@ -644,6 +647,7 @@ func TestSM_Range(t *testing.T) {
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 2))},
 				},
 				Count: 3,
+				More:  true,
 			},
 		},
 		{

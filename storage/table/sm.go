@@ -528,6 +528,7 @@ func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *prot
 		}
 
 		if i == limit && limit != 0 {
+			response.More = iter.Next()
 			break
 		}
 		i++
