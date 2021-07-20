@@ -2,10 +2,18 @@ package cmd
 
 import (
 	"errors"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wandera/regatta/cert"
 	rl "github.com/wandera/regatta/log"
+	"github.com/wandera/regatta/regattaserver"
+	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 )
 
@@ -46,9 +54,72 @@ func validateFollowerConfig() error {
 
 func follower(_ *cobra.Command, _ []string) {
 	logger := rl.NewLogger(viper.GetBool("dev-mode"), viper.GetString("log-level"))
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync()
+	}()
 	zap.ReplaceGlobals(logger)
+	log := logger.Sugar().Named("root")
+	// Check signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	// TODO implement
-	logger.Panic("command not implemented")
+	nh, err := createNodeHost(logger)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer nh.Close()
+
+	tm, err := createTableManager(nh)
+	if err != nil {
+		log.Panic(err)
+	}
+	err = tm.Start()
+	if err != nil {
+		log.Panic(err)
+	}
+	defer tm.Close()
+
+	// Create storage
+	st := &tables.KVStorageWrapper{Manager: tm}
+	mTables := viper.GetStringSlice("kafka.topics")
+
+	// Start servers
+	{
+		grpc_prometheus.EnableHandlingTimeHistogram()
+		// Create regatta API server
+		// Load API certificate
+		watcher := &cert.Watcher{
+			CertFile: viper.GetString("api.cert-filename"),
+			KeyFile:  viper.GetString("api.key-filename"),
+			Log:      logger.Named("cert").Sugar(),
+		}
+		err = watcher.Watch()
+		if err != nil {
+			log.Panicf("cannot watch certificate: %v", err)
+		}
+		defer watcher.Stop()
+		// Create server
+		regatta := createAPIServer(watcher, st, mTables)
+		// Start server
+		go func() {
+			log.Infof("regatta listening at %s", regatta.Addr)
+			if err := regatta.ListenAndServe(); err != nil {
+				log.Panicf("grpc listenAndServe failed: %v", err)
+			}
+		}()
+		defer regatta.Shutdown()
+
+		// Create REST server
+		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))
+		go func() {
+			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
+				log.Panicf("REST listenAndServe failed: %v", err)
+			}
+		}()
+		defer hs.Shutdown()
+	}
+
+	// Cleanup
+	<-shutdown
+	log.Info("shutting down...")
 }
