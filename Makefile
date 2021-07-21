@@ -38,7 +38,10 @@ test: prepare
 	go-junit-report -set-exit-code < report/report.txt > report/report.xml
 	gocov convert report/coverage.txt | gocov-xml > report/coverage.xml
 
-build: regatta
+build: regatta docs
+
+docs: regatta
+	./regatta docs
 
 regatta: proto *.go **/*.go
 	CGO_ENABLED=1 go build -o regatta
