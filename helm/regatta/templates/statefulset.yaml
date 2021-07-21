@@ -70,8 +70,8 @@ spec:
             --kafka.client-cert-filename=/kafka-cert/tls.crt \
             --kafka.client-key-filename=/kafka-cert/tls.key \
           {{- end }}
-            --tables.names={{ .Values.tables.names }} \
           {{- if eq .Values.mode "leader" }}
+            --tables.names={{ .Values.tables.names }} \
             --replication.enabled={{ .Values.replication.server.enabled }} \
             --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
           {{- end }}
