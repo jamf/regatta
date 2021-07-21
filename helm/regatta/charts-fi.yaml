@@ -6,6 +6,7 @@ namespace: {{ env "FI_NAME" | default "default_fi_instance" }}
 charts:
 - .:
     values:
+      mode: leader
       replicas: 1
       safeToEvict: true
       noServiceMonitor: true
@@ -42,3 +43,6 @@ charts:
         groupID: "regatta-fi-0-tables"
         tls: false
         checkTopics: true
+      replication:
+        server:
+          enabled: false

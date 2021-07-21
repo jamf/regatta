@@ -16,7 +16,7 @@ ifeq (, $(shell which gocov-xml))
 endif
 
 run: build
-	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test --replication.enabled
+	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
 
 run-follower: build
 	./regatta follower --dev-mode --api.reflection-api --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --api.address=:9443 --rest.address=:8080 --replication.leader-address=127.0.0.1:8444 --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
@@ -38,7 +38,10 @@ test: prepare
 	go-junit-report -set-exit-code < report/report.txt > report/report.xml
 	gocov convert report/coverage.txt | gocov-xml > report/coverage.xml
 
-build: regatta
+build: regatta docs
+
+docs: regatta
+	./regatta docs
 
 regatta: proto *.go **/*.go
 	CGO_ENABLED=1 go build -o regatta

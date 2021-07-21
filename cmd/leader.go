@@ -39,7 +39,7 @@ func init() {
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
 
 	// Replication flags
-	leaderCmd.PersistentFlags().Bool("replication.enabled", false, "Replication API enabled")
+	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Replication API enabled")
 	leaderCmd.PersistentFlags().String("replication.address", ":8444", "Address the replication API server should listen on.")
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")

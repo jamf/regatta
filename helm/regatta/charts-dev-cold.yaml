@@ -8,6 +8,7 @@ namespace: regatta
 charts:
 - .:
     values:
+      mode: leader
       nameOverride: regatta-cold
       image:
         tag: {{ env "TAG" | default "latest" | quote }}
@@ -44,3 +45,6 @@ charts:
         topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,regatta-test
       tables:
         names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,regatta-test,performance_test_ghz_table_1,performance_test_ghz_table_2,performance_test_ghz_table_3,performance_test_ghz_table_4,performance_test_ghz_table_5
+      replication:
+        server:
+          enabled: false

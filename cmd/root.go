@@ -8,6 +8,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(leaderCmd)
 	rootCmd.AddCommand(followerCmd)
+	rootCmd.AddCommand(docsCmd)
 }
 
 var rootCmd = &cobra.Command{
