@@ -4,6 +4,9 @@
 replicas: 3
 team: delta
 
+# Either leader or follower
+mode: leader
+
 safeToEvict: false
 
 image:
@@ -28,6 +31,7 @@ replication:
     enabled: false
     port: 8444
     hostname: foo
+  leaderAddress: bar
 
 priorityClassName: service-cluster-critical
 tolerations: []
