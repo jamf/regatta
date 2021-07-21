@@ -44,7 +44,7 @@ spec:
         - "-c"
         - >-
           NODE_ID=$(expr $(echo "${POD_NAME: -1}") + 1) &&
-          regatta leader \
+          regatta {{ .Values.mode }} \
             --api.address=0.0.0.0:{{ .Values.internalPort }} \
             --api.cert-filename=/cert/tls.crt \
             --api.key-filename=/cert/tls.key \
@@ -71,13 +71,16 @@ spec:
             --kafka.client-key-filename=/kafka-cert/tls.key \
           {{- end }}
             --tables.names={{ .Values.tables.names }} \
-          {{- if .Values.replication.server.enabled }}
-            --replication.enabled=true \
+          {{- if eq .Values.mode "leader" }}
+            --replication.enabled={{ .Values.replication.server.enabled }} \
             --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
+          {{- end }}
+          {{- if eq .Values.mode "follower" }}
+            --replication.leader-address={{ .Values.replication.leaderAddress }} \
+          {{- end }}
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \
             --replication.ca-filename=/replication-cert/ca.crt
-          {{- end }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}
@@ -101,10 +104,8 @@ spec:
         - mountPath: /kafka-cert
           name: kafka-cert
         {{- end }}
-        {{- if .Values.replication.server.enabled }}
         - mountPath: /replication-cert
           name: replication-cert
-        {{- end }}
         - mountPath: /data
           name: data
       volumes:
@@ -118,12 +119,10 @@ spec:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-kafka-cert
       {{- end }}
-      {{- if .Values.replication.server.enabled }}
       - name: replication-cert
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-replication-cert
-      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
       {{- end }}
