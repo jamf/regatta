@@ -86,7 +86,7 @@ spec:
           containerPort: {{ .Values.internalPort }}
         - name: http-metrics
           containerPort: {{ .Values.metricsPort }}
-        {{- if .Values.replication.server.enabled }}
+        {{- if and .Values.replication.server.enabled (eq .Values.mode "leader") }}
         - name: https-repl
           containerPort: {{ .Values.replication.server.port }}
         {{- end }}
