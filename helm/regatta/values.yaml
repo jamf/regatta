@@ -28,7 +28,7 @@ metricsPort: 8079
 
 replication:
   server:
-    enabled: false
+    enabled: true
     port: 8444
     hostname: foo
   leaderAddress: bar
