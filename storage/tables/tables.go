@@ -157,14 +157,20 @@ func (m *Manager) GetTables() ([]table.Table, error) {
 
 func (m *Manager) Start() error {
 	go func() {
+		t := time.NewTicker(500 * time.Millisecond)
+		defer t.Stop()
 		for {
-			_, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
-			if ok {
-				go m.reconcileLoop()
-				close(m.readyChan)
+			select {
+			case <-m.closed:
 				return
+			case <-t.C:
+				_, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
+				if ok {
+					go m.reconcileLoop()
+					close(m.readyChan)
+					return
+				}
 			}
-			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 	return m.nh.StartConcurrentCluster(m.members, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
@@ -186,16 +192,17 @@ func (m *Manager) Close() {
 }
 
 func (m *Manager) reconcileLoop() {
+	t := time.NewTicker(m.reconcileInterval)
+	defer t.Stop()
 	for {
 		select {
 		case <-m.closed:
 			return
-		default:
+		case <-t.C:
 			err := m.reconcile()
 			if err != nil {
 				m.log.Errorf("reconcile failed: %v", err)
 			}
-			time.Sleep(m.reconcileInterval)
 		}
 	}
 }
