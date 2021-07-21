@@ -42,3 +42,6 @@ charts:
         groupID: "regatta-fi-0-tables"
         tls: false
         checkTopics: true
+      replication:
+        server:
+          enabled: false
