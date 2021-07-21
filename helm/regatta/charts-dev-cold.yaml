@@ -8,6 +8,7 @@ namespace: regatta
 charts:
 - .:
     values:
+      mode: leader
       nameOverride: regatta-cold
       image:
         tag: {{ env "TAG" | default "latest" | quote }}

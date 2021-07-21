@@ -6,6 +6,7 @@ namespace: regatta
 charts:
 - .:
     values:
+      mode: leader
       kind: true
       noServiceMonitor: true
       image:

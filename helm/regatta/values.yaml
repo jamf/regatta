@@ -5,7 +5,7 @@ replicas: 3
 team: delta
 
 # Either leader or follower
-mode: leader
+mode: follower
 
 safeToEvict: false
 
