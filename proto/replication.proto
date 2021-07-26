@@ -27,3 +27,21 @@ message Table {
   string name = 1;
   Type type = 2;
 }
+
+service Snapshot {
+  rpc Stream(SnapshotRequest) returns (stream SnapshotChunk);
+}
+
+message SnapshotRequest {
+  // table is name of the table to stream
+  bytes table = 1;
+}
+
+message SnapshotChunk {
+  // data is chunk of snapshot
+  bytes data = 1;
+  // len is a length of data bytes
+  uint64 len = 2;
+  // index the index for which the snapshot was created
+  uint64 index = 3;
+}

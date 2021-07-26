@@ -28,3 +28,12 @@ func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.Me
 	}
 	return resp, nil
 }
+
+// SnapshotServer implements Snapshot service from proto/replication.proto.
+type SnapshotServer struct {
+	proto.UnimplementedSnapshotServer
+}
+
+func (s *SnapshotServer) Stream(*proto.SnapshotRequest, proto.Snapshot_StreamServer) error {
+	return nil
+}
