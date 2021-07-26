@@ -37,3 +37,12 @@ type SnapshotServer struct {
 func (s *SnapshotServer) Stream(*proto.SnapshotRequest, proto.Snapshot_StreamServer) error {
 	return nil
 }
+
+// LogServer implements Log service from proto/replication.proto.
+type LogServer struct {
+	proto.UnimplementedLogServer
+}
+
+func (l *LogServer) Replicate(*proto.ReplicateRequest, proto.Log_ReplicateServer) error {
+	return nil
+}
