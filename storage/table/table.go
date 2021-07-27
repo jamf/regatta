@@ -2,6 +2,7 @@ package table
 
 import (
 	"context"
+	"io"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/lni/dragonboat/v3/client"
@@ -135,4 +136,18 @@ func (t *ActiveTable) Hash(ctx context.Context, req *proto.HashRequest) (*proto.
 		return nil, err
 	}
 	return val.(*proto.HashResponse), nil
+}
+
+// Snapshot streams snapshot to the provided writer.
+func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) error {
+	_, err := t.nh.SyncRead(ctx, t.ClusterID, SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type SnapshotRequest struct {
+	Writer  io.Writer
+	Stopper <-chan struct{}
 }

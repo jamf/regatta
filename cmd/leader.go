@@ -246,6 +246,7 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 	)
 
 	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
+	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
 	return replication
 }
 

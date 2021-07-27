@@ -2,6 +2,7 @@ package regattaserver
 
 import (
 	"context"
+	"time"
 
 	"github.com/wandera/regatta/proto"
 	"google.golang.org/grpc/codes"
@@ -32,10 +33,38 @@ func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.Me
 // SnapshotServer implements Snapshot service from proto/replication.proto.
 type SnapshotServer struct {
 	proto.UnimplementedSnapshotServer
+	Tables TableService
 }
 
-func (s *SnapshotServer) Stream(*proto.SnapshotRequest, proto.Snapshot_StreamServer) error {
-	return nil
+type snapshotWriter struct {
+	sender proto.Snapshot_StreamServer
+}
+
+func (g *snapshotWriter) Write(p []byte) (int, error) {
+	ln := len(p)
+	if err := g.sender.Send(&proto.SnapshotChunk{
+		Data: p,
+		Len:  uint64(ln),
+	}); err != nil {
+		return 0, err
+	}
+	return ln, nil
+}
+
+func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_StreamServer) error {
+	table, err := s.Tables.GetTable(string(req.Table))
+	if err != nil {
+		return err
+	}
+
+	ctx := srv.Context()
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(srv.Context(), 1*time.Hour)
+		defer cancel()
+		ctx = dctx
+	}
+
+	return table.Snapshot(ctx, &snapshotWriter{sender: srv})
 }
 
 // LogServer implements Log service from proto/replication.proto.
