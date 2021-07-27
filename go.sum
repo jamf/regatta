@@ -116,6 +116,8 @@ github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3Ee
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/coreos/go-systemd/v22 v22.3.2/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
+github.com/coufalja/dragonboat/v3 v3.1.1-0.20210723112057-cc2022ab93b1 h1:yGA2altjCXkacxxfFPoYxL9mBtu3QnPcEdMqFvIIShw=
+github.com/coufalja/dragonboat/v3 v3.1.1-0.20210723112057-cc2022ab93b1/go.mod h1:Wtqeqg74VRG4NPfo7I5ryFSZ5ZQLqn8Abd6Q3qzhFQw=
 github.com/cpuguy83/go-md2man v1.0.10 h1:BSKMNlYxDvnunlTymqtgONjNnaRV1sTpcovwwjF22jk=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
 github.com/cpuguy83/go-md2man/v2 v2.0.0 h1:EoUDS0afbrsXAZ9YQ9jdu/mZ2sXgT1/2yyNng4PGlyM=
@@ -347,8 +349,6 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/labstack/echo/v4 v4.1.11/go.mod h1:i541M3Fj6f76NZtHSj7TXnyM8n2gaodfvfxNnFqi74g=
 github.com/labstack/gommon v0.3.0/go.mod h1:MULnywXg0yavhxWKc+lOruYdAhDwPK9wf0OL7NoOu+k=
-github.com/lni/dragonboat/v3 v3.1.1-0.20210605150813-01d1dcbb062c h1:SoiUln3OzA/ngSH0tVlOFl1V27SaxC8icdN4alYoG84=
-github.com/lni/dragonboat/v3 v3.1.1-0.20210605150813-01d1dcbb062c/go.mod h1:Wtqeqg74VRG4NPfo7I5ryFSZ5ZQLqn8Abd6Q3qzhFQw=
 github.com/lni/goutils v1.3.1-0.20210517080819-7f56813dc438 h1:R+GuqvAnPJsA/kRZn1w9+/m0rz7HIt2yVLFUCpKhWNA=
 github.com/lni/goutils v1.3.1-0.20210517080819-7f56813dc438/go.mod h1:PUPtBAnZlRPUKWUXCsYkIRWubJbtNHpTAee0sczhlf4=
 github.com/lni/vfs v0.2.0 h1:aBE5/npL2p1XtkNBNyKKw7iTHVKdScI/HtFsulO/6qk=
@@ -488,6 +488,7 @@ github.com/spf13/viper v1.7.0/go.mod h1:8WkrPz2fc9jxqZNCJI/76HCieCp4Q8HaLFoCha5q
 github.com/spf13/viper v1.8.1 h1:Kq1fyeebqsBfbjZj4EL7gj2IO0mMaiyjYUWcUsl2O44=
 github.com/spf13/viper v1.8.1/go.mod h1:o0Pch8wJ9BVSWGQMbra6iw0oQ5oktSIBaujf1rJH9Ns=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/objx v0.1.1 h1:2vfRuCMp5sSVIDSqO8oNnWJq7mPa6KVP3iPIwFBuy8A=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
