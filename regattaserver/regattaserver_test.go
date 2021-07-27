@@ -54,3 +54,7 @@ type MockTableService struct {
 func (t MockTableService) GetTables() ([]table.Table, error) {
 	return t.tables, t.error
 }
+
+func (t MockTableService) GetTable(name string) (table.ActiveTable, error) {
+	return t.tables[0].AsActive(nil), t.error
+}

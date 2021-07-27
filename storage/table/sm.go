@@ -274,6 +274,12 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 			return nil, err
 		}
 		return &proto.HashResponse{Hash: hash}, nil
+	case SnapshotRequest:
+		_, err := p.commandSnapshot(req.Writer, req.Stopper)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
 	}
 
 	return nil, storage.ErrUnknownQueryType
@@ -287,6 +293,52 @@ func (p *FSM) Sync() error {
 	return db.Flush()
 }
 
+func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error) {
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	snapshot := db.NewSnapshot()
+	iter := snapshot.NewIter(nil)
+	defer func() {
+		if err := iter.Close(); err != nil {
+			p.log.Error(err)
+		}
+		if err := snapshot.Close(); err != nil {
+			p.log.Error(err)
+		}
+	}()
+
+	var k key.Key
+	for iter.First(); iter.Valid(); iter.Next() {
+		select {
+		case <-stopc:
+			return 0, sm.ErrSnapshotStopped
+		default:
+			dec := key.NewDecoder(bytes.NewReader(iter.Key()))
+			err := dec.Decode(&k)
+			if err != nil {
+				return 0, err
+			}
+			if k.KeyType == key.TypeUser {
+				bts, err := pb.Marshal(&proto.Command{
+					Table: []byte(p.tableName),
+					Type:  proto.Command_PUT,
+					Kv: &proto.KeyValue{
+						Key:   k.Key,
+						Value: iter.Value(),
+					},
+				})
+				if err != nil {
+					return 0, err
+				}
+				_, err = w.Write(bts)
+				if err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	return 0, nil
+}
+
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *FSM) PrepareSnapshot() (interface{}, error) {
@@ -295,7 +347,7 @@ func (p *FSM) PrepareSnapshot() (interface{}, error) {
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
+func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
 	snapshot := ctx.(*pebble.Snapshot)
 	iter := snapshot.NewIter(nil)
 	defer func() {
@@ -319,20 +371,25 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) erro
 
 	// iterate through he whole kv space and send it to writer
 	for iter.First(); iter.Valid(); iter.Next() {
-		kv := &proto.KeyValue{
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		}
-		entry, err := pb.Marshal(kv)
-		if err != nil {
-			return err
-		}
-		err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
-		if err != nil {
-			return err
-		}
-		if _, err := w.Write(entry); err != nil {
-			return err
+		select {
+		case <-stopc:
+			return sm.ErrSnapshotStopped
+		default:
+			kv := &proto.KeyValue{
+				Key:   iter.Key(),
+				Value: iter.Value(),
+			}
+			entry, err := pb.Marshal(kv)
+			if err != nil {
+				return err
+			}
+			err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
+			if err != nil {
+				return err
+			}
+			if _, err := w.Write(entry); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
