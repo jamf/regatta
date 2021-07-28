@@ -191,6 +191,10 @@ func (m *Manager) Close() {
 	close(m.closed)
 }
 
+func (m *Manager) NodeID() uint64 {
+	return m.cfg.NodeID
+}
+
 func (m *Manager) reconcileLoop() {
 	t := time.NewTicker(m.reconcileInterval)
 	defer t.Stop()
