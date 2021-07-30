@@ -10,6 +10,7 @@ func init() {
 	rootCmd.AddCommand(followerCmd)
 	rootCmd.AddCommand(docsCmd)
 	rootCmd.AddCommand(logReaderCmd)
+	rootCmd.AddCommand(generatorCmd)
 }
 
 var rootCmd = &cobra.Command{
