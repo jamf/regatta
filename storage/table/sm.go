@@ -124,6 +124,10 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 
+	return p.readLocalIndex(db)
+}
+
+func (p *FSM) readLocalIndex(db pebble.Reader) (uint64, error) {
 	buf := bytes.NewBuffer(make([]byte, 0))
 	if _, err := key.NewEncoder(buf).Encode(&localIndexKey); err != nil {
 		return 0, err
@@ -306,6 +310,11 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 		}
 	}()
 
+	idx, err := p.readLocalIndex(snapshot)
+	if err != nil {
+		return 0, err
+	}
+
 	var k key.Key
 	for iter.First(); iter.Valid(); iter.Next() {
 		select {
@@ -336,7 +345,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 			}
 		}
 	}
-	return 0, nil
+	return idx, nil
 }
 
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
