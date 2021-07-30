@@ -34,7 +34,7 @@ endif
 
 test: prepare
 	mkdir -p report
-	go test ./... -coverprofile report/coverage.txt -race | tee report/report.txt
+	go test ./... -coverprofile report/coverage.txt -race -v > report/report.txt 2>&1
 	go-junit-report -set-exit-code < report/report.txt > report/report.xml
 	gocov convert report/coverage.txt | gocov-xml > report/coverage.xml
 
