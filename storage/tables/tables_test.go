@@ -164,7 +164,7 @@ func Test_diffTables(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        args
-		wantToStart []table.Table
+		wantToStart map[uint64]table.Table
 		wantToStop  []uint64
 	}{
 		{
@@ -178,8 +178,8 @@ func Test_diffTables(t *testing.T) {
 				},
 				raftInfo: []dragonboat.ClusterInfo{},
 			},
-			wantToStart: []table.Table{
-				{
+			wantToStart: map[uint64]table.Table{
+				10001: {
 					Name:      "foo",
 					ClusterID: 10001,
 				},
@@ -255,6 +255,51 @@ func Test_diffTables(t *testing.T) {
 			},
 			wantToStart: nil,
 			wantToStop:  nil,
+		},
+		{
+			name: "Start a recovery table",
+			args: args{
+				tables: map[string]table.Table{
+					"foo": {
+						Name:      "foo",
+						RecoverID: 10001,
+					},
+				},
+				raftInfo: []dragonboat.ClusterInfo{},
+			},
+			wantToStart: map[uint64]table.Table{
+				10001: {
+					Name:      "foo",
+					RecoverID: 10001,
+				},
+			},
+			wantToStop: nil,
+		},
+		{
+			name: "Recover existing table table",
+			args: args{
+				tables: map[string]table.Table{
+					"foo": {
+						Name:      "foo",
+						ClusterID: 10001,
+						RecoverID: 10002,
+					},
+				},
+				raftInfo: []dragonboat.ClusterInfo{},
+			},
+			wantToStart: map[uint64]table.Table{
+				10001: {
+					Name:      "foo",
+					ClusterID: 10001,
+					RecoverID: 10002,
+				},
+				10002: {
+					Name:      "foo",
+					ClusterID: 10001,
+					RecoverID: 10002,
+				},
+			},
+			wantToStop: nil,
 		},
 	}
 	for _, tt := range tests {

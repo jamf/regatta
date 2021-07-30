@@ -27,6 +27,7 @@ const MaxValueLen = 2 * 1024 * 1024
 type Table struct {
 	Name      string `json:"name"`
 	ClusterID uint64 `json:"cluster_id"`
+	RecoverID uint64 `json:"recover_id"`
 }
 
 // AsActive returns ActiveTable wrapper of this table.

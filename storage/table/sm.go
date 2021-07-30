@@ -124,10 +124,10 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 
-	return p.readLocalIndex(db)
+	return readLocalIndex(db)
 }
 
-func (p *FSM) readLocalIndex(db pebble.Reader) (uint64, error) {
+func readLocalIndex(db pebble.Reader) (idx uint64, err error) {
 	buf := bytes.NewBuffer(make([]byte, 0))
 	if _, err := key.NewEncoder(buf).Encode(&localIndexKey); err != nil {
 		return 0, err
@@ -141,9 +141,7 @@ func (p *FSM) readLocalIndex(db pebble.Reader) (uint64, error) {
 	}
 
 	defer func() {
-		if err := closer.Close(); err != nil {
-			p.log.Warn(err)
-		}
+		err = closer.Close()
 	}()
 
 	return binary.LittleEndian.Uint64(indexVal), nil
@@ -310,7 +308,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 		}
 	}()
 
-	idx, err := p.readLocalIndex(snapshot)
+	idx, err := readLocalIndex(snapshot)
 	if err != nil {
 		return 0, err
 	}
