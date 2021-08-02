@@ -31,9 +31,33 @@ var (
 		KeyType: key.TypeSystem,
 		Key:     []byte("index"),
 	}
-
-	wildcard = []byte{0}
+	leaderIndexKey = key.Key{
+		KeyType: key.TypeSystem,
+		Key:     []byte("leader_index"),
+	}
+	wildcard                      = []byte{0}
+	sysLocalIndex, sysLeaderIndex []byte
 )
+
+func init() {
+	// Pre-encode system keys
+	buff := bytes.NewBuffer(make([]byte, 0))
+	enc := key.NewEncoder(buff)
+	n, err := enc.Encode(&localIndexKey)
+	if err != nil {
+		panic(err)
+	}
+	sysLocalIndex = make([]byte, n)
+	copy(sysLocalIndex, buff.Bytes())
+
+	buff.Reset()
+	n, err = enc.Encode(&leaderIndexKey)
+	if err != nil {
+		panic(err)
+	}
+	sysLeaderIndex = make([]byte, n)
+	copy(sysLeaderIndex, buff.Bytes())
+}
 
 const (
 	// maxBatchSize maximum size of inmemory batch before commit.
@@ -128,11 +152,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 }
 
 func readLocalIndex(db pebble.Reader) (idx uint64, err error) {
-	buf := bytes.NewBuffer(make([]byte, 0))
-	if _, err := key.NewEncoder(buf).Encode(&localIndexKey); err != nil {
-		return 0, err
-	}
-	indexVal, closer, err := db.Get(buf.Bytes())
+	indexVal, closer, err := db.Get(sysLocalIndex)
 	if err != nil {
 		if err != pebble.ErrNotFound {
 			return 0, err
@@ -165,7 +185,9 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	enc := key.NewEncoder(buf)
 
 	batch := db.NewBatch()
-	defer batch.Close()
+	defer func() {
+		_ = batch.Close()
+	}()
 
 	for i := 0; i < len(updates); i++ {
 		err := pb.Unmarshal(updates[i].Cmd, &cmd)
@@ -194,15 +216,20 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		updates[i].Result = sm.Result{Value: 1}
 	}
 
-	buf.Reset()
-	if _, err := enc.Encode(&localIndexKey); err != nil {
+	// Set local index
+	idx := make([]byte, 8)
+	binary.LittleEndian.PutUint64(idx, updates[len(updates)-1].Index)
+	if err := batch.Set(sysLocalIndex, idx, nil); err != nil {
 		return nil, err
 	}
 
-	idx := make([]byte, 8)
-	binary.LittleEndian.PutUint64(idx, updates[len(updates)-1].Index)
-	if err := batch.Set(buf.Bytes(), idx, nil); err != nil {
-		return nil, err
+	// Set leader index if present in the proposal
+	if cmd.LeaderIndex != nil {
+		leaderIdx := make([]byte, 8)
+		binary.LittleEndian.PutUint64(leaderIdx, *cmd.LeaderIndex)
+		if err := batch.Set(sysLeaderIndex, leaderIdx, nil); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := batch.Commit(p.wo); err != nil {
@@ -332,6 +359,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 						Key:   k.Key,
 						Value: iter.Value(),
 					},
+					LeaderIndex: &idx,
 				})
 				if err != nil {
 					return 0, err
@@ -441,7 +469,9 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 	kv := proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
 	b := db.NewBatch()
-	defer b.Close()
+	defer func() {
+		_ = b.Close()
+	}()
 	p.log.Debugf("Starting snapshot recover to %s DB", dbdir)
 	var batchSize uint64
 	for i := uint64(0); i < total; i++ {

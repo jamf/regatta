@@ -122,7 +122,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 	}
 
 	// Follower is behind and all entries can be sent from the leader's log.
-	return l.readLog(req, server, t.ClusterID, rs.FirstIndex+1, lastIndex)
+	return l.readLog(server, t.ClusterID, rs.FirstIndex+1, lastIndex)
 }
 
 func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.RaftState, leaderBehind bool, err error) {
@@ -150,7 +150,7 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 }
 
 // readLog and write it to the stream.
-func (l *LogServer) readLog(req *proto.ReplicateRequest, server proto.Log_ReplicateServer, clusterID, firstIndex, lastIndex uint64) error {
+func (l *LogServer) readLog(server proto.Log_ReplicateServer, clusterID, firstIndex, lastIndex uint64) error {
 	var (
 		commands []*proto.ReplicateCommand
 		entries  []raftpb.Entry
