@@ -73,8 +73,8 @@ func (l *Log) Replicate() {
 				}
 
 				stream, err := l.LogClient.Replicate(ctx, replicateRequest)
-				cancel()
 				if err != nil {
+					cancel()
 					l.log.Errorf("log replicate request failed: %v", err)
 					continue
 				}
@@ -82,6 +82,7 @@ func (l *Log) Replicate() {
 				if err = l.read(ctx, stream, t.ClusterID); err != nil {
 					l.log.Warnf("could not replicate the log: %v", err)
 				}
+				cancel()
 			case <-l.closer:
 				l.log.Info("log replication stopped")
 				return
