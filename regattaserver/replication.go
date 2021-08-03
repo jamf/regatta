@@ -205,8 +205,11 @@ func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
 	}
 
 	cmd := &proto.Command{}
-	err := protobuf.Unmarshal(e.Cmd[1:], cmd)
-	return cmd, err
+	if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
+		return nil, err
+	}
+	cmd.LeaderIndex = &e.Index
+	return cmd, nil
 }
 
 // errorResponseFactory creates a ReplicateResponse error.
