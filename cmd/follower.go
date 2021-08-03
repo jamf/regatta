@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -40,6 +41,8 @@ func init() {
 	followerCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/client.crt", "Path to the client certificate.")
 	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/client.key", "Path to the client private key file.")
 	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file.")
+	followerCmd.PersistentFlags().Bool("replication.enable-log-replication", false, "Enable log replication.")
+	followerCmd.PersistentFlags().Duration("replication.interval", 10*time.Second, "Replication interval in seconds.")
 }
 
 var followerCmd = &cobra.Command{
@@ -121,6 +124,22 @@ func follower(_ *cobra.Command, _ []string) {
 		mc := proto.NewMetadataClient(conn)
 		mr := replication.NewMetadata(mc, tm)
 		mr.Replicate()
+
+		if viper.GetBool("replication.enable-log-replication") {
+			tt, err := tm.GetTables()
+			if err != nil {
+				log.Panicf("failed to get tables: %v", err)
+			}
+
+			lc := proto.NewLogClient(conn)
+			interval := viper.GetDuration("replication.interval")
+			for _, t := range tt {
+				log := replication.NewLog(lc, tm, nh, t.Name, interval)
+				log.Replicate()
+				defer log.Close()
+			}
+		}
+
 		defer mr.Close()
 	}
 

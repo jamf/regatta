@@ -84,6 +84,11 @@ func (m *Manager) CreateTable(name string) error {
 	return m.startTable(created.Name, created.ClusterID)
 }
 
+func (m *Manager) IsLeader() bool {
+	id, b, _ := m.nh.GetLeaderID(metaFSMClusterID)
+	return b && id == m.cfg.NodeID
+}
+
 func (m *Manager) createTable(name string) (table.Table, error) {
 	storeName := storedTableName(name)
 	if m.store.Exists(storeName) {

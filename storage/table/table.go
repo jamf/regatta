@@ -148,7 +148,36 @@ func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) error {
 	return nil
 }
 
+// LocalIndex returns local index.
+func (t *ActiveTable) LocalIndex(ctx context.Context) (*IndexResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, LocalIndexRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return val.(*IndexResponse), nil
+}
+
+// LeaderIndex returns leader index.
+func (t *ActiveTable) LeaderIndex(ctx context.Context) (*IndexResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, LeaderIndexRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return val.(*IndexResponse), nil
+}
+
 type SnapshotRequest struct {
 	Writer  io.Writer
 	Stopper <-chan struct{}
+}
+
+// IndexRequest to read local index.
+type LocalIndexRequest struct{}
+
+// IndexRequest to read local index.
+type LeaderIndexRequest struct{}
+
+// IndexResponse returns local index.
+type IndexResponse struct {
+	Index uint64
 }
