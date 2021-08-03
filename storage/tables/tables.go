@@ -439,7 +439,9 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 func (m *Manager) waitForLeader(clusterID uint64) error {
 	t := time.NewTicker(500 * time.Millisecond)
 	defer t.Stop()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+	// TODO make configurable
+	ctx, cancel := context.WithTimeout(context.Background(), m.reconcileInterval*2)
 	defer cancel()
 	for {
 		select {
