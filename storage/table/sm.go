@@ -127,11 +127,11 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 
-	return readLocalIndex(db)
+	return readLocalIndex(db, sysLocalIndex)
 }
 
-func readLocalIndex(db pebble.Reader) (idx uint64, err error) {
-	indexVal, closer, err := db.Get(sysLocalIndex)
+func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
+	indexVal, closer, err := db.Get(indexKey)
 	if err != nil {
 		if err != pebble.ErrNotFound {
 			return 0, err
@@ -288,6 +288,20 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 			return nil, err
 		}
 		return nil, nil
+	case LocalIndexRequest:
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		idx, err := readLocalIndex(db, sysLocalIndex)
+		if err != nil {
+			return nil, err
+		}
+		return &IndexResponse{Index: idx}, nil
+	case LeaderIndexRequest:
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		idx, err := readLocalIndex(db, sysLeaderIndex)
+		if err != nil {
+			return nil, err
+		}
+		return &IndexResponse{Index: idx}, nil
 	}
 
 	return nil, storage.ErrUnknownQueryType
@@ -314,7 +328,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 		}
 	}()
 
-	idx, err := readLocalIndex(snapshot)
+	idx, err := readLocalIndex(snapshot, sysLocalIndex)
 	if err != nil {
 		return 0, err
 	}
