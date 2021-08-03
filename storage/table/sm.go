@@ -27,37 +27,16 @@ import (
 
 var (
 	bufferPool    = bpool.NewSizedBufferPool(256, 128)
-	localIndexKey = key.Key{
+	wildcard      = []byte{0}
+	sysLocalIndex = mustEncodeKey(key.Key{
 		KeyType: key.TypeSystem,
 		Key:     []byte("index"),
-	}
-	leaderIndexKey = key.Key{
+	})
+	sysLeaderIndex = mustEncodeKey(key.Key{
 		KeyType: key.TypeSystem,
 		Key:     []byte("leader_index"),
-	}
-	wildcard                      = []byte{0}
-	sysLocalIndex, sysLeaderIndex []byte
+	})
 )
-
-func init() {
-	// Pre-encode system keys
-	buff := bytes.NewBuffer(make([]byte, 0))
-	enc := key.NewEncoder(buff)
-	n, err := enc.Encode(&localIndexKey)
-	if err != nil {
-		panic(err)
-	}
-	sysLocalIndex = make([]byte, n)
-	copy(sysLocalIndex, buff.Bytes())
-
-	buff.Reset()
-	n, err = enc.Encode(&leaderIndexKey)
-	if err != nil {
-		panic(err)
-	}
-	sysLeaderIndex = make([]byte, n)
-	copy(sysLeaderIndex, buff.Bytes())
-}
 
 const (
 	// maxBatchSize maximum size of inmemory batch before commit.
@@ -265,7 +244,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 
 		buf := bufferPool.Get()
 		defer bufferPool.Put(buf)
-		err := encodeKey(buf, req.Key)
+		err := encodeUserKey(buf, req.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -580,7 +559,7 @@ type fillEntriesFunc func(k key.Key, value []byte, response *proto.RangeResponse
 // iterator prepares new pebble.Iterator with upper and lower bound.
 func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEntriesFunc, error) {
 	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.Key))))
-	err := encodeKey(lowerBuf, req.Key)
+	err := encodeUserKey(lowerBuf, req.Key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -588,7 +567,7 @@ func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEnt
 	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
 	if req.RangeEnd != nil && !bytes.Equal(req.RangeEnd, wildcard) {
 		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RangeEnd))))
-		err = encodeKey(upperBuf, req.RangeEnd)
+		err = encodeUserKey(upperBuf, req.RangeEnd)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -661,8 +640,8 @@ func addCountOnly(_ key.Key, _ []byte, response *proto.RangeResponse) error {
 	return nil
 }
 
-// encodeKey into bytes.
-func encodeKey(dst io.Writer, keyBytes []byte) error {
+// encodeUserKey into provided writer.
+func encodeUserKey(dst io.Writer, keyBytes []byte) error {
 	enc := key.NewEncoder(dst)
 	k := &key.Key{
 		KeyType: key.TypeUser,
@@ -674,4 +653,17 @@ func encodeKey(dst io.Writer, keyBytes []byte) error {
 	}
 
 	return nil
+}
+
+func mustEncodeKey(k key.Key) []byte {
+	// Pre-encode system keys
+	buff := bytes.NewBuffer(make([]byte, 0))
+	enc := key.NewEncoder(buff)
+	n, err := enc.Encode(&k)
+	if err != nil {
+		panic(err)
+	}
+	encoded := make([]byte, n)
+	copy(encoded, buff.Bytes())
+	return encoded
 }
