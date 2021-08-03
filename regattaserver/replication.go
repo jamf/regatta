@@ -141,7 +141,8 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 		}
 	}()
 
-	rs, err = l.DB.ReadRaftState(clusterID, l.NodeID, leaderIndex-1)
+	leaderIndex = uint64(math.Max(float64(leaderIndex-1), float64(1)))
+	rs, err = l.DB.ReadRaftState(clusterID, l.NodeID, leaderIndex)
 	if err != nil {
 		err = fmt.Errorf("could not get raft state: %v", err)
 		return
