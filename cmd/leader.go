@@ -55,6 +55,7 @@ var leaderCmd = &cobra.Command{
 		initConfig(cmd.PersistentFlags())
 		return validateLeaderConfig()
 	},
+	DisableAutoGenTag: true,
 }
 
 func validateLeaderConfig() error {
