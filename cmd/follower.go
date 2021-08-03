@@ -124,29 +124,6 @@ func follower(_ *cobra.Command, _ []string) {
 		mc := proto.NewMetadataClient(conn)
 		mr := replication.NewMetadata(mc, tm)
 		mr.Replicate()
-
-		if viper.GetBool("replication.enable-log-replication") {
-			go func() {
-				// TODO: move this the manager.
-				if err := tm.WaitUntilReady(); err != nil {
-					log.Panic("table manager failed to start: %v", err)
-					return
-				}
-
-				tt, err := tm.GetTables()
-				if err != nil {
-					log.Panicf("failed to get tables: %v", err)
-				}
-
-				lc := proto.NewLogClient(conn)
-				interval := viper.GetDuration("replication.interval")
-				for _, t := range tt {
-					log := replication.NewLog(lc, tm, nh, t.Name, interval)
-					log.Replicate()
-				}
-			}()
-		}
-
 		defer mr.Close()
 
 		if viper.GetBool("replication.enable-log-replication") {
