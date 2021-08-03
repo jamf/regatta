@@ -50,6 +50,7 @@ var followerCmd = &cobra.Command{
 		initConfig(cmd.PersistentFlags())
 		return validateFollowerConfig()
 	},
+	DisableAutoGenTag: true,
 }
 
 func validateFollowerConfig() error {

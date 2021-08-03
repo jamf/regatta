@@ -19,6 +19,7 @@ var rootCmd = &cobra.Command{
 	Hidden:             true,
 	SuggestFor:         []string{leaderCmd.Use, followerCmd.Use},
 	DisableFlagParsing: true,
+	DisableAutoGenTag:  true,
 }
 
 // Execute cobra command.
