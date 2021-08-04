@@ -12,7 +12,7 @@ message Command {
   enum CommandType {
     PUT = 0;
     DELETE = 1;
-    BUMP_INDEX = 2;
+    DUMMY = 2;
   }
 
   // table name of the table

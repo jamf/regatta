@@ -817,7 +817,7 @@ func TestSM_Update(t *testing.T) {
 						Cmd: mustMarshallProto(&proto.Command{
 							LeaderIndex: &one,
 							Table:       []byte("test"),
-							Type:        proto.Command_BUMP_INDEX,
+							Type:        proto.Command_DUMMY,
 						}),
 					},
 				},
@@ -828,7 +828,7 @@ func TestSM_Update(t *testing.T) {
 					Cmd: mustMarshallProto(&proto.Command{
 						LeaderIndex: &one,
 						Table:       []byte("test"),
-						Type:        proto.Command_BUMP_INDEX,
+						Type:        proto.Command_DUMMY,
 					}),
 					Result: sm.Result{
 						Value: 1,

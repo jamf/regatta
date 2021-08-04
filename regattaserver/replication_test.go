@@ -111,7 +111,7 @@ func TestLogServer_EntryToCommand(t *testing.T) {
 		{
 			name:    "ConfigChange Entry Type",
 			entry:   raftpb.Entry{Type: raftpb.ConfigChangeEntry, Index: 0},
-			wantCmd: &proto.Command{Type: proto.Command_BUMP_INDEX, LeaderIndex: &zero},
+			wantCmd: &proto.Command{Type: proto.Command_DUMMY, LeaderIndex: &zero},
 			wantErr: nil,
 		},
 		{
