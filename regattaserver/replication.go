@@ -145,7 +145,6 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 		}
 	}()
 
-	leaderIndex = uint64(math.Max(float64(leaderIndex)-1, float64(1)))
 	rs, err = l.DB.ReadRaftState(clusterID, l.NodeID, leaderIndex)
 	if err != nil {
 		err = fmt.Errorf("could not get raft state: %v", err)
@@ -207,7 +206,7 @@ func (l *LogServer) readLog(server proto.Log_ReplicateServer, clusterID, firstIn
 func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
 	cmd := &proto.Command{}
 	if e.Type != raftpb.EncodedEntry {
-		cmd.Type = proto.Command_BUMP_INDEX
+		cmd.Type = proto.Command_DUMMY
 	} else if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
 		return nil, err
 	}

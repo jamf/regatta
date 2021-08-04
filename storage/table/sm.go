@@ -161,7 +161,6 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	buf := bytes.NewBuffer(make([]byte, key.LatestVersionLen))
-	enc := key.NewEncoder(buf)
 
 	batch := db.NewBatch()
 	defer func() {
@@ -174,28 +173,23 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			return nil, err
 		}
 		buf.Reset()
-		if cmd.Type == proto.Command_BUMP_INDEX {
-			updates[i].Result = sm.Result{Value: 1}
-			continue
-		}
-
-		k := key.Key{
-			KeyType: key.TypeUser,
-			Key:     cmd.Kv.Key,
-		}
-		if _, err := enc.Encode(&k); err != nil {
-			return nil, err
-		}
 
 		switch cmd.Type {
 		case proto.Command_PUT:
+			if err := encodeUserKey(buf, cmd.Kv.Key); err != nil {
+				return nil, err
+			}
 			if err := batch.Set(buf.Bytes(), cmd.Kv.Value, nil); err != nil {
 				return nil, err
 			}
 		case proto.Command_DELETE:
+			if err := encodeUserKey(buf, cmd.Kv.Key); err != nil {
+				return nil, err
+			}
 			if err := batch.Delete(buf.Bytes(), nil); err != nil {
 				return nil, err
 			}
+		case proto.Command_DUMMY:
 		}
 		updates[i].Result = sm.Result{Value: 1}
 	}
