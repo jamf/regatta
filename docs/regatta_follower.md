@@ -59,6 +59,8 @@ regatta follower [flags]
                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
       --replication.ca-filename string        Path to the client CA cert file. (default "hack/replication/ca.crt")
       --replication.cert-filename string      Path to the client certificate. (default "hack/replication/client.crt")
+      --replication.enable-log-replication    Enable log replication.
+      --replication.interval duration         Replication interval in seconds. (default 10s)
       --replication.key-filename string       Path to the client private key file. (default "hack/replication/client.key")
       --replication.leader-address string     Address of the leader replication API to connect to. (default "localhost:8444")
       --rest.address string                   Address the REST API server should listen on. (default ":8079")
