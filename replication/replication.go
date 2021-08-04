@@ -13,7 +13,8 @@ import (
 
 func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
 	return &Manager{
-		tm: tm,
+		Interval: 30 * time.Second,
+		tm:       tm,
 		factory: workerFactory{
 			interval:       10 * time.Second,
 			timeout:        5 * time.Minute,
@@ -37,9 +38,10 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 }
 
 type Manager struct {
-	tm      *tables.Manager
-	factory workerFactory
-	workers struct {
+	Interval time.Duration
+	tm       *tables.Manager
+	factory  workerFactory
+	workers  struct {
 		registry map[string]*worker
 		mtx      sync.Mutex
 		wg       sync.WaitGroup
@@ -49,49 +51,49 @@ type Manager struct {
 	nh     *dragonboat.NodeHost
 }
 
-func (d *Manager) Start() {
+func (m *Manager) Start() {
 	go func() {
-		err := d.tm.WaitUntilReady()
+		err := m.tm.WaitUntilReady()
 		if err != nil {
 			return
 		}
 
-		t := time.NewTicker(30 * time.Second)
+		t := time.NewTicker(m.Interval)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				err := d.reconcile()
+				err := m.reconcile()
 				if err != nil {
 					return
 				}
-			case <-d.closer:
-				d.log.Info("replication stopped")
+			case <-m.closer:
+				m.log.Info("replication stopped")
 				return
 			}
 		}
 	}()
 }
 
-func (d *Manager) reconcile() error {
-	tbs, err := d.tm.GetTables()
+func (m *Manager) reconcile() error {
+	tbs, err := m.tm.GetTables()
 	if err != nil {
 		return err
 	}
 
-	d.workers.mtx.Lock()
-	defer d.workers.mtx.Unlock()
+	m.workers.mtx.Lock()
+	defer m.workers.mtx.Unlock()
 	for _, tbl := range tbs {
-		if _, ok := d.workers.registry[tbl.Name]; !ok {
-			d.log.Infof("launching replication for table %s", tbl.Name)
-			worker := d.factory.Create(tbl.Name)
-			d.workers.registry[tbl.Name] = worker
+		if _, ok := m.workers.registry[tbl.Name]; !ok {
+			m.log.Infof("launching replication for table %s", tbl.Name)
+			worker := m.factory.Create(tbl.Name)
+			m.workers.registry[tbl.Name] = worker
 			worker.Start()
-			d.workers.wg.Add(1)
+			m.workers.wg.Add(1)
 		}
 	}
 
-	for name, worker := range d.workers.registry {
+	for name, worker := range m.workers.registry {
 		found := false
 		for _, tbl := range tbs {
 			if tbl.Name == name {
@@ -100,23 +102,23 @@ func (d *Manager) reconcile() error {
 			}
 		}
 		if !found {
-			d.log.Infof("stopping replication for table %s", name)
+			m.log.Infof("stopping replication for table %s", name)
 			worker.Close()
-			d.workers.wg.Done()
+			m.workers.wg.Done()
 		}
 	}
 	return nil
 }
 
-func (d *Manager) Close() {
-	d.workers.mtx.Lock()
-	defer d.workers.mtx.Unlock()
+func (m *Manager) Close() {
+	m.workers.mtx.Lock()
+	defer m.workers.mtx.Unlock()
 
-	for name, worker := range d.workers.registry {
-		d.log.Infof("stopping replication for table %s", name)
+	for name, worker := range m.workers.registry {
+		m.log.Infof("stopping replication for table %s", name)
 		worker.Close()
-		d.workers.wg.Done()
+		m.workers.wg.Done()
 	}
-	d.workers.wg.Wait()
-	close(d.closer)
+	m.workers.wg.Wait()
+	close(m.closer)
 }
