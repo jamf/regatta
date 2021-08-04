@@ -201,13 +201,13 @@ func (l *LogServer) readLog(server proto.Log_ReplicateServer, clusterID, firstIn
 
 // entryToCommand converts the raftpb.Entry to equivalent proto.ReplicateCommand.
 func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
-	if e.Type != raftpb.EncodedEntry {
-		return nil, nil
-	}
-
 	cmd := &proto.Command{}
-	if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
-		return nil, err
+	if e.Type != raftpb.EncodedEntry {
+		cmd.Type = proto.Command_BUMP_INDEX
+	} else {
+		if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
+			return nil, err
+		}
 	}
 	cmd.LeaderIndex = &e.Index
 	return cmd, nil
