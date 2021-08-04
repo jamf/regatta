@@ -13,53 +13,64 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
-// NewLog returns a new instance of Log replicator for a given table.
-func NewLog(client proto.LogClient, manager *tables.Manager, nh *dragonboat.NodeHost, table string, interval time.Duration) *Log {
-	return &Log{
-		LogClient:    client,
-		TableManager: manager,
-		Interval:     interval,
-		Timeout:      5 * time.Second,
-		Table:        table,
-		closer:       make(chan struct{}),
-		log:          zap.S().Named("replication").Named("log"),
-		nh:           nh,
+type workerFactory struct {
+	interval       time.Duration
+	timeout        time.Duration
+	tm             *tables.Manager
+	log            *zap.SugaredLogger
+	nh             *dragonboat.NodeHost
+	logClient      proto.LogClient
+	snapshotClient proto.SnapshotClient
+}
+
+func (f workerFactory) Create(table string) *worker {
+	return &worker{
+		logClient:      f.logClient,
+		snapshotClient: f.snapshotClient,
+		tm:             f.tm,
+		nh:             f.nh,
+		interval:       f.interval,
+		timeout:        5 * time.Second,
+		Table:          table,
+		closer:         make(chan struct{}),
+		log:            f.log.Named(table),
 	}
 }
 
-// Log connects to the log replication service and synchronizes the local state.
-type Log struct {
-	LogClient    proto.LogClient
-	TableManager *tables.Manager
-	Interval     time.Duration
-	Timeout      time.Duration
-	Table        string
-	closer       chan struct{}
-	log          *zap.SugaredLogger
-	nh           *dragonboat.NodeHost
+// worker connects to the log replication service and synchronizes the local state.
+type worker struct {
+	interval       time.Duration
+	timeout        time.Duration
+	tm             *tables.Manager
+	Table          string
+	closer         chan struct{}
+	log            *zap.SugaredLogger
+	nh             *dragonboat.NodeHost
+	logClient      proto.LogClient
+	snapshotClient proto.SnapshotClient
 }
 
-// Replicate launches the log replication goroutine. To stop it, call Log.Close.
-func (l *Log) Replicate() {
+// Start launches the replication goroutine. To stop it, call worker.Close.
+func (l *worker) Start() {
 	go func() {
 		l.log.Info("log replication started")
-		t := time.NewTicker(l.Interval)
+		t := time.NewTicker(l.interval)
 		defer t.Stop()
 
 		for {
 			select {
 			case <-t.C:
-				if !l.TableManager.IsLeader() {
+				if !l.tm.IsLeader() {
 					continue
 				}
 
-				t, err := l.TableManager.GetTable(l.Table)
+				t, err := l.tm.GetTable(l.Table)
 				if err != nil {
 					l.log.Errorf("could not find table '%s': %v", l.Table, err)
 					continue
 				}
 
-				ctx, cancel := context.WithTimeout(context.Background(), l.Timeout)
+				ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
 				idxRes, err := t.LeaderIndex(ctx)
 				if err != nil {
 					cancel()
@@ -72,7 +83,7 @@ func (l *Log) Replicate() {
 					Table:       []byte(l.Table),
 				}
 
-				stream, err := l.LogClient.Replicate(ctx, replicateRequest)
+				stream, err := l.logClient.Replicate(ctx, replicateRequest)
 				if err != nil {
 					cancel()
 					l.log.Errorf("log replicate request failed: %v", err)
@@ -92,7 +103,7 @@ func (l *Log) Replicate() {
 }
 
 // read commands from the stream and save them to the cluster.
-func (l *Log) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
+func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
 	for {
 		replicateRes, err := stream.Recv()
 		if err == io.EOF {
@@ -127,11 +138,11 @@ func (l *Log) read(ctx context.Context, stream proto.Log_ReplicateClient, cluste
 }
 
 // Close stops the log replication.
-func (l *Log) Close() { close(l.closer) }
+func (l *worker) Close() { close(l.closer) }
 
-func (l *Log) proposeBatch(cc []*proto.ReplicateCommand, clusterID uint64) error {
+func (l *worker) proposeBatch(cc []*proto.ReplicateCommand, clusterID uint64) error {
 	propose := func(bytes []byte) error {
-		ctx, cancel := context.WithTimeout(context.Background(), l.Timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
 		defer cancel()
 		if _, err := l.nh.SyncPropose(ctx, l.nh.GetNoOPSession(clusterID), bytes); err != nil {
 			return err
