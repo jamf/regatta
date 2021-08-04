@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 )
 
@@ -56,7 +57,7 @@ func TestWorker_recover(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(metaSrv.Addr, grpc.WithInsecure())
 	r.NoError(err)
-	w := &worker{tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn)}
+	w := &worker{tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
 
 	t.Log("recover table from leader")
 	r.NoError(w.recover(context.Background(), "test", 30*time.Second))
