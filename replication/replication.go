@@ -8,18 +8,27 @@ import (
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
-func NewData(tm *tables.Manager, nh *dragonboat.NodeHost, logc proto.LogClient) *Data {
-	return &Data{
-		tm:   tm,
-		logc: logc,
+func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
+	return &Manager{
+		tm: tm,
+		factory: workerFactory{
+			interval:       10 * time.Second,
+			timeout:        5 * time.Minute,
+			tm:             tm,
+			log:            zap.S().Named("replication"),
+			nh:             nh,
+			logClient:      proto.NewLogClient(conn),
+			snapshotClient: proto.NewSnapshotClient(conn),
+		},
 		workers: struct {
-			registry map[string]*Log
+			registry map[string]*worker
 			mtx      sync.Mutex
 			wg       sync.WaitGroup
 		}{
-			registry: make(map[string]*Log),
+			registry: make(map[string]*worker),
 		},
 		log:    zap.S().Named("replication").Named("data"),
 		closer: make(chan struct{}),
@@ -27,10 +36,11 @@ func NewData(tm *tables.Manager, nh *dragonboat.NodeHost, logc proto.LogClient) 
 	}
 }
 
-type Data struct {
+type Manager struct {
 	tm      *tables.Manager
+	factory workerFactory
 	workers struct {
-		registry map[string]*Log
+		registry map[string]*worker
 		mtx      sync.Mutex
 		wg       sync.WaitGroup
 	}
@@ -40,7 +50,7 @@ type Data struct {
 	nh     *dragonboat.NodeHost
 }
 
-func (d *Data) Replicate() {
+func (d *Manager) Start() {
 	go func() {
 		err := d.tm.WaitUntilReady()
 		if err != nil {
@@ -64,7 +74,7 @@ func (d *Data) Replicate() {
 	}()
 }
 
-func (d *Data) reconcile() error {
+func (d *Manager) reconcile() error {
 	tbs, err := d.tm.GetTables()
 	if err != nil {
 		return err
@@ -75,9 +85,9 @@ func (d *Data) reconcile() error {
 	for _, tbl := range tbs {
 		if _, ok := d.workers.registry[tbl.Name]; !ok {
 			d.log.Infof("launching replication for table %s", tbl.Name)
-			worker := NewLog(d.logc, d.tm, d.nh, tbl.Name, 30*time.Second)
+			worker := d.factory.Create(tbl.Name)
 			d.workers.registry[tbl.Name] = worker
-			worker.Replicate()
+			worker.Start()
 			d.workers.wg.Add(1)
 		}
 	}
@@ -99,7 +109,7 @@ func (d *Data) reconcile() error {
 	return nil
 }
 
-func (d *Data) Close() {
+func (d *Manager) Close() {
 	d.workers.mtx.Lock()
 	defer d.workers.mtx.Unlock()
 

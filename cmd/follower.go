@@ -127,8 +127,8 @@ func follower(_ *cobra.Command, _ []string) {
 		defer mr.Close()
 
 		if viper.GetBool("replication.enable-log-replication") {
-			d := replication.NewData(tm, nh, proto.NewLogClient(conn))
-			d.Replicate()
+			d := replication.NewManager(tm, nh, conn)
+			d.Start()
 			defer d.Close()
 		}
 	}
