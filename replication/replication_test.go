@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/storage/tables"
-	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap"
 )
 
 type mockWorkerFactory struct {
@@ -35,7 +35,7 @@ func TestManager_reconcile(t *testing.T) {
 	m.Interval = 250 * time.Millisecond
 	wf := &mockWorkerFactory{}
 	m.factory = wf
-	m.log = zaptest.NewLogger(t).Sugar()
+	m.log = zap.NewNop().Sugar()
 
 	m.Start()
 
@@ -59,20 +59,17 @@ func TestManager_reconcile(t *testing.T) {
 
 	r.NoError(followerTM.CreateTable("test"))
 	r.Eventually(func() bool {
-		_, ok := m.workers.registry["test"]
-		return ok
+		return m.hasWorker("test")
 	}, 10*time.Second, 250*time.Millisecond, "replication worker not found in registry")
 
 	r.NoError(followerTM.CreateTable("test2"))
 	r.Eventually(func() bool {
-		_, ok := m.workers.registry["test"]
-		return ok
+		return m.hasWorker("test2")
 	}, 10*time.Second, 250*time.Millisecond, "replication worker not found in registry")
 
 	r.NoError(followerTM.DeleteTable("test"))
 	r.Eventually(func() bool {
-		_, ok := m.workers.registry["test"]
-		return !ok
+		return !m.hasWorker("test")
 	}, 10*time.Second, 250*time.Millisecond, "replication worker not deleted from registry")
 
 	m.Close()

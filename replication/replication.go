@@ -31,7 +31,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 		},
 		workers: struct {
 			registry map[string]*worker
-			mtx      sync.Mutex
+			mtx      sync.RWMutex
 			wg       sync.WaitGroup
 		}{
 			registry: make(map[string]*worker),
@@ -49,7 +49,7 @@ type Manager struct {
 	factory  workerCreator
 	workers  struct {
 		registry map[string]*worker
-		mtx      sync.Mutex
+		mtx      sync.RWMutex
 		wg       sync.WaitGroup
 	}
 	log    *zap.SugaredLogger
@@ -88,15 +88,10 @@ func (m *Manager) reconcile() error {
 		return err
 	}
 
-	m.workers.mtx.Lock()
-	defer m.workers.mtx.Unlock()
 	for _, tbl := range tbs {
 		if _, ok := m.workers.registry[tbl.Name]; !ok {
-			m.log.Infof("launching replication for table %s", tbl.Name)
 			worker := m.factory.Create(tbl.Name)
-			m.workers.registry[tbl.Name] = worker
-			worker.Start()
-			m.workers.wg.Add(1)
+			m.startWorker(worker)
 		}
 	}
 
@@ -109,10 +104,7 @@ func (m *Manager) reconcile() error {
 			}
 		}
 		if !found {
-			m.log.Infof("stopping replication for table %s", name)
-			worker.Close()
-			m.workers.wg.Done()
-			delete(m.workers.registry, name)
+			m.stopWorker(worker)
 		}
 	}
 	return nil
@@ -121,15 +113,35 @@ func (m *Manager) reconcile() error {
 // Close will stop replication goroutine - could be called just once.
 func (m *Manager) Close() {
 	m.closer <- struct{}{}
+	for _, worker := range m.workers.registry {
+		m.stopWorker(worker)
+	}
+	m.workers.wg.Wait()
+}
 
+func (m *Manager) hasWorker(name string) bool {
+	m.workers.mtx.RLock()
+	defer m.workers.mtx.RUnlock()
+	_, ok := m.workers.registry[name]
+	return ok
+}
+
+func (m *Manager) startWorker(worker *worker) {
 	m.workers.mtx.Lock()
 	defer m.workers.mtx.Unlock()
 
-	for name, worker := range m.workers.registry {
-		m.log.Infof("stopping replication for table %s", name)
-		worker.Close()
-		m.workers.wg.Done()
-		delete(m.workers.registry, name)
-	}
-	m.workers.wg.Wait()
+	m.log.Infof("launching replication for table %s", worker.Table)
+	m.workers.registry[worker.Table] = worker
+	worker.Start()
+	m.workers.wg.Add(1)
+}
+
+func (m *Manager) stopWorker(worker *worker) {
+	m.workers.mtx.Lock()
+	defer m.workers.mtx.Unlock()
+
+	m.log.Infof("stopping replication for table %s", worker.Table)
+	worker.Close()
+	m.workers.wg.Done()
+	delete(m.workers.registry, worker.Table)
 }
