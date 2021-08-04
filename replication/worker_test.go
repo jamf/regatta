@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestWorker_recover(t *testing.T) {
+func Test_worker_recover(t *testing.T) {
 	r := require.New(t)
 	t.Log("start leader Raft")
 	leaderNH, leaderAddresses, err := startRaftNode()
