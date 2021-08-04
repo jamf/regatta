@@ -12,19 +12,20 @@ import (
 )
 
 type workerCreator interface {
-	Create(table string) *worker
+	create(table string) *worker
 }
 
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
 func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
+	replicationLog := zap.S().Named("replication")
 	return &Manager{
 		Interval: 30 * time.Second,
 		tm:       tm,
-		factory: workerFactory{
+		factory: &workerFactory{
 			interval:       10 * time.Second,
 			timeout:        5 * time.Minute,
 			tm:             tm,
-			log:            zap.S().Named("replication"),
+			log:            replicationLog,
 			nh:             nh,
 			logClient:      proto.NewLogClient(conn),
 			snapshotClient: proto.NewSnapshotClient(conn),
@@ -36,9 +37,8 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 		}{
 			registry: make(map[string]*worker),
 		},
-		log:    zap.S().Named("replication").Named("data"),
+		log:    replicationLog.Named("manager"),
 		closer: make(chan struct{}),
-		nh:     nh,
 	}
 }
 
@@ -90,7 +90,7 @@ func (m *Manager) reconcile() error {
 
 	for _, tbl := range tbs {
 		if _, ok := m.workers.registry[tbl.Name]; !ok {
-			worker := m.factory.Create(tbl.Name)
+			worker := m.factory.create(tbl.Name)
 			m.startWorker(worker)
 		}
 	}

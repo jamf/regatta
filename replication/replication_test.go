@@ -14,7 +14,7 @@ type mockWorkerFactory struct {
 	mock.Mock
 }
 
-func (m *mockWorkerFactory) Create(table string) *worker {
+func (m *mockWorkerFactory) create(table string) *worker {
 	args := m.Called(table)
 	return args.Get(0).(*worker)
 }
@@ -39,7 +39,7 @@ func TestManager_reconcile(t *testing.T) {
 
 	m.Start()
 
-	wf.On("Create", "test").Once().Return(&worker{
+	wf.On("create", "test").Once().Return(&worker{
 		Table:    "test",
 		log:      m.log,
 		interval: 1 * time.Second,
@@ -48,7 +48,7 @@ func TestManager_reconcile(t *testing.T) {
 		closer:   make(chan struct{}),
 	})
 
-	wf.On("Create", "test2").Once().Return(&worker{
+	wf.On("create", "test2").Once().Return(&worker{
 		Table:    "test2",
 		log:      m.log,
 		interval: 1 * time.Second,

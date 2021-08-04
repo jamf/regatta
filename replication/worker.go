@@ -30,7 +30,7 @@ type workerFactory struct {
 	snapshotClient proto.SnapshotClient
 }
 
-func (f workerFactory) Create(table string) *worker {
+func (f *workerFactory) create(table string) *worker {
 	return &worker{
 		logClient:      f.logClient,
 		snapshotClient: f.snapshotClient,
