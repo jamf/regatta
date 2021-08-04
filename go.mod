@@ -2,6 +2,8 @@ module github.com/wandera/regatta
 
 go 1.16
 
+replace github.com/lni/dragonboat/v3 => github.com/coufalja/dragonboat/v3 v3.1.1-0.20210723112057-cc2022ab93b1
+
 require (
 	github.com/VictoriaMetrics/metrics v1.17.2
 	github.com/axw/gocov v1.0.0

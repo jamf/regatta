@@ -2,6 +2,7 @@ package table
 
 import (
 	"context"
+	"io"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/lni/dragonboat/v3/client"
@@ -26,6 +27,7 @@ const MaxValueLen = 2 * 1024 * 1024
 type Table struct {
 	Name      string `json:"name"`
 	ClusterID uint64 `json:"cluster_id"`
+	RecoverID uint64 `json:"recover_id"`
 }
 
 // AsActive returns ActiveTable wrapper of this table.
@@ -135,4 +137,47 @@ func (t *ActiveTable) Hash(ctx context.Context, req *proto.HashRequest) (*proto.
 		return nil, err
 	}
 	return val.(*proto.HashResponse), nil
+}
+
+// Snapshot streams snapshot to the provided writer.
+func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) error {
+	_, err := t.nh.SyncRead(ctx, t.ClusterID, SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// LocalIndex returns local index.
+func (t *ActiveTable) LocalIndex(ctx context.Context) (*IndexResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, LocalIndexRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return val.(*IndexResponse), nil
+}
+
+// LeaderIndex returns leader index.
+func (t *ActiveTable) LeaderIndex(ctx context.Context) (*IndexResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, LeaderIndexRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return val.(*IndexResponse), nil
+}
+
+type SnapshotRequest struct {
+	Writer  io.Writer
+	Stopper <-chan struct{}
+}
+
+// IndexRequest to read local index.
+type LocalIndexRequest struct{}
+
+// IndexRequest to read local index.
+type LeaderIndexRequest struct{}
+
+// IndexResponse returns local index.
+type IndexResponse struct {
+	Index uint64
 }

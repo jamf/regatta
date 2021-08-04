@@ -99,3 +99,231 @@ var Metadata_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "replication.proto",
 }
+
+// SnapshotClient is the client API for Snapshot service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type SnapshotClient interface {
+	Stream(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (Snapshot_StreamClient, error)
+}
+
+type snapshotClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSnapshotClient(cc grpc.ClientConnInterface) SnapshotClient {
+	return &snapshotClient{cc}
+}
+
+func (c *snapshotClient) Stream(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (Snapshot_StreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Snapshot_ServiceDesc.Streams[0], "/replication.v1.Snapshot/Stream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &snapshotStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Snapshot_StreamClient interface {
+	Recv() (*SnapshotChunk, error)
+	grpc.ClientStream
+}
+
+type snapshotStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *snapshotStreamClient) Recv() (*SnapshotChunk, error) {
+	m := new(SnapshotChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// SnapshotServer is the server API for Snapshot service.
+// All implementations must embed UnimplementedSnapshotServer
+// for forward compatibility
+type SnapshotServer interface {
+	Stream(*SnapshotRequest, Snapshot_StreamServer) error
+	mustEmbedUnimplementedSnapshotServer()
+}
+
+// UnimplementedSnapshotServer must be embedded to have forward compatible implementations.
+type UnimplementedSnapshotServer struct {
+}
+
+func (UnimplementedSnapshotServer) Stream(*SnapshotRequest, Snapshot_StreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedSnapshotServer) mustEmbedUnimplementedSnapshotServer() {}
+
+// UnsafeSnapshotServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SnapshotServer will
+// result in compilation errors.
+type UnsafeSnapshotServer interface {
+	mustEmbedUnimplementedSnapshotServer()
+}
+
+func RegisterSnapshotServer(s grpc.ServiceRegistrar, srv SnapshotServer) {
+	s.RegisterService(&Snapshot_ServiceDesc, srv)
+}
+
+func _Snapshot_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SnapshotRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SnapshotServer).Stream(m, &snapshotStreamServer{stream})
+}
+
+type Snapshot_StreamServer interface {
+	Send(*SnapshotChunk) error
+	grpc.ServerStream
+}
+
+type snapshotStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *snapshotStreamServer) Send(m *SnapshotChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// Snapshot_ServiceDesc is the grpc.ServiceDesc for Snapshot service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Snapshot_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "replication.v1.Snapshot",
+	HandlerType: (*SnapshotServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Stream",
+			Handler:       _Snapshot_Stream_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "replication.proto",
+}
+
+// LogClient is the client API for Log service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LogClient interface {
+	// Replicate is method to ask for data of specified table from the specified index.
+	Replicate(ctx context.Context, in *ReplicateRequest, opts ...grpc.CallOption) (Log_ReplicateClient, error)
+}
+
+type logClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLogClient(cc grpc.ClientConnInterface) LogClient {
+	return &logClient{cc}
+}
+
+func (c *logClient) Replicate(ctx context.Context, in *ReplicateRequest, opts ...grpc.CallOption) (Log_ReplicateClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Log_ServiceDesc.Streams[0], "/replication.v1.Log/Replicate", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &logReplicateClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Log_ReplicateClient interface {
+	Recv() (*ReplicateResponse, error)
+	grpc.ClientStream
+}
+
+type logReplicateClient struct {
+	grpc.ClientStream
+}
+
+func (x *logReplicateClient) Recv() (*ReplicateResponse, error) {
+	m := new(ReplicateResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// LogServer is the server API for Log service.
+// All implementations must embed UnimplementedLogServer
+// for forward compatibility
+type LogServer interface {
+	// Replicate is method to ask for data of specified table from the specified index.
+	Replicate(*ReplicateRequest, Log_ReplicateServer) error
+	mustEmbedUnimplementedLogServer()
+}
+
+// UnimplementedLogServer must be embedded to have forward compatible implementations.
+type UnimplementedLogServer struct {
+}
+
+func (UnimplementedLogServer) Replicate(*ReplicateRequest, Log_ReplicateServer) error {
+	return status.Errorf(codes.Unimplemented, "method Replicate not implemented")
+}
+func (UnimplementedLogServer) mustEmbedUnimplementedLogServer() {}
+
+// UnsafeLogServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LogServer will
+// result in compilation errors.
+type UnsafeLogServer interface {
+	mustEmbedUnimplementedLogServer()
+}
+
+func RegisterLogServer(s grpc.ServiceRegistrar, srv LogServer) {
+	s.RegisterService(&Log_ServiceDesc, srv)
+}
+
+func _Log_Replicate_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReplicateRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LogServer).Replicate(m, &logReplicateServer{stream})
+}
+
+type Log_ReplicateServer interface {
+	Send(*ReplicateResponse) error
+	grpc.ServerStream
+}
+
+type logReplicateServer struct {
+	grpc.ServerStream
+}
+
+func (x *logReplicateServer) Send(m *ReplicateResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// Log_ServiceDesc is the grpc.ServiceDesc for Log service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Log_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "replication.v1.Log",
+	HandlerType: (*LogServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Replicate",
+			Handler:       _Log_Replicate_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "replication.proto",
+}

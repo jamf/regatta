@@ -13,6 +13,7 @@ import (
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/lni/dragonboat/v3/raftio"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -54,6 +55,7 @@ var leaderCmd = &cobra.Command{
 		initConfig(cmd.PersistentFlags())
 		return validateLeaderConfig()
 	},
+	DisableAutoGenTag: true,
 }
 
 func validateLeaderConfig() error {
@@ -89,6 +91,11 @@ func leader(_ *cobra.Command, _ []string) {
 		log.Panic(err)
 	}
 	defer tm.Close()
+
+	db, err := nh.GetReadOnlyLogDB()
+	if err != nil {
+		log.Panic(err)
+	}
 
 	go func() {
 		if err := tm.WaitUntilReady(); err != nil {
@@ -157,7 +164,7 @@ func leader(_ *cobra.Command, _ []string) {
 				log.Panicf("cannot load clients CA: %v", err)
 			}
 
-			replication := createReplicationServer(watcherReplication, caBytes, tm)
+			replication := createReplicationServer(watcherReplication, caBytes, tm, db, logger)
 			// Start server
 			go func() {
 				log.Infof("regatta replication listening at %s", replication.Addr)
@@ -226,7 +233,8 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manager *tables.Manager) *regattaserver.RegattaServer {
+func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manager *tables.Manager,
+	db raftio.ILogDB, logger *zap.Logger) *regattaserver.RegattaServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
 
@@ -244,8 +252,14 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
-
 	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
+	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
+	proto.RegisterLogServer(replication, &regattaserver.LogServer{
+		Tables: manager,
+		DB:     db,
+		NodeID: manager.NodeID(),
+		Log:    logger.Sugar().Named("log-replication-server"),
+	})
 	return replication
 }
 

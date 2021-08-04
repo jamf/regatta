@@ -27,12 +27,15 @@ import (
 
 var (
 	bufferPool    = bpool.NewSizedBufferPool(256, 128)
-	localIndexKey = key.Key{
+	wildcard      = []byte{0}
+	sysLocalIndex = mustEncodeKey(key.Key{
 		KeyType: key.TypeSystem,
 		Key:     []byte("index"),
-	}
-
-	wildcard = []byte{0}
+	})
+	sysLeaderIndex = mustEncodeKey(key.Key{
+		KeyType: key.TypeSystem,
+		Key:     []byte("leader_index"),
+	})
 )
 
 const (
@@ -124,11 +127,11 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 
-	buf := bytes.NewBuffer(make([]byte, 0))
-	if _, err := key.NewEncoder(buf).Encode(&localIndexKey); err != nil {
-		return 0, err
-	}
-	indexVal, closer, err := db.Get(buf.Bytes())
+	return readLocalIndex(db, sysLocalIndex)
+}
+
+func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
+	indexVal, closer, err := db.Get(indexKey)
 	if err != nil {
 		if err != pebble.ErrNotFound {
 			return 0, err
@@ -137,9 +140,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	}
 
 	defer func() {
-		if err := closer.Close(); err != nil {
-			p.log.Warn(err)
-		}
+		err = closer.Close()
 	}()
 
 	return binary.LittleEndian.Uint64(indexVal), nil
@@ -160,10 +161,11 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	cmd := proto.Command{}
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	buf := bytes.NewBuffer(make([]byte, key.LatestVersionLen))
-	enc := key.NewEncoder(buf)
 
 	batch := db.NewBatch()
-	defer batch.Close()
+	defer func() {
+		_ = batch.Close()
+	}()
 
 	for i := 0; i < len(updates); i++ {
 		err := pb.Unmarshal(updates[i].Cmd, &cmd)
@@ -171,35 +173,40 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			return nil, err
 		}
 		buf.Reset()
-		k := key.Key{
-			KeyType: key.TypeUser,
-			Key:     cmd.Kv.Key,
-		}
-		if _, err := enc.Encode(&k); err != nil {
-			return nil, err
-		}
 
 		switch cmd.Type {
 		case proto.Command_PUT:
+			if err := encodeUserKey(buf, cmd.Kv.Key); err != nil {
+				return nil, err
+			}
 			if err := batch.Set(buf.Bytes(), cmd.Kv.Value, nil); err != nil {
 				return nil, err
 			}
 		case proto.Command_DELETE:
+			if err := encodeUserKey(buf, cmd.Kv.Key); err != nil {
+				return nil, err
+			}
 			if err := batch.Delete(buf.Bytes(), nil); err != nil {
 				return nil, err
 			}
+		case proto.Command_DUMMY:
 		}
 		updates[i].Result = sm.Result{Value: 1}
 	}
 
-	buf.Reset()
-	if _, err := enc.Encode(&localIndexKey); err != nil {
-		return nil, err
+	// Set leader index if present in the proposal
+	if cmd.LeaderIndex != nil {
+		leaderIdx := make([]byte, 8)
+		binary.LittleEndian.PutUint64(leaderIdx, *cmd.LeaderIndex)
+		if err := batch.Set(sysLeaderIndex, leaderIdx, nil); err != nil {
+			return nil, err
+		}
 	}
 
+	// Set local index
 	idx := make([]byte, 8)
 	binary.LittleEndian.PutUint64(idx, updates[len(updates)-1].Index)
-	if err := batch.Set(buf.Bytes(), idx, nil); err != nil {
+	if err := batch.Set(sysLocalIndex, idx, nil); err != nil {
 		return nil, err
 	}
 
@@ -236,7 +243,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 
 		buf := bufferPool.Get()
 		defer bufferPool.Put(buf)
-		err := encodeKey(buf, req.Key)
+		err := encodeUserKey(buf, req.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -274,6 +281,26 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 			return nil, err
 		}
 		return &proto.HashResponse{Hash: hash}, nil
+	case SnapshotRequest:
+		_, err := p.commandSnapshot(req.Writer, req.Stopper)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	case LocalIndexRequest:
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		idx, err := readLocalIndex(db, sysLocalIndex)
+		if err != nil {
+			return nil, err
+		}
+		return &IndexResponse{Index: idx}, nil
+	case LeaderIndexRequest:
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		idx, err := readLocalIndex(db, sysLeaderIndex)
+		if err != nil {
+			return nil, err
+		}
+		return &IndexResponse{Index: idx}, nil
 	}
 
 	return nil, storage.ErrUnknownQueryType
@@ -287,6 +314,58 @@ func (p *FSM) Sync() error {
 	return db.Flush()
 }
 
+func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error) {
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	snapshot := db.NewSnapshot()
+	iter := snapshot.NewIter(nil)
+	defer func() {
+		if err := iter.Close(); err != nil {
+			p.log.Error(err)
+		}
+		if err := snapshot.Close(); err != nil {
+			p.log.Error(err)
+		}
+	}()
+
+	idx, err := readLocalIndex(snapshot, sysLocalIndex)
+	if err != nil {
+		return 0, err
+	}
+
+	var k key.Key
+	for iter.First(); iter.Valid(); iter.Next() {
+		select {
+		case <-stopc:
+			return 0, sm.ErrSnapshotStopped
+		default:
+			dec := key.NewDecoder(bytes.NewReader(iter.Key()))
+			err := dec.Decode(&k)
+			if err != nil {
+				return 0, err
+			}
+			if k.KeyType == key.TypeUser {
+				bts, err := pb.Marshal(&proto.Command{
+					Table: []byte(p.tableName),
+					Type:  proto.Command_PUT,
+					Kv: &proto.KeyValue{
+						Key:   k.Key,
+						Value: iter.Value(),
+					},
+					LeaderIndex: &idx,
+				})
+				if err != nil {
+					return 0, err
+				}
+				_, err = w.Write(bts)
+				if err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	return idx, nil
+}
+
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *FSM) PrepareSnapshot() (interface{}, error) {
@@ -295,7 +374,7 @@ func (p *FSM) PrepareSnapshot() (interface{}, error) {
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) error {
+func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
 	snapshot := ctx.(*pebble.Snapshot)
 	iter := snapshot.NewIter(nil)
 	defer func() {
@@ -319,20 +398,25 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, _ <-chan struct{}) erro
 
 	// iterate through he whole kv space and send it to writer
 	for iter.First(); iter.Valid(); iter.Next() {
-		kv := &proto.KeyValue{
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		}
-		entry, err := pb.Marshal(kv)
-		if err != nil {
-			return err
-		}
-		err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
-		if err != nil {
-			return err
-		}
-		if _, err := w.Write(entry); err != nil {
-			return err
+		select {
+		case <-stopc:
+			return sm.ErrSnapshotStopped
+		default:
+			kv := &proto.KeyValue{
+				Key:   iter.Key(),
+				Value: iter.Value(),
+			}
+			entry, err := pb.Marshal(kv)
+			if err != nil {
+				return err
+			}
+			err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
+			if err != nil {
+				return err
+			}
+			if _, err := w.Write(entry); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -377,7 +461,9 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 	kv := proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
 	b := db.NewBatch()
-	defer b.Close()
+	defer func() {
+		_ = b.Close()
+	}()
 	p.log.Debugf("Starting snapshot recover to %s DB", dbdir)
 	var batchSize uint64
 	for i := uint64(0); i < total; i++ {
@@ -486,7 +572,7 @@ type fillEntriesFunc func(k key.Key, value []byte, response *proto.RangeResponse
 // iterator prepares new pebble.Iterator with upper and lower bound.
 func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEntriesFunc, error) {
 	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.Key))))
-	err := encodeKey(lowerBuf, req.Key)
+	err := encodeUserKey(lowerBuf, req.Key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -494,7 +580,7 @@ func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEnt
 	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
 	if req.RangeEnd != nil && !bytes.Equal(req.RangeEnd, wildcard) {
 		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RangeEnd))))
-		err = encodeKey(upperBuf, req.RangeEnd)
+		err = encodeUserKey(upperBuf, req.RangeEnd)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -567,8 +653,8 @@ func addCountOnly(_ key.Key, _ []byte, response *proto.RangeResponse) error {
 	return nil
 }
 
-// encodeKey into bytes.
-func encodeKey(dst io.Writer, keyBytes []byte) error {
+// encodeUserKey into provided writer.
+func encodeUserKey(dst io.Writer, keyBytes []byte) error {
 	enc := key.NewEncoder(dst)
 	k := &key.Key{
 		KeyType: key.TypeUser,
@@ -580,4 +666,17 @@ func encodeKey(dst io.Writer, keyBytes []byte) error {
 	}
 
 	return nil
+}
+
+func mustEncodeKey(k key.Key) []byte {
+	// Pre-encode system keys
+	buff := bytes.NewBuffer(make([]byte, 0))
+	enc := key.NewEncoder(buff)
+	n, err := enc.Encode(&k)
+	if err != nil {
+		panic(err)
+	}
+	encoded := make([]byte, n)
+	copy(encoded, buff.Bytes())
+	return encoded
 }

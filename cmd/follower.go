@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -40,6 +41,8 @@ func init() {
 	followerCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/client.crt", "Path to the client certificate.")
 	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/client.key", "Path to the client private key file.")
 	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file.")
+	followerCmd.PersistentFlags().Bool("replication.enable-log-replication", false, "Enable log replication.")
+	followerCmd.PersistentFlags().Duration("replication.interval", 10*time.Second, "Replication interval in seconds.")
 }
 
 var followerCmd = &cobra.Command{
@@ -50,6 +53,7 @@ var followerCmd = &cobra.Command{
 		initConfig(cmd.PersistentFlags())
 		return validateFollowerConfig()
 	},
+	DisableAutoGenTag: true,
 }
 
 func validateFollowerConfig() error {
@@ -121,6 +125,12 @@ func follower(_ *cobra.Command, _ []string) {
 		mr := replication.NewMetadata(mc, tm)
 		mr.Replicate()
 		defer mr.Close()
+
+		if viper.GetBool("replication.enable-log-replication") {
+			d := replication.NewManager(tm, nh, conn)
+			d.Start()
+			defer d.Close()
+		}
 	}
 
 	// Create storage

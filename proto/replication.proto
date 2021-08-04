@@ -8,6 +8,9 @@ option go_package = "./proto";
 
 package replication.v1;
 
+import "mvcc.proto";
+
+// Metadata service provides method to get Regatta metadata, e.g. tables.
 service Metadata {
   rpc Get(MetadataRequest) returns (MetadataResponse);
 }
@@ -26,4 +29,72 @@ message Table {
   }
   string name = 1;
   Type type = 2;
+}
+
+service Snapshot {
+  rpc Stream(SnapshotRequest) returns (stream SnapshotChunk);
+}
+
+message SnapshotRequest {
+  // table is name of the table to stream
+  bytes table = 1;
+}
+
+message SnapshotChunk {
+  // data is chunk of snapshot
+  bytes data = 1;
+  // len is a length of data bytes
+  uint64 len = 2;
+  // index the index for which the snapshot was created
+  uint64 index = 3;
+}
+
+// Log service provides methods to replicate data from Regatta leader's log to Regatta followers' logs.
+service Log {
+  // Replicate is method to ask for data of specified table from the specified index.
+  rpc Replicate(ReplicateRequest) returns (stream ReplicateResponse);
+}
+
+// ReplicateRequest request of the replication data at given leader_index
+message ReplicateRequest {
+  // table is name of the table to replicate
+  bytes table = 1;
+
+  // leader_index is the index in the leader raft log of the last stored item in the follower
+  uint64 leader_index = 2;
+}
+
+// ReplicateResponse response to the ReplicateRequest
+message ReplicateResponse {
+  oneof response {
+    ReplicateCommandsResponse commands_response = 1;
+    ReplicateErrResponse error_response = 2;
+  }
+}
+
+// ReplicateCommandsResponse sequence of replication commands
+message ReplicateCommandsResponse {
+  // commands represent the
+  repeated ReplicateCommand commands = 1;
+}
+
+message ReplicateCommand {
+  // leaderIndex represents the leader raft index of the given command
+  uint64 leader_index = 1;
+
+  // command holds the leader raft log command at leaderIndex
+  mvcc.v1.Command command = 2;
+}
+
+message ReplicateErrResponse {
+  ReplicateError error = 1;
+}
+
+enum ReplicateError {
+  // USE_SNAPSHOT occurs when leader has no longer the specified `leader_index` in the log.
+  // Follower must use `GetSnapshot` to catch up.
+  USE_SNAPSHOT = 0;
+  // LEADER_BEHIND occurs when the index of the leader is smaller than requested `leader_index`.
+  // This should never happen. Manual intervention needed.
+  LEADER_BEHIND = 1;
 }

@@ -748,6 +748,8 @@ func TestSM_Range(t *testing.T) {
 }
 
 func TestSM_Update(t *testing.T) {
+	one := uint64(1)
+	two := uint64(2)
 	type fields struct {
 		smFactory func() sm.IOnDiskStateMachine
 	}
@@ -755,11 +757,12 @@ func TestSM_Update(t *testing.T) {
 		updates []sm.Entry
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []sm.Entry
-		wantErr bool
+		name            string
+		fields          fields
+		args            args
+		want            []sm.Entry
+		wantErr         bool
+		wantLeaderIndex uint64
 	}{
 		{
 			name: "Pebble - Successful update of a single item",
@@ -771,8 +774,9 @@ func TestSM_Update(t *testing.T) {
 					{
 						Index: 1,
 						Cmd: mustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_PUT,
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
 							Kv: &proto.KeyValue{
 								Key:   []byte("test"),
 								Value: []byte("test"),
@@ -785,8 +789,9 @@ func TestSM_Update(t *testing.T) {
 				{
 					Index: 1,
 					Cmd: mustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_PUT,
+						LeaderIndex: &one,
+						Table:       []byte("test"),
+						Type:        proto.Command_PUT,
 						Kv: &proto.KeyValue{
 							Key:   []byte("test"),
 							Value: []byte("test"),
@@ -798,6 +803,40 @@ func TestSM_Update(t *testing.T) {
 					},
 				},
 			},
+			wantLeaderIndex: 1,
+		},
+		{
+			name: "Pebble - Successful bump of a leader index",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_DUMMY,
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Cmd: mustMarshallProto(&proto.Command{
+						LeaderIndex: &one,
+						Table:       []byte("test"),
+						Type:        proto.Command_DUMMY,
+					}),
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+			},
+			wantLeaderIndex: 1,
 		},
 		{
 			name: "Pebble - Successful update of a batch",
@@ -809,8 +848,9 @@ func TestSM_Update(t *testing.T) {
 					{
 						Index: 1,
 						Cmd: mustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_PUT,
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
 							Kv: &proto.KeyValue{
 								Key:   []byte("test"),
 								Value: []byte("test"),
@@ -820,8 +860,9 @@ func TestSM_Update(t *testing.T) {
 					{
 						Index: 2,
 						Cmd: mustMarshallProto(&proto.Command{
-							Table: []byte("test"),
-							Type:  proto.Command_DELETE,
+							LeaderIndex: &two,
+							Table:       []byte("test"),
+							Type:        proto.Command_DELETE,
 							Kv: &proto.KeyValue{
 								Key: []byte("test"),
 							},
@@ -833,8 +874,9 @@ func TestSM_Update(t *testing.T) {
 				{
 					Index: 1,
 					Cmd: mustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_PUT,
+						LeaderIndex: &one,
+						Table:       []byte("test"),
+						Type:        proto.Command_PUT,
 						Kv: &proto.KeyValue{
 							Key:   []byte("test"),
 							Value: []byte("test"),
@@ -848,8 +890,9 @@ func TestSM_Update(t *testing.T) {
 				{
 					Index: 2,
 					Cmd: mustMarshallProto(&proto.Command{
-						Table: []byte("test"),
-						Type:  proto.Command_DELETE,
+						LeaderIndex: &two,
+						Table:       []byte("test"),
+						Type:        proto.Command_DELETE,
 						Kv: &proto.KeyValue{
 							Key: []byte("test"),
 						},
@@ -860,6 +903,7 @@ func TestSM_Update(t *testing.T) {
 					},
 				},
 			},
+			wantLeaderIndex: 2,
 		},
 	}
 	for _, tt := range tests {
@@ -875,6 +919,15 @@ func TestSM_Update(t *testing.T) {
 				return
 			}
 			r.Equal(tt.want, got)
+
+			// Test whether the leaderIndex has changed.
+			res, err := p.Lookup(LeaderIndexRequest{})
+			r.NoError(err)
+			indexRes, ok := res.(*IndexResponse)
+			if !ok {
+				r.Fail("could not cast response to *IndexResponse")
+			}
+			r.Equal(indexRes.Index, tt.wantLeaderIndex)
 		})
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO merge into Manager
+
 // NewMetadata returns a new instance of Metadata replicator.
 func NewMetadata(client proto.MetadataClient, manager *tables.Manager) *Metadata {
 	return &Metadata{

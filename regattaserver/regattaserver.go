@@ -2,6 +2,7 @@ package regattaserver
 
 import (
 	"context"
+	"io"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
@@ -15,6 +16,11 @@ type KVService interface {
 	Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error)
 }
 
+type SnapshotService interface {
+	Snapshot(ctx context.Context, writer io.Writer) error
+}
+
 type TableService interface {
 	GetTables() ([]table.Table, error)
+	GetTable(name string) (table.ActiveTable, error)
 }

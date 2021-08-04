@@ -9,6 +9,8 @@ func init() {
 	rootCmd.AddCommand(leaderCmd)
 	rootCmd.AddCommand(followerCmd)
 	rootCmd.AddCommand(docsCmd)
+	rootCmd.AddCommand(logReaderCmd)
+	rootCmd.AddCommand(generatorCmd)
 }
 
 var rootCmd = &cobra.Command{
@@ -17,6 +19,7 @@ var rootCmd = &cobra.Command{
 	Hidden:             true,
 	SuggestFor:         []string{leaderCmd.Use, followerCmd.Use},
 	DisableFlagParsing: true,
+	DisableAutoGenTag:  true,
 }
 
 // Execute cobra command.

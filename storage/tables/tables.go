@@ -1,13 +1,16 @@
 package tables
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/wandera/regatta/storage/kv"
@@ -78,7 +81,12 @@ func (m *Manager) CreateTable(name string) error {
 	if err != nil {
 		return err
 	}
-	return m.startTable(created)
+	return m.startTable(created.Name, created.ClusterID)
+}
+
+func (m *Manager) IsLeader() bool {
+	id, b, _ := m.nh.GetLeaderID(metaFSMClusterID)
+	return b && id == m.cfg.NodeID
 }
 
 func (m *Manager) createTable(name string) (table.Table, error) {
@@ -94,11 +102,7 @@ func (m *Manager) createTable(name string) (table.Table, error) {
 		Name:      name,
 		ClusterID: seq,
 	}
-	bytes, err := json.Marshal(&tab)
-	if err != nil {
-		return table.Table{}, err
-	}
-	_, err = m.store.Set(storeName, string(bytes), 0)
+	err = m.setTableVersion(tab, 0)
 	if err != nil {
 		if err == kv.ErrVersionMismatch {
 			return table.Table{}, ErrTableExists
@@ -128,15 +132,7 @@ func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
 		return t, nil
 	}
 
-	v, err := m.store.Get(storedTableName(name))
-	if err != nil {
-		if err == kv.ErrNotExist {
-			return table.ActiveTable{}, ErrTableDoesNotExist
-		}
-		return table.ActiveTable{}, err
-	}
-	tab := table.Table{}
-	err = json.Unmarshal([]byte(v.Value), &tab)
+	tab, _, err := m.getTableVersion(name)
 	if err != nil {
 		return table.ActiveTable{}, err
 	}
@@ -191,6 +187,10 @@ func (m *Manager) Close() {
 	close(m.closed)
 }
 
+func (m *Manager) NodeID() uint64 {
+	return m.cfg.NodeID
+}
+
 func (m *Manager) reconcileLoop() {
 	t := time.NewTicker(m.reconcileInterval)
 	defer t.Stop()
@@ -212,19 +212,27 @@ func (m *Manager) reconcile() error {
 	if err != nil {
 		return err
 	}
+	for _, t := range tabs {
+		m.cacheTable(t)
+	}
+
 	start, stop := diffTables(tabs, m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption).ClusterInfoList)
-	for _, tab := range start {
-		err = m.startTable(tab)
+	for id, tbl := range start {
+		err = m.startTable(tbl.Name, id)
 		if err != nil {
 			return err
 		}
+		m.cacheTable(tbl)
 	}
+
 	for _, tab := range stop {
 		err = m.stopTable(tab)
 		if err != nil {
 			return err
 		}
+		m.clearTable(tab)
 	}
+
 	return nil
 }
 
@@ -269,10 +277,15 @@ func (m *Manager) getTables() (map[string]table.Table, error) {
 	return tables, nil
 }
 
-func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart []table.Table, toStop []uint64) {
+func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart map[uint64]table.Table, toStop []uint64) {
 	tableIDs := make(map[uint64]table.Table)
 	for _, t := range tables {
-		tableIDs[t.ClusterID] = t
+		if t.ClusterID != 0 {
+			tableIDs[t.ClusterID] = t
+		}
+		if t.RecoverID != 0 {
+			tableIDs[t.RecoverID] = t
+		}
 	}
 	raftTableIDs := make(map[uint64]struct{})
 	for _, t := range raftInfo {
@@ -282,7 +295,10 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 	for tID, tName := range tableIDs {
 		_, found := raftTableIDs[tID]
 		if !found && tID > tableIDsRangeStart {
-			toStart = append(toStart, tName)
+			if toStart == nil {
+				toStart = make(map[uint64]table.Table)
+			}
+			toStart[tID] = tName
 		}
 	}
 
@@ -295,37 +311,157 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 	return
 }
 
-func (m *Manager) startTable(tbl table.Table) error {
-	err := m.nh.StartOnDiskCluster(
+func (m *Manager) startTable(name string, id uint64) error {
+	return m.nh.StartOnDiskCluster(
 		m.members,
 		false,
-		table.NewFSM(tbl.Name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS),
-		tableRaftConfig(m.cfg.NodeID, tbl.ClusterID, m.cfg.Table),
+		table.NewFSM(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS),
+		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
-	if err != nil {
-		return err
-	}
+}
 
+func (m *Manager) cacheTable(tbl table.Table) {
 	m.cache.mu.Lock()
 	defer m.cache.mu.Unlock()
 	m.cache.tables[tbl.Name] = tbl.AsActive(m.nh)
-	return nil
 }
 
-func (m *Manager) stopTable(clusterID uint64) error {
+func (m *Manager) clearTable(clusterID uint64) {
 	m.cache.mu.Lock()
 	defer m.cache.mu.Unlock()
-
-	err := m.nh.StopCluster(clusterID)
-	if err != nil {
-		return err
-	}
 	for name, activeTable := range m.cache.tables {
 		if activeTable.ClusterID == clusterID {
 			delete(m.cache.tables, name)
 		}
 	}
+}
+
+func (m *Manager) stopTable(clusterID uint64) error {
+	err := m.nh.StopCluster(clusterID)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func (m *Manager) LoadTableFromSnapshot(name string, reader io.Reader) error {
+	recoveryID, err := m.incAndGetIDSeq()
+	if err != nil {
+		return err
+	}
+
+	tbl, version, err := m.getTableVersion(name)
+	if err != nil && err != ErrTableDoesNotExist {
+		return err
+	}
+	tbl.Name = name
+	tbl.RecoverID = recoveryID
+
+	err = m.startTable(tbl.Name, tbl.RecoverID)
+	if err != nil {
+		return err
+	}
+
+	err = m.setTableVersion(tbl, version)
+	if err != nil {
+		return err
+	}
+
+	err = m.waitForLeader(tbl.RecoverID)
+	if err != nil {
+		return err
+	}
+
+	err = m.readIntoTable(tbl.RecoverID, reader)
+	if err != nil {
+		return err
+	}
+
+	tbl, version, err = m.getTableVersion(name)
+	if err != nil {
+		return err
+	}
+
+	tbl.ClusterID = tbl.RecoverID
+	tbl.RecoverID = 0
+	err = m.setTableVersion(tbl, version)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) getTableVersion(name string) (table.Table, uint64, error) {
+	v, err := m.store.Get(storedTableName(name))
+	if err != nil {
+		if err == kv.ErrNotExist {
+			return table.Table{}, 0, ErrTableDoesNotExist
+		}
+		return table.Table{}, 0, err
+	}
+	tab := table.Table{}
+	err = json.Unmarshal([]byte(v.Value), &tab)
+	return tab, v.Ver, err
+}
+
+func (m *Manager) setTableVersion(tbl table.Table, version uint64) error {
+	storeName := storedTableName(tbl.Name)
+	bts, err := json.Marshal(&tbl)
+	if err != nil {
+		return err
+	}
+	_, err = m.store.Set(storeName, string(bts), version)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
+	backOff := backoff.NewExponentialBackOff()
+	backOff.MaxElapsedTime = 0
+	session := m.nh.GetNoOPSession(id)
+	msg := make([]byte, 1024*1024*4)
+	for {
+		n, err := reader.Read(msg)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		err = backoff.Retry(func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			defer cancel()
+			_, err := m.nh.SyncPropose(ctx, session, msg[:n])
+			return err
+		}, backOff)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Manager) waitForLeader(clusterID uint64) error {
+	t := time.NewTicker(500 * time.Millisecond)
+	defer t.Stop()
+
+	// TODO make configurable
+	ctx, cancel := context.WithTimeout(context.Background(), m.reconcileInterval*2)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+			_, ok, _ := m.nh.GetLeaderID(clusterID)
+			if ok {
+				return nil
+			}
+		}
+	}
 }
 
 func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
@@ -333,11 +469,11 @@ func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
 		NodeID:                  nodeID,
 		ClusterID:               clusterID,
 		CheckQuorum:             true,
+		OrderedConfigChange:     true,
 		ElectionRTT:             cfg.ElectionRTT,
 		HeartbeatRTT:            cfg.HeartbeatRTT,
 		SnapshotEntries:         cfg.SnapshotEntries,
 		CompactionOverhead:      cfg.CompactionOverhead,
-		OrderedConfigChange:     true,
 		MaxInMemLogSize:         cfg.MaxInMemLogSize,
 		SnapshotCompressionType: config.Snappy,
 	}

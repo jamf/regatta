@@ -286,10 +286,10 @@ func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
 			logger.Debugf("%s", info)
 		},
 		WriteStallBegin: func(info pebble.WriteStallBeginInfo) {
-			logger.Warnf("%s", info)
+			logger.Infof("%s", info)
 		},
 		WriteStallEnd: func() {
-			logger.Warnf("write stall ending")
+			logger.Infof("write stall ending")
 		},
 	}
 }
