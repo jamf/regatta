@@ -101,6 +101,10 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		return fmt.Errorf("no table '%s' found: %v", req.GetTable(), err)
 	}
 
+	if req.LeaderIndex == 0 {
+		return fmt.Errorf("invalid leaderIndex: leaderIndex must be greater than 0")
+	}
+
 	rs, leaderBehind, err := l.readRaftState(t.ClusterID, req.LeaderIndex)
 	if err != nil {
 		return err
@@ -122,7 +126,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 	}
 
 	// Follower is behind and all entries can be sent from the leader's log.
-	return l.readLog(server, t.ClusterID, rs.FirstIndex+1, lastIndex)
+	return l.readLog(server, t.ClusterID, req.LeaderIndex, lastIndex)
 }
 
 func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.RaftState, leaderBehind bool, err error) {
@@ -141,7 +145,7 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 		}
 	}()
 
-	leaderIndex = uint64(math.Max(float64(leaderIndex-1), float64(1)))
+	leaderIndex = uint64(math.Max(float64(leaderIndex)-1, float64(1)))
 	rs, err = l.DB.ReadRaftState(clusterID, l.NodeID, leaderIndex)
 	if err != nil {
 		err = fmt.Errorf("could not get raft state: %v", err)
@@ -204,10 +208,8 @@ func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
 	cmd := &proto.Command{}
 	if e.Type != raftpb.EncodedEntry {
 		cmd.Type = proto.Command_BUMP_INDEX
-	} else {
-		if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
-			return nil, err
-		}
+	} else if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
+		return nil, err
 	}
 	cmd.LeaderIndex = &e.Index
 	return cmd, nil
