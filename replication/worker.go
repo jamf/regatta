@@ -2,8 +2,10 @@ package replication
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/lni/dragonboat/v3"
@@ -30,7 +32,7 @@ func (f workerFactory) Create(table string) *worker {
 		tm:             f.tm,
 		nh:             f.nh,
 		interval:       f.interval,
-		timeout:        5 * time.Second,
+		timeout:        f.timeout,
 		Table:          table,
 		closer:         make(chan struct{}),
 		log:            f.log.Named(table),
@@ -63,37 +65,10 @@ func (l *worker) Start() {
 				if !l.tm.IsLeader() {
 					continue
 				}
-
-				t, err := l.tm.GetTable(l.Table)
+				err := l.do()
 				if err != nil {
-					l.log.Errorf("could not find table '%s': %v", l.Table, err)
-					continue
+					l.log.Warnf("log replication error %v", err)
 				}
-
-				ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
-				idxRes, err := t.LeaderIndex(ctx)
-				if err != nil {
-					cancel()
-					l.log.Errorf("could not get leader index key: %v", err)
-					continue
-				}
-
-				replicateRequest := &proto.ReplicateRequest{
-					LeaderIndex: idxRes.Index + 1,
-					Table:       []byte(l.Table),
-				}
-
-				stream, err := l.logClient.Replicate(ctx, replicateRequest)
-				if err != nil {
-					cancel()
-					l.log.Errorf("log replicate request failed: %v", err)
-					continue
-				}
-
-				if err = l.read(ctx, stream, t.ClusterID); err != nil {
-					l.log.Warnf("could not replicate the log: %v", err)
-				}
-				cancel()
 			case <-l.closer:
 				l.log.Info("log replication stopped")
 				return
@@ -101,6 +76,47 @@ func (l *worker) Start() {
 		}
 	}()
 }
+
+func (l worker) do() error {
+	t, err := l.tm.GetTable(l.Table)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
+	defer cancel()
+	idxRes, err := t.LeaderIndex(ctx)
+	if err != nil {
+		return fmt.Errorf("could not get leader index key: %w", err)
+	}
+
+	replicateRequest := &proto.ReplicateRequest{
+		LeaderIndex: idxRes.Index + 1,
+		Table:       []byte(l.Table),
+	}
+
+	stream, err := l.logClient.Replicate(ctx, replicateRequest)
+	if err != nil {
+		return fmt.Errorf("could not open log stream: %w", err)
+	}
+
+	if err = l.read(ctx, stream, t.ClusterID); err != nil {
+		switch err {
+		case ErrUseSnapshot:
+			return l.recover(ctx, t.Name, 3*time.Hour)
+		case ErrLeaderBehind:
+			return ErrLeaderBehind
+		default:
+			return fmt.Errorf("could not store the log stream: %w", err)
+		}
+	}
+	return nil
+}
+
+var (
+	ErrLeaderBehind = errors.New("leader behind")
+	ErrUseSnapshot  = errors.New("leader behind")
+)
 
 // read commands from the stream and save them to the cluster.
 func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
@@ -115,17 +131,16 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 
 		switch res := replicateRes.Response.(type) {
 		case *proto.ReplicateResponse_CommandsResponse:
-			if err := l.proposeBatch(res.CommandsResponse.GetCommands(), clusterID); err != nil {
-				return fmt.Errorf("could not propose: %v", err)
+			if err := l.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
+				return fmt.Errorf("could not propose: %w", err)
 			}
 		case *proto.ReplicateResponse_ErrorResponse:
 			if res.ErrorResponse.Error == proto.ReplicateError_LEADER_BEHIND {
-				return fmt.Errorf("leader behind")
+				return ErrLeaderBehind
 			}
 
 			if res.ErrorResponse.Error == proto.ReplicateError_USE_SNAPSHOT {
-				// TODO: Call Coufy's Snapshot.Recover.
-				return nil
+				return ErrUseSnapshot
 			}
 
 			return fmt.Errorf(
@@ -140,25 +155,63 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 // Close stops the log replication.
 func (l *worker) Close() { close(l.closer) }
 
-func (l *worker) proposeBatch(cc []*proto.ReplicateCommand, clusterID uint64) error {
-	propose := func(bytes []byte) error {
-		ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
-		defer cancel()
-		if _, err := l.nh.SyncPropose(ctx, l.nh.GetNoOPSession(clusterID), bytes); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	for _, c := range cc {
+func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
+	for _, c := range commands {
 		bytes, err := pb.Marshal(c.Command)
 		if err != nil {
-			return fmt.Errorf("could not marshal command: %v", err)
+			return fmt.Errorf("could not marshal command: %w", err)
 		}
 
-		if err = propose(bytes); err != nil {
-			return fmt.Errorf("could not SyncPropose: %v", err)
+		if _, err := l.nh.SyncPropose(ctx, l.nh.GetNoOPSession(clusterID), bytes); err != nil {
+			return fmt.Errorf("could not SyncPropose: %w", err)
 		}
 	}
 	return nil
+}
+
+func (l *worker) recover(ctx context.Context, name string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	stream, err := l.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(name)})
+	if err != nil {
+		return err
+	}
+
+	sf, err := newSnapshotFile(os.TempDir(), snapshotFilenamePattern)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := sf.Close()
+		if err != nil {
+			return
+		}
+		_ = os.Remove(sf.Path())
+	}()
+
+	reader := snapshotReader{stream: stream}
+	buffer := make([]byte, 4*1024*1024)
+	for {
+		n, err := reader.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		_, err = sf.Write(buffer[:n])
+		if err != nil {
+			return err
+		}
+	}
+	err = sf.Sync()
+	if err != nil {
+		return err
+	}
+	_, err = sf.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	return l.tm.LoadTableFromSnapshot(name, sf)
 }
