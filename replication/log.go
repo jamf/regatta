@@ -68,7 +68,7 @@ func (l *Log) Replicate() {
 				}
 
 				replicateRequest := &proto.ReplicateRequest{
-					LeaderIndex: idxRes.Index,
+					LeaderIndex: idxRes.Index + 1,
 					Table:       []byte(l.Table),
 				}
 
