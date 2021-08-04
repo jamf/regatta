@@ -46,7 +46,6 @@ type Manager struct {
 	}
 	log    *zap.SugaredLogger
 	closer chan struct{}
-	logc   proto.LogClient
 	nh     *dragonboat.NodeHost
 }
 

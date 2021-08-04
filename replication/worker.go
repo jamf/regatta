@@ -15,6 +15,11 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
+var (
+	ErrLeaderBehind = errors.New("leader behind")
+	ErrUseSnapshot  = errors.New("use snapshot")
+)
+
 type workerFactory struct {
 	interval       time.Duration
 	timeout        time.Duration
@@ -63,10 +68,14 @@ func (l *worker) Start() {
 			select {
 			case <-t.C:
 				if !l.tm.IsLeader() {
+					l.log.Debug("skipping replication - not a leader")
 					continue
 				}
-				err := l.do()
-				if err != nil {
+				if err := l.do(); err != nil {
+					if err == ErrLeaderBehind {
+						l.log.Errorf("the leader log is behind the replication will stop")
+						return
+					}
 					l.log.Warnf("log replication error %v", err)
 				}
 			case <-l.closer:
@@ -113,11 +122,6 @@ func (l worker) do() error {
 	return nil
 }
 
-var (
-	ErrLeaderBehind = errors.New("leader behind")
-	ErrUseSnapshot  = errors.New("leader behind")
-)
-
 // read commands from the stream and save them to the cluster.
 func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
 	for {
@@ -153,7 +157,7 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 }
 
 // Close stops the log replication.
-func (l *worker) Close() { close(l.closer) }
+func (l *worker) Close() { l.closer <- struct{}{} }
 
 func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
 	for _, c := range commands {
@@ -170,6 +174,7 @@ func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCo
 }
 
 func (l *worker) recover(ctx context.Context, name string, timeout time.Duration) error {
+	l.log.Info("recovering from snapshot")
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	stream, err := l.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(name)})
@@ -212,6 +217,11 @@ func (l *worker) recover(ctx context.Context, name string, timeout time.Duration
 	if err != nil {
 		return err
 	}
-
-	return l.tm.LoadTableFromSnapshot(name, sf)
+	l.log.Info("snapshot stream saved, loading table")
+	err = l.tm.LoadTableFromSnapshot(name, sf)
+	if err != nil {
+		return err
+	}
+	l.log.Info("table recovered")
+	return nil
 }
