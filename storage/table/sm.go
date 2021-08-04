@@ -174,6 +174,10 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			return nil, err
 		}
 		buf.Reset()
+		if cmd.Type == proto.Command_BUMP_INDEX {
+			continue
+		}
+
 		k := key.Key{
 			KeyType: key.TypeUser,
 			Key:     cmd.Kv.Key,
