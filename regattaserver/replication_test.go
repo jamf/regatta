@@ -2,9 +2,9 @@ package regattaserver
 
 import (
 	"context"
-	"github.com/lni/dragonboat/v3/raftpb"
 	"testing"
 
+	"github.com/lni/dragonboat/v3/raftpb"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
@@ -120,9 +120,11 @@ func TestLogServer_EntryToCommand(t *testing.T) {
 				Type: raftpb.EncodedEntry,
 				Cmd:  []byte{0, 10, 12, 114, 101, 103, 97, 116, 116, 97, 45, 116, 101, 115, 116, 26, 23, 10, 12, 49, 54, 50, 56, 48, 48, 50, 54, 52, 57, 95, 48, 34, 7, 118, 97, 108, 117, 101, 95, 48},
 			},
-			wantCmd: &proto.Command{Kv: &proto.KeyValue{
-				Key:   []byte("1628002649_0"),
-				Value: []byte("value_0")},
+			wantCmd: &proto.Command{
+				Kv: &proto.KeyValue{
+					Key:   []byte("1628002649_0"),
+					Value: []byte("value_0"),
+				},
 				Table:       []byte("regatta-test"),
 				LeaderIndex: &zero,
 			},
