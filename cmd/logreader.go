@@ -86,10 +86,7 @@ func logReader(_ *cobra.Command, _ []string) {
 		switch res := res.Response.(type) {
 		case *proto.ReplicateResponse_CommandsResponse:
 			for _, v := range res.CommandsResponse.Commands {
-				log.Printf(
-					"LeaderIndex: %d, table: '%s', key: '%s', value: '%s'\n",
-					v.LeaderIndex, v.Command.Table, v.Command.Kv.Key, v.Command.Kv.Value,
-				)
+				log.Printf("%+v\n", v)
 			}
 		case *proto.ReplicateResponse_ErrorResponse:
 			log.Printf("Error response: %s", res.ErrorResponse.Error.String())
