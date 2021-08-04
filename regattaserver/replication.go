@@ -137,7 +137,7 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 				// When the leader is behind, ReadRaftState causes panic with
 				// a string that starts with "first index".
 				leaderBehind = true
-				l.Log.Warnf("leader behind - %s", msg)
+				l.Log.Warnf("leader behind - %s (leaderIndex %d)", msg, leaderIndex)
 			} else {
 				// Something else caused the panic, so re-raise it.
 				panic(errRec)

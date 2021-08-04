@@ -175,6 +175,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		}
 		buf.Reset()
 		if cmd.Type == proto.Command_BUMP_INDEX {
+			updates[i].Result = sm.Result{Value: 1}
 			continue
 		}
 
@@ -199,13 +200,6 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		updates[i].Result = sm.Result{Value: 1}
 	}
 
-	// Set local index
-	idx := make([]byte, 8)
-	binary.LittleEndian.PutUint64(idx, updates[len(updates)-1].Index)
-	if err := batch.Set(sysLocalIndex, idx, nil); err != nil {
-		return nil, err
-	}
-
 	// Set leader index if present in the proposal
 	if cmd.LeaderIndex != nil {
 		leaderIdx := make([]byte, 8)
@@ -213,6 +207,13 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		if err := batch.Set(sysLeaderIndex, leaderIdx, nil); err != nil {
 			return nil, err
 		}
+	}
+
+	// Set local index
+	idx := make([]byte, 8)
+	binary.LittleEndian.PutUint64(idx, updates[len(updates)-1].Index)
+	if err := batch.Set(sysLocalIndex, idx, nil); err != nil {
+		return nil, err
 	}
 
 	if err := batch.Commit(p.wo); err != nil {
