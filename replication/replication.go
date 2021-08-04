@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
 func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
 	return &Manager{
 		Interval: 30 * time.Second,
@@ -37,6 +38,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 	}
 }
 
+// Manager schedules replication workers.
 type Manager struct {
 	Interval time.Duration
 	tm       *tables.Manager
@@ -51,6 +53,7 @@ type Manager struct {
 	nh     *dragonboat.NodeHost
 }
 
+// Start starts the replication manager goroutine, Close will stop it.
 func (m *Manager) Start() {
 	go func() {
 		err := m.tm.WaitUntilReady()
@@ -110,6 +113,7 @@ func (m *Manager) reconcile() error {
 	return nil
 }
 
+// Close will stop replication goroutine - could be called just once.
 func (m *Manager) Close() {
 	m.workers.mtx.Lock()
 	defer m.workers.mtx.Unlock()
