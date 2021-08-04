@@ -1,86 +1,15 @@
 package replication
 
 import (
-	"context"
 	"encoding/binary"
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/tables"
-	"go.uber.org/zap"
 )
 
 const snapshotFilenamePattern = "snapshot-*.bin"
-
-// NewSnapshot returns a new instance of Snapshot replicator.
-func NewSnapshot(client proto.SnapshotClient, manager *tables.Manager) *Snapshot {
-	return &Snapshot{
-		SnapshotClient: client,
-		TableManager:   manager,
-		Timeout:        1 * time.Hour,
-		closer:         make(chan struct{}),
-		log:            zap.S().Named("replication").Named("snapshot"),
-	}
-}
-
-// Snapshot connects to the snapshot service and obtains Raw snapshot data.
-type Snapshot struct {
-	SnapshotClient proto.SnapshotClient
-	TableManager   *tables.Manager
-	Timeout        time.Duration
-	closer         chan struct{}
-	log            *zap.SugaredLogger
-}
-
-func (s *Snapshot) Recover(ctx context.Context, name string) error {
-	ctx, cancel := context.WithTimeout(ctx, s.Timeout)
-	defer cancel()
-	stream, err := s.SnapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(name)})
-	if err != nil {
-		return err
-	}
-
-	sf, err := newSnapshotFile(os.TempDir(), snapshotFilenamePattern)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := sf.Close()
-		if err != nil {
-			return
-		}
-		_ = os.Remove(sf.Path())
-	}()
-
-	reader := snapshotReader{stream: stream}
-	buffer := make([]byte, 4*1024*1024)
-	for {
-		n, err := reader.Read(buffer)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		_, err = sf.Write(buffer[:n])
-		if err != nil {
-			return err
-		}
-	}
-	err = sf.Sync()
-	if err != nil {
-		return err
-	}
-	_, err = sf.Seek(0, io.SeekStart)
-	if err != nil {
-		return err
-	}
-
-	return s.TableManager.LoadTableFromSnapshot(name, sf)
-}
 
 type snapshotReader struct {
 	stream proto.Snapshot_StreamClient
