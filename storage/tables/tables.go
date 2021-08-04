@@ -212,13 +212,19 @@ func (m *Manager) reconcile() error {
 	if err != nil {
 		return err
 	}
+	for _, t := range tabs {
+		m.cacheTable(t)
+	}
+
 	start, stop := diffTables(tabs, m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption).ClusterInfoList)
 	for id, tbl := range start {
 		err = m.startTable(tbl.Name, id)
 		if err != nil {
 			return err
 		}
+		m.cacheTable(tbl)
 	}
+
 	for _, tab := range stop {
 		err = m.stopTable(tab)
 		if err != nil {
@@ -227,9 +233,6 @@ func (m *Manager) reconcile() error {
 		m.clearTable(tab)
 	}
 
-	for _, t := range tabs {
-		m.cacheTable(t)
-	}
 	return nil
 }
 
