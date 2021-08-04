@@ -62,6 +62,7 @@ func (m *Manager) Start() {
 	go func() {
 		err := m.tm.WaitUntilReady()
 		if err != nil {
+			m.log.Errorf("manager failed to start: %v", err)
 			return
 		}
 
