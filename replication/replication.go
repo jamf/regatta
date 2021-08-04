@@ -11,6 +11,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+type workerCreator interface {
+	Create(table string) *worker
+}
+
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
 func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
 	return &Manager{
@@ -42,7 +46,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 type Manager struct {
 	Interval time.Duration
 	tm       *tables.Manager
-	factory  workerFactory
+	factory  workerCreator
 	workers  struct {
 		registry map[string]*worker
 		mtx      sync.Mutex
@@ -66,9 +70,8 @@ func (m *Manager) Start() {
 		for {
 			select {
 			case <-t.C:
-				err := m.reconcile()
-				if err != nil {
-					return
+				if err := m.reconcile(); err != nil {
+					m.log.Warnf("reconciler error: %v", err)
 				}
 			case <-m.closer:
 				m.log.Info("replication stopped")
@@ -108,6 +111,7 @@ func (m *Manager) reconcile() error {
 			m.log.Infof("stopping replication for table %s", name)
 			worker.Close()
 			m.workers.wg.Done()
+			delete(m.workers.registry, name)
 		}
 	}
 	return nil
@@ -115,6 +119,8 @@ func (m *Manager) reconcile() error {
 
 // Close will stop replication goroutine - could be called just once.
 func (m *Manager) Close() {
+	m.closer <- struct{}{}
+
 	m.workers.mtx.Lock()
 	defer m.workers.mtx.Unlock()
 
@@ -122,7 +128,7 @@ func (m *Manager) Close() {
 		m.log.Infof("stopping replication for table %s", name)
 		worker.Close()
 		m.workers.wg.Done()
+		delete(m.workers.registry, name)
 	}
 	m.workers.wg.Wait()
-	close(m.closer)
 }
