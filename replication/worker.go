@@ -76,7 +76,7 @@ func (l *worker) Start() {
 						l.log.Errorf("the leader log is behind the replication will stop")
 						return
 					}
-					l.log.Warnf("log replication error %v", err)
+					l.log.Warnf("worker error %v", err)
 				}
 			case <-l.closer:
 				l.log.Info("log replication stopped")
