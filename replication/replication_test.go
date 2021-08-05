@@ -9,6 +9,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/lni/vfs"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/storage/tables"
@@ -51,6 +52,11 @@ func TestManager_reconcile(t *testing.T) {
 		nh:       m.nh,
 		tm:       m.tm,
 		closer:   make(chan struct{}),
+		metrics: struct {
+			leaderIndex *prometheus.GaugeVec
+		}{
+			leaderIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "leader_index", Help: "Leader index"}, []string{"worker"}),
+		},
 	})
 
 	wf.On("create", "test2").Once().Return(&worker{
@@ -60,6 +66,11 @@ func TestManager_reconcile(t *testing.T) {
 		nh:       m.nh,
 		tm:       m.tm,
 		closer:   make(chan struct{}),
+		metrics: struct {
+			leaderIndex *prometheus.GaugeVec
+		}{
+			leaderIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "leader_index", Help: "Leader index"}, []string{"worker"}),
+		},
 	})
 
 	r.NoError(followerTM.CreateTable("test"))
