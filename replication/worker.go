@@ -21,40 +21,43 @@ var (
 )
 
 type workerFactory struct {
-	interval       time.Duration
-	timeout        time.Duration
-	tm             *tables.Manager
-	log            *zap.SugaredLogger
-	nh             *dragonboat.NodeHost
-	logClient      proto.LogClient
-	snapshotClient proto.SnapshotClient
+	interval        time.Duration
+	logTimeout      time.Duration
+	snapshotTimeout time.Duration
+	tm              *tables.Manager
+	log             *zap.SugaredLogger
+	nh              *dragonboat.NodeHost
+	logClient       proto.LogClient
+	snapshotClient  proto.SnapshotClient
 }
 
-func (f workerFactory) Create(table string) *worker {
+func (f *workerFactory) create(table string) *worker {
 	return &worker{
-		logClient:      f.logClient,
-		snapshotClient: f.snapshotClient,
-		tm:             f.tm,
-		nh:             f.nh,
-		interval:       f.interval,
-		timeout:        f.timeout,
-		Table:          table,
-		closer:         make(chan struct{}),
-		log:            f.log.Named(table),
+		logClient:       f.logClient,
+		snapshotClient:  f.snapshotClient,
+		tm:              f.tm,
+		nh:              f.nh,
+		interval:        f.interval,
+		logTimeout:      f.logTimeout,
+		snapshotTimeout: f.snapshotTimeout,
+		Table:           table,
+		closer:          make(chan struct{}),
+		log:             f.log.Named(table),
 	}
 }
 
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
-	interval       time.Duration
-	timeout        time.Duration
-	tm             *tables.Manager
-	Table          string
-	closer         chan struct{}
-	log            *zap.SugaredLogger
-	nh             *dragonboat.NodeHost
-	logClient      proto.LogClient
-	snapshotClient proto.SnapshotClient
+	interval        time.Duration
+	logTimeout      time.Duration
+	snapshotTimeout time.Duration
+	tm              *tables.Manager
+	Table           string
+	closer          chan struct{}
+	log             *zap.SugaredLogger
+	nh              *dragonboat.NodeHost
+	logClient       proto.LogClient
+	snapshotClient  proto.SnapshotClient
 }
 
 // Start launches the replication goroutine. To stop it, call worker.Close.
@@ -76,7 +79,7 @@ func (l *worker) Start() {
 						l.log.Errorf("the leader log is behind the replication will stop")
 						return
 					}
-					l.log.Warnf("log replication error %v", err)
+					l.log.Warnf("worker error %v", err)
 				}
 			case <-l.closer:
 				l.log.Info("log replication stopped")
@@ -92,7 +95,7 @@ func (l worker) do() error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
 	defer cancel()
 	idxRes, err := t.LeaderIndex(ctx)
 	if err != nil {
@@ -112,7 +115,7 @@ func (l worker) do() error {
 	if err = l.read(ctx, stream, t.ClusterID); err != nil {
 		switch err {
 		case ErrUseSnapshot:
-			return l.recover(ctx, t.Name, 3*time.Hour)
+			return l.recover()
 		case ErrLeaderBehind:
 			return ErrLeaderBehind
 		default:
@@ -173,11 +176,11 @@ func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCo
 	return nil
 }
 
-func (l *worker) recover(ctx context.Context, name string, timeout time.Duration) error {
+func (l *worker) recover() error {
 	l.log.Info("recovering from snapshot")
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), l.snapshotTimeout)
 	defer cancel()
-	stream, err := l.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(name)})
+	stream, err := l.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(l.Table)})
 	if err != nil {
 		return err
 	}
@@ -218,7 +221,7 @@ func (l *worker) recover(ctx context.Context, name string, timeout time.Duration
 		return err
 	}
 	l.log.Info("snapshot stream saved, loading table")
-	err = l.tm.LoadTableFromSnapshot(name, sf)
+	err = l.tm.LoadTableFromSnapshot(l.Table, sf)
 	if err != nil {
 		return err
 	}

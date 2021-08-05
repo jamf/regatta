@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestWorker_recover(t *testing.T) {
+func Test_worker_recover(t *testing.T) {
 	r := require.New(t)
 	t.Log("start leader Raft")
 	leaderNH, leaderAddresses, err := startRaftNode()
@@ -57,16 +57,17 @@ func TestWorker_recover(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(metaSrv.Addr, grpc.WithInsecure())
 	r.NoError(err)
-	w := &worker{tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
+	w := &worker{Table: "test", snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
 
 	t.Log("recover table from leader")
-	r.NoError(w.recover(context.Background(), "test", 30*time.Second))
+	r.NoError(w.recover())
 	tab, err := followerTM.GetTable("test")
 	r.NoError(err)
 	r.Equal("test", tab.Name)
 
+	w = &worker{Table: "test2", snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
 	t.Log("recover second table from leader")
-	r.NoError(w.recover(context.Background(), "test2", 30*time.Second))
+	r.NoError(w.recover())
 	tab, err = followerTM.GetTable("test2")
 	r.NoError(err)
 	r.Equal("test2", tab.Name)

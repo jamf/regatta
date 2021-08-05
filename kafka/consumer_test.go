@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"log"
 	"os"
 	"sync"
 	"testing"
@@ -21,12 +20,7 @@ var (
 )
 
 func setup() {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer logger.Sync()
-	zap.ReplaceGlobals(logger)
+	zap.ReplaceGlobals(zap.NewNop())
 
 	msgs = []kafka.Message{
 		{

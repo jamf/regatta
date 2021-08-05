@@ -388,6 +388,7 @@ func (m *Manager) LoadTableFromSnapshot(name string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
+	m.cacheTable(tbl)
 	return nil
 }
 
