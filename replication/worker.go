@@ -45,10 +45,14 @@ func (f *workerFactory) create(table string) *worker {
 		closer:          make(chan struct{}),
 		log:             f.log.Named(table),
 		metrics: struct {
-			leaderIndex *prometheus.GaugeVec
+			replicationIndex *prometheus.GaugeVec
 		}{
-			leaderIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{Name: "leader_index", Help: "Leader index"}, []string{"worker"}),
+			replicationIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "replication_index",
+					Help: "Replication index",
+				}, []string{"follower"},
+			),
 		},
 	}
 }
@@ -66,7 +70,7 @@ type worker struct {
 	logClient       proto.LogClient
 	snapshotClient  proto.SnapshotClient
 	metrics         struct {
-		leaderIndex *prometheus.GaugeVec
+		replicationIndex *prometheus.GaugeVec
 	}
 }
 
@@ -104,26 +108,12 @@ func (l *worker) Close() { l.closer <- struct{}{} }
 
 // Collect worker's metrics.
 func (l *worker) Collect(ch chan<- prometheus.Metric) {
-	t, err := l.tm.GetTable(l.Table)
-	if err != nil {
-		l.log.Errorf("cannot find table '%s': %v", l.Table, err)
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
-	defer cancel()
-	idx, err := t.LeaderIndex(ctx)
-	if err != nil {
-		l.log.Errorf("cannot get leaderIndex for table '%s': %v", l.Table, err)
-		return
-	}
-
-	l.metrics.leaderIndex.With(prometheus.Labels{"worker": l.Table}).Set(float64(idx.Index))
-	l.metrics.leaderIndex.Collect(ch)
+	l.metrics.replicationIndex.Collect(ch)
 }
 
 // Describe worker's metrics.
 func (l *worker) Describe(ch chan<- *prometheus.Desc) {
-	l.metrics.leaderIndex.Describe(ch)
+	l.metrics.replicationIndex.Describe(ch)
 }
 
 func (l worker) do() error {
@@ -138,6 +128,7 @@ func (l worker) do() error {
 	if err != nil {
 		return fmt.Errorf("could not get leader index key: %w", err)
 	}
+	l.metrics.replicationIndex.With(prometheus.Labels{"follower": l.Table}).Set(float64(idxRes.Index))
 
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: idxRes.Index + 1,

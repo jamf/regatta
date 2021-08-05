@@ -9,7 +9,9 @@ import (
 
 	"github.com/lni/dragonboat/v3/raftio"
 	"github.com/lni/dragonboat/v3/raftpb"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -95,12 +97,68 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 
 // LogServer implements Log service from proto/replication.proto.
 type LogServer struct {
-	DB     raftio.ILogDB
-	Tables TableService
-	NodeID uint64
-	Log    *zap.SugaredLogger
+	DB      raftio.ILogDB
+	Tables  TableService
+	NodeID  uint64
+	Log     *zap.SugaredLogger
+	metrics struct {
+		replicationIndex *prometheus.GaugeVec
+	}
 
 	proto.UnimplementedLogServer
+}
+
+func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger) *LogServer {
+	return &LogServer{
+		Tables: tm,
+		DB:     db,
+		NodeID: tm.NodeID(),
+		Log:    logger.Sugar().Named("log-replication-server"),
+		metrics: struct {
+			replicationIndex *prometheus.GaugeVec
+		}{
+			replicationIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "replication_index",
+					Help: "Replication index",
+				}, []string{"leader"},
+			),
+		},
+	}
+}
+
+// Collect leader's metrics.
+func (l *LogServer) Collect(ch chan<- prometheus.Metric) {
+	tt, err := l.Tables.GetTables()
+	if err != nil {
+		l.Log.Errorf("cannot read tables: %v", err)
+		return
+	}
+
+	for _, t := range tt {
+		table, err := l.Tables.GetTable(t.Name)
+		if err != nil {
+			l.Log.Errorf("cannot get '%s' as active table: %v", t.Name, err)
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		idx, err := table.LocalIndex(ctx)
+		if err != nil {
+			l.Log.Errorf("cannot get local index for table '%s': %v", table.Name, err)
+			cancel()
+			continue
+		}
+		l.metrics.replicationIndex.With(prometheus.Labels{"leader": table.Name}).Set(float64(idx.Index))
+		cancel()
+	}
+
+	l.metrics.replicationIndex.Collect(ch)
+}
+
+// Describe leader's metrics.
+func (l *LogServer) Describe(ch chan<- *prometheus.Desc) {
+	l.metrics.replicationIndex.Describe(ch)
 }
 
 var (
