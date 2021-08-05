@@ -22,13 +22,14 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 		Interval: 30 * time.Second,
 		tm:       tm,
 		factory: &workerFactory{
-			interval:       10 * time.Second,
-			timeout:        5 * time.Minute,
-			tm:             tm,
-			log:            replicationLog,
-			nh:             nh,
-			logClient:      proto.NewLogClient(conn),
-			snapshotClient: proto.NewSnapshotClient(conn),
+			interval:        10 * time.Second,
+			logTimeout:      5 * time.Minute,
+			snapshotTimeout: 1 * time.Hour,
+			tm:              tm,
+			log:             replicationLog,
+			nh:              nh,
+			logClient:       proto.NewLogClient(conn),
+			snapshotClient:  proto.NewSnapshotClient(conn),
 		},
 		workers: struct {
 			registry map[string]*worker
