@@ -140,12 +140,12 @@ func (t *ActiveTable) Hash(ctx context.Context, req *proto.HashRequest) (*proto.
 }
 
 // Snapshot streams snapshot to the provided writer.
-func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) error {
-	_, err := t.nh.SyncRead(ctx, t.ClusterID, SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
+func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) (*SnapshotResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return val.(*SnapshotResponse), nil
 }
 
 // LocalIndex returns local index.
@@ -166,15 +166,21 @@ func (t *ActiveTable) LeaderIndex(ctx context.Context) (*IndexResponse, error) {
 	return val.(*IndexResponse), nil
 }
 
+// SnapshotRequest to write Command snapshot into provided writer.
 type SnapshotRequest struct {
 	Writer  io.Writer
 	Stopper <-chan struct{}
 }
 
-// IndexRequest to read local index.
+// SnapshotResponse returns local index to which the snapshot was created.
+type SnapshotResponse struct {
+	Index uint64
+}
+
+// LocalIndexRequest to read local index.
 type LocalIndexRequest struct{}
 
-// IndexRequest to read local index.
+// LeaderIndexRequest to read leader index.
 type LeaderIndexRequest struct{}
 
 // IndexResponse returns local index.
