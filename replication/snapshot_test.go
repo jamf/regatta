@@ -1,15 +1,12 @@
 package replication
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/regattaserver"
-	"github.com/wandera/regatta/storage/tables"
 	pb "google.golang.org/protobuf/proto"
 )
 
@@ -52,17 +49,4 @@ func Test_snapshotFile_Write(t *testing.T) {
 	r.NoError(err)
 	r.NoError(sf.Sync())
 	r.Equal(len(bts)+8, n)
-}
-
-func startSnapshotServer(manager *tables.Manager) *regattaserver.RegattaServer {
-	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, false)
-	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			panic(err)
-		}
-	}()
-	return server
 }

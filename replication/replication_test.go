@@ -1,9 +1,14 @@
 package replication
 
 import (
+	"fmt"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/lni/dragonboat/v3"
+	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/vfs"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/storage/tables"
@@ -26,7 +31,7 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(err)
 
 	t.Log("create follower table manager")
-	followerTM := tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig)
+	followerTM := tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
 	r.NoError(followerTM.Start())
 	r.NoError(followerTM.WaitUntilReady())
 	defer followerTM.Close()
@@ -74,4 +79,29 @@ func TestManager_reconcile(t *testing.T) {
 
 	m.Close()
 	r.Empty(m.workers.registry)
+}
+
+func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
+	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+	nhc := config.NodeHostConfig{
+		WALDir:         "wal",
+		NodeHostDir:    "dragonboat",
+		RTTMillisecond: 1,
+		RaftAddress:    testNodeAddress,
+	}
+	_ = nhc.Prepare()
+	nhc.Expert.FS = vfs.NewMem()
+	nhc.Expert.Engine.ExecShards = 1
+	nhc.Expert.LogDB.Shards = 1
+	nh, err := dragonboat.NewNodeHost(nhc)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nh, map[uint64]string{1: testNodeAddress}, nil
+}
+
+func getTestPort() int {
+	l, _ := net.Listen("tcp", ":0")
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }
