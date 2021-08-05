@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lni/dragonboat/v3"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
@@ -93,6 +94,9 @@ func (m *Manager) reconcile() error {
 		if _, ok := m.workers.registry[tbl.Name]; !ok {
 			worker := m.factory.create(tbl.Name)
 			m.startWorker(worker)
+			if err := prometheus.Register(worker); err != nil {
+				m.log.Errorf("cannot register metrics for worker '%s': %v", tbl.Name, err)
+			}
 		}
 	}
 
@@ -106,6 +110,9 @@ func (m *Manager) reconcile() error {
 		}
 		if !found {
 			m.stopWorker(worker)
+			if !prometheus.Unregister(worker) {
+				m.log.Infof("cannot unregister metrics for worker '%s'", name)
+			}
 		}
 	}
 	return nil
