@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lni/dragonboat/v3"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
@@ -44,7 +45,19 @@ func Test_worker_do(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
 	r.NoError(err)
-	w := &worker{Table: "test", logTimeout: time.Minute, tm: followerTM, logClient: proto.NewLogClient(conn), nh: followerNH, log: zaptest.NewLogger(t).Sugar()}
+	w := &worker{
+		Table:      "test",
+		logTimeout: time.Minute,
+		tm:         followerTM,
+		logClient:  proto.NewLogClient(conn),
+		nh:         followerNH,
+		log:        zaptest.NewLogger(t).Sugar(),
+		metrics: struct {
+			replicationIndex *prometheus.GaugeVec
+		}{
+			replicationIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "replication_index", Help: "Replication index"}, []string{"follower"}),
+		},
+	}
 	r.NoError(w.do())
 	table, err := followerTM.GetTable("test")
 	r.NoError(err)

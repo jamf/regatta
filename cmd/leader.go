@@ -252,14 +252,14 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
+
+	ls := regattaserver.NewLogServer(manager, db, logger)
 	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterLogServer(replication, &regattaserver.LogServer{
-		Tables: manager,
-		DB:     db,
-		NodeID: manager.NodeID(),
-		Log:    logger.Sugar().Named("log-replication-server"),
-	})
+	proto.RegisterLogServer(replication, ls)
+
+	prometheus.MustRegister(ls)
+
 	return replication
 }
 

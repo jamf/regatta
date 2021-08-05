@@ -53,9 +53,9 @@ func TestManager_reconcile(t *testing.T) {
 		tm:       m.tm,
 		closer:   make(chan struct{}),
 		metrics: struct {
-			leaderIndex *prometheus.GaugeVec
+			replicationIndex *prometheus.GaugeVec
 		}{
-			leaderIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "leader_index", Help: "Leader index"}, []string{"worker"}),
+			replicationIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "replication_index", Help: "Replication index"}, []string{"follower"}),
 		},
 	})
 
@@ -67,9 +67,9 @@ func TestManager_reconcile(t *testing.T) {
 		tm:       m.tm,
 		closer:   make(chan struct{}),
 		metrics: struct {
-			leaderIndex *prometheus.GaugeVec
+			replicationIndex *prometheus.GaugeVec
 		}{
-			leaderIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "leader_index", Help: "Leader index"}, []string{"worker"}),
+			replicationIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "replication_index", Help: "Replication index"}, []string{"follower"}),
 		},
 	})
 
