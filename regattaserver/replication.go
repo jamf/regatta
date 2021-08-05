@@ -119,8 +119,8 @@ func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger) *Log
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
+					Name: "replication_index",
+					Help: "Replication index",
 				}, []string{"leader"},
 			),
 		},
