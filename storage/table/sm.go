@@ -282,11 +282,11 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		}
 		return &proto.HashResponse{Hash: hash}, nil
 	case SnapshotRequest:
-		_, err := p.commandSnapshot(req.Writer, req.Stopper)
+		idx, err := p.commandSnapshot(req.Writer, req.Stopper)
 		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return &SnapshotResponse{Index: idx}, nil
 	case LocalIndexRequest:
 		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 		idx, err := readLocalIndex(db, sysLocalIndex)
@@ -344,26 +344,32 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 				return 0, err
 			}
 			if k.KeyType == key.TypeUser {
-				bts, err := pb.Marshal(&proto.Command{
+				if err := writeCommand(w, &proto.Command{
 					Table: []byte(p.tableName),
 					Type:  proto.Command_PUT,
 					Kv: &proto.KeyValue{
 						Key:   k.Key,
 						Value: iter.Value(),
 					},
-					LeaderIndex: &idx,
-				})
-				if err != nil {
-					return 0, err
-				}
-				_, err = w.Write(bts)
-				if err != nil {
+				}); err != nil {
 					return 0, err
 				}
 			}
 		}
 	}
 	return idx, nil
+}
+
+func writeCommand(w io.Writer, command *proto.Command) error {
+	bts, err := pb.Marshal(command)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(bts)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
