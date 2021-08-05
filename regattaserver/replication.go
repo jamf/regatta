@@ -76,7 +76,21 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 		ctx = dctx
 	}
 
-	return table.Snapshot(ctx, &snapshotWriter{sender: srv})
+	writer := &snapshotWriter{sender: srv}
+	resp, err := table.Snapshot(ctx, writer)
+	if err != nil {
+		return err
+	}
+	final, err := protobuf.Marshal(&proto.Command{
+		Table:       req.Table,
+		Type:        proto.Command_DUMMY,
+		LeaderIndex: &resp.Index,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(final)
+	return err
 }
 
 // LogServer implements Log service from proto/replication.proto.
