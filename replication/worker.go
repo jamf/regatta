@@ -32,6 +32,9 @@ type workerFactory struct {
 	nh              *dragonboat.NodeHost
 	logClient       proto.LogClient
 	snapshotClient  proto.SnapshotClient
+	metrics         struct {
+		replicationIndex *prometheus.GaugeVec
+	}
 }
 
 func (f *workerFactory) create(table string) *worker {
@@ -52,9 +55,9 @@ func (f *workerFactory) create(table string) *worker {
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
-					Name: "replication_index",
-					Help: "Replication index",
-				}, []string{"follower"},
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
 			),
 		},
 	}
@@ -147,7 +150,7 @@ func (l worker) do() error {
 	if err != nil {
 		return fmt.Errorf("could not get leader index key: %w", err)
 	}
-	l.metrics.replicationIndex.With(prometheus.Labels{"follower": l.Table}).Set(float64(idxRes.Index))
+	l.metrics.replicationIndex.With(prometheus.Labels{"role": "follower", "table": l.Table}).Set(float64(idxRes.Index))
 
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: idxRes.Index + 1,
