@@ -56,6 +56,8 @@ spec:
             --raft.initial-members={{ .Values.raft.initialMembers }} \
             --raft.state-machine-dir=/data/state-machine \
             --raft.rtt={{ .Values.raft.rtt }} \
+            --raft.snapshot-entries={{ .Values.raft.snapshotEntries }} \
+            --raft.compaction-overhead={{ .Values.raft.compactionOverhead }} \
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}
