@@ -32,6 +32,10 @@ type workerFactory struct {
 	nh              *dragonboat.NodeHost
 	logClient       proto.LogClient
 	snapshotClient  proto.SnapshotClient
+	metrics         struct {
+		replicationIndex  *prometheus.GaugeVec
+		replicationLeased *prometheus.GaugeVec
+	}
 }
 
 func (f *workerFactory) create(table string) *worker {
@@ -48,21 +52,11 @@ func (f *workerFactory) create(table string) *worker {
 		closer:          make(chan struct{}),
 		log:             f.log.Named(table),
 		metrics: struct {
-			replicationIndex  *prometheus.GaugeVec
-			replicationLeased *prometheus.GaugeVec
+			replicationIndex  prometheus.Gauge
+			replicationLeased prometheus.Gauge
 		}{
-			replicationIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			),
-			replicationLeased: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_leased",
-					Help: "Regatta replication has the worker table leased",
-				}, []string{"table"},
-			),
+			replicationIndex:  f.metrics.replicationIndex.WithLabelValues("follower", table),
+			replicationLeased: f.metrics.replicationLeased.WithLabelValues(table),
 		},
 	}
 }
@@ -82,8 +76,8 @@ type worker struct {
 	snapshotClient  proto.SnapshotClient
 	leased          uint32
 	metrics         struct {
-		replicationIndex  *prometheus.GaugeVec
-		replicationLeased *prometheus.GaugeVec
+		replicationIndex  prometheus.Gauge
+		replicationLeased prometheus.Gauge
 	}
 }
 
@@ -104,13 +98,13 @@ func (l *worker) Start() {
 					if prev == 0 {
 						l.log.Info("lease acquired")
 					}
-					l.metrics.replicationLeased.WithLabelValues("table", l.Table).Set(1)
+					l.metrics.replicationLeased.Set(1)
 				} else {
 					prev := atomic.SwapUint32(&l.leased, 0)
 					if prev == 1 {
 						l.log.Info("lease lost")
 					}
-					l.metrics.replicationLeased.WithLabelValues("table", l.Table).Set(0)
+					l.metrics.replicationLeased.Set(0)
 				}
 			case <-t.C:
 				if atomic.LoadUint32(&l.leased) != 1 {
@@ -135,18 +129,6 @@ func (l *worker) Start() {
 // Close stops the log replication.
 func (l *worker) Close() { l.closer <- struct{}{} }
 
-// Collect worker's metrics.
-func (l *worker) Collect(ch chan<- prometheus.Metric) {
-	l.metrics.replicationIndex.Collect(ch)
-	l.metrics.replicationLeased.Collect(ch)
-}
-
-// Describe worker's metrics.
-func (l *worker) Describe(ch chan<- *prometheus.Desc) {
-	l.metrics.replicationIndex.Describe(ch)
-	l.metrics.replicationLeased.Describe(ch)
-}
-
 func (l worker) do() error {
 	t, err := l.tm.GetTable(l.Table)
 	if err != nil {
@@ -159,7 +141,7 @@ func (l worker) do() error {
 	if err != nil {
 		return fmt.Errorf("could not get leader index key: %w", err)
 	}
-	l.metrics.replicationIndex.With(prometheus.Labels{"role": "follower", "table": l.Table}).Set(float64(idxRes.Index))
+	l.metrics.replicationIndex.Set(float64(idxRes.Index))
 
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: idxRes.Index + 1,

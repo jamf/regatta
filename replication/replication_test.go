@@ -54,21 +54,21 @@ func TestManager_reconcile(t *testing.T) {
 		tm:            m.tm,
 		closer:        make(chan struct{}),
 		metrics: struct {
-			replicationIndex  *prometheus.GaugeVec
-			replicationLeased *prometheus.GaugeVec
+			replicationIndex  prometheus.Gauge
+			replicationLeased prometheus.Gauge
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
 				}, []string{"role", "table"},
-			),
+			).WithLabelValues("follower", "test"),
 			replicationLeased: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_leased",
 					Help: "Regatta replication has the worker table leased",
 				}, []string{"table"},
-			),
+			).WithLabelValues("test"),
 		},
 	})
 
@@ -81,21 +81,21 @@ func TestManager_reconcile(t *testing.T) {
 		tm:            m.tm,
 		closer:        make(chan struct{}),
 		metrics: struct {
-			replicationIndex  *prometheus.GaugeVec
-			replicationLeased *prometheus.GaugeVec
+			replicationIndex  prometheus.Gauge
+			replicationLeased prometheus.Gauge
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
 				}, []string{"role", "table"},
-			),
+			).WithLabelValues("follower", "test2"),
 			replicationLeased: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_leased",
 					Help: "Regatta replication has the worker table leased",
 				}, []string{"table"},
-			),
+			).WithLabelValues("test2"),
 		},
 	})
 

@@ -91,7 +91,7 @@ func (m *Manager) LeaseTable(name string, lease time.Duration) error {
 	}
 
 	l := Lease{}
-	if unclaimed {
+	if !unclaimed {
 		err = json.Unmarshal([]byte(get.Value), &l)
 		if err != nil {
 			return err
