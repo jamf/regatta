@@ -46,32 +46,56 @@ func TestManager_reconcile(t *testing.T) {
 	m.Start()
 
 	wf.On("create", "test").Once().Return(&worker{
-		Table:    "test",
-		log:      m.log,
-		interval: 1 * time.Second,
+		Table:         "test",
+		log:           m.log,
+		interval:      1 * time.Second,
 		leaseInterval: 1 * time.Second,
-		nh:       m.nh,
-		tm:       m.tm,
-		closer:   make(chan struct{}),
+		nh:            m.nh,
+		tm:            m.tm,
+		closer:        make(chan struct{}),
 		metrics: struct {
-			replicationIndex *prometheus.GaugeVec
+			replicationIndex  *prometheus.GaugeVec
+			replicationLeased *prometheus.GaugeVec
 		}{
-			replicationIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "replication_index", Help: "Replication index"}, []string{"follower"}),
+			replicationIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
+			),
+			replicationLeased: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_leased",
+					Help: "Regatta replication has the worker table leased",
+				}, []string{"table"},
+			),
 		},
 	})
 
 	wf.On("create", "test2").Once().Return(&worker{
-		Table:    "test2",
-		log:      m.log,
-		interval: 1 * time.Second,
+		Table:         "test2",
+		log:           m.log,
+		interval:      1 * time.Second,
 		leaseInterval: 1 * time.Second,
-		nh:       m.nh,
-		tm:       m.tm,
-		closer:   make(chan struct{}),
+		nh:            m.nh,
+		tm:            m.tm,
+		closer:        make(chan struct{}),
 		metrics: struct {
-			replicationIndex *prometheus.GaugeVec
+			replicationIndex  *prometheus.GaugeVec
+			replicationLeased *prometheus.GaugeVec
 		}{
-			replicationIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "replication_index", Help: "Replication index"}, []string{"follower"}),
+			replicationIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
+			),
+			replicationLeased: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_leased",
+					Help: "Regatta replication has the worker table leased",
+				}, []string{"table"},
+			),
 		},
 	})
 

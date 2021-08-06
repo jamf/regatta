@@ -32,9 +32,6 @@ type workerFactory struct {
 	nh              *dragonboat.NodeHost
 	logClient       proto.LogClient
 	snapshotClient  proto.SnapshotClient
-	metrics         struct {
-		replicationIndex *prometheus.GaugeVec
-	}
 }
 
 func (f *workerFactory) create(table string) *worker {
@@ -51,13 +48,20 @@ func (f *workerFactory) create(table string) *worker {
 		closer:          make(chan struct{}),
 		log:             f.log.Named(table),
 		metrics: struct {
-			replicationIndex *prometheus.GaugeVec
+			replicationIndex  *prometheus.GaugeVec
+			replicationLeased *prometheus.GaugeVec
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
 				}, []string{"role", "table"},
+			),
+			replicationLeased: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_leased",
+					Help: "Regatta replication has the worker table leased",
+				}, []string{"table"},
 			),
 		},
 	}
@@ -78,7 +82,8 @@ type worker struct {
 	snapshotClient  proto.SnapshotClient
 	leased          uint32
 	metrics         struct {
-		replicationIndex *prometheus.GaugeVec
+		replicationIndex  *prometheus.GaugeVec
+		replicationLeased *prometheus.GaugeVec
 	}
 }
 
@@ -99,11 +104,13 @@ func (l *worker) Start() {
 					if prev == 0 {
 						l.log.Info("lease acquired")
 					}
+					l.metrics.replicationLeased.WithLabelValues("table", l.Table).Set(1)
 				} else {
 					prev := atomic.SwapUint32(&l.leased, 0)
 					if prev == 1 {
 						l.log.Info("lease lost")
 					}
+					l.metrics.replicationLeased.WithLabelValues("table", l.Table).Set(0)
 				}
 			case <-t.C:
 				if atomic.LoadUint32(&l.leased) != 1 {
