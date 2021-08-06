@@ -37,6 +37,8 @@ charts:
           cpu: 2
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
+        snapshotEntries: 100000
+        compactionOverhead: 200000
       kafka:
         brokers: kafka-core.int.dev.wandera.co.uk:9091
         groupID: regatta-dev-0-tables

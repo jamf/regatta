@@ -345,15 +345,15 @@ func (m *Manager) stopTable(clusterID uint64) error {
 }
 
 func (m *Manager) LoadTableFromSnapshot(name string, reader io.Reader) error {
+	tbl, version, err := m.getTableVersion(name)
+	if err != nil && err != ErrTableDoesNotExist {
+		return err
+	}
 	recoveryID, err := m.incAndGetIDSeq()
 	if err != nil {
 		return err
 	}
 
-	tbl, version, err := m.getTableVersion(name)
-	if err != nil && err != ErrTableDoesNotExist {
-		return err
-	}
 	tbl.Name = name
 	tbl.RecoverID = recoveryID
 
