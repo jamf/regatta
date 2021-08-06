@@ -24,6 +24,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 		tm:       tm,
 		factory: &workerFactory{
 			interval:        10 * time.Second,
+			leaseInterval:   10 * time.Second,
 			logTimeout:      5 * time.Minute,
 			snapshotTimeout: 1 * time.Hour,
 			tm:              tm,
