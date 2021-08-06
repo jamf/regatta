@@ -19,6 +19,20 @@ type workerCreator interface {
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
 func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
 	replicationLog := zap.S().Named("replication")
+
+	replicationIndexGauge := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "regatta_replication_index",
+			Help: "Regatta replication index",
+		}, []string{"role", "table"},
+	)
+	replicationLeaseGauge := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "regatta_replication_leased",
+			Help: "Regatta replication has the worker table leased",
+		}, []string{"table"},
+	)
+
 	return &Manager{
 		Interval: 30 * time.Second,
 		tm:       tm,
@@ -32,6 +46,10 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 			nh:              nh,
 			logClient:       proto.NewLogClient(conn),
 			snapshotClient:  proto.NewSnapshotClient(conn),
+			metrics: struct {
+				replicationIndex  *prometheus.GaugeVec
+				replicationLeased *prometheus.GaugeVec
+			}{replicationIndex: replicationIndexGauge, replicationLeased: replicationLeaseGauge},
 		},
 		workers: struct {
 			registry map[string]*worker
@@ -58,6 +76,20 @@ type Manager struct {
 	log    *zap.SugaredLogger
 	closer chan struct{}
 	nh     *dragonboat.NodeHost
+}
+
+func (m *Manager) Describe(descs chan<- *prometheus.Desc) {
+	if factory, ok := m.factory.(*workerFactory); ok {
+		factory.metrics.replicationIndex.Describe(descs)
+		factory.metrics.replicationLeased.Describe(descs)
+	}
+}
+
+func (m *Manager) Collect(metrics chan<- prometheus.Metric) {
+	if factory, ok := m.factory.(*workerFactory); ok {
+		factory.metrics.replicationIndex.Collect(metrics)
+		factory.metrics.replicationLeased.Collect(metrics)
+	}
 }
 
 // Start starts the replication manager goroutine, Close will stop it.
@@ -95,9 +127,6 @@ func (m *Manager) reconcile() error {
 		if _, ok := m.workers.registry[tbl.Name]; !ok {
 			worker := m.factory.create(tbl.Name)
 			m.startWorker(worker)
-			if err := prometheus.Register(worker); err != nil {
-				m.log.Errorf("cannot register metrics for worker '%s': %v", tbl.Name, err)
-			}
 		}
 	}
 
@@ -111,9 +140,6 @@ func (m *Manager) reconcile() error {
 		}
 		if !found {
 			m.stopWorker(worker)
-			if !prometheus.Unregister(worker) {
-				m.log.Infof("cannot unregister metrics for worker '%s'", name)
-			}
 		}
 	}
 	return nil
