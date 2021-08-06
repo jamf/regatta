@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/lni/dragonboat/v3"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
@@ -23,6 +23,7 @@ var (
 
 type workerFactory struct {
 	interval        time.Duration
+	leaseInterval   time.Duration
 	logTimeout      time.Duration
 	snapshotTimeout time.Duration
 	tm              *tables.Manager
@@ -39,53 +40,57 @@ func (f *workerFactory) create(table string) *worker {
 		tm:              f.tm,
 		nh:              f.nh,
 		interval:        f.interval,
+		leaseInterval:   f.leaseInterval,
 		logTimeout:      f.logTimeout,
 		snapshotTimeout: f.snapshotTimeout,
 		Table:           table,
 		closer:          make(chan struct{}),
 		log:             f.log.Named(table),
-		metrics: struct {
-			replicationIndex *prometheus.GaugeVec
-		}{
-			replicationIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"follower"},
-			),
-		},
 	}
 }
 
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
+	Table           string
 	interval        time.Duration
+	leaseInterval   time.Duration
 	logTimeout      time.Duration
 	snapshotTimeout time.Duration
 	tm              *tables.Manager
-	Table           string
 	closer          chan struct{}
 	log             *zap.SugaredLogger
 	nh              *dragonboat.NodeHost
 	logClient       proto.LogClient
 	snapshotClient  proto.SnapshotClient
-	metrics         struct {
-		replicationIndex *prometheus.GaugeVec
-	}
+	leased          uint32
 }
 
 // Start launches the replication goroutine. To stop it, call worker.Close.
 func (l *worker) Start() {
 	go func() {
-		l.log.Info("log replication started")
+		l.log.Info("replication started")
 		t := time.NewTicker(l.interval)
 		defer t.Stop()
-
+		lt := time.NewTicker(l.leaseInterval)
+		defer lt.Stop()
 		for {
 			select {
+			case <-lt.C:
+				err := l.tm.LeaseTable(l.Table, l.leaseInterval*4)
+				if err != nil {
+					prev := atomic.SwapUint32(&l.leased, 1)
+					if prev == 0 {
+						l.log.Info("lease acquired")
+					}
+				} else {
+					prev := atomic.SwapUint32(&l.leased, 0)
+					if prev == 1 {
+						l.log.Info("lease lost")
+					}
+				}
 			case <-t.C:
-				if !l.tm.IsLeader() {
-					l.log.Debug("skipping replication - not a leader")
+				if atomic.LoadUint32(&l.leased) != 1 {
+					l.log.Debug("skipping replication - table not leased")
 					continue
 				}
 				if err := l.do(); err != nil {
@@ -96,24 +101,11 @@ func (l *worker) Start() {
 					l.log.Warnf("worker error %v", err)
 				}
 			case <-l.closer:
-				l.log.Info("log replication stopped")
+				l.log.Info("replication stopped")
 				return
 			}
 		}
 	}()
-}
-
-// Close stops the log replication.
-func (l *worker) Close() { l.closer <- struct{}{} }
-
-// Collect worker's metrics.
-func (l *worker) Collect(ch chan<- prometheus.Metric) {
-	l.metrics.replicationIndex.Collect(ch)
-}
-
-// Describe worker's metrics.
-func (l *worker) Describe(ch chan<- *prometheus.Desc) {
-	l.metrics.replicationIndex.Describe(ch)
 }
 
 func (l worker) do() error {
@@ -128,7 +120,6 @@ func (l worker) do() error {
 	if err != nil {
 		return fmt.Errorf("could not get leader index key: %w", err)
 	}
-	l.metrics.replicationIndex.With(prometheus.Labels{"follower": l.Table}).Set(float64(idxRes.Index))
 
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: idxRes.Index + 1,
@@ -186,6 +177,9 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 		}
 	}
 }
+
+// Close stops the log replication.
+func (l *worker) Close() { l.closer <- struct{}{} }
 
 func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
 	for _, c := range commands {
