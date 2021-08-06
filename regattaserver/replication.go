@@ -119,9 +119,9 @@ func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger) *Log
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
-					Name: "replication_index",
-					Help: "Replication index",
-				}, []string{"leader"},
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
 			),
 		},
 	}
@@ -149,7 +149,7 @@ func (l *LogServer) Collect(ch chan<- prometheus.Metric) {
 			cancel()
 			continue
 		}
-		l.metrics.replicationIndex.With(prometheus.Labels{"leader": table.Name}).Set(float64(idx.Index))
+		l.metrics.replicationIndex.With(prometheus.Labels{"role": "leader", "table": table.Name}).Set(float64(idx.Index))
 		cancel()
 	}
 
