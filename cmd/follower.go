@@ -128,6 +128,7 @@ func follower(_ *cobra.Command, _ []string) {
 
 		if viper.GetBool("replication.enable-log-replication") {
 			d := replication.NewManager(tm, nh, conn)
+			prometheus.MustRegister(d)
 			d.Start()
 			defer d.Close()
 		}

@@ -53,9 +53,21 @@ func Test_worker_do(t *testing.T) {
 		nh:         followerNH,
 		log:        zaptest.NewLogger(t).Sugar(),
 		metrics: struct {
-			replicationIndex *prometheus.GaugeVec
+			replicationIndex  prometheus.Gauge
+			replicationLeased prometheus.Gauge
 		}{
-			replicationIndex: prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "regatta_replication_index", Help: " Regatta replication index"}, []string{"follower"}),
+			replicationIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
+			).WithLabelValues("follower", "test"),
+			replicationLeased: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_leased",
+					Help: "Regatta replication has the worker table leased",
+				}, []string{"table"},
+			).WithLabelValues("test"),
 		},
 	}
 	r.NoError(w.do())

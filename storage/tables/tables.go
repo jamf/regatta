@@ -76,6 +76,44 @@ type Manager struct {
 	log               *zap.SugaredLogger
 }
 
+type Lease struct {
+	ID    uint64    `json:"id"`
+	Until time.Time `json:"until"`
+}
+
+func (m *Manager) LeaseTable(name string, lease time.Duration) error {
+	key := storedTableName(name) + "/lease"
+	get, err := m.store.Get(key)
+
+	unclaimed := err == kv.ErrNotExist
+	if err != nil && !unclaimed {
+		return err
+	}
+
+	l := Lease{}
+	if !unclaimed {
+		err = json.Unmarshal([]byte(get.Value), &l)
+		if err != nil {
+			return err
+		}
+	}
+
+	if unclaimed || l.ID == m.cfg.NodeID || l.Until.Before(time.Now()) {
+		l.ID = m.cfg.NodeID
+		l.Until = time.Now().Add(lease)
+	}
+
+	bts, err := json.Marshal(l)
+	if err != nil {
+		return err
+	}
+	_, err = m.store.Set(key, string(bts), get.Ver)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *Manager) CreateTable(name string) error {
 	created, err := m.createTable(name)
 	if err != nil {
