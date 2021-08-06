@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 	"sync/atomic"
+	"time"
 
 	"github.com/lni/dragonboat/v3"
 	"github.com/prometheus/client_golang/prometheus"
