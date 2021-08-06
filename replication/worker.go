@@ -49,8 +49,8 @@ func (f *workerFactory) create(table string) *worker {
 		}{
 			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
-					Name: "replication_index",
-					Help: "Replication index",
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
 				}, []string{"follower"},
 			),
 		},
