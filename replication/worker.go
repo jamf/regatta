@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lni/dragonboat/v3"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
@@ -43,6 +44,16 @@ func (f *workerFactory) create(table string) *worker {
 		Table:           table,
 		closer:          make(chan struct{}),
 		log:             f.log.Named(table),
+		metrics: struct {
+			replicationIndex *prometheus.GaugeVec
+		}{
+			replicationIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"follower"},
+			),
+		},
 	}
 }
 
@@ -58,6 +69,9 @@ type worker struct {
 	nh              *dragonboat.NodeHost
 	logClient       proto.LogClient
 	snapshotClient  proto.SnapshotClient
+	metrics         struct {
+		replicationIndex *prometheus.GaugeVec
+	}
 }
 
 // Start launches the replication goroutine. To stop it, call worker.Close.
@@ -89,6 +103,19 @@ func (l *worker) Start() {
 	}()
 }
 
+// Close stops the log replication.
+func (l *worker) Close() { l.closer <- struct{}{} }
+
+// Collect worker's metrics.
+func (l *worker) Collect(ch chan<- prometheus.Metric) {
+	l.metrics.replicationIndex.Collect(ch)
+}
+
+// Describe worker's metrics.
+func (l *worker) Describe(ch chan<- *prometheus.Desc) {
+	l.metrics.replicationIndex.Describe(ch)
+}
+
 func (l worker) do() error {
 	t, err := l.tm.GetTable(l.Table)
 	if err != nil {
@@ -101,6 +128,7 @@ func (l worker) do() error {
 	if err != nil {
 		return fmt.Errorf("could not get leader index key: %w", err)
 	}
+	l.metrics.replicationIndex.With(prometheus.Labels{"follower": l.Table}).Set(float64(idxRes.Index))
 
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: idxRes.Index + 1,
@@ -158,9 +186,6 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 		}
 	}
 }
-
-// Close stops the log replication.
-func (l *worker) Close() { l.closer <- struct{}{} }
 
 func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
 	for _, c := range commands {
