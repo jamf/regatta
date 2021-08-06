@@ -99,7 +99,7 @@ func (l *worker) Start() {
 			select {
 			case <-lt.C:
 				err := l.tm.LeaseTable(l.Table, l.leaseInterval*4)
-				if err != nil {
+				if err == nil {
 					prev := atomic.SwapUint32(&l.leased, 1)
 					if prev == 0 {
 						l.log.Info("lease acquired")
@@ -138,11 +138,13 @@ func (l *worker) Close() { l.closer <- struct{}{} }
 // Collect worker's metrics.
 func (l *worker) Collect(ch chan<- prometheus.Metric) {
 	l.metrics.replicationIndex.Collect(ch)
+	l.metrics.replicationLeased.Collect(ch)
 }
 
 // Describe worker's metrics.
 func (l *worker) Describe(ch chan<- *prometheus.Desc) {
 	l.metrics.replicationIndex.Describe(ch)
+	l.metrics.replicationLeased.Describe(ch)
 }
 
 func (l worker) do() error {
