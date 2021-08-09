@@ -13,9 +13,11 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
 	"go.uber.org/zap"
+	pb "google.golang.org/protobuf/proto"
 )
 
 type store interface {
@@ -461,23 +463,58 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 	backOff.MaxElapsedTime = 0
 	session := m.nh.GetNoOPSession(id)
 	msg := make([]byte, 1024*1024*4)
+
+	batchCmd := proto.Command{
+		Type: proto.Command_PUT_BATCH,
+	}
+	last := false
 	for {
 		n, err := reader.Read(msg)
-		if err == io.EOF {
-			break
+		if err != nil {
+			if err == io.EOF {
+				last = true
+			} else {
+				return err
+			}
 		}
+
+		if !last {
+			cmd := &proto.Command{}
+			err = pb.Unmarshal(msg[:n], cmd)
+			if err != nil {
+				return err
+			}
+
+			batchCmd.Table = cmd.Table
+			batchCmd.LeaderIndex = cmd.LeaderIndex
+
+			if uint64(pb.Size(&batchCmd)+pb.Size(cmd)) < m.cfg.Table.MaxInMemLogSize {
+				batchCmd.Batch = append(batchCmd.Batch, cmd.Kv)
+				continue
+			}
+		}
+
+		bb, err := pb.Marshal(&batchCmd)
 		if err != nil {
 			return err
 		}
+		batchCmd = proto.Command{
+			Type: proto.Command_PUT_BATCH,
+		}
+
 		err = backoff.Retry(func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			_, err := m.nh.SyncPropose(ctx, session, msg[:n])
+			_, err := m.nh.SyncPropose(ctx, session, bb)
 			return err
 		}, backOff)
 
 		if err != nil {
 			return err
+		}
+
+		if last {
+			break
 		}
 	}
 	return nil
