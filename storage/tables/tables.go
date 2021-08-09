@@ -488,7 +488,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			batchCmd.Table = cmd.Table
 			batchCmd.LeaderIndex = cmd.LeaderIndex
 
-			if uint64(pb.Size(&batchCmd)+pb.Size(cmd)) < m.cfg.Table.MaxInMemLogSize {
+			if uint64(pb.Size(&batchCmd)+pb.Size(cmd)) < m.cfg.Table.MaxInMemLogSize/2 {
 				batchCmd.Batch = append(batchCmd.Batch, cmd.Kv)
 				continue
 			}
