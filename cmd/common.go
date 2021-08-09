@@ -89,12 +89,14 @@ func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 	dbl.GetLogger("logdb").SetLevel(dbl.DEBUG)
 
 	nhc := config.NodeHostConfig{
-		WALDir:         viper.GetString("raft.wal-dir"),
-		NodeHostDir:    viper.GetString("raft.node-host-dir"),
-		RTTMillisecond: uint64(viper.GetDuration("raft.rtt").Milliseconds()),
-		RaftAddress:    viper.GetString("raft.address"),
-		ListenAddress:  viper.GetString("raft.listen-address"),
-		EnableMetrics:  true,
+		WALDir:                        viper.GetString("raft.wal-dir"),
+		NodeHostDir:                   viper.GetString("raft.node-host-dir"),
+		RTTMillisecond:                uint64(viper.GetDuration("raft.rtt").Milliseconds()),
+		RaftAddress:                   viper.GetString("raft.address"),
+		ListenAddress:                 viper.GetString("raft.listen-address"),
+		EnableMetrics:                 true,
+		MaxSnapshotRecvBytesPerSecond: viper.GetUint64("raft.max-snapshot-recv-bytes-per-second"),
+		MaxSnapshotSendBytesPerSecond: viper.GetUint64("raft.max-snapshot-send-bytes-per-second"),
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
 

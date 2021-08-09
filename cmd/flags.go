@@ -73,6 +73,12 @@ Raft log compaction is performed automatically every time when a snapshot is cre
 	raftFlagSet.Uint64("raft.max-in-mem-log-size", 6*1024*1024,
 		`MaxInMemLogSize is the target size in bytes allowed for storing in memory Raft logs on each Raft node.
 In memory Raft logs are the ones that have not been applied yet.`)
+	raftFlagSet.Uint64("raft.max-snapshot-recv-bytes-per-second", 0,
+		`MaxSnapshotRecvBytesPerSecond defines how much snapshot data can be received each second for all Raft clusters managed by the NodeHost instance.
+The default value 0 means there is no limit for receiving snapshot data.`)
+	raftFlagSet.Uint64("raft.max-snapshot-send-bytes-per-second", 0,
+		`MaxSnapshotSendBytesPerSecond defines how much snapshot data can be sent every second for all Raft clusters managed by the NodeHost instance.
+The default value 0 means there is no limit set for snapshot streaming.`)
 
 	// Kafka flags
 	kafkaFlagSet.StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
