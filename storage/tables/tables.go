@@ -498,9 +498,8 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 		if err != nil {
 			return err
 		}
-		batchCmd = proto.Command{
-			Type: proto.Command_PUT_BATCH,
-		}
+		batchCmd.LeaderIndex = nil
+		batchCmd.Batch = batchCmd.Batch[:0]
 
 		err = backoff.Retry(func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
