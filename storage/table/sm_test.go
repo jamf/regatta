@@ -905,6 +905,122 @@ func TestSM_Update(t *testing.T) {
 			},
 			wantLeaderIndex: 2,
 		},
+		{
+			name: "Pebble - Successful update of single batched PUT",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT_BATCH,
+							Batch: []*proto.KeyValue{
+								{
+									Key:   []byte("test"),
+									Value: []byte("test"),
+								},
+								{
+									Key:   []byte("test1"),
+									Value: []byte("test"),
+								},
+								{
+									Key:   []byte("test2"),
+									Value: []byte("test"),
+								},
+							},
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Cmd: mustMarshallProto(&proto.Command{
+						LeaderIndex: &one,
+						Table:       []byte("test"),
+						Type:        proto.Command_PUT_BATCH,
+						Batch: []*proto.KeyValue{
+							{
+								Key:   []byte("test"),
+								Value: []byte("test"),
+							},
+							{
+								Key:   []byte("test1"),
+								Value: []byte("test"),
+							},
+							{
+								Key:   []byte("test2"),
+								Value: []byte("test"),
+							},
+						},
+					}),
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+			},
+			wantLeaderIndex: 1,
+		},
+		{
+			name: "Pebble - Successful update of single batched DELETE",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_DELETE_BATCH,
+							Batch: []*proto.KeyValue{
+								{
+									Key: []byte("test"),
+								},
+								{
+									Key: []byte("test1"),
+								},
+								{
+									Key: []byte("test2"),
+								},
+							},
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Cmd: mustMarshallProto(&proto.Command{
+						LeaderIndex: &one,
+						Table:       []byte("test"),
+						Type:        proto.Command_DELETE_BATCH,
+						Batch: []*proto.KeyValue{
+							{
+								Key: []byte("test"),
+							},
+							{
+								Key: []byte("test1"),
+							},
+							{
+								Key: []byte("test2"),
+							},
+						},
+					}),
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+			},
+			wantLeaderIndex: 1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

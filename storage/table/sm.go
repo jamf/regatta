@@ -189,6 +189,26 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			if err := batch.Delete(buf.Bytes(), nil); err != nil {
 				return nil, err
 			}
+		case proto.Command_PUT_BATCH:
+			for _, kv := range cmd.Batch {
+				if err := encodeUserKey(buf, kv.Key); err != nil {
+					return nil, err
+				}
+				if err := batch.Set(buf.Bytes(), kv.Value, nil); err != nil {
+					return nil, err
+				}
+				buf.Reset()
+			}
+		case proto.Command_DELETE_BATCH:
+			for _, kv := range cmd.Batch {
+				if err := encodeUserKey(buf, kv.Key); err != nil {
+					return nil, err
+				}
+				if err := batch.Delete(buf.Bytes(), nil); err != nil {
+					return nil, err
+				}
+				buf.Reset()
+			}
 		case proto.Command_DUMMY:
 		}
 		updates[i].Result = sm.Result{Value: 1}
