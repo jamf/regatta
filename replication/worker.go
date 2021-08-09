@@ -109,7 +109,7 @@ func (l *worker) Start() {
 			case <-t.C:
 				leaderIndex, clusterID, err := l.tableState()
 				if err != nil {
-					l.log.Errorf("cannot query leader index")
+					l.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
 
