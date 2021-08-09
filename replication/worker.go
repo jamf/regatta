@@ -107,11 +107,20 @@ func (l *worker) Start() {
 					l.metrics.replicationLeased.Set(0)
 				}
 			case <-t.C:
+				leaderIndex, clusterID, err := l.tableState()
+				if err != nil {
+					l.log.Errorf("cannot query leader index")
+					continue
+				}
+
+				l.metrics.replicationIndex.Set(float64(leaderIndex))
+
 				if atomic.LoadUint32(&l.leased) != 1 {
 					l.log.Debug("skipping replication - table not leased")
 					continue
 				}
-				if err := l.do(); err != nil {
+
+				if err := l.do(leaderIndex, clusterID); err != nil {
 					if err == ErrLeaderBehind {
 						l.log.Errorf("the leader log is behind the replication will stop")
 						return
@@ -129,31 +138,19 @@ func (l *worker) Start() {
 // Close stops the log replication.
 func (l *worker) Close() { l.closer <- struct{}{} }
 
-func (l worker) do() error {
-	t, err := l.tm.GetTable(l.Table)
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
-	defer cancel()
-	idxRes, err := t.LeaderIndex(ctx)
-	if err != nil {
-		return fmt.Errorf("could not get leader index key: %w", err)
-	}
-	l.metrics.replicationIndex.Set(float64(idxRes.Index))
-
+func (l worker) do(leaderIndex, clusterID uint64) error {
 	replicateRequest := &proto.ReplicateRequest{
-		LeaderIndex: idxRes.Index + 1,
+		LeaderIndex: leaderIndex + 1,
 		Table:       []byte(l.Table),
 	}
-
+	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
+	defer cancel()
 	stream, err := l.logClient.Replicate(ctx, replicateRequest)
 	if err != nil {
 		return fmt.Errorf("could not open log stream: %w", err)
 	}
 
-	if err = l.read(ctx, stream, t.ClusterID); err != nil {
+	if err = l.read(ctx, stream, clusterID); err != nil {
 		switch err {
 		case ErrUseSnapshot:
 			return l.recover()
@@ -164,6 +161,21 @@ func (l worker) do() error {
 		}
 	}
 	return nil
+}
+
+func (l *worker) tableState() (uint64, uint64, error) {
+	t, err := l.tm.GetTable(l.Table)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
+	defer cancel()
+	idxRes, err := t.LeaderIndex(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("could not get leader index key: %w", err)
+	}
+	return idxRes.Index, t.ClusterID, nil
 }
 
 // read commands from the stream and save them to the cluster.
