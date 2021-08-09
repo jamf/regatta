@@ -70,7 +70,9 @@ func Test_worker_do(t *testing.T) {
 			).WithLabelValues("test"),
 		},
 	}
-	r.NoError(w.do())
+	idx, id, err := w.tableState()
+	r.NoError(err)
+	r.NoError(w.do(idx, id))
 	table, err := followerTM.GetTable("test")
 	r.NoError(err)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second)

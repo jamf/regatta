@@ -79,6 +79,9 @@ spec:
           {{- end }}
           {{- if eq .Values.mode "follower" }}
             --replication.leader-address={{ .Values.replication.leaderAddress }} \
+          {{- if .Values.replication.logReplicationEnabled }}
+            --replication.enable-log-replication \
+          {{- end }}
           {{- end }}
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \

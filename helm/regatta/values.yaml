@@ -32,6 +32,7 @@ replication:
     port: 8444
     hostname: foo
   leaderAddress: bar
+  logReplicationEnabled: false
 
 priorityClassName: service-cluster-critical
 tolerations: []
