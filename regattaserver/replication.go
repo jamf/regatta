@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	// MaxGRPCSize is the maximum size of body of gRPC message, which is 4MiB - 1KiB.
-	MaxGRPCSize = (4 * 1024 * 1024) - 1024
+	// MaxGRPCSize is the maximum size of body of gRPC message to be loaded from dragonboat.
+	MaxGRPCSize = (4 * 1024 * 1024) - (10 * 1024)
 )
 
 // MetadataServer implements Metadata service from proto/replication.proto.
