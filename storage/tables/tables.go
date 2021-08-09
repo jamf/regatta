@@ -39,6 +39,7 @@ var (
 	ErrTableExists       = errors.New("table already exists")
 	ErrTableDoesNotExist = errors.New("table does not exist")
 	ErrManagerClosed     = errors.New("manager closed")
+	ErrLeaseNotAcquired  = errors.New("lease not acquired")
 )
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
@@ -103,17 +104,19 @@ func (m *Manager) LeaseTable(name string, lease time.Duration) error {
 	if unclaimed || l.ID == m.cfg.NodeID || l.Until.Before(time.Now()) {
 		l.ID = m.cfg.NodeID
 		l.Until = time.Now().Add(lease)
+
+		bts, err := json.Marshal(l)
+		if err != nil {
+			return err
+		}
+		_, err = m.store.Set(key, string(bts), get.Ver)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
-	bts, err := json.Marshal(l)
-	if err != nil {
-		return err
-	}
-	_, err = m.store.Set(key, string(bts), get.Ver)
-	if err != nil {
-		return err
-	}
-	return nil
+	return ErrLeaseNotAcquired
 }
 
 func (m *Manager) CreateTable(name string) error {
