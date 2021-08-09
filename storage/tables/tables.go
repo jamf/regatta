@@ -506,7 +506,11 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			_, err := m.nh.SyncPropose(ctx, session, bb)
-			return err
+			if err != nil {
+				m.log.Warnf("error proposing batch %v", err)
+				return err
+			}
+			return nil
 		}, backOff)
 
 		if err != nil {
