@@ -56,10 +56,10 @@ spec:
             --raft.initial-members={{ .Values.raft.initialMembers }} \
             --raft.state-machine-dir=/data/state-machine \
             --raft.rtt={{ .Values.raft.rtt }} \
-            --raft.snapshot-entries={{ .Values.raft.snapshotEntries }} \
-            --raft.compaction-overhead={{ .Values.raft.compactionOverhead }} \
-            --raft.max-snapshot-recv-bytes-per-second={{ .Values.raft.maxSnapshotRecvBytesPerSecond }} \
-            --raft.max-snapshot-send-bytes-per-second={{ .Values.raft.maxSnapshotSendBytesPerSecond }} \
+            --raft.snapshot-entries={{ .Values.raft.snapshotEntries | int64 }} \
+            --raft.compaction-overhead={{ .Values.raft.compactionOverhead | int64 }} \
+            --raft.max-snapshot-recv-bytes-per-second={{ .Values.raft.maxSnapshotRecvBytesPerSecond | int64 }} \
+            --raft.max-snapshot-send-bytes-per-second={{ .Values.raft.maxSnapshotSendBytesPerSecond | int64 }} \
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}
