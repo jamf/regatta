@@ -84,14 +84,12 @@ type worker struct {
 // Start launches the replication goroutine. To stop it, call worker.Close.
 func (l *worker) Start() {
 	go func() {
-		l.log.Info("replication started")
-		t := time.NewTicker(l.interval)
+		l.log.Info("lease routine started")
+		t := time.NewTicker(l.leaseInterval)
 		defer t.Stop()
-		lt := time.NewTicker(l.leaseInterval)
-		defer lt.Stop()
 		for {
 			select {
-			case <-lt.C:
+			case <-t.C:
 				err := l.tm.LeaseTable(l.Table, l.leaseInterval*4)
 				if err == nil {
 					prev := atomic.SwapUint32(&l.leased, 1)
@@ -106,13 +104,25 @@ func (l *worker) Start() {
 					}
 					l.metrics.replicationLeased.Set(0)
 				}
+			case <-l.closer:
+				l.log.Info("lease routine stopped")
+				return
+			}
+		}
+	}()
+
+	go func() {
+		l.log.Info("replication routine started")
+		t := time.NewTicker(l.interval)
+		defer t.Stop()
+		for {
+			select {
 			case <-t.C:
 				leaderIndex, clusterID, err := l.tableState()
 				if err != nil {
 					l.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
-
 				l.metrics.replicationIndex.Set(float64(leaderIndex))
 
 				if atomic.LoadUint32(&l.leased) != 1 {
@@ -128,7 +138,7 @@ func (l *worker) Start() {
 					l.log.Warnf("worker error %v", err)
 				}
 			case <-l.closer:
-				l.log.Info("replication stopped")
+				l.log.Info("replication routine stopped")
 				return
 			}
 		}
@@ -136,7 +146,7 @@ func (l *worker) Start() {
 }
 
 // Close stops the log replication.
-func (l *worker) Close() { l.closer <- struct{}{} }
+func (l *worker) Close() { close(l.closer) }
 
 func (l worker) do(leaderIndex, clusterID uint64) error {
 	replicateRequest := &proto.ReplicateRequest{
