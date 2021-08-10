@@ -58,6 +58,8 @@ spec:
             --raft.rtt={{ .Values.raft.rtt }} \
             --raft.snapshot-entries={{ .Values.raft.snapshotEntries }} \
             --raft.compaction-overhead={{ .Values.raft.compactionOverhead }} \
+            --raft.max-snapshot-recv-bytes-per-second={{ .Values.raft.maxSnapshotRecvBytesPerSecond }} \
+            --raft.max-snapshot-send-bytes-per-second={{ .Values.raft.maxSnapshotSendBytesPerSecond }} \
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}
