@@ -509,6 +509,10 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			defer cancel()
 			_, err := m.nh.SyncPropose(ctx, session, bb)
 			if err != nil {
+				if err == dragonboat.ErrClusterNotFound {
+					m.log.Warn("cluster not found recovery probably started on a different node")
+					return backoff.Permanent(err)
+				}
 				m.log.Warnf("error proposing batch %v", err)
 				return err
 			}
