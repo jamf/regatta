@@ -119,6 +119,19 @@ func (m *Manager) LeaseTable(name string, lease time.Duration) error {
 	return ErrLeaseNotAcquired
 }
 
+func (m *Manager) ReturnTable(name string) error {
+	key := storedTableName(name) + "/lease"
+	get, err := m.store.Get(key)
+
+	if err == kv.ErrNotExist {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return m.store.Delete(key, get.Ver)
+}
+
 func (m *Manager) CreateTable(name string) error {
 	created, err := m.createTable(name)
 	if err != nil {
@@ -425,7 +438,7 @@ func (m *Manager) LoadTableFromSnapshot(name string, reader io.Reader) error {
 		return err
 	}
 
-	tbl.ClusterID = tbl.RecoverID
+	tbl.ClusterID = recoveryID
 	tbl.RecoverID = 0
 	err = m.setTableVersion(tbl, version)
 	if err != nil {

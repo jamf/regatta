@@ -23,17 +23,21 @@ var (
 	ErrUseSnapshot  = errors.New("use snapshot")
 )
 
+// recovering the number of currently recovering tables by this instance.
+var recovering uint32
+
 type workerFactory struct {
-	interval        time.Duration
-	leaseInterval   time.Duration
-	logTimeout      time.Duration
-	snapshotTimeout time.Duration
-	tm              *tables.Manager
-	log             *zap.SugaredLogger
-	nh              *dragonboat.NodeHost
-	logClient       proto.LogClient
-	snapshotClient  proto.SnapshotClient
-	metrics         struct {
+	interval            time.Duration
+	leaseInterval       time.Duration
+	logTimeout          time.Duration
+	snapshotTimeout     time.Duration
+	maxParallelRecovery uint32
+	tm                  *tables.Manager
+	log                 *zap.SugaredLogger
+	nh                  *dragonboat.NodeHost
+	logClient           proto.LogClient
+	snapshotClient      proto.SnapshotClient
+	metrics             struct {
 		replicationIndex  *prometheus.GaugeVec
 		replicationLeased *prometheus.GaugeVec
 	}
@@ -41,17 +45,18 @@ type workerFactory struct {
 
 func (f *workerFactory) create(table string) *worker {
 	return &worker{
-		logClient:       f.logClient,
-		snapshotClient:  f.snapshotClient,
-		tm:              f.tm,
-		nh:              f.nh,
-		interval:        f.interval,
-		leaseInterval:   f.leaseInterval,
-		logTimeout:      f.logTimeout,
-		snapshotTimeout: f.snapshotTimeout,
-		Table:           table,
-		closer:          make(chan struct{}),
-		log:             f.log.Named(table),
+		logClient:           f.logClient,
+		snapshotClient:      f.snapshotClient,
+		tm:                  f.tm,
+		nh:                  f.nh,
+		interval:            f.interval,
+		leaseInterval:       f.leaseInterval,
+		logTimeout:          f.logTimeout,
+		snapshotTimeout:     f.snapshotTimeout,
+		maxParallelRecovery: f.maxParallelRecovery,
+		Table:               table,
+		closer:              make(chan struct{}),
+		log:                 f.log.Named(table),
 		metrics: struct {
 			replicationIndex  prometheus.Gauge
 			replicationLeased prometheus.Gauge
@@ -64,19 +69,20 @@ func (f *workerFactory) create(table string) *worker {
 
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
-	Table           string
-	interval        time.Duration
-	leaseInterval   time.Duration
-	logTimeout      time.Duration
-	snapshotTimeout time.Duration
-	tm              *tables.Manager
-	closer          chan struct{}
-	log             *zap.SugaredLogger
-	nh              *dragonboat.NodeHost
-	logClient       proto.LogClient
-	snapshotClient  proto.SnapshotClient
-	leased          uint32
-	metrics         struct {
+	Table               string
+	interval            time.Duration
+	leaseInterval       time.Duration
+	logTimeout          time.Duration
+	snapshotTimeout     time.Duration
+	tm                  *tables.Manager
+	closer              chan struct{}
+	log                 *zap.SugaredLogger
+	nh                  *dragonboat.NodeHost
+	logClient           proto.LogClient
+	snapshotClient      proto.SnapshotClient
+	leased              uint32
+	maxParallelRecovery uint32
+	metrics             struct {
 		replicationIndex  prometheus.Gauge
 		replicationLeased prometheus.Gauge
 	}
@@ -178,6 +184,14 @@ func (l *worker) do(leaderIndex, clusterID uint64) error {
 	if err = l.read(ctx, stream, clusterID); err != nil {
 		switch err {
 		case ErrUseSnapshot:
+			value := atomic.AddUint32(&recovering, 1) % (l.maxParallelRecovery + 1)
+			if value == 0 {
+				l.log.Infof("maximum number of recoveries of %d already running, returning table", l.maxParallelRecovery)
+				return l.tm.ReturnTable(l.Table)
+			}
+			defer func() {
+				atomic.AddUint32(&recovering, ^uint32(0))
+			}()
 			return l.recover()
 		case ErrLeaderBehind:
 			return ErrLeaderBehind
