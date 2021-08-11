@@ -17,10 +17,12 @@ import (
 	"go.uber.org/zap"
 )
 
-var minimalTestConfig = Config{
-	NodeID: 1,
-	Table:  TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem()},
-	Meta:   MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+var minimalTestConfig = func() Config {
+	return Config{
+		NodeID: 1,
+		Table:  TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem()},
+		Meta:   MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+	}
 }
 
 func TestManager_CreateTable(t *testing.T) {
@@ -29,7 +31,7 @@ func TestManager_CreateTable(t *testing.T) {
 	node, m := startRaftNode()
 	defer node.Close()
 
-	tm := NewManager(node, m, minimalTestConfig)
+	tm := NewManager(node, m, minimalTestConfig())
 	r.NoError(tm.Start())
 	defer tm.Close()
 	r.NoError(tm.WaitUntilReady())
@@ -53,7 +55,7 @@ func TestManager_DeleteTable(t *testing.T) {
 	node, m := startRaftNode()
 	defer node.Close()
 
-	tm := NewManager(node, m, minimalTestConfig)
+	tm := NewManager(node, m, minimalTestConfig())
 	r.NoError(tm.Start())
 	defer tm.Close()
 	r.NoError(tm.WaitUntilReady())
@@ -105,7 +107,7 @@ func TestManager_GetTable(t *testing.T) {
 
 	node, m := startRaftNode()
 	defer node.Close()
-	tm := NewManager(node, m, minimalTestConfig)
+	tm := NewManager(node, m, minimalTestConfig())
 	_ = tm.Start()
 	defer tm.Close()
 	_ = tm.WaitUntilReady()
@@ -132,7 +134,7 @@ func TestManager_reconcile(t *testing.T) {
 	defer node.Close()
 
 	const reconcileInterval = 1 * time.Second
-	tm := NewManager(node, m, minimalTestConfig)
+	tm := NewManager(node, m, minimalTestConfig())
 	tm.reconcileInterval = reconcileInterval
 
 	r.NoError(tm.Start())
