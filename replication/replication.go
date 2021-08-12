@@ -9,6 +9,7 @@ import (
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 )
 
@@ -37,16 +38,16 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 		Interval: 30 * time.Second,
 		tm:       tm,
 		factory: &workerFactory{
-			interval:            10 * time.Second,
-			leaseInterval:       10 * time.Second,
-			logTimeout:          5 * time.Minute,
-			snapshotTimeout:     1 * time.Hour,
-			maxParallelRecovery: 2,
-			tm:                  tm,
-			log:                 replicationLog,
-			nh:                  nh,
-			logClient:           proto.NewLogClient(conn),
-			snapshotClient:      proto.NewSnapshotClient(conn),
+			interval:          10 * time.Second,
+			leaseInterval:     10 * time.Second,
+			logTimeout:        5 * time.Minute,
+			snapshotTimeout:   1 * time.Hour,
+			recoverySemaphore: semaphore.NewWeighted(2),
+			tm:                tm,
+			log:               replicationLog,
+			nh:                nh,
+			logClient:         proto.NewLogClient(conn),
+			snapshotClient:    proto.NewSnapshotClient(conn),
 			metrics: struct {
 				replicationIndex  *prometheus.GaugeVec
 				replicationLeased *prometheus.GaugeVec
