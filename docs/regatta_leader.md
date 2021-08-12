@@ -43,6 +43,10 @@ regatta leader [flags]
                                                        When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.
       --raft.max-in-mem-log-size uint                  MaxInMemLogSize is the target size in bytes allowed for storing in memory Raft logs on each Raft node.
                                                        In memory Raft logs are the ones that have not been applied yet. (default 6291456)
+      --raft.max-recv-queue-size uint                  MaxReceiveQueueSize is the maximum size in bytes of each receive queue. Once the maximum size is reached, further replication messages will be
+                                                       dropped to restrict memory usage. When set to 0, it means the queue size is unlimited.
+      --raft.max-send-queue-size uint                  MaxSendQueueSize is the maximum size in bytes of each send queue. Once the maximum size is reached, further replication messages will be
+                                                       dropped to restrict memory usage. When set to 0, it means the send queue size is unlimited.
       --raft.max-snapshot-recv-bytes-per-second uint   MaxSnapshotRecvBytesPerSecond defines how much snapshot data can be received each second for all Raft clusters managed by the NodeHost instance.
                                                        The default value 0 means there is no limit for receiving snapshot data.
       --raft.max-snapshot-send-bytes-per-second uint   MaxSnapshotSendBytesPerSecond defines how much snapshot data can be sent every second for all Raft clusters managed by the NodeHost instance.
