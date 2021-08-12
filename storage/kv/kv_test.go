@@ -9,8 +9,11 @@ import (
 
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/dragonboat/v3/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/log"
+	"go.uber.org/zap"
 )
 
 var testData = map[string]string{
@@ -64,6 +67,10 @@ var (
 	_ store = &MapStore{}
 	_ store = &RaftStore{}
 )
+
+func init() {
+	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+}
 
 func mapStoreFunc() store {
 	return &MapStore{}

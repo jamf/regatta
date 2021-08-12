@@ -8,13 +8,19 @@ import (
 
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/dragonboat/v3/logger"
 	"github.com/lni/vfs"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 )
+
+func init() {
+	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+}
 
 type mockWorkerFactory struct {
 	mock.Mock
@@ -37,8 +43,8 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(followerTM.WaitUntilReady())
 	defer followerTM.Close()
 
-	m := NewManager(followerTM, followerNH, nil)
-	m.Interval = 250 * time.Millisecond
+	m := NewManager(followerTM, followerNH, nil, Config{})
+	m.reconcileInterval = 250 * time.Millisecond
 	wf := &mockWorkerFactory{}
 	m.factory = wf
 	m.log = zap.NewNop().Sugar()
@@ -48,7 +54,7 @@ func TestManager_reconcile(t *testing.T) {
 	wf.On("create", "test").Once().Return(&worker{
 		Table:         "test",
 		log:           m.log,
-		interval:      1 * time.Second,
+		pollInterval:  1 * time.Second,
 		leaseInterval: 1 * time.Second,
 		nh:            m.nh,
 		tm:            m.tm,
@@ -75,7 +81,7 @@ func TestManager_reconcile(t *testing.T) {
 	wf.On("create", "test2").Once().Return(&worker{
 		Table:         "test2",
 		log:           m.log,
-		interval:      1 * time.Second,
+		pollInterval:  1 * time.Second,
 		leaseInterval: 1 * time.Second,
 		nh:            m.nh,
 		tm:            m.tm,

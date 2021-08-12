@@ -17,8 +17,21 @@ type workerCreator interface {
 	create(table string) *worker
 }
 
+type WorkerConfig struct {
+	PollInterval        time.Duration
+	LeaseInterval       time.Duration
+	LogRPCTimeout       time.Duration
+	SnapshotRPCTimeout  time.Duration
+	MaxRecoveryInFlight int64
+}
+
+type Config struct {
+	ReconcileInterval time.Duration
+	Workers           WorkerConfig
+}
+
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
-func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn) *Manager {
+func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn, cfg Config) *Manager {
 	replicationLog := zap.S().Named("replication")
 
 	replicationIndexGauge := prometheus.NewGaugeVec(
@@ -35,14 +48,14 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 	)
 
 	return &Manager{
-		Interval: 30 * time.Second,
-		tm:       tm,
+		reconcileInterval: cfg.ReconcileInterval,
+		tm:                tm,
 		factory: &workerFactory{
-			interval:          10 * time.Second,
-			leaseInterval:     10 * time.Second,
-			logTimeout:        5 * time.Minute,
-			snapshotTimeout:   1 * time.Hour,
-			recoverySemaphore: semaphore.NewWeighted(2),
+			pollInterval:      cfg.Workers.PollInterval,
+			leaseInterval:     cfg.Workers.LeaseInterval,
+			logTimeout:        cfg.Workers.LogRPCTimeout,
+			snapshotTimeout:   cfg.Workers.SnapshotRPCTimeout,
+			recoverySemaphore: semaphore.NewWeighted(cfg.Workers.MaxRecoveryInFlight),
 			tm:                tm,
 			log:               replicationLog,
 			nh:                nh,
@@ -67,10 +80,10 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 
 // Manager schedules replication workers.
 type Manager struct {
-	Interval time.Duration
-	tm       *tables.Manager
-	factory  workerCreator
-	workers  struct {
+	reconcileInterval time.Duration
+	tm                *tables.Manager
+	factory           workerCreator
+	workers           struct {
 		registry map[string]*worker
 		mtx      sync.RWMutex
 		wg       sync.WaitGroup
@@ -103,7 +116,7 @@ func (m *Manager) Start() {
 			return
 		}
 
-		t := time.NewTicker(m.Interval)
+		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
 			select {

@@ -7,13 +7,20 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/lni/dragonboat/v3/client"
+	"github.com/lni/dragonboat/v3/logger"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/table/key"
 	"github.com/wandera/regatta/util"
+	"go.uber.org/zap"
 )
+
+func init() {
+	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+}
 
 var (
 	longKey    = []byte(util.RandString(key.LatestVersionLen + 1))
