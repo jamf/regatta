@@ -10,12 +10,18 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/dragonboat/v3/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
 	"go.uber.org/zap"
 )
+
+func init() {
+	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+}
 
 var minimalTestConfig = func() Config {
 	return Config{

@@ -8,13 +8,19 @@ import (
 
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/dragonboat/v3/logger"
 	"github.com/lni/vfs"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 )
+
+func init() {
+	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+}
 
 type mockWorkerFactory struct {
 	mock.Mock
@@ -37,8 +43,8 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(followerTM.WaitUntilReady())
 	defer followerTM.Close()
 
-	m := NewManager(followerTM, followerNH, nil)
-	m.Interval = 250 * time.Millisecond
+	m := NewManager(followerTM, followerNH, nil, Config{})
+	m.reconcileInterval = 250 * time.Millisecond
 	wf := &mockWorkerFactory{}
 	m.factory = wf
 	m.log = zap.NewNop().Sugar()
