@@ -48,10 +48,10 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 	)
 
 	return &Manager{
-		reconcileInterval: 30 * time.Second,
+		reconcileInterval: cfg.ReconcileInterval,
 		tm:                tm,
 		factory: &workerFactory{
-			interval:          cfg.Workers.PollInterval,
+			pollInterval:      cfg.Workers.PollInterval,
 			leaseInterval:     cfg.Workers.LeaseInterval,
 			logTimeout:        cfg.Workers.LogRPCTimeout,
 			snapshotTimeout:   cfg.Workers.SnapshotRPCTimeout,

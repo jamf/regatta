@@ -25,7 +25,7 @@ var (
 )
 
 type workerFactory struct {
-	interval          time.Duration
+	pollInterval      time.Duration
 	leaseInterval     time.Duration
 	logTimeout        time.Duration
 	snapshotTimeout   time.Duration
@@ -47,7 +47,7 @@ func (f *workerFactory) create(table string) *worker {
 		snapshotClient:    f.snapshotClient,
 		tm:                f.tm,
 		nh:                f.nh,
-		interval:          f.interval,
+		pollInterval:      f.pollInterval,
 		leaseInterval:     f.leaseInterval,
 		logTimeout:        f.logTimeout,
 		snapshotTimeout:   f.snapshotTimeout,
@@ -68,7 +68,7 @@ func (f *workerFactory) create(table string) *worker {
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
 	Table             string
-	interval          time.Duration
+	pollInterval      time.Duration
 	leaseInterval     time.Duration
 	logTimeout        time.Duration
 	snapshotTimeout   time.Duration
@@ -130,7 +130,7 @@ func (l *worker) Start() {
 		}()
 
 		l.log.Info("replication routine started")
-		t := time.NewTicker(l.interval)
+		t := time.NewTicker(l.pollInterval)
 		defer t.Stop()
 		for {
 			select {
