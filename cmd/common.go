@@ -97,6 +97,8 @@ func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 		EnableMetrics:                 true,
 		MaxSnapshotRecvBytesPerSecond: viper.GetUint64("raft.max-snapshot-recv-bytes-per-second"),
 		MaxSnapshotSendBytesPerSecond: viper.GetUint64("raft.max-snapshot-send-bytes-per-second"),
+		MaxReceiveQueueSize:           viper.GetUint64("raft.max-recv-queue-size"),
+		MaxSendQueueSize:              viper.GetUint64("raft.max-send-queue-size"),
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
 

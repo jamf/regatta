@@ -79,6 +79,12 @@ The default value 0 means there is no limit for receiving snapshot data.`)
 	raftFlagSet.Uint64("raft.max-snapshot-send-bytes-per-second", 0,
 		`MaxSnapshotSendBytesPerSecond defines how much snapshot data can be sent every second for all Raft clusters managed by the NodeHost instance.
 The default value 0 means there is no limit set for snapshot streaming.`)
+	raftFlagSet.Uint64("raft.max-recv-queue-size", 0,
+		`MaxReceiveQueueSize is the maximum size in bytes of each receive queue. Once the maximum size is reached, further replication messages will be
+dropped to restrict memory usage. When set to 0, it means the queue size is unlimited.`)
+	raftFlagSet.Uint64("raft.max-send-queue-size", 0,
+		`MaxSendQueueSize is the maximum size in bytes of each send queue. Once the maximum size is reached, further replication messages will be
+dropped to restrict memory usage. When set to 0, it means the send queue size is unlimited.`)
 
 	// Kafka flags
 	kafkaFlagSet.StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
