@@ -32,14 +32,21 @@ func newSnapshotFile(dir, pattern string) (*snapshotFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &snapshotFile{File: f, path: filepath.Join(dir, f.Name()), w: snappy.NewBufferedWriter(f), r: snappy.NewReader(f)}, nil
+	return &snapshotFile{
+		File:    f,
+		path:    filepath.Join(dir, f.Name()),
+		w:       snappy.NewBufferedWriter(f),
+		r:       snappy.NewReader(f),
+		lenBuff: make([]byte, 8),
+	}, nil
 }
 
 type snapshotFile struct {
 	*os.File
-	r    *snappy.Reader
-	w    *snappy.Writer
-	path string
+	r       *snappy.Reader
+	w       *snappy.Writer
+	lenBuff []byte
+	path    string
 }
 
 func (s *snapshotFile) Path() string {
@@ -47,7 +54,7 @@ func (s *snapshotFile) Path() string {
 }
 
 func (s *snapshotFile) Read(p []byte) (n int, err error) {
-	buf := make([]byte, 8)
+	buf := s.lenBuff[:]
 	if _, err := io.ReadFull(s.r, buf); err != nil {
 		return 0, err
 	}
@@ -59,9 +66,8 @@ func (s *snapshotFile) Read(p []byte) (n int, err error) {
 }
 
 func (s *snapshotFile) Write(p []byte) (int, error) {
-	buf := make([]byte, 8)
+	buf := s.lenBuff[:]
 	binary.LittleEndian.PutUint64(buf, uint64(len(p)))
-
 	n, err := s.w.Write(buf)
 	if err != nil {
 		return 0, err

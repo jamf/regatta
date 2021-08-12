@@ -17,9 +17,10 @@ func Test_snapshotFile_Read(t *testing.T) {
 	open, err := os.Open("testdata/snapshot.bin")
 	r.NoError(err)
 	sf := snapshotFile{
-		File: open,
-		w:    snappy.NewBufferedWriter(open),
-		r:    snappy.NewReader(open),
+		File:    open,
+		w:       snappy.NewBufferedWriter(open),
+		r:       snappy.NewReader(open),
+		lenBuff: make([]byte, 8),
 	}
 	defer func() {
 		_ = sf.Close()
