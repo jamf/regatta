@@ -54,7 +54,7 @@ func TestManager_reconcile(t *testing.T) {
 	wf.On("create", "test").Once().Return(&worker{
 		Table:         "test",
 		log:           m.log,
-		interval:      1 * time.Second,
+		pollInterval:  1 * time.Second,
 		leaseInterval: 1 * time.Second,
 		nh:            m.nh,
 		tm:            m.tm,
@@ -81,7 +81,7 @@ func TestManager_reconcile(t *testing.T) {
 	wf.On("create", "test2").Once().Return(&worker{
 		Table:         "test2",
 		log:           m.log,
-		interval:      1 * time.Second,
+		pollInterval:  1 * time.Second,
 		leaseInterval: 1 * time.Second,
 		nh:            m.nh,
 		tm:            m.tm,

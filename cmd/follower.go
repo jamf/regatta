@@ -42,7 +42,7 @@ func init() {
 	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/client.key", "Path to the client private key file.")
 	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file.")
 	followerCmd.PersistentFlags().Bool("replication.enable-log-replication", false, "Enable log replication.")
-	followerCmd.PersistentFlags().Duration("replication.interval", 10*time.Second, "Replication interval in seconds, the leader poll time.")
+	followerCmd.PersistentFlags().Duration("replication.poll-interval", 10*time.Second, "Replication interval in seconds, the leader poll time.")
 	followerCmd.PersistentFlags().Duration("replication.reconcile-interval", 30*time.Second, "Replication interval of tables reconciliation (workers startup/shutdown).")
 	followerCmd.PersistentFlags().Duration("replication.lease-interval", 15*time.Second, "Interval in which the workers re-new their table leases.")
 	followerCmd.PersistentFlags().Duration("replication.log-rpc-timeout", 1*time.Minute, "The log RPC timeout.")
@@ -135,7 +135,7 @@ func follower(_ *cobra.Command, _ []string) {
 			d := replication.NewManager(tm, nh, conn, replication.Config{
 				ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
 				Workers: replication.WorkerConfig{
-					PollInterval:        viper.GetDuration("replication.interval"),
+					PollInterval:        viper.GetDuration("replication.poll-interval"),
 					LeaseInterval:       viper.GetDuration("replication.lease-interval"),
 					LogRPCTimeout:       viper.GetDuration("replication.log-rpc-timeout"),
 					SnapshotRPCTimeout:  viper.GetDuration("replication.snapshot-rpc-timeout"),
