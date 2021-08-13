@@ -1,4 +1,4 @@
-package replication
+package snapshot
 
 import (
 	"encoding/binary"
@@ -12,12 +12,27 @@ import (
 
 const snapshotFilenamePattern = "snapshot-*.bin"
 
-type snapshotReader struct {
-	stream proto.Snapshot_StreamClient
+type Writer struct {
+	Sender proto.Snapshot_StreamServer
 }
 
-func (s snapshotReader) Read(p []byte) (n int, err error) {
-	chunk, err := s.stream.Recv()
+func (g *Writer) Write(p []byte) (int, error) {
+	ln := len(p)
+	if err := g.Sender.Send(&proto.SnapshotChunk{
+		Data: p,
+		Len:  uint64(ln),
+	}); err != nil {
+		return 0, err
+	}
+	return ln, nil
+}
+
+type Reader struct {
+	Stream proto.Snapshot_StreamClient
+}
+
+func (s Reader) Read(p []byte) (n int, err error) {
+	chunk, err := s.Stream.Recv()
 	if err != nil {
 		return 0, err
 	}
@@ -27,18 +42,31 @@ func (s snapshotReader) Read(p []byte) (n int, err error) {
 	return copy(p, chunk.Data), nil
 }
 
-func newSnapshotFile(dir, pattern string) (*snapshotFile, error) {
-	f, err := os.CreateTemp(dir, pattern)
+func OpenFile(path string) (*snapshotFile, error) {
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
+	return newFile(f, path), nil
+}
+
+func NewTemp() (*snapshotFile, error) {
+	dir := os.TempDir()
+	f, err := os.CreateTemp(dir, snapshotFilenamePattern)
+	if err != nil {
+		return nil, err
+	}
+	return newFile(f, filepath.Join(dir, f.Name())), nil
+}
+
+func newFile(file *os.File, path string) *snapshotFile {
 	return &snapshotFile{
-		File:    f,
-		path:    filepath.Join(dir, f.Name()),
-		w:       snappy.NewBufferedWriter(f),
-		r:       snappy.NewReader(f),
+		File:    file,
+		path:    path,
+		w:       snappy.NewBufferedWriter(file),
+		r:       snappy.NewReader(file),
 		lenBuff: make([]byte, 8),
-	}, nil
+	}
 }
 
 type snapshotFile struct {
