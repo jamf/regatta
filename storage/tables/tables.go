@@ -484,6 +484,8 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 		Type: proto.Command_PUT_BATCH,
 	}
 	last := false
+
+	estimatedSize := 0
 	for {
 		n, err := reader.Read(msg)
 		if err != nil {
@@ -493,6 +495,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 				return err
 			}
 		}
+		estimatedSize = estimatedSize + n
 
 		if !last {
 			cmd := &proto.Command{}
@@ -504,7 +507,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			batchCmd.Table = cmd.Table
 			batchCmd.LeaderIndex = cmd.LeaderIndex
 
-			if uint64(pb.Size(&batchCmd)+pb.Size(cmd)) < m.cfg.Table.MaxInMemLogSize/2 {
+			if uint64(estimatedSize) < m.cfg.Table.MaxInMemLogSize/2 {
 				batchCmd.Batch = append(batchCmd.Batch, cmd.Kv)
 				continue
 			}
@@ -535,6 +538,8 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 		if err != nil {
 			return err
 		}
+
+		estimatedSize = 0
 
 		if last {
 			break
