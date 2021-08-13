@@ -121,6 +121,9 @@ func Test_worker_recover(t *testing.T) {
 	tab, err := followerTM.GetTable("test")
 	r.NoError(err)
 	r.Equal("test", tab.Name)
+	ir, err := tab.LeaderIndex(ctx)
+	r.NoError(err)
+	r.Greater(ir.Index, uint64(1))
 
 	w = &worker{Table: "test2", snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
 	t.Log("recover second table from leader")

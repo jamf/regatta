@@ -1,12 +1,10 @@
-package replication
+package snapshot
 
 import (
 	"io"
-	"os"
 	"strconv"
 	"testing"
 
-	"github.com/golang/snappy"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	pb "google.golang.org/protobuf/proto"
@@ -14,14 +12,9 @@ import (
 
 func Test_snapshotFile_Read(t *testing.T) {
 	r := require.New(t)
-	open, err := os.Open("testdata/snapshot.bin")
+
+	sf, err := NewFile("testdata/snapshot.bin")
 	r.NoError(err)
-	sf := snapshotFile{
-		File:    open,
-		w:       snappy.NewBufferedWriter(open),
-		r:       snappy.NewReader(open),
-		lenBuff: make([]byte, 8),
-	}
 	defer func() {
 		_ = sf.Close()
 	}()
@@ -41,7 +34,7 @@ func Test_snapshotFile_Read(t *testing.T) {
 
 func Test_snapshotFile_Write(t *testing.T) {
 	r := require.New(t)
-	sf, err := newSnapshotFile(t.TempDir(), snapshotFilenamePattern)
+	sf, err := NewTemp()
 	r.NoError(err)
 	defer func() {
 		_ = sf.Close()
@@ -60,7 +53,7 @@ func Test_snapshotFile_Write(t *testing.T) {
 func Test_snapshotFile_ReadWrite(t *testing.T) {
 	const testString = "barbarbarbarbarbarbarbarbarbarbarbarbarbarbarbarbarbarbarbarbarbar"
 	r := require.New(t)
-	sf, err := newSnapshotFile(t.TempDir(), snapshotFilenamePattern)
+	sf, err := NewTemp()
 	r.NoError(err)
 	defer func() {
 		_ = sf.Close()
