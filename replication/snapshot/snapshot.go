@@ -42,7 +42,7 @@ func (s Reader) Read(p []byte) (n int, err error) {
 	return copy(p, chunk.Data), nil
 }
 
-func NewFile(path string) (*snapshotFile, error) {
+func OpenFile(path string) (*snapshotFile, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
