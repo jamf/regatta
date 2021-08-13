@@ -1,9 +1,12 @@
 package regattaserver
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +14,7 @@ import (
 	"github.com/lni/dragonboat/v3/raftpb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/replication/snapshot"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -21,6 +25,8 @@ import (
 const (
 	// MaxGRPCSize is the maximum size of body of gRPC message to be loaded from dragonboat.
 	MaxGRPCSize = (4 * 1024 * 1024) - (10 * 1024)
+	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
+	DefaultSnapshotChunkSize = 1024 * 1024
 )
 
 // MetadataServer implements Metadata service from proto/replication.proto.
@@ -50,21 +56,6 @@ type SnapshotServer struct {
 	Tables TableService
 }
 
-type snapshotWriter struct {
-	sender proto.Snapshot_StreamServer
-}
-
-func (g *snapshotWriter) Write(p []byte) (int, error) {
-	ln := len(p)
-	if err := g.sender.Send(&proto.SnapshotChunk{
-		Data: p,
-		Len:  uint64(ln),
-	}); err != nil {
-		return 0, err
-	}
-	return ln, nil
-}
-
 func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_StreamServer) error {
 	table, err := s.Tables.GetTable(string(req.Table))
 	if err != nil {
@@ -78,8 +69,15 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 		ctx = dctx
 	}
 
-	writer := &snapshotWriter{sender: srv}
-	resp, err := table.Snapshot(ctx, writer)
+	sf, err := snapshot.NewTemp()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.Remove(sf.Path())
+	}()
+
+	resp, err := table.Snapshot(ctx, sf)
 	if err != nil {
 		return err
 	}
@@ -91,7 +89,20 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 	if err != nil {
 		return err
 	}
-	_, err = writer.Write(final)
+	_, err = sf.Write(final)
+	if err != nil {
+		return err
+	}
+	err = sf.Sync()
+	if err != nil {
+		return err
+	}
+	_, err = sf.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(&snapshot.Writer{Sender: srv}, bufio.NewReaderSize(sf.File, DefaultSnapshotChunkSize))
 	return err
 }
 

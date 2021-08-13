@@ -13,6 +13,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/replication/snapshot"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -269,7 +270,7 @@ func (l *worker) recover() error {
 		return err
 	}
 
-	sf, err := newSnapshotFile(os.TempDir(), snapshotFilenamePattern)
+	sf, err := snapshot.NewTemp()
 	if err != nil {
 		return err
 	}
@@ -281,21 +282,11 @@ func (l *worker) recover() error {
 		_ = os.Remove(sf.Path())
 	}()
 
-	reader := snapshotReader{stream: stream}
-	buffer := make([]byte, 4*1024*1024)
-	for {
-		n, err := reader.Read(buffer)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		_, err = sf.Write(buffer[:n])
-		if err != nil {
-			return err
-		}
+	_, err = io.Copy(sf.File, &snapshot.Reader{Stream: stream})
+	if err != nil {
+		return err
 	}
+
 	err = sf.Sync()
 	if err != nil {
 		return err
