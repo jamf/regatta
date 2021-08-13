@@ -13,7 +13,7 @@ import (
 func Test_snapshotFile_Read(t *testing.T) {
 	r := require.New(t)
 
-	sf, err := NewFile("testdata/snapshot.bin")
+	sf, err := OpenFile("testdata/snapshot.bin")
 	r.NoError(err)
 	defer func() {
 		_ = sf.Close()
