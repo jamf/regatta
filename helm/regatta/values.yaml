@@ -33,6 +33,8 @@ replication:
     hostname: foo
   leaderAddress: bar
   logReplicationEnabled: false
+  # 0 means unlimited
+  maxSnapshotRecvBytesPerSecond: 0
 
 priorityClassName: service-cluster-critical
 tolerations: []
@@ -49,6 +51,8 @@ raft:
   # 0 means unlimited
   maxSnapshotRecvBytesPerSecond: 0
   maxSnapshotSendBytesPerSecond: 0
+  heartbeatRTT: 1
+  electionRTT: 20
 
 externalLoadBalancer: {}
 
