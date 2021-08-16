@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "meta.name" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  dragonboat-soft-settings.json: |
+    {
+      "TaskBatchSize": 128,
+      "PerConnectionSendBufSize": 10485760
+    }
