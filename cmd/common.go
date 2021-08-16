@@ -87,6 +87,7 @@ func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 	dbl.GetLogger("transport").SetLevel(dbl.DEBUG)
 	dbl.GetLogger("dragonboat").SetLevel(dbl.DEBUG)
 	dbl.GetLogger("logdb").SetLevel(dbl.DEBUG)
+	dbl.GetLogger("settings").SetLevel(dbl.DEBUG)
 
 	nhc := config.NodeHostConfig{
 		WALDir:                        viper.GetString("raft.wal-dir"),
