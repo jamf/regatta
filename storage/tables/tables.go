@@ -480,6 +480,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 	session := m.nh.GetNoOPSession(id)
 	msg := make([]byte, 1024*1024*4)
 
+	cmd := &proto.Command{}
 	batchCmd := proto.Command{
 		Type: proto.Command_PUT_BATCH,
 	}
@@ -498,7 +499,6 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 		estimatedSize = estimatedSize + n
 
 		if !last {
-			cmd := &proto.Command{}
 			err = pb.Unmarshal(msg[:n], cmd)
 			if err != nil {
 				return err
