@@ -35,6 +35,7 @@ charts:
               storage: 200Gi
       raft:
         initialMembers: "1=regatta-cold-0.regatta-cold.regatta.svc.cluster.local:5012,2=regatta-cold-1.regatta-cold.regatta.svc.cluster.local:5012,3=regatta-cold-2.regatta-cold.regatta.svc.cluster.local:5012"
+        compactionOverhead: 200000
       kafka:
         brokers: kafka-core.int.dev.wandera.co.uk:9091
         groupID: regatta-cold-0-tables
