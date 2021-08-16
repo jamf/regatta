@@ -83,11 +83,11 @@ spec:
           {{- end }}
           {{- if eq .Values.mode "follower" }}
             --replication.leader-address={{ .Values.replication.leaderAddress }} \
+            --replication.max-snapshot-recv-bytes-per-second={{ .Values.replication.maxSnapshotRecvBytesPerSecond | int64 }} \
           {{- if .Values.replication.logReplicationEnabled }}
             --replication.enable-log-replication \
           {{- end }}
           {{- end }}
-            --replication.max-snapshot-recv-bytes-per-second={{ .Values.replication.maxSnapshotRecvBytesPerSecond | int64 }} \
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \
             --replication.ca-filename=/replication-cert/ca.crt
