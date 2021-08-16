@@ -108,6 +108,9 @@ spec:
           initialDelaySeconds: 90
           periodSeconds: 60
         volumeMounts:
+        - mountPath: /dragonboat-soft-settings.json
+          name: config
+          subPath: dragonboat-soft-settings.json
         - mountPath: /cert
           name: cert
         {{- if ne .Values.kafka.serverCert ""}}
@@ -119,6 +122,9 @@ spec:
         - mountPath: /data
           name: data
       volumes:
+      - name: config
+        configMap:
+          name: {{ template "meta.name" . }}-config
       - name: cert
         secret:
           defaultMode: 420
