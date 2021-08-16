@@ -56,6 +56,8 @@ spec:
             --raft.initial-members={{ .Values.raft.initialMembers }} \
             --raft.state-machine-dir=/data/state-machine \
             --raft.rtt={{ .Values.raft.rtt }} \
+            --raft.election-rtt={{ .Values.raft.electionRTT }} \
+            --raft.heartbeat-rtt={{ .Values.raft.heartbeatRTT }} \
             --raft.snapshot-entries={{ .Values.raft.snapshotEntries | int64 }} \
             --raft.compaction-overhead={{ .Values.raft.compactionOverhead | int64 }} \
             --raft.max-snapshot-recv-bytes-per-second={{ .Values.raft.maxSnapshotRecvBytesPerSecond | int64 }} \
@@ -85,6 +87,7 @@ spec:
             --replication.enable-log-replication \
           {{- end }}
           {{- end }}
+            --replication.max-snapshot-recv-bytes-per-second={{ .Values.replication.maxSnapshotRecvBytesPerSecond | int64 }} \
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \
             --replication.ca-filename=/replication-cert/ca.crt

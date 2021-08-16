@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/lni/dragonboat/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
@@ -30,6 +31,7 @@ type workerFactory struct {
 	leaseInterval     time.Duration
 	logTimeout        time.Duration
 	snapshotTimeout   time.Duration
+	maxSnapshotRecv   uint64
 	recoverySemaphore *semaphore.Weighted
 	tm                *tables.Manager
 	log               *zap.SugaredLogger
@@ -53,6 +55,7 @@ func (f *workerFactory) create(table string) *worker {
 		logTimeout:        f.logTimeout,
 		snapshotTimeout:   f.snapshotTimeout,
 		recoverySemaphore: f.recoverySemaphore,
+		maxSnapshotRecv:   f.maxSnapshotRecv,
 		Table:             table,
 		closer:            make(chan struct{}),
 		log:               f.log.Named(table),
@@ -81,6 +84,7 @@ type worker struct {
 	snapshotClient    proto.SnapshotClient
 	leased            uint32
 	recoverySemaphore *semaphore.Weighted
+	maxSnapshotRecv   uint64
 	metrics           struct {
 		replicationIndex  prometheus.Gauge
 		replicationLeased prometheus.Gauge
@@ -282,7 +286,12 @@ func (l *worker) recover() error {
 		_ = os.Remove(sf.Path())
 	}()
 
-	_, err = io.Copy(sf.File, &snapshot.Reader{Stream: stream})
+	r := &snapshot.Reader{Stream: stream}
+	if l.maxSnapshotRecv != 0 {
+		r.Bucket = ratelimit.NewBucketWithRate(float64(l.maxSnapshotRecv), int64(l.maxSnapshotRecv)*2)
+	}
+
+	_, err = io.Copy(sf.File, r)
 	if err != nil {
 		return err
 	}

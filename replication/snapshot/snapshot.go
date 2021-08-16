@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/golang/snappy"
+	"github.com/juju/ratelimit"
 	"github.com/wandera/regatta/proto"
 )
 
@@ -29,6 +30,7 @@ func (g *Writer) Write(p []byte) (int, error) {
 
 type Reader struct {
 	Stream proto.Snapshot_StreamClient
+	Bucket *ratelimit.Bucket
 }
 
 func (s Reader) Read(p []byte) (n int, err error) {
@@ -38,6 +40,9 @@ func (s Reader) Read(p []byte) (n int, err error) {
 	}
 	if len(p) < int(chunk.Len) {
 		return 0, io.ErrShortBuffer
+	}
+	if s.Bucket != nil {
+		s.Bucket.Wait(int64(chunk.Len))
 	}
 	return copy(p, chunk.Data), nil
 }
@@ -51,6 +56,9 @@ func (s Reader) WriteTo(w io.Writer) (int64, error) {
 		}
 		if err != nil {
 			return n, err
+		}
+		if s.Bucket != nil {
+			s.Bucket.Wait(int64(chunk.Len))
 		}
 		w, err := w.Write(chunk.Data)
 		if err != nil {

@@ -23,6 +23,7 @@ type WorkerConfig struct {
 	LogRPCTimeout       time.Duration
 	SnapshotRPCTimeout  time.Duration
 	MaxRecoveryInFlight int64
+	MaxSnapshotRecv     uint64
 }
 
 type Config struct {
@@ -55,6 +56,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 			leaseInterval:     cfg.Workers.LeaseInterval,
 			logTimeout:        cfg.Workers.LogRPCTimeout,
 			snapshotTimeout:   cfg.Workers.SnapshotRPCTimeout,
+			maxSnapshotRecv:   cfg.Workers.MaxSnapshotRecv,
 			recoverySemaphore: semaphore.NewWeighted(cfg.Workers.MaxRecoveryInFlight),
 			tm:                tm,
 			log:               replicationLog,
