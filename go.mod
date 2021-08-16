@@ -13,6 +13,7 @@ require (
 	github.com/golang/snappy v0.0.4-0.20210502035320-33fc3d5d8d99
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jstemmer/go-junit-report v0.9.1
+	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lni/dragonboat/v3 v3.1.1-0.20210605150813-01d1dcbb062c
 	github.com/lni/vfs v0.2.0

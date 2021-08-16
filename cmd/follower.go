@@ -48,6 +48,7 @@ func init() {
 	followerCmd.PersistentFlags().Duration("replication.log-rpc-timeout", 1*time.Minute, "The log RPC timeout.")
 	followerCmd.PersistentFlags().Duration("replication.snapshot-rpc-timeout", 1*time.Hour, "The snapshot RPC timeout.")
 	followerCmd.PersistentFlags().Uint64("replication.max-recovery-in-flight", 1, "The maximum number of recovery goroutines allowed to run in this instance.")
+	followerCmd.PersistentFlags().Uint64("replication.max-snapshot-recv-bytes-per-second", 0, "Max bytes per second received by the snapshot API client, default value 0 means unlimited.")
 }
 
 var followerCmd = &cobra.Command{
@@ -140,6 +141,7 @@ func follower(_ *cobra.Command, _ []string) {
 					LogRPCTimeout:       viper.GetDuration("replication.log-rpc-timeout"),
 					SnapshotRPCTimeout:  viper.GetDuration("replication.snapshot-rpc-timeout"),
 					MaxRecoveryInFlight: int64(viper.GetUint64("replication.max-recovery-in-flight")),
+					MaxSnapshotRecv:     viper.GetUint64("replication.max-snapshot-recv-bytes-per-second"),
 				},
 			})
 			prometheus.MustRegister(d)

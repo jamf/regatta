@@ -31,7 +31,7 @@ const (
 	// targetFileSizeGrowFactor the factor of growth of targetFileSizeBase between levels.
 	targetFileSizeGrowFactor = 2
 	// writeBufferSize inmemory write buffer size.
-	writeBufferSize = 4 * 1024 * 1024
+	writeBufferSize = 16 * 1024 * 1024
 	// maxWriteBufferNumber number of write buffers.
 	maxWriteBufferNumber = 4
 	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
@@ -39,7 +39,7 @@ const (
 	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
 	l0StopWritesTrigger = 24
 	// maxBytesForLevelBase base for amount of data stored in a single level.
-	maxBytesForLevelBase = 256 * 1024 * 1024
+	maxBytesForLevelBase = 512 * 1024 * 1024
 	// cacheSize LRU cache size.
 	cacheSize = 8 * 1024 * 1024
 	// maxLogFileSize maximum size of WAL files.
