@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/proto"
 )
 
 type workerCreator interface {

@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	protobuf "google.golang.org/protobuf/proto"
 )
 
 const (
@@ -81,11 +80,11 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 	if err != nil {
 		return err
 	}
-	final, err := protobuf.Marshal(&proto.Command{
+	final, err := (&proto.Command{
 		Table:       req.Table,
 		Type:        proto.Command_DUMMY,
 		LeaderIndex: &resp.Index,
-	})
+	}).MarshalVT()
 	if err != nil {
 		return err
 	}
@@ -290,7 +289,7 @@ func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
 	cmd := &proto.Command{}
 	if e.Type != raftpb.EncodedEntry {
 		cmd.Type = proto.Command_DUMMY
-	} else if err := protobuf.Unmarshal(e.Cmd[1:], cmd); err != nil {
+	} else if err := cmd.UnmarshalVT(e.Cmd[1:]); err != nil {
 		return nil, err
 	}
 	cmd.LeaderIndex = &e.Index

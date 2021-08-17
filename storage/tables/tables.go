@@ -17,7 +17,6 @@ import (
 	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
 	"go.uber.org/zap"
-	pb "google.golang.org/protobuf/proto"
 )
 
 type store interface {
@@ -481,7 +480,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 	msg := make([]byte, 1024*1024*4)
 
 	cmd := &proto.Command{}
-	batchCmd := proto.Command{
+	batchCmd := &proto.Command{
 		Type: proto.Command_PUT_BATCH,
 	}
 	last := false
@@ -499,7 +498,8 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 		estimatedSize = estimatedSize + n
 
 		if !last {
-			err = pb.Unmarshal(msg[:n], cmd)
+			cmd.Reset()
+			err = cmd.UnmarshalVT(msg[:n])
 			if err != nil {
 				return err
 			}
@@ -513,7 +513,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			}
 		}
 
-		bb, err := pb.Marshal(&batchCmd)
+		bb, err := batchCmd.MarshalVT()
 		if err != nil {
 			return err
 		}
