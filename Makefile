@@ -49,7 +49,7 @@ regatta: proto *.go **/*.go
 proto: proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go
 
 proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go: proto/*.proto
-	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command proto/*.proto
+	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto
 
 # Build the docker image
 docker-build: proto
