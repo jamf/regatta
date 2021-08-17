@@ -22,7 +22,6 @@ import (
 	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
-	pb "google.golang.org/protobuf/proto"
 )
 
 var (
@@ -158,7 +157,7 @@ func (p *FSM) getWalDirPath(hostname string, randomDir string, dbdir string) str
 
 // Update updates the object.
 func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
-	cmd := proto.Command{}
+	cmd := &proto.Command{}
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	buf := bytes.NewBuffer(make([]byte, key.LatestVersionLen))
 
@@ -168,7 +167,8 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}()
 
 	for i := 0; i < len(updates); i++ {
-		err := pb.Unmarshal(updates[i].Cmd, &cmd)
+		cmd.Reset()
+		err := cmd.UnmarshalVT(updates[i].Cmd)
 		if err != nil {
 			return nil, err
 		}
@@ -381,7 +381,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 }
 
 func writeCommand(w io.Writer, command *proto.Command) error {
-	bts, err := pb.Marshal(command)
+	bts, err := command.MarshalVT()
 	if err != nil {
 		return err
 	}
@@ -432,11 +432,11 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) 
 				Key:   iter.Key(),
 				Value: iter.Value(),
 			}
-			entry, err := pb.Marshal(kv)
+			entry, err := kv.MarshalVT()
 			if err != nil {
 				return err
 			}
-			err = binary.Write(w, binary.LittleEndian, uint64(pb.Size(kv)))
+			err = binary.Write(w, binary.LittleEndian, uint64(kv.SizeVT()))
 			if err != nil {
 				return err
 			}
@@ -484,7 +484,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return err
 	}
 
-	kv := proto.KeyValue{}
+	kv := &proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
 	b := db.NewBatch()
 	defer func() {
@@ -515,7 +515,8 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 			if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
 				return err
 			}
-			if err := pb.Unmarshal(buffer[:toRead], &kv); err != nil {
+			kv.Reset()
+			if err := kv.UnmarshalVT(buffer[:toRead]); err != nil {
 				return err
 			}
 
