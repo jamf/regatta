@@ -9,6 +9,7 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	io "io"
 	bits "math/bits"
+	sync "sync"
 )
 
 const (
@@ -167,6 +168,29 @@ func encodeVarint(dAtA []byte, offset int, v uint64) int {
 	}
 	dAtA[offset] = uint8(v)
 	return base
+}
+
+var vtprotoPool_Command = sync.Pool{
+	New: func() interface{} {
+		return &Command{}
+	},
+}
+
+func (m *Command) ResetVT() {
+	f0 := m.Table[:0]
+	f1 := m.Batch[:0]
+	m.Reset()
+	m.Table = f0
+	m.Batch = f1
+}
+func (m *Command) ReturnToVTPool() {
+	if m != nil {
+		m.ResetVT()
+		vtprotoPool_Command.Put(m)
+	}
+}
+func CommandFromVTPool() *Command {
+	return vtprotoPool_Command.Get().(*Command)
 }
 func (m *Command) SizeVT() (n int) {
 	if m == nil {
@@ -439,7 +463,14 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Batch = append(m.Batch, &KeyValue{})
+			if len(m.Batch) == cap(m.Batch) {
+				m.Batch = append(m.Batch, &KeyValue{})
+			} else {
+				m.Batch = m.Batch[:len(m.Batch)+1]
+				if m.Batch[len(m.Batch)-1] == nil {
+					m.Batch[len(m.Batch)-1] = &KeyValue{}
+				}
+			}
 			if err := m.Batch[len(m.Batch)-1].UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
