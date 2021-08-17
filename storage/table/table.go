@@ -10,7 +10,6 @@ import (
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/table/key"
-	pb "google.golang.org/protobuf/proto"
 )
 
 type raftHandler interface {
@@ -88,7 +87,7 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 			Value: req.Value,
 		},
 	}
-	bytes, err := pb.Marshal(cmd)
+	bytes, err := cmd.MarshalVT()
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +112,7 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 			Key: req.Key,
 		},
 	}
-	bytes, err := pb.Marshal(cmd)
+	bytes, err := cmd.MarshalVT()
 	if err != nil {
 		return nil, err
 	}

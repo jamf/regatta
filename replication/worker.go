@@ -18,7 +18,6 @@ import (
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
-	pb "google.golang.org/protobuf/proto"
 )
 
 var (
@@ -253,7 +252,7 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 
 func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
 	for _, c := range commands {
-		bytes, err := pb.Marshal(c.Command)
+		bytes, err := c.Command.MarshalVT()
 		if err != nil {
 			return fmt.Errorf("could not marshal command: %w", err)
 		}
