@@ -18,6 +18,7 @@ require (
 	github.com/lni/dragonboat/v3 v3.1.1-0.20210605150813-01d1dcbb062c
 	github.com/lni/vfs v0.2.0
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
+	github.com/planetscale/vtprotobuf v0.2.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.26.0
 	github.com/segmentio/kafka-go v0.4.15

@@ -48,14 +48,8 @@ regatta: proto *.go **/*.go
 
 proto: proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go
 
-proto/mvcc.pb.go: proto/mvcc.proto
-	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative proto/mvcc.proto
-
-proto/regatta.pb.go proto/regatta_grpc.pb.go: proto/regatta.proto
-	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/regatta.proto
-
-proto/replication.pb.go proto/replication_grpc.pb.go: proto/replication.proto
-	protoc -I proto/ --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative proto/replication.proto
+proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go: proto/*.proto
+	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=github.com/wandera/regatta/proto/mvcc.v1.Command proto/*.proto
 
 # Build the docker image
 docker-build: proto
