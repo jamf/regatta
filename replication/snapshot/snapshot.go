@@ -50,7 +50,8 @@ func (s Reader) Read(p []byte) (n int, err error) {
 func (s Reader) WriteTo(w io.Writer) (int64, error) {
 	n := int64(0)
 	for {
-		chunk, err := s.Stream.Recv()
+		chunk := proto.SnapshotChunkFromVTPool()
+		err := s.Stream.RecvMsg(chunk)
 		if err == io.EOF {
 			return n, nil
 		}
@@ -65,6 +66,7 @@ func (s Reader) WriteTo(w io.Writer) (int64, error) {
 			return n, err
 		}
 		n = n + int64(w)
+		chunk.ReturnToVTPool()
 	}
 }
 

@@ -157,7 +157,6 @@ func (p *FSM) getWalDirPath(hostname string, randomDir string, dbdir string) str
 
 // Update updates the object.
 func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
-	cmd := &proto.Command{}
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	buf := bytes.NewBuffer(make([]byte, key.LatestVersionLen))
 
@@ -166,8 +165,11 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		_ = batch.Close()
 	}()
 
+	cmd := proto.CommandFromVTPool()
+	defer cmd.ReturnToVTPool()
+
 	for i := 0; i < len(updates); i++ {
-		cmd.Reset()
+		cmd.ResetVT()
 		err := cmd.UnmarshalVT(updates[i].Cmd)
 		if err != nil {
 			return nil, err

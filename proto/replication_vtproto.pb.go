@@ -8,6 +8,7 @@ import (
 	fmt "fmt"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	io "io"
+	sync "sync"
 )
 
 const (
@@ -489,6 +490,26 @@ func (m *ReplicateErrResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
+var vtprotoPool_SnapshotChunk = sync.Pool{
+	New: func() interface{} {
+		return &SnapshotChunk{}
+	},
+}
+
+func (m *SnapshotChunk) ResetVT() {
+	f0 := m.Data[:0]
+	m.Reset()
+	m.Data = f0
+}
+func (m *SnapshotChunk) ReturnToVTPool() {
+	if m != nil {
+		m.ResetVT()
+		vtprotoPool_SnapshotChunk.Put(m)
+	}
+}
+func SnapshotChunkFromVTPool() *SnapshotChunk {
+	return vtprotoPool_SnapshotChunk.Get().(*SnapshotChunk)
+}
 func (m *MetadataRequest) SizeVT() (n int) {
 	if m == nil {
 		return 0
