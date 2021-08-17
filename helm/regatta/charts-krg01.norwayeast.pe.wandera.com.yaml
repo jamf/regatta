@@ -28,9 +28,6 @@ charts:
           cpu: 1
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
-        rtt: 50ms
-        heartbeatRTT: 4
-        electionRTT: 100
         maxSnapshotRecvBytesPerSecond: 10485760
         maxSnapshotSendBytesPerSecond: 10485760
       imagePullSecrets: awsecr-cred

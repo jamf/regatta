@@ -51,8 +51,8 @@ raft:
   # 0 means unlimited
   maxSnapshotRecvBytesPerSecond: 0
   maxSnapshotSendBytesPerSecond: 0
-  heartbeatRTT: 1
-  electionRTT: 20
+  heartbeatRTT: 4
+  electionRTT: 100
 
 externalLoadBalancer: {}
 

@@ -28,6 +28,8 @@ charts:
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
         compactionOverhead: 200000
+        heartbeatRTT: 1
+        electionRTT: 20
       kafka:
         brokers: kaf-101-core-prod.eu-west-1a.ie.wandera.com:9091,kaf-102-core-prod.eu-west-1b.ie.wandera.com:9091,kaf-103-core-prod.eu-west-1c.ie.wandera.com:9091
         groupID: regatta-pc-0-tables
