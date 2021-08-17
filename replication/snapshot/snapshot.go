@@ -33,9 +33,10 @@ type Reader struct {
 	Bucket *ratelimit.Bucket
 }
 
-func (s Reader) Read(p []byte) (n int, err error) {
-	chunk, err := s.Stream.Recv()
-	if err != nil {
+func (s Reader) Read(p []byte) (int, error) {
+	chunk := proto.SnapshotChunkFromVTPool()
+	defer chunk.ReturnToVTPool()
+	if err := s.Stream.RecvMsg(chunk); err != nil {
 		return 0, err
 	}
 	if len(p) < int(chunk.Len) {
@@ -49,8 +50,10 @@ func (s Reader) Read(p []byte) (n int, err error) {
 
 func (s Reader) WriteTo(w io.Writer) (int64, error) {
 	n := int64(0)
+	chunk := proto.SnapshotChunkFromVTPool()
+	defer chunk.ReturnToVTPool()
 	for {
-		chunk := proto.SnapshotChunkFromVTPool()
+		chunk.ResetVT()
 		err := s.Stream.RecvMsg(chunk)
 		if err == io.EOF {
 			return n, nil
@@ -66,7 +69,6 @@ func (s Reader) WriteTo(w io.Writer) (int64, error) {
 			return n, err
 		}
 		n = n + int64(w)
-		chunk.ReturnToVTPool()
 	}
 }
 
