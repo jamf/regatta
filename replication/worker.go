@@ -251,13 +251,19 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 }
 
 func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
+	var buff []byte
 	for _, c := range commands {
-		bytes, err := c.Command.MarshalVT()
+		size := c.Command.SizeVT()
+		if cap(buff) < size {
+			buff = make([]byte, 0, size)
+		}
+		buff = buff[:size]
+		n, err := c.Command.MarshalToSizedBufferVT(buff)
 		if err != nil {
 			return fmt.Errorf("could not marshal command: %w", err)
 		}
 
-		if _, err := l.nh.SyncPropose(ctx, l.nh.GetNoOPSession(clusterID), bytes); err != nil {
+		if _, err := l.nh.SyncPropose(ctx, l.nh.GetNoOPSession(clusterID), buff[:n]); err != nil {
 			return fmt.Errorf("could not SyncPropose: %w", err)
 		}
 	}
