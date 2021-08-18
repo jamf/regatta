@@ -12,5 +12,6 @@ data:
   dragonboat-soft-settings.json: |
     {
       "TaskBatchSize": 128,
-      "PerConnectionSendBufSize": 10485760
+      "PerConnectionSendBufSize": 10485760,
+      "NodeReloadMillisecond": 4000
     }
