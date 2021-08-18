@@ -12,6 +12,7 @@ Regatta is a read-optimised distributed key-value store.
 * [Go](https://golang.org/) >= 1.15 -- `brew install go`
 * Protocol Buffer compiler >= 3 -- `brew install protobuf`
 * Go protobuf compiler plugin -- `go get google.golang.org/protobuf/cmd/protoc-gen-go`
+* Go Vitess Protocol Buffers compiler -- `go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto`
 * Go grpc generator protobuf compiler plugin -- `go get google.golang.org/grpc/cmd/protoc-gen-go-grpc`
 * gRPC curl (optional for testing) -- `brew install grpcurl`
 * [Docker](https://www.docker.com) (optional for testing)
