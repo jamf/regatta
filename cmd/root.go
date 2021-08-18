@@ -1,14 +1,14 @@
 package cmd
 
 import (
-	vtgrpc "github.com/planetscale/vtprotobuf/codec/grpc"
 	"github.com/spf13/cobra"
+	"github.com/wandera/regatta/regattaserver"
 	"google.golang.org/grpc/encoding"
 	_ "google.golang.org/grpc/encoding/proto"
 )
 
 func init() {
-	encoding.RegisterCodec(vtgrpc.Codec{})
+	encoding.RegisterCodec(regattaserver.Codec{})
 
 	// Add subcommands
 	rootCmd.AddCommand(leaderCmd)
