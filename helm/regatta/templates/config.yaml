@@ -13,5 +13,6 @@ data:
     {
       "TaskBatchSize": 128,
       "PerConnectionSendBufSize": 10485760,
-      "NodeReloadMillisecond": 4000
+      "NodeReloadMillisecond": 4000,
+      "MaxConcurrentStreamingSnapshot": 1
     }

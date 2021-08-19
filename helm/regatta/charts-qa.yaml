@@ -13,7 +13,7 @@ charts:
         enabled: true
       affinity:
         podAntiAffinity:
-          topologyKey: kubernetes.io/zone
+          topologyKey: kubernetes.io/hostname
       persistence:
         storage:
           storageClassName: ebs-gp2-zone-agnostic
@@ -28,6 +28,8 @@ charts:
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
         compactionOverhead: 200000
+        heartbeatRTT: 1
+        electionRTT: 20
       kafka:
         brokers: kafka-core.int.qa.wandera.co.uk:9091
         groupID: regatta-qa-0-tables

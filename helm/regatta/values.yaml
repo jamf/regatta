@@ -17,11 +17,11 @@ branch: master
 
 resources:
   limits:
-    cpu: 1
-    memory: 1.5Gi
+    cpu: 500m
+    memory: 2Gi
   requests:
     cpu: 500m
-    memory: 1.5Gi
+    memory: 2Gi
 
 internalPort: 8443
 metricsPort: 8079
@@ -51,8 +51,8 @@ raft:
   # 0 means unlimited
   maxSnapshotRecvBytesPerSecond: 0
   maxSnapshotSendBytesPerSecond: 0
-  heartbeatRTT: 1
-  electionRTT: 20
+  heartbeatRTT: 4
+  electionRTT: 100
 
 externalLoadBalancer: {}
 
