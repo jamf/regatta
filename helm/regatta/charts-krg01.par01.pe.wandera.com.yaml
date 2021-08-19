@@ -25,7 +25,7 @@ charts:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
       imagePullSecrets: awsecr-cred
       kafka:
-        logReplicationEnabled: true
+        enabled: false
       replication:
         leaderAddress: regatta.pc.wandera.com:8444
         logReplicationEnabled: true
