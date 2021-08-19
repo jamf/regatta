@@ -21,7 +21,7 @@ charts:
         enabled: true
       affinity:
         podAntiAffinity:
-          topologyKey: kubernetes.io/zone
+          topologyKey: kubernetes.io/hostname
       persistence:
         storage:
           storageClassName: ebs-gp2-zone-agnostic
