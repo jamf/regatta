@@ -221,8 +221,8 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 				leaderBehind = true
 				l.Log.Warnf("leader behind - %s (leaderIndex %d)", msg, leaderIndex)
 			} else {
-				// Something else caused the panic, so re-raise it.
-				panic(errRec)
+				// Something else caused the panic, so raise as error.
+				err = fmt.Errorf("ReadRaftState panicked: %v", errRec)
 			}
 		}
 	}()
@@ -232,6 +232,16 @@ func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.Raft
 		err = fmt.Errorf("could not get raft state: %v", err)
 		return
 	}
+	return
+}
+
+func (l *LogServer) iterateEntries(entries []raftpb.Entry, clusterID, lo, hi uint64) (ents []raftpb.Entry, err error) {
+	defer func() {
+		if errRec := recover(); errRec != nil {
+			err = fmt.Errorf("IterateEntries panicked: %v", errRec)
+		}
+	}()
+	ents, _, err = l.DB.IterateEntries(entries, math.MaxUint64, clusterID, l.NodeID, lo, hi, MaxGRPCSize)
 	return
 }
 
@@ -246,7 +256,7 @@ func (l *LogServer) readLog(server proto.Log_ReplicateServer, clusterID, firstIn
 		commands = commands[:0]
 		entries = entries[:0]
 
-		entries, _, err := l.DB.IterateEntries(entries, math.MaxUint64, clusterID, l.NodeID, lo, hi, MaxGRPCSize)
+		entries, err := l.iterateEntries(entries, clusterID, lo, hi)
 		if err != nil {
 			return fmt.Errorf("could not iterate over entries: %v", err)
 		}
