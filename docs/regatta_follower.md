@@ -78,6 +78,7 @@ regatta follower [flags]
       --replication.reconcile-interval duration               Replication interval of tables reconciliation (workers startup/shutdown). (default 30s)
       --replication.snapshot-rpc-timeout duration             The snapshot RPC timeout. (default 1h0m0s)
       --rest.address string                                   Address the REST API server should listen on. (default ":8079")
+      --storage.block-cache-size int                          Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
 ```
 
 ### SEE ALSO
