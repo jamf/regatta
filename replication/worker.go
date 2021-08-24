@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -93,6 +94,9 @@ type worker struct {
 
 // Start launches the replication goroutine. To stop it, call worker.Close.
 func (w *worker) Start() {
+	// Sleep up to reconcile interval to prevent the thundering herd
+	time.Sleep(time.Duration(rand.Intn(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
+
 	w.wg.Add(1)
 	go func() {
 		defer func() {
