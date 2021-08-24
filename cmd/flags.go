@@ -9,11 +9,12 @@ import (
 )
 
 var (
-	rootFlagSet  = pflag.NewFlagSet("root", pflag.ContinueOnError)
-	apiFlagSet   = pflag.NewFlagSet("api", pflag.ContinueOnError)
-	restFlagSet  = pflag.NewFlagSet("rest", pflag.ContinueOnError)
-	raftFlagSet  = pflag.NewFlagSet("raft", pflag.ContinueOnError)
-	kafkaFlagSet = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
+	rootFlagSet    = pflag.NewFlagSet("root", pflag.ContinueOnError)
+	apiFlagSet     = pflag.NewFlagSet("api", pflag.ContinueOnError)
+	restFlagSet    = pflag.NewFlagSet("rest", pflag.ContinueOnError)
+	raftFlagSet    = pflag.NewFlagSet("raft", pflag.ContinueOnError)
+	kafkaFlagSet   = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
+	storageFlagSet = pflag.NewFlagSet("storage", pflag.ContinueOnError)
 )
 
 func init() {
@@ -85,6 +86,9 @@ dropped to restrict memory usage. When set to 0, it means the queue size is unli
 	raftFlagSet.Uint64("raft.max-send-queue-size", 0,
 		`MaxSendQueueSize is the maximum size in bytes of each send queue. Once the maximum size is reached, further replication messages will be
 dropped to restrict memory usage. When set to 0, it means the send queue size is unlimited.`)
+
+	// Storage flags
+	storageFlagSet.Int64("storage.block-cache-size", 16*1024*1024, "Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.")
 
 	// Kafka flags
 	kafkaFlagSet.StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")

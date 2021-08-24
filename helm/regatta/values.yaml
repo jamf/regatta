@@ -59,6 +59,10 @@ externalLoadBalancer: {}
 reflectionAPI:
   enabled: false
 
+storage:
+  # 32MB default
+  blockCacheSize: 33554432
+
 persistence: {}
 
 kafka:

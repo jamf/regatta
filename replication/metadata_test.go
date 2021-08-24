@@ -14,7 +14,7 @@ import (
 var tableManagerTestConfig = func() tables.Config {
 	return tables.Config{
 		NodeID: 1,
-		Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024},
+		Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024},
 		Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 	}
 }
