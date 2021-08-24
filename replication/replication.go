@@ -1,7 +1,6 @@
 package replication
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
@@ -187,12 +186,8 @@ func (m *Manager) startWorker(worker *worker) {
 
 	m.log.Infof("launching replication for table %s", worker.Table)
 	m.workers.registry[worker.Table] = worker
-	// Sleep up to reconcile interval to prevent thundering herd
-	go func() {
-		time.Sleep(time.Duration(rand.Intn(int(m.reconcileInterval.Milliseconds()))) * time.Millisecond)
-		worker.Start()
-		m.workers.wg.Add(1)
-	}()
+	m.workers.wg.Add(1)
+	worker.Start()
 }
 
 func (m *Manager) stopWorker(worker *worker) {
