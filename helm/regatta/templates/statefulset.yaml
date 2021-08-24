@@ -66,6 +66,10 @@ spec:
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}
+          {{- if eq .Values.mode "leader" }}
+            --tables.names={{ .Values.tables.names }} \
+            --replication.enabled={{ .Values.replication.server.enabled }} \
+            --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
             --kafka.check-topics={{ .Values.kafka.checkTopics }} \
@@ -77,17 +81,10 @@ spec:
             --kafka.client-cert-filename=/kafka-cert/tls.crt \
             --kafka.client-key-filename=/kafka-cert/tls.key \
           {{- end }}
-          {{- if eq .Values.mode "leader" }}
-            --tables.names={{ .Values.tables.names }} \
-            --replication.enabled={{ .Values.replication.server.enabled }} \
-            --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
           {{- end }}
           {{- if eq .Values.mode "follower" }}
             --replication.leader-address={{ .Values.replication.leaderAddress }} \
             --replication.max-snapshot-recv-bytes-per-second={{ .Values.replication.maxSnapshotRecvBytesPerSecond | int64 }} \
-          {{- if .Values.replication.logReplicationEnabled }}
-            --replication.enable-log-replication \
-          {{- end }}
           {{- end }}
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \

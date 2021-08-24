@@ -15,16 +15,6 @@ regatta follower [flags]
       --api.reflection-api                                    Whether reflection API is provided. Should not be turned on in production.
       --dev-mode                                              Dev mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                  help for follower
-      --kafka.brokers strings                                 Address of the Kafka broker. (default [127.0.0.1:9092])
-      --kafka.check-topics                                    Enables checking if all "--kafka.topics" exist before kafka client connection attempt.
-      --kafka.client-cert-filename string                     Kafka client certificate.
-      --kafka.client-key-filename string                      Kafka client key.
-      --kafka.debug-logs                                      Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.
-      --kafka.group-id string                                 Kafka consumer group ID. (default "regatta-local")
-      --kafka.server-cert-filename string                     Kafka broker CA.
-      --kafka.timeout duration                                Kafka dialer timeout. (default 10s)
-      --kafka.tls                                             Enables Kafka broker TLS connection.
-      --kafka.topics strings                                  Kafka topics to read from.
       --log-level string                                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
       --raft.address string                                   RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
                                                               This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.
@@ -67,7 +57,6 @@ regatta follower [flags]
                                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
       --replication.ca-filename string                        Path to the client CA cert file. (default "hack/replication/ca.crt")
       --replication.cert-filename string                      Path to the client certificate. (default "hack/replication/client.crt")
-      --replication.enable-log-replication                    Enable log replication.
       --replication.key-filename string                       Path to the client private key file. (default "hack/replication/client.key")
       --replication.leader-address string                     Address of the leader replication API to connect to. (default "localhost:8444")
       --replication.lease-interval duration                   Interval in which the workers re-new their table leases. (default 15s)

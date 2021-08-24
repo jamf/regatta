@@ -29,4 +29,3 @@ charts:
         enabled: false
       replication:
         leaderAddress: regatta.dev.wandera.co.uk:8444
-        logReplicationEnabled: true

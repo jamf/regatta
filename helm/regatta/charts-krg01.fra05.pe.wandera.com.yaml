@@ -28,4 +28,3 @@ charts:
          enabled: false
       replication:
         leaderAddress: regatta.pc.wandera.com:8444
-        logReplicationEnabled: true
