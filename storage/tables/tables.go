@@ -267,22 +267,18 @@ func (m *Manager) NodeID() uint64 {
 }
 
 func (m *Manager) reconcileLoop() {
-	err := m.reconcile()
-	if err != nil {
-		m.log.Warnf("initial reconcile failed: %v", err)
-	}
-
 	t := time.NewTicker(m.reconcileInterval)
 	defer t.Stop()
 	for {
+		err := m.reconcile()
+		if err != nil {
+			m.log.Errorf("reconcile failed: %v", err)
+		}
 		select {
 		case <-m.closed:
 			return
 		case <-t.C:
-			err := m.reconcile()
-			if err != nil {
-				m.log.Errorf("reconcile failed: %v", err)
-			}
+			continue
 		}
 	}
 }
