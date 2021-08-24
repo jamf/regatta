@@ -198,7 +198,7 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 				defer w.recoverySemaphore.Release(1)
 				return w.recover()
 			}
-			w.log.Info("maximum number of recoveries of already running")
+			w.log.Info("maximum number of recoveries already running")
 			ok, err := w.tm.ReturnTable(w.Table)
 			if err != nil {
 				return err
