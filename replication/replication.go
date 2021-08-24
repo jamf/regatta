@@ -124,7 +124,7 @@ func (m *Manager) Start() {
 		defer t.Stop()
 		for {
 			if err := m.reconcile(); err != nil {
-				m.log.Warnf("reconciler error: %v", err)
+				m.log.Errorf("reconciler error: %v", err)
 			}
 			select {
 			case <-t.C:
