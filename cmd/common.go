@@ -38,6 +38,7 @@ func createTableManager(nh *dragonboat.NodeHost) (*tables.Manager, error) {
 				MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
 				WALDir:             viper.GetString("raft.state-machine-wal-dir"),
 				NodeHostDir:        viper.GetString("raft.state-machine-dir"),
+				BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
 			},
 			Meta: tables.MetaConfig{
 				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
