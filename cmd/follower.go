@@ -35,14 +35,12 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(raftFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
-	followerCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
 
 	// Replication flags
 	followerCmd.PersistentFlags().String("replication.leader-address", "localhost:8444", "Address of the leader replication API to connect to.")
 	followerCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/client.crt", "Path to the client certificate.")
 	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/client.key", "Path to the client private key file.")
 	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file.")
-	followerCmd.PersistentFlags().Bool("replication.enable-log-replication", false, "Enable log replication.")
 	followerCmd.PersistentFlags().Duration("replication.poll-interval", 10*time.Second, "Replication interval in seconds, the leader poll time.")
 	followerCmd.PersistentFlags().Duration("replication.reconcile-interval", 30*time.Second, "Replication interval of tables reconciliation (workers startup/shutdown).")
 	followerCmd.PersistentFlags().Duration("replication.lease-interval", 15*time.Second, "Interval in which the workers re-new their table leases.")
@@ -133,22 +131,20 @@ func follower(_ *cobra.Command, _ []string) {
 		mr.Replicate()
 		defer mr.Close()
 
-		if viper.GetBool("replication.enable-log-replication") {
-			d := replication.NewManager(tm, nh, conn, replication.Config{
-				ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
-				Workers: replication.WorkerConfig{
-					PollInterval:        viper.GetDuration("replication.poll-interval"),
-					LeaseInterval:       viper.GetDuration("replication.lease-interval"),
-					LogRPCTimeout:       viper.GetDuration("replication.log-rpc-timeout"),
-					SnapshotRPCTimeout:  viper.GetDuration("replication.snapshot-rpc-timeout"),
-					MaxRecoveryInFlight: int64(viper.GetUint64("replication.max-recovery-in-flight")),
-					MaxSnapshotRecv:     viper.GetUint64("replication.max-snapshot-recv-bytes-per-second"),
-				},
-			})
-			prometheus.MustRegister(d)
-			d.Start()
-			defer d.Close()
-		}
+		d := replication.NewManager(tm, nh, conn, replication.Config{
+			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
+			Workers: replication.WorkerConfig{
+				PollInterval:        viper.GetDuration("replication.poll-interval"),
+				LeaseInterval:       viper.GetDuration("replication.lease-interval"),
+				LogRPCTimeout:       viper.GetDuration("replication.log-rpc-timeout"),
+				SnapshotRPCTimeout:  viper.GetDuration("replication.snapshot-rpc-timeout"),
+				MaxRecoveryInFlight: int64(viper.GetUint64("replication.max-recovery-in-flight")),
+				MaxSnapshotRecv:     viper.GetUint64("replication.max-snapshot-recv-bytes-per-second"),
+			},
+		})
+		prometheus.MustRegister(d)
+		d.Start()
+		defer d.Close()
 	}
 
 	// Create storage
