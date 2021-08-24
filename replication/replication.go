@@ -120,18 +120,15 @@ func (m *Manager) Start() {
 			return
 		}
 
-		if err := m.reconcile(); err != nil {
-			m.log.Warnf("inital reconcile error: %v", err)
-		}
-
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
+			if err := m.reconcile(); err != nil {
+				m.log.Warnf("reconciler error: %v", err)
+			}
 			select {
 			case <-t.C:
-				if err := m.reconcile(); err != nil {
-					m.log.Warnf("reconciler error: %v", err)
-				}
+				continue
 			case <-m.closer:
 				m.log.Info("replication stopped")
 				return
