@@ -62,6 +62,7 @@ spec:
             --raft.compaction-overhead={{ .Values.raft.compactionOverhead | int64 }} \
             --raft.max-snapshot-recv-bytes-per-second={{ .Values.raft.maxSnapshotRecvBytesPerSecond | int64 }} \
             --raft.max-snapshot-send-bytes-per-second={{ .Values.raft.maxSnapshotSendBytesPerSecond | int64 }} \
+            --storage.block-cache-size={{ .Values.storage.blockCacheSize | int64 }} \
           {{- if .Values.reflectionAPI.enabled }}
             --api.reflection-api \
           {{- end }}
