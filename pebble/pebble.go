@@ -74,9 +74,11 @@ func syncDir(fs vfs.FS, dir string) error {
 // functions below are used to manage the current data directory of Pebble DB.
 
 // OpenDB opens DB on paths given (using sane defaults).
-func OpenDB(fs vfs.FS, dbdir string, walDirname string) (*pebble.DB, error) {
-	cache := pebble.NewCache(cacheSize)
-	defer cache.Unref()
+func OpenDB(fs vfs.FS, dbdir string, walDirname string, cache *pebble.Cache) (*pebble.DB, error) {
+	if cache == nil {
+		cache = pebble.NewCache(cacheSize)
+		defer cache.Unref()
+	}
 
 	lvlOpts := make([]pebble.LevelOptions, levels)
 	sz := targetFileSizeBase

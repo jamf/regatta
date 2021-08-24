@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/cockroachdb/pebble"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/wandera/regatta/proto"
@@ -58,8 +59,9 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 		}{
 			tables: make(map[string]table.ActiveTable),
 		},
-		closed: make(chan struct{}),
-		log:    zap.S().Named("manager"),
+		closed:     make(chan struct{}),
+		log:        zap.S().Named("manager"),
+		blockCache: pebble.NewCache(cfg.Table.BlockCacheSize),
 	}
 }
 
@@ -76,6 +78,7 @@ type Manager struct {
 	readyChan         chan struct{}
 	reconcileInterval time.Duration
 	log               *zap.SugaredLogger
+	blockCache        *pebble.Cache
 }
 
 type Lease struct {
@@ -370,7 +373,7 @@ func (m *Manager) startTable(name string, id uint64) error {
 	return m.nh.StartOnDiskCluster(
 		m.members,
 		false,
-		table.NewFSM(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS),
+		table.NewFSM(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }

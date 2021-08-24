@@ -42,7 +42,7 @@ const (
 	maxBatchSize = 16 * 1024 * 1024
 )
 
-func NewFSM(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.CreateOnDiskStateMachineFunc {
+func NewFSM(tableName, stateMachineDir string, walDirname string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
@@ -55,6 +55,7 @@ func NewFSM(tableName, stateMachineDir string, walDirname string, fs vfs.FS) sm.
 			dirname:    stateMachineDir,
 			walDirname: walDirname,
 			fs:         fs,
+			blockCache: blockCache,
 			log:        zap.S().Named("table").Named(tableName),
 		}
 	}
@@ -72,6 +73,7 @@ type FSM struct {
 	walDirname string
 	closed     bool
 	log        *zap.SugaredLogger
+	blockCache *pebble.Cache
 }
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
@@ -119,7 +121,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	walDirPath := p.getWalDirPath(hostname, randomDir, dbdir)
 
 	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
-	db, err := rp.OpenDB(p.fs, dbdir, walDirPath)
+	db, err := rp.OpenDB(p.fs, dbdir, walDirPath, p.blockCache)
 	if err != nil {
 		return 0, err
 	}
@@ -475,7 +477,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 	walDirPath := p.getWalDirPath(hostname, randomDirName, dbdir)
 
 	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
-	db, err := rp.OpenDB(p.fs, dbdir, walDirPath)
+	db, err := rp.OpenDB(p.fs, dbdir, walDirPath, p.blockCache)
 	if err != nil {
 		return err
 	}

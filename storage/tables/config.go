@@ -91,6 +91,8 @@ type TableConfig struct {
 	WALDir string
 	// NodeHostDir is where everything else is stored.
 	NodeHostDir string
+	// BlockCacheSize shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.
+	BlockCacheSize int64
 }
 
 type MetaConfig struct {
