@@ -14,7 +14,6 @@ func init() {
 	rootCmd.AddCommand(leaderCmd)
 	rootCmd.AddCommand(followerCmd)
 	rootCmd.AddCommand(docsCmd)
-	rootCmd.AddCommand(logReaderCmd)
 	rootCmd.AddCommand(generatorCmd)
 }
 

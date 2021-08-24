@@ -14,9 +14,9 @@ import (
 )
 
 func init() {
-	generatorCmd.PersistentFlags().String("generator.address", "127.0.0.1:8443", "Address of the leader write API to connect to.")
-	generatorCmd.PersistentFlags().String("generator.table", "regatta-test", "Table to write to.")
-	generatorCmd.PersistentFlags().Uint64("generator.entries", 1_000, "Amount of entries to generate.")
+	generatorCmd.PersistentFlags().String("address", "127.0.0.1:8443", "Address of the leader write API to connect to.")
+	generatorCmd.PersistentFlags().String("table", "regatta-test", "Table to write to.")
+	generatorCmd.PersistentFlags().Uint64("entries", 1_000, "Amount of entries to generate.")
 }
 
 var generatorCmd = &cobra.Command{
@@ -31,9 +31,9 @@ var generatorCmd = &cobra.Command{
 }
 
 func generator(_ *cobra.Command, _ []string) {
-	address := viper.GetViper().GetString("generator.address")
-	table := viper.GetViper().GetString("generator.table")
-	entries := viper.GetViper().GetUint64("generator.entries")
+	address := viper.GetViper().GetString("address")
+	table := viper.GetViper().GetString("table")
+	entries := viper.GetViper().GetUint64("entries")
 
 	log.Printf("address: '%s', table: '%s', entries to generate: %d\n", address, table, entries)
 
