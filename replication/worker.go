@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -92,73 +93,76 @@ type worker struct {
 }
 
 // Start launches the replication goroutine. To stop it, call worker.Close.
-func (l *worker) Start() {
-	l.wg.Add(1)
+func (w *worker) Start() {
+	// Sleep up to reconcile interval to prevent the thundering herd
+	time.Sleep(time.Duration(rand.Intn(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
+
+	w.wg.Add(1)
 	go func() {
 		defer func() {
-			l.log.Info("lease routine stopped")
-			l.wg.Done()
+			w.log.Info("lease routine stopped")
+			w.wg.Done()
 		}()
 
-		l.log.Info("lease routine started")
-		t := time.NewTicker(l.leaseInterval)
+		w.log.Info("lease routine started")
+		t := time.NewTicker(w.leaseInterval)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				err := l.tm.LeaseTable(l.Table, l.leaseInterval*4)
+				err := w.tm.LeaseTable(w.Table, w.leaseInterval*4)
 				if err == nil {
-					prev := atomic.SwapUint32(&l.leased, 1)
+					prev := atomic.SwapUint32(&w.leased, 1)
 					if prev == 0 {
-						l.log.Info("lease acquired")
+						w.log.Info("lease acquired")
 					}
-					l.metrics.replicationLeased.Set(1)
+					w.metrics.replicationLeased.Set(1)
 				} else {
-					prev := atomic.SwapUint32(&l.leased, 0)
+					prev := atomic.SwapUint32(&w.leased, 0)
 					if prev == 1 {
-						l.log.Info("lease lost")
+						w.log.Info("lease lost")
 					}
-					l.metrics.replicationLeased.Set(0)
+					w.metrics.replicationLeased.Set(0)
 				}
-			case <-l.closer:
+			case <-w.closer:
 				return
 			}
 		}
 	}()
 
-	l.wg.Add(1)
+	w.wg.Add(1)
 	go func() {
 		defer func() {
-			l.log.Info("replication routine stopped")
-			l.wg.Done()
+			w.log.Info("replication routine stopped")
+			w.wg.Done()
 		}()
 
-		l.log.Info("replication routine started")
-		t := time.NewTicker(l.pollInterval)
+		w.log.Info("replication routine started")
+		t := time.NewTicker(w.pollInterval)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				leaderIndex, clusterID, err := l.tableState()
+				leaderIndex, clusterID, err := w.tableState()
 				if err != nil {
-					l.log.Errorf("cannot query leader index: %v", err)
+					w.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
-				l.metrics.replicationIndex.Set(float64(leaderIndex))
+				w.metrics.replicationIndex.Set(float64(leaderIndex))
 
-				if atomic.LoadUint32(&l.leased) != 1 {
-					l.log.Debug("skipping replication - table not leased")
+				if atomic.LoadUint32(&w.leased) != 1 {
+					w.log.Debug("skipping replication - table not leased")
 					continue
 				}
 
-				if err := l.do(leaderIndex, clusterID); err != nil {
+				if err := w.do(leaderIndex, clusterID); err != nil {
 					if err == ErrLeaderBehind {
-						l.log.Errorf("the leader log is behind the replication will stop")
+						w.log.Errorf("the leader log is behind the replication will stop")
 						return
 					}
-					l.log.Warnf("worker error %v", err)
+					w.log.Warnf("worker error %v", err)
 				}
-			case <-l.closer:
+			case <-w.closer:
 				return
 			}
 		}
@@ -166,32 +170,47 @@ func (l *worker) Start() {
 }
 
 // Close stops the replication.
-func (l *worker) Close() {
-	close(l.closer)
-	l.wg.Wait()
+func (w *worker) Close() {
+	close(w.closer)
+	w.wg.Wait()
+
+	ok, err := w.tm.ReturnTable(w.Table)
+	if err != nil {
+		w.log.Errorf("returning table failed %v", err)
+	}
+	if ok {
+		w.log.Info("table returned")
+	}
 }
 
-func (l *worker) do(leaderIndex, clusterID uint64) error {
+func (w *worker) do(leaderIndex, clusterID uint64) error {
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: leaderIndex + 1,
-		Table:       []byte(l.Table),
+		Table:       []byte(w.Table),
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
-	stream, err := l.logClient.Replicate(ctx, replicateRequest)
+	stream, err := w.logClient.Replicate(ctx, replicateRequest)
 	if err != nil {
 		return fmt.Errorf("could not open log stream: %w", err)
 	}
 
-	if err = l.read(ctx, stream, clusterID); err != nil {
+	if err = w.read(ctx, stream, clusterID); err != nil {
 		switch err {
 		case ErrUseSnapshot:
-			if l.recoverySemaphore.TryAcquire(1) {
-				defer l.recoverySemaphore.Release(1)
-				return l.recover()
+			if w.recoverySemaphore.TryAcquire(1) {
+				defer w.recoverySemaphore.Release(1)
+				return w.recover()
 			}
-			l.log.Info("maximum number of recoveries of already running, returning table")
-			return l.tm.ReturnTable(l.Table)
+			w.log.Info("maximum number of recoveries already running")
+			ok, err := w.tm.ReturnTable(w.Table)
+			if err != nil {
+				return err
+			}
+			if ok {
+				w.log.Info("table returned")
+			}
+			return nil
 		case ErrLeaderBehind:
 			return ErrLeaderBehind
 		default:
@@ -201,13 +220,13 @@ func (l *worker) do(leaderIndex, clusterID uint64) error {
 	return nil
 }
 
-func (l *worker) tableState() (uint64, uint64, error) {
-	t, err := l.tm.GetTable(l.Table)
+func (w *worker) tableState() (uint64, uint64, error) {
+	t, err := w.tm.GetTable(w.Table)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), l.logTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
 	idxRes, err := t.LeaderIndex(ctx)
 	if err != nil {
@@ -217,7 +236,7 @@ func (l *worker) tableState() (uint64, uint64, error) {
 }
 
 // read commands from the stream and save them to the cluster.
-func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
+func (w *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
 	for {
 		replicateRes, err := stream.Recv()
 		if err == io.EOF {
@@ -229,7 +248,7 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 
 		switch res := replicateRes.Response.(type) {
 		case *proto.ReplicateResponse_CommandsResponse:
-			if err := l.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
+			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
 				return fmt.Errorf("could not propose: %w", err)
 			}
 		case *proto.ReplicateResponse_ErrorResponse:
@@ -250,7 +269,7 @@ func (l *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clu
 	}
 }
 
-func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
+func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
 	var buff []byte
 	for _, c := range commands {
 		size := c.Command.SizeVT()
@@ -263,18 +282,18 @@ func (l *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCo
 			return fmt.Errorf("could not marshal command: %w", err)
 		}
 
-		if _, err := l.nh.SyncPropose(ctx, l.nh.GetNoOPSession(clusterID), buff[:n]); err != nil {
+		if _, err := w.nh.SyncPropose(ctx, w.nh.GetNoOPSession(clusterID), buff[:n]); err != nil {
 			return fmt.Errorf("could not SyncPropose: %w", err)
 		}
 	}
 	return nil
 }
 
-func (l *worker) recover() error {
-	l.log.Info("recovering from snapshot")
-	ctx, cancel := context.WithTimeout(context.Background(), l.snapshotTimeout)
+func (w *worker) recover() error {
+	w.log.Info("recovering from snapshot")
+	ctx, cancel := context.WithTimeout(context.Background(), w.snapshotTimeout)
 	defer cancel()
-	stream, err := l.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(l.Table)})
+	stream, err := w.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(w.Table)})
 	if err != nil {
 		return err
 	}
@@ -292,8 +311,8 @@ func (l *worker) recover() error {
 	}()
 
 	r := &snapshot.Reader{Stream: stream}
-	if l.maxSnapshotRecv != 0 {
-		r.Bucket = ratelimit.NewBucketWithRate(float64(l.maxSnapshotRecv), int64(l.maxSnapshotRecv)*2)
+	if w.maxSnapshotRecv != 0 {
+		r.Bucket = ratelimit.NewBucketWithRate(float64(w.maxSnapshotRecv), int64(w.maxSnapshotRecv)*2)
 	}
 
 	_, err = io.Copy(sf.File, r)
@@ -309,11 +328,11 @@ func (l *worker) recover() error {
 	if err != nil {
 		return err
 	}
-	l.log.Info("snapshot stream saved, loading table")
-	err = l.tm.LoadTableFromSnapshot(l.Table, sf)
+	w.log.Info("snapshot stream saved, loading table")
+	err = w.tm.LoadTableFromSnapshot(w.Table, sf)
 	if err != nil {
 		return err
 	}
-	l.log.Info("table recovered")
+	w.log.Info("table recovered")
 	return nil
 }

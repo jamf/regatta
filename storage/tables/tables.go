@@ -121,17 +121,34 @@ func (m *Manager) LeaseTable(name string, lease time.Duration) error {
 	return ErrLeaseNotAcquired
 }
 
-func (m *Manager) ReturnTable(name string) error {
+// ReturnTable returns true if it was leased previously.
+func (m *Manager) ReturnTable(name string) (bool, error) {
 	key := storedTableName(name) + "/lease"
 	get, err := m.store.Get(key)
 
 	if err == kv.ErrNotExist {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
-	return m.store.Delete(key, get.Ver)
+
+	l := Lease{}
+	err = json.Unmarshal([]byte(get.Value), &l)
+	if err != nil {
+		return false, err
+	}
+
+	if l.ID != m.cfg.NodeID {
+		return false, nil
+	}
+
+	err = m.store.Delete(key, get.Ver)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (m *Manager) CreateTable(name string) error {
@@ -253,14 +270,15 @@ func (m *Manager) reconcileLoop() {
 	t := time.NewTicker(m.reconcileInterval)
 	defer t.Stop()
 	for {
+		err := m.reconcile()
+		if err != nil {
+			m.log.Errorf("reconcile failed: %v", err)
+		}
 		select {
 		case <-m.closed:
 			return
 		case <-t.C:
-			err := m.reconcile()
-			if err != nil {
-				m.log.Errorf("reconcile failed: %v", err)
-			}
+			continue
 		}
 	}
 }

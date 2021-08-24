@@ -122,11 +122,12 @@ func (m *Manager) Start() {
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
+			if err := m.reconcile(); err != nil {
+				m.log.Errorf("reconciler error: %v", err)
+			}
 			select {
 			case <-t.C:
-				if err := m.reconcile(); err != nil {
-					m.log.Warnf("reconciler error: %v", err)
-				}
+				continue
 			case <-m.closer:
 				m.log.Info("replication stopped")
 				return
@@ -185,8 +186,8 @@ func (m *Manager) startWorker(worker *worker) {
 
 	m.log.Infof("launching replication for table %s", worker.Table)
 	m.workers.registry[worker.Table] = worker
-	worker.Start()
 	m.workers.wg.Add(1)
+	worker.Start()
 }
 
 func (m *Manager) stopWorker(worker *worker) {
