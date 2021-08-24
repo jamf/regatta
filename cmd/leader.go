@@ -34,6 +34,7 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(apiFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(raftFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
 
 	// Tables flags
