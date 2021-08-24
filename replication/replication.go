@@ -1,6 +1,7 @@
 package replication
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -119,6 +120,10 @@ func (m *Manager) Start() {
 			return
 		}
 
+		if err := m.reconcile(); err != nil {
+			m.log.Warnf("inital reconcile error: %v", err)
+		}
+
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
@@ -185,8 +190,12 @@ func (m *Manager) startWorker(worker *worker) {
 
 	m.log.Infof("launching replication for table %s", worker.Table)
 	m.workers.registry[worker.Table] = worker
-	worker.Start()
-	m.workers.wg.Add(1)
+	// Sleep up to reconcile interval to prevent thundering herd
+	go func() {
+		time.Sleep(time.Duration(rand.Intn(int(m.reconcileInterval.Milliseconds()))) * time.Millisecond)
+		worker.Start()
+		m.workers.wg.Add(1)
+	}()
 }
 
 func (m *Manager) stopWorker(worker *worker) {
