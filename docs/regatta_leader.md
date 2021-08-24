@@ -71,6 +71,7 @@ regatta leader [flags]
       --replication.enabled                            Replication API enabled (default true)
       --replication.key-filename string                Path to the API server private key file. (default "hack/replication/server.key")
       --rest.address string                            Address the REST API server should listen on. (default ":8079")
+      --storage.block-cache-size int                   Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
       --tables.names strings                           Create Regatta tables with given names
 ```
 

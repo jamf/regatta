@@ -34,6 +34,7 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(apiFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(raftFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
 
 	// Replication flags
