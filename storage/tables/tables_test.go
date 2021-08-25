@@ -62,6 +62,7 @@ func TestManager_DeleteTable(t *testing.T) {
 	defer node.Close()
 
 	tm := NewManager(node, m, minimalTestConfig())
+	tm.cleanupGracePeriod = 0
 	r.NoError(tm.Start())
 	defer tm.Close()
 	r.NoError(tm.WaitUntilReady())
@@ -72,7 +73,9 @@ func TestManager_DeleteTable(t *testing.T) {
 	t.Log("get table")
 	_, err := tm.GetTable(testTableName)
 	r.NoError(err)
+	r.NoError(tm.reconcile())
 
+	time.Sleep(1 * time.Second)
 	t.Log("delete table")
 	r.NoError(tm.DeleteTable(testTableName))
 	r.NoError(tm.reconcile())
@@ -84,6 +87,7 @@ func TestManager_DeleteTable(t *testing.T) {
 	t.Log("delete non-existent table")
 	_, err = tm.GetTable("foo")
 	r.ErrorIs(err, ErrTableDoesNotExist)
+	r.NoError(tm.cleanup())
 }
 
 func TestManager_GetTable(t *testing.T) {

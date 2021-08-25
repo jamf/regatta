@@ -188,8 +188,7 @@ type IndexResponse struct {
 }
 
 // PathRequest request data disk paths.
-type PathRequest struct {
-}
+type PathRequest struct{}
 
 // PathResponse returns SM data paths.
 type PathResponse struct {
