@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -46,6 +47,7 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 	return &Manager{
 		nh:                nh,
 		reconcileInterval: 30 * time.Second,
+		cleanupInterval:   30 * time.Second,
 		readyChan:         make(chan struct{}),
 		members:           members,
 		cfg:               cfg,
@@ -77,6 +79,7 @@ type Manager struct {
 	cfg               Config
 	readyChan         chan struct{}
 	reconcileInterval time.Duration
+	cleanupInterval   time.Duration
 	log               *zap.SugaredLogger
 	blockCache        *pebble.Cache
 }
@@ -238,6 +241,7 @@ func (m *Manager) Start() error {
 				_, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
 				if ok {
 					go m.reconcileLoop()
+					go m.cleanupLoop()
 					close(m.readyChan)
 					return
 				}
@@ -309,6 +313,53 @@ func (m *Manager) reconcile() error {
 		m.clearTable(tab)
 	}
 
+	return nil
+}
+
+func (m *Manager) cleanupLoop() {
+	t := time.NewTicker(m.cleanupInterval)
+	defer t.Stop()
+	for {
+		err := m.cleanup()
+		if err != nil {
+			m.log.Errorf("cleanup failed: %v", err)
+		}
+		select {
+		case <-m.closed:
+			return
+		case <-t.C:
+			continue
+		}
+	}
+}
+
+func (m *Manager) cleanup() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	ls, err := m.store.GetAll(fmt.Sprintf("/cleanup/%d/*", m.cfg.NodeID))
+	if err != nil {
+		return err
+	}
+	for _, l := range ls {
+		c := Cleanup{}
+		if err := json.Unmarshal([]byte(l.Value), &c); err != nil {
+			return err
+		}
+		if c.Created.Before(time.Now().Add(-time.Minute)) {
+			if err := m.nh.SyncRemoveData(ctx, c.ClusterID, m.cfg.NodeID); err != nil {
+				return err
+			}
+			if err := os.RemoveAll(c.SMDataPath); err != nil {
+				return err
+			}
+			if err := os.RemoveAll(c.SMWALPath); err != nil {
+				return err
+			}
+			if err := m.store.Delete(l.Key, l.Ver); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -412,9 +463,33 @@ func (m *Manager) clearTable(clusterID uint64) {
 	}
 }
 
+type Cleanup struct {
+	Created    time.Time `json:"created"`
+	ClusterID  uint64    `json:"cluster_id"`
+	SMDataPath string    `json:"sm_data_path"`
+	SMWALPath  string    `json:"sm_wal_path"`
+}
+
 func (m *Manager) stopTable(clusterID uint64) error {
-	err := m.nh.StopCluster(clusterID)
+	v, err := m.nh.StaleRead(clusterID, table.PathRequest{})
 	if err != nil {
+		return err
+	}
+	pr := v.(*table.PathResponse)
+	b, err := json.Marshal(&Cleanup{
+		Created:    time.Now(),
+		ClusterID:  clusterID,
+		SMDataPath: pr.Path,
+		SMWALPath:  pr.WALPath,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = m.store.Set(fmt.Sprintf("/cleanup/%d/%d", m.cfg.NodeID, clusterID), string(b), 0)
+	if err != nil {
+		return err
+	}
+	if err := m.nh.StopCluster(clusterID); err != nil {
 		return err
 	}
 	return nil
