@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/pebble/vfs"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
@@ -31,6 +32,7 @@ func createTableManager(nh *dragonboat.NodeHost) (*tables.Manager, error) {
 		tables.Config{
 			NodeID: viper.GetUint64("raft.node-id"),
 			Table: tables.TableConfig{
+				FS:                 vfs.Default,
 				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
 				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
 				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
