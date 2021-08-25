@@ -28,6 +28,8 @@ const (
 	targetFileSizeBase = 16 * 1024 * 1024
 	// blockSize FS block size.
 	blockSize = 32 * 1024
+	// indexBlockSize is a size of index block within each sstable.
+	indexBlockSize = 256 * 1024
 	// targetFileSizeGrowFactor the factor of growth of targetFileSizeBase between levels.
 	targetFileSizeGrowFactor = 2
 	// writeBufferSize inmemory write buffer size.
@@ -84,11 +86,12 @@ func OpenDB(fs vfs.FS, dbdir string, walDirname string, cache *pebble.Cache) (*p
 	sz := targetFileSizeBase
 	for l := int64(0); l < levels; l++ {
 		opt := pebble.LevelOptions{
-			Compression:    pebble.SnappyCompression,
 			BlockSize:      blockSize,
-			TargetFileSize: int64(sz),
+			Compression:    pebble.SnappyCompression,
 			FilterPolicy:   bloom.FilterPolicy(10),
 			FilterType:     pebble.TableFilter,
+			IndexBlockSize: indexBlockSize,
+			TargetFileSize: int64(sz),
 		}
 		sz = sz * targetFileSizeGrowFactor
 		lvlOpts[l] = opt
