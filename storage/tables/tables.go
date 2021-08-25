@@ -489,7 +489,12 @@ func (m *Manager) stopTable(clusterID uint64) error {
 	if err != nil {
 		return err
 	}
-	_, err = m.store.Set(fmt.Sprintf("/cleanup/%d/%d", m.cfg.NodeID, clusterID), string(b), 0)
+	key := fmt.Sprintf("/cleanup/%d/%d", m.cfg.NodeID, clusterID)
+	c, err := m.store.Get(key)
+	if err != nil && err != kv.ErrNotExist {
+		return err
+	}
+	_, err = m.store.Set(key, string(b), c.Ver)
 	if err != nil {
 		return err
 	}
