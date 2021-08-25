@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -45,12 +44,14 @@ var (
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
 	return &Manager{
-		nh:                nh,
-		reconcileInterval: 30 * time.Second,
-		cleanupInterval:   30 * time.Second,
-		readyChan:         make(chan struct{}),
-		members:           members,
-		cfg:               cfg,
+		nh:                 nh,
+		reconcileInterval:  30 * time.Second,
+		cleanupInterval:    30 * time.Second,
+		cleanupGracePeriod: 5 * time.Minute,
+		cleanupTimeout:     5 * time.Minute,
+		readyChan:          make(chan struct{}),
+		members:            members,
+		cfg:                cfg,
 		store: &kv.RaftStore{
 			NodeHost:  nh,
 			ClusterID: metaFSMClusterID,
@@ -74,14 +75,16 @@ type Manager struct {
 		mu     sync.RWMutex
 		tables map[string]table.ActiveTable
 	}
-	members           map[uint64]string
-	closed            chan struct{}
-	cfg               Config
-	readyChan         chan struct{}
-	reconcileInterval time.Duration
-	cleanupInterval   time.Duration
-	log               *zap.SugaredLogger
-	blockCache        *pebble.Cache
+	members            map[uint64]string
+	closed             chan struct{}
+	cfg                Config
+	readyChan          chan struct{}
+	reconcileInterval  time.Duration
+	cleanupInterval    time.Duration
+	cleanupGracePeriod time.Duration
+	cleanupTimeout     time.Duration
+	log                *zap.SugaredLogger
+	blockCache         *pebble.Cache
 }
 
 type Lease struct {
@@ -334,7 +337,7 @@ func (m *Manager) cleanupLoop() {
 }
 
 func (m *Manager) cleanup() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), m.cleanupTimeout)
 	defer cancel()
 	ls, err := m.store.GetAll(fmt.Sprintf("/cleanup/%d/*", m.cfg.NodeID))
 	if err != nil {
@@ -345,19 +348,20 @@ func (m *Manager) cleanup() error {
 		if err := json.Unmarshal([]byte(l.Value), &c); err != nil {
 			return err
 		}
-		if c.Created.Before(time.Now().Add(-time.Minute)) {
+		if c.Created.Before(time.Now().Add(-m.cleanupGracePeriod)) {
 			if err := m.nh.SyncRemoveData(ctx, c.ClusterID, m.cfg.NodeID); err != nil {
 				return err
 			}
-			if err := os.RemoveAll(c.SMDataPath); err != nil {
+			if err := m.cfg.Table.FS.RemoveAll(c.SMDataPath); err != nil {
 				return err
 			}
-			if err := os.RemoveAll(c.SMWALPath); err != nil {
+			if err := m.cfg.Table.FS.RemoveAll(c.SMWALPath); err != nil {
 				return err
 			}
 			if err := m.store.Delete(l.Key, l.Ver); err != nil {
 				return err
 			}
+			m.log.Infof("[%d:%d] cluster data cleaned", c.ClusterID, m.cfg.NodeID)
 		}
 	}
 	return nil
