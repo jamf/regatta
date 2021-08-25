@@ -47,12 +47,20 @@ func NewFSM(tableName, stateMachineDir string, walDirname string, fs vfs.FS, blo
 		fs = vfs.Default
 	}
 	return func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
+		hostname, _ := os.Hostname()
+		dbDirName := rp.GetNodeDBDirName(stateMachineDir, hostname, fmt.Sprintf("%s-%d", tableName, clusterID))
+		if walDirname != "" {
+			walDirname = rp.GetNodeDBDirName(walDirname, hostname, fmt.Sprintf("%s-%d", tableName, clusterID))
+		} else {
+			walDirname = dbDirName
+		}
+
 		return &FSM{
 			pebble:     nil,
 			tableName:  tableName,
 			clusterID:  clusterID,
 			nodeID:     nodeID,
-			dirname:    stateMachineDir,
+			dirname:    dbDirName,
 			walDirname: walDirname,
 			fs:         fs,
 			blockCache: blockCache,
@@ -83,42 +91,37 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	if p.nodeID < 1 {
 		return 0, storage.ErrInvalidNodeID
 	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		return 0, err
-	}
 
-	dir := rp.GetNodeDBDirName(p.dirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID))
-	if err := rp.CreateNodeDataDir(p.fs, dir); err != nil {
+	if err := rp.CreateNodeDataDir(p.fs, p.dirname); err != nil {
 		return 0, err
 	}
 
 	randomDir := rp.GetNewRandomDBDirName()
 	var dbdir string
-	if rp.IsNewRun(p.fs, dir) {
-		dbdir = filepath.Join(dir, randomDir)
-		if err := rp.SaveCurrentDBDirName(p.fs, dir, randomDir); err != nil {
+	if rp.IsNewRun(p.fs, p.dirname) {
+		dbdir = filepath.Join(p.dirname, randomDir)
+		if err := rp.SaveCurrentDBDirName(p.fs, p.dirname, randomDir); err != nil {
 			return 0, err
 		}
-		if err := rp.ReplaceCurrentDBFile(p.fs, dir); err != nil {
+		if err := rp.ReplaceCurrentDBFile(p.fs, p.dirname); err != nil {
 			return 0, err
 		}
 	} else {
-		if err := rp.CleanupNodeDataDir(p.fs, dir); err != nil {
+		if err := rp.CleanupNodeDataDir(p.fs, p.dirname); err != nil {
 			return 0, err
 		}
 		var err error
-		randomDir, err = rp.GetCurrentDBDirName(p.fs, dir)
+		randomDir, err = rp.GetCurrentDBDirName(p.fs, p.dirname)
 		if err != nil {
 			return 0, err
 		}
-		dbdir = filepath.Join(dir, randomDir)
-		if _, err := p.fs.Stat(filepath.Join(dir, randomDir)); err != nil {
+		dbdir = filepath.Join(p.dirname, randomDir)
+		if _, err := p.fs.Stat(filepath.Join(p.dirname, randomDir)); err != nil {
 			return 0, err
 		}
 	}
 
-	walDirPath := p.getWalDirPath(hostname, randomDir, dbdir)
+	walDirPath := path.Join(p.walDirname, randomDir)
 
 	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
 	db, err := rp.OpenDB(p.fs, dbdir, walDirPath, p.blockCache)
@@ -145,16 +148,6 @@ func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
 	}()
 
 	return binary.LittleEndian.Uint64(indexVal), nil
-}
-
-func (p *FSM) getWalDirPath(hostname string, randomDir string, dbdir string) string {
-	var walDirPath string
-	if p.walDirname != "" {
-		walDirPath = path.Join(p.walDirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID), randomDir)
-	} else {
-		walDirPath = dbdir
-	}
-	return walDirPath
 }
 
 // Update updates the object.
@@ -325,6 +318,8 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 			return nil, err
 		}
 		return &IndexResponse{Index: idx}, nil
+	case PathRequest:
+		return &PathResponse{Path: p.dirname, WALPath: p.walDirname}, nil
 	}
 
 	return nil, storage.ErrUnknownQueryType
@@ -474,7 +469,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 
 	randomDirName := rp.GetNewRandomDBDirName()
 	dbdir := filepath.Join(dir, randomDirName)
-	walDirPath := p.getWalDirPath(hostname, randomDirName, dbdir)
+	walDirPath := path.Join(p.walDirname, randomDirName)
 
 	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
 	db, err := rp.OpenDB(p.fs, dbdir, walDirPath, p.blockCache)
