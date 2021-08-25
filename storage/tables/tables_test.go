@@ -11,6 +11,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v3/raftio"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
@@ -71,7 +72,7 @@ func TestManager_DeleteTable(t *testing.T) {
 	r.NoError(tm.CreateTable(testTableName))
 
 	t.Log("get table")
-	_, err := tm.GetTable(testTableName)
+	tab, err := tm.GetTable(testTableName)
 	r.NoError(err)
 	r.NoError(tm.reconcile())
 
@@ -88,6 +89,16 @@ func TestManager_DeleteTable(t *testing.T) {
 	_, err = tm.GetTable("foo")
 	r.ErrorIs(err, ErrTableDoesNotExist)
 	r.NoError(tm.cleanup())
+
+	// LogDB cleaned
+	rdb, err := tm.nh.GetReadOnlyLogDB()
+	r.NoError(err)
+	_, err = rdb.ReadRaftState(tab.ClusterID, tm.cfg.NodeID, 0)
+	r.ErrorIs(err, raftio.ErrNoSavedLog)
+
+	// FS cleaned
+	files, err := tm.cfg.Table.FS.List("")
+	r.Equal(1, len(files), "FS should contain only a root directory (named after hostname)")
 }
 
 func TestManager_GetTable(t *testing.T) {
