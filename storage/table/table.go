@@ -186,3 +186,12 @@ type LeaderIndexRequest struct{}
 type IndexResponse struct {
 	Index uint64
 }
+
+// PathRequest request data disk paths.
+type PathRequest struct{}
+
+// PathResponse returns SM data paths.
+type PathResponse struct {
+	Path    string
+	WALPath string
+}

@@ -145,11 +145,12 @@ func TestSMReOpen(t *testing.T) {
 
 func emptySM() sm.IOnDiskStateMachine {
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp",
-		log:       zap.S(),
+		fs:         vfs.NewMem(),
+		clusterID:  1,
+		nodeID:     1,
+		dirname:    "/tmp/tst",
+		walDirname: "/tmp/tst",
+		log:        zap.S(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -187,11 +188,12 @@ func filledSM() sm.IOnDiskStateMachine {
 		})
 	}
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp",
-		log:       zap.S(),
+		fs:         vfs.NewMem(),
+		clusterID:  1,
+		nodeID:     1,
+		dirname:    "/tmp/tst",
+		walDirname: "/tmp/tst",
+		log:        zap.S(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -220,11 +222,12 @@ func filledLargeValuesSM() sm.IOnDiskStateMachine {
 		}
 	}
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp",
-		log:       zap.S(),
+		fs:         vfs.NewMem(),
+		clusterID:  1,
+		nodeID:     1,
+		dirname:    "/tmp/tst",
+		walDirname: "/tmp/tst",
+		log:        zap.S(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
