@@ -9,7 +9,7 @@ Regatta is a read-optimised distributed key-value store.
 * Single gRPC message limit - 4MB
 
 ## Development environment prerequisites
-* [Go](https://golang.org/) >= 1.15 -- `brew install go`
+* [Go](https://golang.org/) >= 1.17 -- `brew install go`
 * Protocol Buffer compiler >= 3 -- `brew install protobuf`
 * Go protobuf compiler plugin -- `go get google.golang.org/protobuf/cmd/protoc-gen-go`
 * Go Vitess Protocol Buffers compiler -- `go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto`
@@ -191,7 +191,6 @@ Regatta has gRPC API defined in `proto/regatta.proto` and `proto/mvcc.proto`. Fo
 methods see the mentioned proto files. Some parts of the API are not implemented yet:
 - `KV.Range`
     - not implemented features:
-        - paging
         - KV versioning  
     - not implemented fields:
         - `min_mod_revision`, `max_mod_revision`, `min_create_revision`, `max_create_revision`
@@ -202,16 +201,10 @@ methods see the mentioned proto files. Some parts of the API are not implemented
         - `prev_kv`
 - `KV.DeleteRange`
     - not implemented features:
-        - range search - regatta can delete only single KV pair
+        - range delete - regatta can delete only single KV pair
         - return previous KV
     - not implemented fields:
         - `range_end`, `prev_kv`
-
-### Example client binary
-The example client is located in `client/main.go`. You can run it by invoking the following command:
-```bash
-$ make run-client
-```
 
 ### grpcurl
 [gRPCurl](https://github.com/fullstorydev/grpcurl) is universal gRPC client that can be used for testing. 
