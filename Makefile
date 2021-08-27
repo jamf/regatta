@@ -7,12 +7,15 @@ prepare:
 	@echo "Downloading tools"
 ifeq (, $(shell which go-junit-report))
 	go get -d github.com/jstemmer/go-junit-report
+	go install github.com/jstemmer/go-junit-report
 endif
 ifeq (, $(shell which gocov))
 	go get -d github.com/axw/gocov/gocov
+	go install github.com/axw/gocov/gocov
 endif
 ifeq (, $(shell which gocov-xml))
 	go get -d github.com/AlekSi/gocov-xml
+	go install github.com/AlekSi/gocov-xml
 endif
 
 run: build
