@@ -46,9 +46,9 @@ docs: regatta
 regatta: proto *.go **/*.go
 	CGO_ENABLED=1 go build -o regatta
 
-proto: proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go
+proto: proto/mvcc.pb.go proto/mvcc_vtproto.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/regatta_vtproto.pb.go proto/replication.pb.go proto/replication_grpc.pb.go proto/replication_vtproto.pb.go
 
-proto/mvcc.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/replication.pb.go proto/replication_grpc.pb.go: proto/*.proto
+proto/mvcc.pb.go proto/mvcc_vtproto.pb.go proto/regatta.pb.go proto/regatta_grpc.pb.go proto/regatta_vtproto.pb.go proto/replication.pb.go proto/replication_grpc.pb.go proto/replication_vtproto.pb.go: proto/*.proto
 	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto
 
 # Build the docker image
