@@ -5,6 +5,7 @@ go 1.17
 replace github.com/lni/dragonboat/v3 => github.com/coufalja/dragonboat/v3 v3.1.1-0.20210723112057-cc2022ab93b1
 
 require (
+	github.com/AlekSi/gocov-xml v0.0.0-20190121064608-3a14fb1c4737
 	github.com/VictoriaMetrics/metrics v1.17.2
 	github.com/axw/gocov v1.0.0
 	github.com/cenkalti/backoff/v4 v4.1.0

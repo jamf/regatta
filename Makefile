@@ -6,13 +6,13 @@ all: proto check test build
 prepare:
 	@echo "Downloading tools"
 ifeq (, $(shell which go-junit-report))
-	go get github.com/jstemmer/go-junit-report
+	go get -d github.com/jstemmer/go-junit-report
 endif
 ifeq (, $(shell which gocov))
-	go get github.com/axw/gocov/gocov
+	go get -d github.com/axw/gocov/gocov
 endif
 ifeq (, $(shell which gocov-xml))
-	go get github.com/AlekSi/gocov-xml
+	go get -d github.com/AlekSi/gocov-xml
 endif
 
 run: build
@@ -20,9 +20,6 @@ run: build
 
 run-follower: build
 	./regatta follower --dev-mode --api.reflection-api --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --api.address=:9443 --rest.address=:8080 --replication.leader-address=127.0.0.1:8444 --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
-
-run-client: proto
-	go run client/main.go
 
 # Run golangci-lint on the code
 check: proto
