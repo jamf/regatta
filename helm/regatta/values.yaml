@@ -60,8 +60,8 @@ reflectionAPI:
   enabled: false
 
 storage:
-  # 32MB default
-  blockCacheSize: 33554432
+  # 384MB default (each table will use up to 64MB for writes, the extra is then used to serve reads)
+  blockCacheSize: 402653184
 
 persistence: {}
 
