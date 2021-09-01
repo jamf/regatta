@@ -23,7 +23,7 @@ import (
 
 const (
 	// MaxGRPCSize is the maximum size of body of gRPC message to be loaded from dragonboat.
-	MaxGRPCSize = (4 * 1024 * 1024) - (10 * 1024)
+	MaxGRPCSize = 3 * 1024 * 1024 // FIXME make configurable and dynamic
 	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
 	DefaultSnapshotChunkSize = 1024 * 1024
 )
