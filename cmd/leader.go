@@ -42,6 +42,8 @@ func init() {
 
 	// Replication flags
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Replication API enabled")
+	leaderCmd.PersistentFlags().Uint64("replication.max-send-message-size-bytes", regattaserver.DefaultMaxGRPCSize, `The target maximum size of single replication message allowed to send.
+Still under some circumstances a larger message could be sent. So make sure the followers are able to accept slightly larger messages.`)
 	leaderCmd.PersistentFlags().String("replication.address", ":8444", "Address the replication API server should listen on.")
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
@@ -254,7 +256,7 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
 
-	ls := regattaserver.NewLogServer(manager, db, logger)
+	ls := regattaserver.NewLogServer(manager, db, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
 	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
 	proto.RegisterLogServer(replication, ls)

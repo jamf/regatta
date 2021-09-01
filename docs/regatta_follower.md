@@ -62,6 +62,7 @@ regatta follower [flags]
       --replication.lease-interval duration                   Interval in which the workers re-new their table leases. (default 15s)
       --replication.log-rpc-timeout duration                  The log RPC timeout. (default 1m0s)
       --replication.max-recovery-in-flight uint               The maximum number of recovery goroutines allowed to run in this instance. (default 1)
+      --replication.max-recv-message-size-bytes uint          The maximum size of single replication message allowed to receive. (default 8388608)
       --replication.max-snapshot-recv-bytes-per-second uint   Max bytes per second received by the snapshot API client, default value 0 means unlimited.
       --replication.poll-interval duration                    Replication interval in seconds, the leader poll time. (default 10s)
       --replication.reconcile-interval duration               Replication interval of tables reconciliation (workers startup/shutdown). (default 30s)
