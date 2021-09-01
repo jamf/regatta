@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	// MaxGRPCSize is the maximum size of body of gRPC message to be loaded from dragonboat.
-	MaxGRPCSize = 3 * 1024 * 1024 // FIXME make configurable and dynamic
+	// DefaultMaxGRPCSize is the default maximum size of body of gRPC message to be loaded from dragonboat.
+	DefaultMaxGRPCSize = 4 * 1024 * 1024
 	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
 	DefaultSnapshotChunkSize = 1024 * 1024
 )
@@ -107,23 +107,25 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 
 // LogServer implements Log service from proto/replication.proto.
 type LogServer struct {
-	DB      raftio.ILogDB
-	Tables  TableService
-	NodeID  uint64
-	Log     *zap.SugaredLogger
+	DB             raftio.ILogDB
+	Tables         TableService
+	NodeID         uint64
+	Log            *zap.SugaredLogger
+	maxMessageSize uint64
+
 	metrics struct {
 		replicationIndex *prometheus.GaugeVec
 	}
-
 	proto.UnimplementedLogServer
 }
 
-func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger) *LogServer {
-	return &LogServer{
-		Tables: tm,
-		DB:     db,
-		NodeID: tm.NodeID(),
-		Log:    logger.Sugar().Named("log-replication-server"),
+func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger, maxMessageSize uint64) *LogServer {
+	ls := &LogServer{
+		Tables:         tm,
+		DB:             db,
+		NodeID:         tm.NodeID(),
+		Log:            logger.Sugar().Named("log-replication-server"),
+		maxMessageSize: maxMessageSize,
 		metrics: struct {
 			replicationIndex *prometheus.GaugeVec
 		}{
@@ -135,6 +137,11 @@ func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger) *Log
 			),
 		},
 	}
+
+	if maxMessageSize == 0 {
+		ls.maxMessageSize = DefaultMaxGRPCSize
+	}
+	return ls
 }
 
 // Collect leader's metrics.
@@ -241,7 +248,7 @@ func (l *LogServer) iterateEntries(entries []raftpb.Entry, clusterID, lo, hi uin
 			err = fmt.Errorf("IterateEntries panicked: %v", errRec)
 		}
 	}()
-	ents, _, err = l.DB.IterateEntries(entries, math.MaxUint64, clusterID, l.NodeID, lo, hi, MaxGRPCSize)
+	ents, _, err = l.DB.IterateEntries(entries, math.MaxUint64, clusterID, l.NodeID, lo, hi, l.maxMessageSize)
 	return
 }
 

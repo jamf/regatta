@@ -46,6 +46,7 @@ func init() {
 	followerCmd.PersistentFlags().Duration("replication.lease-interval", 15*time.Second, "Interval in which the workers re-new their table leases.")
 	followerCmd.PersistentFlags().Duration("replication.log-rpc-timeout", 1*time.Minute, "The log RPC timeout.")
 	followerCmd.PersistentFlags().Duration("replication.snapshot-rpc-timeout", 1*time.Hour, "The snapshot RPC timeout.")
+	followerCmd.PersistentFlags().Uint64("replication.max-recv-message-size-bytes", 8*1024*1024, "The maximum size of single replication message allowed to receive.")
 	followerCmd.PersistentFlags().Uint64("replication.max-recovery-in-flight", 1, "The maximum number of recovery goroutines allowed to run in this instance.")
 	followerCmd.PersistentFlags().Uint64("replication.max-snapshot-recv-bytes-per-second", 0, "Max bytes per second received by the snapshot API client, default value 0 means unlimited.")
 }
@@ -243,7 +244,10 @@ func createReplicationConn(cp *x509.CertPool, replicationWatcher *cert.Watcher) 
 		},
 	})
 
-	replConn, err := grpc.Dial(viper.GetString("replication.leader-address"), grpc.WithTransportCredentials(creds))
+	replConn, err := grpc.Dial(viper.GetString("replication.leader-address"),
+		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(int(viper.GetUint64("replication.max-recv-message-size-bytes")))),
+	)
 	if err != nil {
 		return nil, err
 	}
