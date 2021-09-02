@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
 
 func createTableManager(nh *dragonboat.NodeHost) (*tables.Manager, error) {
 	initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
