@@ -534,7 +534,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		}
 	}
 
-	if err := b.Commit(&pebble.WriteOptions{Sync: false}); err != nil {
+	if err := b.Commit(nil); err != nil {
 		return err
 	}
 
