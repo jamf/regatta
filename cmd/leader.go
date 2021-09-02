@@ -126,7 +126,7 @@ func leader(_ *cobra.Command, _ []string) {
 
 	// Start servers
 	{
-		grpc_prometheus.EnableHandlingTimeHistogram()
+		grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 		// Create regatta API server
 		// Load API certificate
 		watcher := &cert.Watcher{
