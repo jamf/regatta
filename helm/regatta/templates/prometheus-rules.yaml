@@ -204,7 +204,7 @@ spec:
 
     # GRPC
     - alert: GRPCFailedRequests
-      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound|InvalidArgument", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection",grpc_method="Range"}[5m]) > 0
+      expr: increase(grpc_server_handled_total{namespace="{{ .Release.Namespace }}",grpc_code!~"OK|NotFound|InvalidArgument", job="{{ template "meta.name" . }}",grpc_service!="grpc.reflection.v1alpha.ServerReflection"}[5m]) > 0
       for: 1m
       labels:
         severity: warning
@@ -233,16 +233,6 @@ spec:
         description: '50 quantile of regatta.v1.KV response time is {{ "{{" }}$value{{ "}}" }} s for {{ "{{" }}$labels.job{{ "}}" }}'
         summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC response is too slow (P50)'
         runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#gRPC-API-slow-response'
-    - alert: HighNotFoundRequestsRatio
-      expr:  sum by(pod) (rate(grpc_server_handled_total{grpc_code="NotFound",grpc_method="Range",grpc_service!="grpc.reflection.v1alpha.ServerReflection",job="{{ template "meta.name" . }}",namespace="{{ .Release.Namespace }}"}[1m])) / sum by (pod) (rate(grpc_server_handled_total{grpc_method="Range",grpc_service!="grpc.reflection.v1alpha.ServerReflection",job="{{ template "meta.name" . }}",namespace="{{ .Release.Namespace }}"}[1m])) * 100 > 40 AND on(pod) sum by (pod) (rate(grpc_server_handled_total{grpc_method="Range",grpc_service!="grpc.reflection.v1alpha.ServerReflection",job="{{ template "meta.name" . }}",namespace="{{ .Release.Namespace }}"}[1m])) > 20
-      for: 5m
-      labels:
-        severity: warning
-        team: {{ .Values.team }}
-      annotations:
-        description: '{{ "{{" }}$value{{ "}}" }}% of NotFound  GRPC requests in 5 minutes for {{ "{{" }}$labels.job{{ "}}" }}'
-        summary: '{{ "{{" }}$labels.job{{ "}}" }}: GRPC request NotFound'
-        runsheet: 'https://snappli.atlassian.net/wiki/spaces/DEV/pages/2194670231/Regatta+-+runsheets#gRPC-API-high-NotFound-request-ratio'
 
     # Kafka
     - alert: TooManyKafkaReaderErrors
