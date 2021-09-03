@@ -461,14 +461,8 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return storage.ErrInvalidNodeID
 	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	dir := rp.GetNodeDBDirName(p.dirname, hostname, fmt.Sprintf("%s-%d", p.tableName, p.clusterID))
-
 	randomDirName := rp.GetNewRandomDBDirName()
-	dbdir := filepath.Join(dir, randomDirName)
+	dbdir := filepath.Join(p.dirname, randomDirName)
 	walDirPath := path.Join(p.walDirname, randomDirName)
 
 	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
@@ -495,7 +489,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		select {
 		case <-stopc:
 			_ = db.Close()
-			if err := rp.CleanupNodeDataDir(p.fs, dir); err != nil {
+			if err := rp.CleanupNodeDataDir(p.fs, p.dirname); err != nil {
 				p.log.Debugf("unable to cleanup directory")
 			}
 			return sm.ErrSnapshotStopped
@@ -538,10 +532,10 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return err
 	}
 
-	if err := rp.SaveCurrentDBDirName(p.fs, dir, randomDirName); err != nil {
+	if err := rp.SaveCurrentDBDirName(p.fs, p.dirname, randomDirName); err != nil {
 		return err
 	}
-	if err := rp.ReplaceCurrentDBFile(p.fs, dir); err != nil {
+	if err := rp.ReplaceCurrentDBFile(p.fs, p.dirname); err != nil {
 		return err
 	}
 	old := (*pebble.DB)(atomic.SwapPointer(&p.pebble, unsafe.Pointer(db)))
@@ -551,7 +545,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		_ = old.Close()
 	}
 	p.log.Debugf("Snapshot recovery cleanup")
-	return rp.CleanupNodeDataDir(p.fs, dir)
+	return rp.CleanupNodeDataDir(p.fs, p.dirname)
 }
 
 // Close closes the KVStateMachine IStateMachine.
