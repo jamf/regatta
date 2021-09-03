@@ -310,6 +310,20 @@ func TestSM_Snapshot(t *testing.T) {
 			got, err := ep.(sm.IHash).GetHash()
 			r.NoError(err)
 			r.Equal(want, got, "the hash of recovered DB should be the same as of the original one")
+
+			l, err := p.Lookup(LocalIndexRequest{})
+			r.NoError(err)
+			el, err := ep.Lookup(LocalIndexRequest{})
+			r.NoError(err)
+
+			originIndex := l.(*IndexResponse).Index
+
+			r.Equal(originIndex, el.(*IndexResponse).Index, "the applied indexes should be the same")
+
+			r.NoError(ep.Close())
+			idx, err := ep.Open(nil)
+			r.NoError(err)
+			r.Equal(originIndex, idx, "indexes after reopen should be the same")
 		})
 	}
 }
