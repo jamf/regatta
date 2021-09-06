@@ -118,8 +118,8 @@ github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3Ee
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/coreos/go-systemd/v22 v22.3.2/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
-github.com/coufalja/dragonboat/v3 v3.1.1-0.20210723112057-cc2022ab93b1 h1:yGA2altjCXkacxxfFPoYxL9mBtu3QnPcEdMqFvIIShw=
-github.com/coufalja/dragonboat/v3 v3.1.1-0.20210723112057-cc2022ab93b1/go.mod h1:Wtqeqg74VRG4NPfo7I5ryFSZ5ZQLqn8Abd6Q3qzhFQw=
+github.com/coufalja/dragonboat/v3 v3.1.1-0.20210906100809-1858f0a07682 h1:Dvw1HpNjV2ZOnzVKGelDmakIPd74cSTVxtJOna37URk=
+github.com/coufalja/dragonboat/v3 v3.1.1-0.20210906100809-1858f0a07682/go.mod h1:Wtqeqg74VRG4NPfo7I5ryFSZ5ZQLqn8Abd6Q3qzhFQw=
 github.com/cpuguy83/go-md2man v1.0.10 h1:BSKMNlYxDvnunlTymqtgONjNnaRV1sTpcovwwjF22jk=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
 github.com/cpuguy83/go-md2man/v2 v2.0.0 h1:EoUDS0afbrsXAZ9YQ9jdu/mZ2sXgT1/2yyNng4PGlyM=
