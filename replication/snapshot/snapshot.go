@@ -80,6 +80,14 @@ func OpenFile(path string) (*snapshotFile, error) {
 	return newFile(f, path), nil
 }
 
+func New(path string) (*snapshotFile, error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	return newFile(f, path), nil
+}
+
 func NewTemp() (*snapshotFile, error) {
 	dir := os.TempDir()
 	f, err := os.CreateTemp(dir, snapshotFilenamePattern)
@@ -124,18 +132,21 @@ func (s *snapshotFile) Read(p []byte) (n int, err error) {
 }
 
 func (s *snapshotFile) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	buf := s.lenBuff[:]
 	binary.LittleEndian.PutUint64(buf, uint64(len(p)))
-	n, err := s.w.Write(buf)
+	_, err := s.w.Write(buf)
 	if err != nil {
 		return 0, err
 	}
 
-	m, err := s.w.Write(p)
+	_, err = s.w.Write(p)
 	if err != nil {
 		return 0, err
 	}
-	return n + m, err
+	return len(p), err
 }
 
 func (s *snapshotFile) Sync() error {

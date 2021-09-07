@@ -47,7 +47,7 @@ func Test_snapshotFile_Write(t *testing.T) {
 	n, err := sf.Write(bts)
 	r.NoError(err)
 	r.NoError(sf.Sync())
-	r.Equal(len(bts)+8, n)
+	r.Equal(len(bts), n)
 }
 
 func Test_snapshotFile_ReadWrite(t *testing.T) {
@@ -65,7 +65,7 @@ func Test_snapshotFile_ReadWrite(t *testing.T) {
 		}})
 		n, err := sf.Write(bts)
 		r.NoError(err)
-		r.Equal(len(bts)+8, n)
+		r.Equal(len(bts), n)
 	}
 	r.NoError(sf.Sync())
 
