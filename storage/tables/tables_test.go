@@ -1,7 +1,6 @@
 package tables
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -15,7 +14,6 @@ import (
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
-	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
 	"go.uber.org/zap"
 )
@@ -164,14 +162,6 @@ func TestManager_reconcile(t *testing.T) {
 	_, err := tm.createTable(testTableName)
 	r.NoError(err)
 	time.Sleep(reconcileInterval * 3)
-	at, err := tm.GetTable(testTableName)
-	r.NoError(err)
-
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer cancel()
-	t.Log("test table is started")
-	_, err = at.Hash(ctx, &proto.HashRequest{})
-	r.NoError(err)
 
 	r.NoError(tm.DeleteTable(testTableName))
 	time.Sleep(reconcileInterval * 3)

@@ -124,20 +124,6 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 	return &proto.DeleteRangeResponse{Deleted: int64(res.Value)}, nil
 }
 
-// Reset not implemented yet (should reset Follower data to fetch them from the Leader again).
-func (t *ActiveTable) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
-	return nil, nil
-}
-
-// Hash calculates a fnv hash of a stored data, suitable for tests only.
-func (t *ActiveTable) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
-	if err != nil {
-		return nil, err
-	}
-	return val.(*proto.HashResponse), nil
-}
-
 // Snapshot streams snapshot to the provided writer.
 func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) (*SnapshotResponse, error) {
 	val, err := t.nh.SyncRead(ctx, t.ClusterID, SnapshotRequest{Writer: writer, Stopper: ctx.Done()})

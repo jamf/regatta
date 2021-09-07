@@ -292,12 +292,6 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 			Kvs:   kvs,
 			Count: 1,
 		}, nil
-	case *proto.HashRequest:
-		hash, err := p.GetHash()
-		if err != nil {
-			return nil, err
-		}
-		return &proto.HashResponse{Hash: hash}, nil
 	case SnapshotRequest:
 		idx, err := p.commandSnapshot(req.Writer, req.Stopper)
 		if err != nil {

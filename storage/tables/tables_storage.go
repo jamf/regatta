@@ -2,7 +2,6 @@ package tables
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/wandera/regatta/proto"
@@ -49,12 +48,4 @@ func (k *KVStorageWrapper) Delete(ctx context.Context, req *proto.DeleteRangeReq
 		return table.Delete(dctx, req)
 	}
 	return table.Delete(ctx, req)
-}
-
-func (k *KVStorageWrapper) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (k *KVStorageWrapper) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
-	return nil, errors.New("not implemented")
 }

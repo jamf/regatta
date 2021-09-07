@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "./proto";
+
+package maintenance.v1;
+
+import "replication.proto";
+
+// Maintenance service provides methods for maintenance purposes.
+service Maintenance {
+  rpc Backup(BackupRequest) returns (stream replication.v1.SnapshotChunk);
+}
+
+message BackupRequest {
+  // table is name of the table to stream
+  bytes table = 1;
+}

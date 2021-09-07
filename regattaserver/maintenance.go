@@ -1,33 +1,56 @@
 package regattaserver
 
 import (
+	"bufio"
 	"context"
+	"io"
+	"os"
+	"time"
 
 	"github.com/wandera/regatta/proto"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/wandera/regatta/replication/snapshot"
 )
 
 // MaintenanceServer implements Maintenance service from proto/regatta.proto.
 type MaintenanceServer struct {
 	proto.UnimplementedMaintenanceServer
-	Storage KVService
+	Tables TableService
 }
 
-// Reset implements proto/regatta.proto Maintenance.Reset method.
-func (s *MaintenanceServer) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
-	r, err := s.Storage.Reset(ctx, req)
+func (m *MaintenanceServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_BackupServer) error {
+	table, err := m.Tables.GetTable(string(req.Table))
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return err
 	}
-	return r, nil
-}
 
-// Hash implements proto/regatta.proto Maintenance.Hash method.
-func (s *MaintenanceServer) Hash(ctx context.Context, req *proto.HashRequest) (*proto.HashResponse, error) {
-	hsh, err := s.Storage.Hash(ctx, req)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	ctx := srv.Context()
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(srv.Context(), 1*time.Hour)
+		defer cancel()
+		ctx = dctx
 	}
-	return hsh, nil
+
+	sf, err := snapshot.NewTemp()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.Remove(sf.Path())
+	}()
+
+	_, err = table.Snapshot(ctx, sf)
+	if err != nil {
+		return err
+	}
+	err = sf.Sync()
+	if err != nil {
+		return err
+	}
+	_, err = sf.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(&snapshot.Writer{Sender: srv}, bufio.NewReaderSize(sf.File, DefaultSnapshotChunkSize))
+	return err
 }
