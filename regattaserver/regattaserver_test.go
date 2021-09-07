@@ -16,8 +16,6 @@ type MockStorage struct {
 	rangeResponse       proto.RangeResponse
 	putResponse         proto.PutResponse
 	deleteRangeResponse proto.DeleteRangeResponse
-	resetResponse       proto.ResetResponse
-	hashResponse        proto.HashResponse
 	rangeError          error
 	putError            error
 	deleteError         error
@@ -35,15 +33,6 @@ func (s *MockStorage) Put(_ context.Context, _ *proto.PutRequest) (*proto.PutRes
 
 func (s *MockStorage) Delete(_ context.Context, _ *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	return &s.deleteRangeResponse, s.deleteError
-}
-
-// Reset method resets storage.
-func (s *MockStorage) Reset(_ context.Context, _ *proto.ResetRequest) (*proto.ResetResponse, error) {
-	return &s.resetResponse, s.resetError
-}
-
-func (s *MockStorage) Hash(_ context.Context, _ *proto.HashRequest) (*proto.HashResponse, error) {
-	return &s.hashResponse, s.hashError
 }
 
 type MockTableService struct {
