@@ -80,6 +80,7 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 	if err != nil {
 		return err
 	}
+	// Write dummy command with leader index to commit recovery snapshot.
 	final, err := (&proto.Command{
 		Table:       req.Table,
 		Type:        proto.Command_DUMMY,
