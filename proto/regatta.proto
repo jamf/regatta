@@ -22,20 +22,6 @@ service KV {
   rpc DeleteRange(DeleteRangeRequest) returns (DeleteRangeResponse);
 }
 
-// Maintenance service provides methods for testing and maintenance purposes.
-service Maintenance {
-  // Hash computes the hash of whole backend keyspace,
-  // including key, lease, and other buckets in storage.
-  // This is designed for testing ONLY!
-  // This operation does not hols lock on the underlying storage
-  // so it might produce inconsistent results while keep writing to the DB.
-  rpc Hash(HashRequest) returns (HashResponse);
-
-  // Reset method does reset the complete state of either the selected node or the whole cluster.
-  // The functionality is intended mainly for testing purposes.
-  rpc Reset(ResetRequest) returns (ResetResponse);
-}
-
 message ResponseHeader {
   // cluster_id is the ID of the cluster which sent the response.
   uint64 cluster_id = 1;
@@ -146,28 +132,4 @@ message DeleteRangeResponse {
 
   // if prev_kv is set in the request, the previous key-value pairs will be returned.
   repeated mvcc.v1.KeyValue prev_kvs = 3;
-}
-
-message HashRequest {}
-
-message HashResponse {
-  ResponseHeader header = 1;
-  // hash is the hash value computed from the responding member's KV's backend.
-  uint64 hash = 2;
-}
-
-message ResetRequest {
-  // Operation defines what is going to be reset
-  enum Operation {
-    NODE = 0;     // Reset only selected node underlying KV database
-    CLUSTER = 1;  // Reset the whole cluster
-  }
-
-  Operation operation = 1;
-  // member_id is the ID of the member which should be reset when operation == NODE.
-  uint64 member_id = 2;
-}
-
-message ResetResponse {
-  ResponseHeader header = 1;
 }

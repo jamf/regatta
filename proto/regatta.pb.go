@@ -24,53 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Operation defines what is going to be reset
-type ResetRequest_Operation int32
-
-const (
-	ResetRequest_NODE    ResetRequest_Operation = 0 // Reset only selected node underlying KV database
-	ResetRequest_CLUSTER ResetRequest_Operation = 1 // Reset the whole cluster
-)
-
-// Enum value maps for ResetRequest_Operation.
-var (
-	ResetRequest_Operation_name = map[int32]string{
-		0: "NODE",
-		1: "CLUSTER",
-	}
-	ResetRequest_Operation_value = map[string]int32{
-		"NODE":    0,
-		"CLUSTER": 1,
-	}
-)
-
-func (x ResetRequest_Operation) Enum() *ResetRequest_Operation {
-	p := new(ResetRequest_Operation)
-	*p = x
-	return p
-}
-
-func (x ResetRequest_Operation) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ResetRequest_Operation) Descriptor() protoreflect.EnumDescriptor {
-	return file_regatta_proto_enumTypes[0].Descriptor()
-}
-
-func (ResetRequest_Operation) Type() protoreflect.EnumType {
-	return &file_regatta_proto_enumTypes[0]
-}
-
-func (x ResetRequest_Operation) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ResetRequest_Operation.Descriptor instead.
-func (ResetRequest_Operation) EnumDescriptor() ([]byte, []int) {
-	return file_regatta_proto_rawDescGZIP(), []int{9, 0}
-}
-
 type ResponseHeader struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -657,203 +610,6 @@ func (x *DeleteRangeResponse) GetPrevKvs() []*KeyValue {
 	return nil
 }
 
-type HashRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *HashRequest) Reset() {
-	*x = HashRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_regatta_proto_msgTypes[7]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *HashRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*HashRequest) ProtoMessage() {}
-
-func (x *HashRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_regatta_proto_msgTypes[7]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use HashRequest.ProtoReflect.Descriptor instead.
-func (*HashRequest) Descriptor() ([]byte, []int) {
-	return file_regatta_proto_rawDescGZIP(), []int{7}
-}
-
-type HashResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
-	// hash is the hash value computed from the responding member's KV's backend.
-	Hash uint64 `protobuf:"varint,2,opt,name=hash,proto3" json:"hash,omitempty"`
-}
-
-func (x *HashResponse) Reset() {
-	*x = HashResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_regatta_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *HashResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*HashResponse) ProtoMessage() {}
-
-func (x *HashResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_regatta_proto_msgTypes[8]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use HashResponse.ProtoReflect.Descriptor instead.
-func (*HashResponse) Descriptor() ([]byte, []int) {
-	return file_regatta_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *HashResponse) GetHeader() *ResponseHeader {
-	if x != nil {
-		return x.Header
-	}
-	return nil
-}
-
-func (x *HashResponse) GetHash() uint64 {
-	if x != nil {
-		return x.Hash
-	}
-	return 0
-}
-
-type ResetRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Operation ResetRequest_Operation `protobuf:"varint,1,opt,name=operation,proto3,enum=regatta.v1.ResetRequest_Operation" json:"operation,omitempty"`
-	// member_id is the ID of the member which should be reset when operation == NODE.
-	MemberId uint64 `protobuf:"varint,2,opt,name=member_id,json=memberId,proto3" json:"member_id,omitempty"`
-}
-
-func (x *ResetRequest) Reset() {
-	*x = ResetRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_regatta_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ResetRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ResetRequest) ProtoMessage() {}
-
-func (x *ResetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_regatta_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ResetRequest.ProtoReflect.Descriptor instead.
-func (*ResetRequest) Descriptor() ([]byte, []int) {
-	return file_regatta_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *ResetRequest) GetOperation() ResetRequest_Operation {
-	if x != nil {
-		return x.Operation
-	}
-	return ResetRequest_NODE
-}
-
-func (x *ResetRequest) GetMemberId() uint64 {
-	if x != nil {
-		return x.MemberId
-	}
-	return 0
-}
-
-type ResetResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Header *ResponseHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
-}
-
-func (x *ResetResponse) Reset() {
-	*x = ResetResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_regatta_proto_msgTypes[10]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ResetResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ResetResponse) ProtoMessage() {}
-
-func (x *ResetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_regatta_proto_msgTypes[10]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ResetResponse.ProtoReflect.Descriptor instead.
-func (*ResetResponse) Descriptor() ([]byte, []int) {
-	return file_regatta_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *ResetResponse) GetHeader() *ResponseHeader {
-	if x != nil {
-		return x.Header
-	}
-	return nil
-}
-
 var File_regatta_proto protoreflect.FileDescriptor
 
 var file_regatta_proto_rawDesc = []byte{
@@ -933,27 +689,7 @@ var file_regatta_proto_rawDesc = []byte{
 	0x07, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x12, 0x2c, 0x0a, 0x08, 0x70, 0x72, 0x65, 0x76,
 	0x5f, 0x6b, 0x76, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x6d, 0x76, 0x63,
 	0x63, 0x2e, 0x76, 0x31, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x07, 0x70,
-	0x72, 0x65, 0x76, 0x4b, 0x76, 0x73, 0x22, 0x0d, 0x0a, 0x0b, 0x48, 0x61, 0x73, 0x68, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x56, 0x0a, 0x0c, 0x48, 0x61, 0x73, 0x68, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x32, 0x0a, 0x06, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e,
-	0x76, 0x31, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x48, 0x65, 0x61, 0x64, 0x65,
-	0x72, 0x52, 0x06, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x68, 0x61, 0x73,
-	0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x04, 0x68, 0x61, 0x73, 0x68, 0x22, 0x91, 0x01,
-	0x0a, 0x0c, 0x52, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x40,
-	0x0a, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0e, 0x32, 0x22, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x52,
-	0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x4f, 0x70, 0x65, 0x72,
-	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x12, 0x1b, 0x0a, 0x09, 0x6d, 0x65, 0x6d, 0x62, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x04, 0x52, 0x08, 0x6d, 0x65, 0x6d, 0x62, 0x65, 0x72, 0x49, 0x64, 0x22, 0x22, 0x0a,
-	0x09, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x08, 0x0a, 0x04, 0x4e, 0x4f,
-	0x44, 0x45, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x43, 0x4c, 0x55, 0x53, 0x54, 0x45, 0x52, 0x10,
-	0x01, 0x22, 0x43, 0x0a, 0x0d, 0x52, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x32, 0x0a, 0x06, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76, 0x31, 0x2e,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x52, 0x06,
-	0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x32, 0xca, 0x01, 0x0a, 0x02, 0x4b, 0x56, 0x12, 0x3c, 0x0a,
+	0x72, 0x65, 0x76, 0x4b, 0x76, 0x73, 0x32, 0xca, 0x01, 0x0a, 0x02, 0x4b, 0x56, 0x12, 0x3c, 0x0a,
 	0x05, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x18, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61,
 	0x2e, 0x76, 0x31, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x1a, 0x19, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x61,
@@ -966,16 +702,8 @@ var file_regatta_proto_rawDesc = []byte{
 	0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76, 0x31, 0x2e,
 	0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x32, 0x86, 0x01, 0x0a, 0x0b, 0x4d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61,
-	0x6e, 0x63, 0x65, 0x12, 0x39, 0x0a, 0x04, 0x48, 0x61, 0x73, 0x68, 0x12, 0x17, 0x2e, 0x72, 0x65,
-	0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x48, 0x61, 0x73, 0x68, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76,
-	0x31, 0x2e, 0x48, 0x61, 0x73, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3c,
-	0x0a, 0x05, 0x52, 0x65, 0x73, 0x65, 0x74, 0x12, 0x18, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74,
-	0x61, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x19, 0x2e, 0x72, 0x65, 0x67, 0x61, 0x74, 0x74, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x52,
-	0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x09, 0x5a, 0x07,
-	0x2e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6e, 0x73, 0x65, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -990,48 +718,35 @@ func file_regatta_proto_rawDescGZIP() []byte {
 	return file_regatta_proto_rawDescData
 }
 
-var file_regatta_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_regatta_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_regatta_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_regatta_proto_goTypes = []interface{}{
-	(ResetRequest_Operation)(0), // 0: regatta.v1.ResetRequest.Operation
-	(*ResponseHeader)(nil),      // 1: regatta.v1.ResponseHeader
-	(*RangeRequest)(nil),        // 2: regatta.v1.RangeRequest
-	(*RangeResponse)(nil),       // 3: regatta.v1.RangeResponse
-	(*PutRequest)(nil),          // 4: regatta.v1.PutRequest
-	(*PutResponse)(nil),         // 5: regatta.v1.PutResponse
-	(*DeleteRangeRequest)(nil),  // 6: regatta.v1.DeleteRangeRequest
-	(*DeleteRangeResponse)(nil), // 7: regatta.v1.DeleteRangeResponse
-	(*HashRequest)(nil),         // 8: regatta.v1.HashRequest
-	(*HashResponse)(nil),        // 9: regatta.v1.HashResponse
-	(*ResetRequest)(nil),        // 10: regatta.v1.ResetRequest
-	(*ResetResponse)(nil),       // 11: regatta.v1.ResetResponse
-	(*KeyValue)(nil),            // 12: mvcc.v1.KeyValue
+	(*ResponseHeader)(nil),      // 0: regatta.v1.ResponseHeader
+	(*RangeRequest)(nil),        // 1: regatta.v1.RangeRequest
+	(*RangeResponse)(nil),       // 2: regatta.v1.RangeResponse
+	(*PutRequest)(nil),          // 3: regatta.v1.PutRequest
+	(*PutResponse)(nil),         // 4: regatta.v1.PutResponse
+	(*DeleteRangeRequest)(nil),  // 5: regatta.v1.DeleteRangeRequest
+	(*DeleteRangeResponse)(nil), // 6: regatta.v1.DeleteRangeResponse
+	(*KeyValue)(nil),            // 7: mvcc.v1.KeyValue
 }
 var file_regatta_proto_depIdxs = []int32{
-	1,  // 0: regatta.v1.RangeResponse.header:type_name -> regatta.v1.ResponseHeader
-	12, // 1: regatta.v1.RangeResponse.kvs:type_name -> mvcc.v1.KeyValue
-	1,  // 2: regatta.v1.PutResponse.header:type_name -> regatta.v1.ResponseHeader
-	12, // 3: regatta.v1.PutResponse.prev_kv:type_name -> mvcc.v1.KeyValue
-	1,  // 4: regatta.v1.DeleteRangeResponse.header:type_name -> regatta.v1.ResponseHeader
-	12, // 5: regatta.v1.DeleteRangeResponse.prev_kvs:type_name -> mvcc.v1.KeyValue
-	1,  // 6: regatta.v1.HashResponse.header:type_name -> regatta.v1.ResponseHeader
-	0,  // 7: regatta.v1.ResetRequest.operation:type_name -> regatta.v1.ResetRequest.Operation
-	1,  // 8: regatta.v1.ResetResponse.header:type_name -> regatta.v1.ResponseHeader
-	2,  // 9: regatta.v1.KV.Range:input_type -> regatta.v1.RangeRequest
-	4,  // 10: regatta.v1.KV.Put:input_type -> regatta.v1.PutRequest
-	6,  // 11: regatta.v1.KV.DeleteRange:input_type -> regatta.v1.DeleteRangeRequest
-	8,  // 12: regatta.v1.Maintenance.Hash:input_type -> regatta.v1.HashRequest
-	10, // 13: regatta.v1.Maintenance.Reset:input_type -> regatta.v1.ResetRequest
-	3,  // 14: regatta.v1.KV.Range:output_type -> regatta.v1.RangeResponse
-	5,  // 15: regatta.v1.KV.Put:output_type -> regatta.v1.PutResponse
-	7,  // 16: regatta.v1.KV.DeleteRange:output_type -> regatta.v1.DeleteRangeResponse
-	9,  // 17: regatta.v1.Maintenance.Hash:output_type -> regatta.v1.HashResponse
-	11, // 18: regatta.v1.Maintenance.Reset:output_type -> regatta.v1.ResetResponse
-	14, // [14:19] is the sub-list for method output_type
-	9,  // [9:14] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	0, // 0: regatta.v1.RangeResponse.header:type_name -> regatta.v1.ResponseHeader
+	7, // 1: regatta.v1.RangeResponse.kvs:type_name -> mvcc.v1.KeyValue
+	0, // 2: regatta.v1.PutResponse.header:type_name -> regatta.v1.ResponseHeader
+	7, // 3: regatta.v1.PutResponse.prev_kv:type_name -> mvcc.v1.KeyValue
+	0, // 4: regatta.v1.DeleteRangeResponse.header:type_name -> regatta.v1.ResponseHeader
+	7, // 5: regatta.v1.DeleteRangeResponse.prev_kvs:type_name -> mvcc.v1.KeyValue
+	1, // 6: regatta.v1.KV.Range:input_type -> regatta.v1.RangeRequest
+	3, // 7: regatta.v1.KV.Put:input_type -> regatta.v1.PutRequest
+	5, // 8: regatta.v1.KV.DeleteRange:input_type -> regatta.v1.DeleteRangeRequest
+	2, // 9: regatta.v1.KV.Range:output_type -> regatta.v1.RangeResponse
+	4, // 10: regatta.v1.KV.Put:output_type -> regatta.v1.PutResponse
+	6, // 11: regatta.v1.KV.DeleteRange:output_type -> regatta.v1.DeleteRangeResponse
+	9, // [9:12] is the sub-list for method output_type
+	6, // [6:9] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_regatta_proto_init() }
@@ -1125,68 +840,19 @@ func file_regatta_proto_init() {
 				return nil
 			}
 		}
-		file_regatta_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HashRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_regatta_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HashResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_regatta_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResetRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_regatta_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResetResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_regatta_proto_rawDesc,
-			NumEnums:      1,
-			NumMessages:   11,
+			NumEnums:      0,
+			NumMessages:   7,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   1,
 		},
 		GoTypes:           file_regatta_proto_goTypes,
 		DependencyIndexes: file_regatta_proto_depIdxs,
-		EnumInfos:         file_regatta_proto_enumTypes,
 		MessageInfos:      file_regatta_proto_msgTypes,
 	}.Build()
 	File_regatta_proto = out.File
