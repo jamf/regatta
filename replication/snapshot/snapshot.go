@@ -142,11 +142,11 @@ func (s *snapshotFile) Write(p []byte) (int, error) {
 		return 0, err
 	}
 
-	_, err = s.w.Write(p)
+	n, err := s.w.Write(p)
 	if err != nil {
 		return 0, err
 	}
-	return len(p), err
+	return n, err
 }
 
 func (s *snapshotFile) Sync() error {
