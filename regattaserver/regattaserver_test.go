@@ -19,8 +19,6 @@ type MockStorage struct {
 	rangeError          error
 	putError            error
 	deleteError         error
-	resetError          error
-	hashError           error
 }
 
 func (s *MockStorage) Range(_ context.Context, _ *proto.RangeRequest) (*proto.RangeResponse, error) {

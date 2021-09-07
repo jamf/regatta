@@ -77,11 +77,6 @@ func createAPIServer(watcher *cert.Watcher, st *tables.KVStorageWrapper, mTables
 		ManagedTables: mTables,
 	}
 	proto.RegisterKVServer(regatta, kvs)
-
-	ms := &regattaserver.MaintenanceServer{
-		Storage: st,
-	}
-	proto.RegisterMaintenanceServer(regatta, ms)
 	return regatta
 }
 
