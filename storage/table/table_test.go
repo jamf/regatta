@@ -177,59 +177,6 @@ func TestActiveTable_Range(t *testing.T) {
 	}
 }
 
-func TestActiveTable_Hash(t *testing.T) {
-	type fields struct {
-		Table Table
-		nh    raftHandler
-	}
-	type args struct {
-		ctx context.Context
-		req *proto.HashRequest
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *proto.HashResponse
-		wantErr bool
-	}{
-		{
-			name:   "Hash store",
-			fields: fields{nh: mockRaftHandler{queryResult: &proto.HashResponse{Hash: 1234}}},
-			args: args{
-				ctx: context.TODO(),
-				req: &proto.HashRequest{},
-			},
-			want: &proto.HashResponse{Hash: 1234},
-		},
-		{
-			name:   "Unknown error",
-			fields: fields{nh: mockRaftHandler{proposalError: errUnknown}},
-			args: args{
-				ctx: context.TODO(),
-				req: &proto.HashRequest{},
-			},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := require.New(t)
-			at := &ActiveTable{
-				Table: tt.fields.Table,
-				nh:    tt.fields.nh,
-			}
-			got, err := at.Hash(tt.args.ctx, tt.args.req)
-			if tt.wantErr {
-				r.Error(err)
-				return
-			}
-			r.NoError(err)
-			r.Equal(tt.want, got)
-		})
-	}
-}
-
 func TestActiveTable_Put(t *testing.T) {
 	type fields struct {
 		Table Table
