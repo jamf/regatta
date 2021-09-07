@@ -259,6 +259,7 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 	ls := regattaserver.NewLogServer(manager, db, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
 	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
+	proto.RegisterMaintenanceServer(replication, &regattaserver.MaintenanceServer{Tables: manager})
 	proto.RegisterLogServer(replication, ls)
 
 	prometheus.MustRegister(ls)
