@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -59,6 +60,20 @@ type ManifestTable struct {
 	Type     string `json:"type"`
 	FileName string `json:"file_name"`
 	MD5      string `json:"md5"`
+}
+
+type ManifestTables []ManifestTable
+
+func (m ManifestTables) Len() int {
+	return len(m)
+}
+
+func (m ManifestTables) Less(i, j int) bool {
+	return m[i].Name < m[j].Name
+}
+
+func (m ManifestTables) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
 }
 
 type Backup struct {
@@ -156,6 +171,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	if err != nil {
 		return manifest, err
 	}
+	sort.Sort(ManifestTables(manifest.Tables))
 	manifest.Finished = b.clock.Now()
 
 	b.Log.Println("tables backed up, writing manifest")
