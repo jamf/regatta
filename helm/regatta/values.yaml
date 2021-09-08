@@ -35,6 +35,7 @@ replication:
   logReplicationEnabled: false
   # 0 means unlimited
   maxSnapshotRecvBytesPerSecond: 0
+  logRpcTimeout: 5m
 
 priorityClassName: service-cluster-critical
 tolerations: []
