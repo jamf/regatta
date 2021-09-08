@@ -8,6 +8,7 @@ require (
 	github.com/AlekSi/gocov-xml v0.0.0-20190121064608-3a14fb1c4737
 	github.com/VictoriaMetrics/metrics v1.17.2
 	github.com/axw/gocov v1.0.0
+	github.com/benbjohnson/clock v1.1.0
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/cockroachdb/pebble v0.0.0-20210605001512-cbda11b8689f
 	github.com/fsnotify/fsnotify v1.4.9
