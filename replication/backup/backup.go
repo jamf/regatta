@@ -62,17 +62,17 @@ type ManifestTable struct {
 	MD5      string `json:"md5"`
 }
 
-type ManifestTables []ManifestTable
+type manifestTables []ManifestTable
 
-func (m ManifestTables) Len() int {
+func (m manifestTables) Len() int {
 	return len(m)
 }
 
-func (m ManifestTables) Less(i, j int) bool {
+func (m manifestTables) Less(i, j int) bool {
 	return m[i].Name < m[j].Name
 }
 
-func (m ManifestTables) Swap(i, j int) {
+func (m manifestTables) Swap(i, j int) {
 	m[i], m[j] = m[j], m[i]
 }
 
@@ -171,7 +171,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	if err != nil {
 		return manifest, err
 	}
-	sort.Sort(ManifestTables(manifest.Tables))
+	sort.Sort(manifestTables(manifest.Tables))
 	manifest.Finished = b.clock.Now()
 
 	b.Log.Println("tables backed up, writing manifest")
