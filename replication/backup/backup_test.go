@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -175,9 +178,11 @@ func TestBackup_Backup(t *testing.T) {
 			conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
 			r.NoError(err)
 
+			path := filepath.Join(t.TempDir(), strings.ReplaceAll(tt.name, " ", "_"))
+			r.NoError(os.MkdirAll(path, 0777))
 			b := &Backup{
 				Conn:    conn,
-				Dir:     t.TempDir(),
+				Dir:     path,
 				Timeout: tt.fields.Timeout,
 				clock:   clock.NewMock(),
 			}
@@ -186,6 +191,7 @@ func TestBackup_Backup(t *testing.T) {
 				r.ErrorIs(err, tt.wantErr)
 				return
 			}
+			r.NoError(err)
 			r.Equal(tt.want, got)
 		})
 	}
