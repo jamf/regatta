@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/wandera/regatta/regattaserver"
 	"google.golang.org/grpc/encoding"
@@ -15,6 +17,7 @@ func init() {
 	rootCmd.AddCommand(followerCmd)
 	rootCmd.AddCommand(docsCmd)
 	rootCmd.AddCommand(generatorCmd)
+	rootCmd.AddCommand(backupCmd)
 }
 
 var rootCmd = &cobra.Command{
@@ -29,6 +32,6 @@ var rootCmd = &cobra.Command{
 // Execute cobra command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }
