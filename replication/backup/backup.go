@@ -109,9 +109,8 @@ func (b *Backup) Backup() (Manifest, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.Timeout)
 	defer cancel()
 
-	dir := b.Dir
-	if dir != "" {
-		stat, err := os.Stat(dir)
+	if b.Dir != "" {
+		stat, err := os.Stat(b.Dir)
 		if err != nil {
 			return manifest, err
 		}
@@ -137,7 +136,7 @@ func (b *Backup) Backup() (Manifest, error) {
 				return err
 			}
 			fName := fmt.Sprintf("%s.bak", t.Name)
-			sf, err := snapshot.New(filepath.Join(dir, fName))
+			sf, err := snapshot.New(filepath.Join(b.Dir, fName))
 			if err != nil {
 				return err
 			}
@@ -175,7 +174,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	manifest.Finished = b.clock.Now()
 
 	b.Log.Println("tables backed up, writing manifest")
-	manFile, err := os.Create(filepath.Join(dir, manifestFileName))
+	manFile, err := os.Create(filepath.Join(b.Dir, manifestFileName))
 	if err != nil {
 		return manifest, err
 	}
