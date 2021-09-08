@@ -186,6 +186,8 @@ var (
 
 // Replicate entries from the leader's log.
 func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_ReplicateServer) error {
+	// FIXME Server context not handled here. May lead to `Cancelled` errors during response.
+
 	t, err := l.Tables.GetTable(string(req.GetTable()))
 	if err != nil {
 		return fmt.Errorf("no table '%s' found: %v", req.GetTable(), err)
