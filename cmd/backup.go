@@ -13,11 +13,9 @@ import (
 )
 
 func init() {
-	backupCmd.PersistentFlags().String("address", "127.0.0.1:8444", "Backup API address")
+	backupCmd.PersistentFlags().String("address", "127.0.0.1:8445", "Backup API address")
 	backupCmd.PersistentFlags().String("dir", "", "Target dir (current directory if empty)")
-	backupCmd.PersistentFlags().String("cert", "hack/replication/client.crt", "Path to the client certificate.")
-	backupCmd.PersistentFlags().String("key", "hack/replication/client.key", "Path to the client private key file.")
-	backupCmd.PersistentFlags().String("ca", "hack/replication/ca.crt", "Path to the client CA cert file.")
+	backupCmd.PersistentFlags().String("ca", "", "Path to the client CA cert file.")
 }
 
 var backupCmd = &cobra.Command{
@@ -26,20 +24,18 @@ var backupCmd = &cobra.Command{
 	Long: `Command backs up regatta into a directory of choice, it currently back up all the tables present in the target server.
 Backup consist of file per a table in binary compressed form + human-readable manifest file. Use restore command to load backup into the server.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		caBytes, err := ioutil.ReadFile(viper.GetString("ca"))
-		if err != nil {
-			return err
+		var cp *x509.CertPool
+		ca := viper.GetString("ca")
+		if ca != "" {
+			caBytes, err := ioutil.ReadFile(ca)
+			if err != nil {
+				return err
+			}
+			cp = x509.NewCertPool()
+			cp.AppendCertsFromPEM(caBytes)
 		}
-		cp := x509.NewCertPool()
-		cp.AppendCertsFromPEM(caBytes)
 
-		creds := credentials.NewTLS(&tls.Config{
-			RootCAs: cp,
-			GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				keyPair, err := tls.LoadX509KeyPair(viper.GetString("cert"), viper.GetString("key"))
-				return &keyPair, err
-			},
-		})
+		creds := credentials.NewTLS(&tls.Config{RootCAs: cp})
 		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds))
 		if err != nil {
 			return err

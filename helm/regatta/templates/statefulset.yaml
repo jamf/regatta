@@ -70,6 +70,12 @@ spec:
             --tables.names={{ .Values.tables.names }} \
             --replication.enabled={{ .Values.replication.server.enabled }} \
             --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
+          {{- if .Values.maintenance.server.enabled }}
+            --maintenance.enabled={{ .Values.maintenance.server.enabled }} \
+            --maintenance.address=0.0.0.0:{{ .Values.maintenance.server.port }} \
+            --maintenance.cert-filename=/maintenance-cert/tls.crt \
+            --maintenance.key-filename=/maintenance-cert/tls.key \
+          {{- end }}
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
             --kafka.check-topics={{ .Values.kafka.checkTopics }} \
@@ -118,6 +124,10 @@ spec:
         {{- end }}
         - mountPath: /replication-cert
           name: replication-cert
+        {{- if .Values.maintenance.server.enabled }}
+        - mountPath: /maintenance-cert
+          name: maintenance-cert
+        {{- end }}
         - mountPath: /data
           name: data
       volumes:
@@ -138,6 +148,12 @@ spec:
         secret:
           defaultMode: 420
           secretName: {{ template "meta.name" . }}-replication-cert
+      {{- if .Values.maintenance.server.enabled }}
+      - name: maintenance-cert
+        secret:
+          defaultMode: 420
+          secretName: {{ template "meta.name" . }}-maintenance-cert
+      {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
       {{- end }}

@@ -37,6 +37,12 @@ replication:
   maxSnapshotRecvBytesPerSecond: 0
   logRpcTimeout: 5m
 
+maintenance:
+  server:
+    enabled: true
+    port: 8445
+    hostname: foo
+
 priorityClassName: service-cluster-critical
 tolerations: []
 nodeSelector: {}
