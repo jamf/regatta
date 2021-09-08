@@ -48,6 +48,12 @@ Still under some circumstances a larger message could be sent. So make sure the 
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
+
+	// Maintenance flags
+	leaderCmd.PersistentFlags().Bool("maintenance.enabled", true, "Maintenance API enabled")
+	leaderCmd.PersistentFlags().String("maintenance.address", ":8445", "Address the replication API server should listen on.")
+	leaderCmd.PersistentFlags().String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
+	leaderCmd.PersistentFlags().String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 }
 
 var leaderCmd = &cobra.Command{
@@ -152,22 +158,22 @@ func leader(_ *cobra.Command, _ []string) {
 
 		if viper.GetBool("replication.enabled") {
 			// Load replication API certificate
-			watcherReplication := &cert.Watcher{
+			watcher := &cert.Watcher{
 				CertFile: viper.GetString("replication.cert-filename"),
 				KeyFile:  viper.GetString("replication.key-filename"),
 				Log:      logger.Named("cert").Sugar(),
 			}
-			err = watcherReplication.Watch()
+			err = watcher.Watch()
 			if err != nil {
 				log.Panicf("cannot watch replication certificate: %v", err)
 			}
-			defer watcherReplication.Stop()
+			defer watcher.Stop()
 			caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
 			if err != nil {
 				log.Panicf("cannot load clients CA: %v", err)
 			}
 
-			replication := createReplicationServer(watcherReplication, caBytes, tm, db, logger)
+			replication := createReplicationServer(watcher, caBytes, tm, db, logger)
 			// Start server
 			go func() {
 				log.Infof("regatta replication listening at %s", replication.Addr)
@@ -176,6 +182,30 @@ func leader(_ *cobra.Command, _ []string) {
 				}
 			}()
 			defer replication.Shutdown()
+		}
+
+		if viper.GetBool("maintenance.enabled") {
+			// Load maintenance API certificate
+			watcher := &cert.Watcher{
+				CertFile: viper.GetString("maintenance.cert-filename"),
+				KeyFile:  viper.GetString("maintenance.key-filename"),
+				Log:      logger.Named("cert").Sugar(),
+			}
+			err = watcher.Watch()
+			if err != nil {
+				log.Panicf("cannot watch maintenance certificate: %v", err)
+			}
+			defer watcher.Stop()
+
+			maintenance := createMaintenanceServer(watcher, tm)
+			// Start server
+			go func() {
+				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
+				if err := maintenance.ListenAndServe(); err != nil {
+					log.Panicf("grpc listenAndServe failed: %v", err)
+				}
+			}()
+			defer maintenance.Shutdown()
 		}
 
 		// Create REST server
@@ -236,7 +266,7 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manager *tables.Manager,
+func createReplicationServer(watcher *cert.Watcher, ca []byte, manager *tables.Manager,
 	db raftio.ILogDB, logger *zap.Logger) *regattaserver.RegattaServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
@@ -249,7 +279,7 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 			ClientAuth: tls.RequireAndVerifyClientCert,
 			ClientCAs:  cp,
 			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return watcherReplication.GetCertificate(), nil
+				return watcher.GetCertificate(), nil
 			},
 		})),
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
@@ -259,12 +289,31 @@ func createReplicationServer(watcherReplication *cert.Watcher, ca []byte, manage
 	ls := regattaserver.NewLogServer(manager, db, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
 	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterMaintenanceServer(replication, &regattaserver.MaintenanceServer{Tables: manager})
 	proto.RegisterLogServer(replication, ls)
 
 	prometheus.MustRegister(ls)
 
 	return replication
+}
+
+func createMaintenanceServer(watcher *cert.Watcher, manager *tables.Manager) *regattaserver.RegattaServer {
+	// Create regatta maintenance server
+	maintenance := regattaserver.NewServer(
+		viper.GetString("maintenance.address"),
+		viper.GetBool("api.reflection-api"),
+		grpc.Creds(credentials.NewTLS(&tls.Config{
+			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return watcher.GetCertificate(), nil
+			},
+		})),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
+
+	proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: manager})
+	proto.RegisterMaintenanceServer(maintenance, &regattaserver.MaintenanceServer{Tables: manager})
+
+	return maintenance
 }
 
 // waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
