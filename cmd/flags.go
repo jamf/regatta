@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -117,12 +118,7 @@ func initConfig(set *pflag.FlagSet) {
 	}
 
 	err = viper.ReadInConfig()
-	if err != nil {
-		switch t := err.(type) {
-		case viper.ConfigFileNotFoundError:
-			fmt.Println("No config file found, using flags and defaults")
-		default:
-			panic(fmt.Errorf("error reading config %v", t))
-		}
+	if err != nil && !errors.As(err, &viper.ConfigFileNotFoundError{}) {
+		panic(fmt.Errorf("error reading config %v", err))
 	}
 }

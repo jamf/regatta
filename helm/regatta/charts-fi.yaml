@@ -46,3 +46,6 @@ charts:
       replication:
         server:
           enabled: false
+      maintenance:
+        server:
+          enabled: false
