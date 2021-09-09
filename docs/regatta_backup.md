@@ -14,7 +14,7 @@ regatta backup [flags]
 ### Options
 
 ```
-      --address string   Backup API address (default "127.0.0.1:8445")
+      --address string   Regatta maintenance API address (default "127.0.0.1:8445")
       --ca string        Path to the client CA cert file.
       --dir string       Target dir (current directory if empty)
   -h, --help             help for backup
