@@ -134,27 +134,29 @@ func leader(_ *cobra.Command, _ []string) {
 	{
 		grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 		// Create regatta API server
-		// Load API certificate
-		watcher := &cert.Watcher{
-			CertFile: viper.GetString("api.cert-filename"),
-			KeyFile:  viper.GetString("api.key-filename"),
-			Log:      logger.Named("cert").Sugar(),
-		}
-		err = watcher.Watch()
-		if err != nil {
-			log.Panicf("cannot watch certificate: %v", err)
-		}
-		defer watcher.Stop()
-		// Create server
-		regatta := createAPIServer(watcher, st, mTables)
-		// Start server
-		go func() {
-			log.Infof("regatta listening at %s", regatta.Addr)
-			if err := regatta.ListenAndServe(); err != nil {
-				log.Panicf("grpc listenAndServe failed: %v", err)
+		{
+			// Load API certificate
+			watcher := &cert.Watcher{
+				CertFile: viper.GetString("api.cert-filename"),
+				KeyFile:  viper.GetString("api.key-filename"),
+				Log:      logger.Named("cert").Sugar(),
 			}
-		}()
-		defer regatta.Shutdown()
+			err = watcher.Watch()
+			if err != nil {
+				log.Panicf("cannot watch certificate: %v", err)
+			}
+			defer watcher.Stop()
+			// Create server
+			regatta := createAPIServer(watcher, st, mTables)
+			// Start server
+			go func() {
+				log.Infof("regatta listening at %s", regatta.Addr)
+				if err := regatta.ListenAndServe(); err != nil {
+					log.Panicf("grpc listenAndServe failed: %v", err)
+				}
+			}()
+			defer regatta.Shutdown()
+		}
 
 		if viper.GetBool("replication.enabled") {
 			// Load replication API certificate

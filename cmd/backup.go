@@ -21,7 +21,7 @@ func init() {
 var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Backup regatta to local files",
-	Long: `Command backs up regatta into a directory of choice, it currently back up all the tables present in the target server.
+	Long: `Command backs up regatta into a directory of choice, it currently backs up all the tables present in the target server.
 Backup consist of file per a table in binary compressed form + human-readable manifest file. Use restore command to load backup into the server.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var cp *x509.CertPool
