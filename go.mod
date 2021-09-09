@@ -13,6 +13,7 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20210605001512-cbda11b8689f
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/snappy v0.0.4-0.20210502035320-33fc3d5d8d99
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jstemmer/go-junit-report v0.9.1
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
