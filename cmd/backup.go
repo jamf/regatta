@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	backupCmd.PersistentFlags().String("address", "127.0.0.1:8445", "Backup API address")
+	backupCmd.PersistentFlags().String("address", "127.0.0.1:8445", "Regatta maintenance API address")
 	backupCmd.PersistentFlags().String("dir", "", "Target dir (current directory if empty)")
 	backupCmd.PersistentFlags().String("ca", "", "Path to the client CA cert file.")
 }
