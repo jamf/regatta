@@ -4,7 +4,7 @@ Backup regatta to local files
 
 ### Synopsis
 
-Command backs up regatta into a directory of choice, it currently back up all the tables present in the target server.
+Command backs up regatta into a directory of choice, it currently backs up all the tables present in the target server.
 Backup consist of file per a table in binary compressed form + human-readable manifest file. Use restore command to load backup into the server.
 
 ```
