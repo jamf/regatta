@@ -41,7 +41,6 @@ maintenance:
   server:
     enabled: true
     port: 8445
-    hostname: foo
 
 priorityClassName: service-cluster-critical
 tolerations: []
