@@ -1,0 +1,17 @@
+{{ if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "meta.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "meta.name" . }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+{{ end }}

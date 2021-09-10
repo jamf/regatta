@@ -70,12 +70,10 @@ spec:
             --tables.names={{ .Values.tables.names }} \
             --replication.enabled={{ .Values.replication.server.enabled }} \
             --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
-          {{- if .Values.maintenance.server.enabled }}
             --maintenance.enabled={{ .Values.maintenance.server.enabled }} \
             --maintenance.address=0.0.0.0:{{ .Values.maintenance.server.port }} \
             --maintenance.cert-filename=/maintenance-cert/tls.crt \
             --maintenance.key-filename=/maintenance-cert/tls.key \
-          {{- end }}
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
             --kafka.check-topics={{ .Values.kafka.checkTopics }} \

@@ -8,6 +8,8 @@ charts:
     values:
       mode: leader
       replicas: 1
+      podDisruptionBudget:
+        enabled: false
       safeToEvict: true
       noServiceMonitor: true
       image:
