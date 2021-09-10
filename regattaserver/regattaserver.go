@@ -21,4 +21,5 @@ type SnapshotService interface {
 type TableService interface {
 	GetTables() ([]table.Table, error)
 	GetTable(name string) (table.ActiveTable, error)
+	Restore(name string, reader io.Reader) error
 }

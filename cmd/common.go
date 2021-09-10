@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"strconv"
 	"time"
@@ -131,4 +132,17 @@ func buildLogDBConfig() config.LogDBConfig {
 	cfg.KVRecycleLogFileNum = 4
 	cfg.KVMaxBytesForLevelBase = 128 * 1024 * 1024
 	return cfg
+}
+
+type token string
+
+func (t token) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	if t != "" {
+		return map[string]string{"authorization": "Bearer " + string(t)}, nil
+	}
+	return nil, nil
+}
+
+func (token) RequireTransportSecurity() bool {
+	return true
 }

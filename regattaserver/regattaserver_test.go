@@ -2,6 +2,7 @@ package regattaserver
 
 import (
 	"context"
+	"io"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
@@ -44,4 +45,8 @@ func (t MockTableService) GetTables() ([]table.Table, error) {
 
 func (t MockTableService) GetTable(name string) (table.ActiveTable, error) {
 	return t.tables[0].AsActive(nil), t.error
+}
+
+func (t MockTableService) Restore(name string, reader io.Reader) error {
+	return t.error
 }

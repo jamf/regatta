@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MaintenanceClient interface {
 	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (Maintenance_BackupClient, error)
+	Restore(ctx context.Context, opts ...grpc.CallOption) (Maintenance_RestoreClient, error)
 }
 
 type maintenanceClient struct {
@@ -61,11 +62,46 @@ func (x *maintenanceBackupClient) Recv() (*SnapshotChunk, error) {
 	return m, nil
 }
 
+func (c *maintenanceClient) Restore(ctx context.Context, opts ...grpc.CallOption) (Maintenance_RestoreClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Maintenance_ServiceDesc.Streams[1], "/maintenance.v1.Maintenance/Restore", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &maintenanceRestoreClient{stream}
+	return x, nil
+}
+
+type Maintenance_RestoreClient interface {
+	Send(*RestoreMessage) error
+	CloseAndRecv() (*RestoreResponse, error)
+	grpc.ClientStream
+}
+
+type maintenanceRestoreClient struct {
+	grpc.ClientStream
+}
+
+func (x *maintenanceRestoreClient) Send(m *RestoreMessage) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *maintenanceRestoreClient) CloseAndRecv() (*RestoreResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(RestoreResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // MaintenanceServer is the server API for Maintenance service.
 // All implementations must embed UnimplementedMaintenanceServer
 // for forward compatibility
 type MaintenanceServer interface {
 	Backup(*BackupRequest, Maintenance_BackupServer) error
+	Restore(Maintenance_RestoreServer) error
 	mustEmbedUnimplementedMaintenanceServer()
 }
 
@@ -75,6 +111,9 @@ type UnimplementedMaintenanceServer struct {
 
 func (UnimplementedMaintenanceServer) Backup(*BackupRequest, Maintenance_BackupServer) error {
 	return status.Errorf(codes.Unimplemented, "method Backup not implemented")
+}
+func (UnimplementedMaintenanceServer) Restore(Maintenance_RestoreServer) error {
+	return status.Errorf(codes.Unimplemented, "method Restore not implemented")
 }
 func (UnimplementedMaintenanceServer) mustEmbedUnimplementedMaintenanceServer() {}
 
@@ -110,6 +149,32 @@ func (x *maintenanceBackupServer) Send(m *SnapshotChunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Maintenance_Restore_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(MaintenanceServer).Restore(&maintenanceRestoreServer{stream})
+}
+
+type Maintenance_RestoreServer interface {
+	SendAndClose(*RestoreResponse) error
+	Recv() (*RestoreMessage, error)
+	grpc.ServerStream
+}
+
+type maintenanceRestoreServer struct {
+	grpc.ServerStream
+}
+
+func (x *maintenanceRestoreServer) SendAndClose(m *RestoreResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *maintenanceRestoreServer) Recv() (*RestoreMessage, error) {
+	m := new(RestoreMessage)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Maintenance_ServiceDesc is the grpc.ServiceDesc for Maintenance service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -122,6 +187,11 @@ var Maintenance_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Backup",
 			Handler:       _Maintenance_Backup_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "Restore",
+			Handler:       _Maintenance_Restore_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "maintenance.proto",
