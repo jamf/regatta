@@ -97,3 +97,25 @@ spec:
   {{ .Values.externalLoadBalancer.loadBalancerSourceRanges | toYaml | nindent 2 }}
   {{- end }}
 {{ end }}
+{{ if .Values.maintenance.server.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "meta.name" . }}-maintenance
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    team: {{ .Values.team }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ template "meta.name" . }}
+  ports:
+  - name: https-mainten
+    targetPort: https-mainten
+    port: {{ .Values.maintenance.server.port }}
+{{ end }}

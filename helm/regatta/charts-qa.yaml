@@ -42,3 +42,10 @@ charts:
       replication:
         server:
           hostname: regatta.qa.wandera.co.uk
+      maintenance:
+        token: AgCCvz2IdJzhoNfVcQGgfJYy3d8RmaGhRxulheaHvhAZBXnuh48EmVcyzsu73CrL5X5rl+JSVrHsgn9e+KanMc5KuE07a9CQuIgEyoqUXh8nQjbDJ7URkHjQYetQEU0S9JKAaRb1pX0MivrMxBt6+TNp3y3MdXmCcT5oZ88dDd37pGrCdTsV/CpM8wz2Q1hZF8GvIM9fyyZP1avubd3m173IuofGQgQRsSDkR5f0VyjgZ2soZPrQWNTvV06s6peSuop1Lfs75/usShpFChu8EJGJSJz60U+hB6ktzq6GU4PTPFKPTk2zo/MnR5fepU3b6Z2Hdd086p4WtB5pBeNoyJpKz2WYa/KdZjEUYuT1SK8V4vL2IgbVBtnFccQ0PlQYkERCf11sUhwAjAXiD34qyCNdNhmQuqFhvIE1MJvtQ98EGzUc9WNmIYv1ldxbDGd6QNZlI+58QZudmXmsQMWynrOa/sYTVvSPhLVWXV4R75QCpBn4QyzOwnw1LE07H6ekdYwmIU7TH2IBpgOSiWU1HsmJ2VCR0Aelq+7SfXosiOveHb9kpwSpy+2wBIU/SnLXvhdoN1CG2t2KKKWJQSZatEQ9T1qDiQoaD8WJXKdJC+ZQjYzZ0Co7NbNCJxS5k2J5bMve9Wfxqx3DlFkKxPp+grqXIXBt+7sZXr/2oS7/Z6hzdZazGRgRwEcd1Vkzth5IKFYtpg6YeDSwPqkPWoLnqaGrPJ1YC2SUHVryS/9eAppSgPYydpo=
+        server:
+          enabled: true
+        backup:
+          enabled: true
+          bucket: "s3://wandera-regatta-backup-qa"

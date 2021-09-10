@@ -1,0 +1,52 @@
+{{- if .Values.maintenance.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ template "meta.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "meta.name" . }}
+    chart: {{ template "meta.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    team: {{ .Values.team }}
+spec:
+  schedule: {{ .Values.maintenance.backup.schedule }} 
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: {{ template "meta.name" . }}
+            image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+            imagePullPolicy: {{ .Values.image.imagePullPolicy }}
+            command:
+            - "bash"
+            - "-c"
+            - >-
+              apk add --update --no-cache python3 &&
+              python3 -m ensurepip &&
+              pip3 install --no-cache --upgrade pip setuptools s4cmd &&
+              CURR_DATE=$(date "+%y-%m-%d-%H") &&
+              mkdir $CURR_DATE &&
+              regatta backup \
+                --address={{ template "meta.name" . }}-maintenance:{{ .Values.maintenance.server.port }} \
+                --token=/token/token \
+                --ca=/maintenance-cert/ca.crt \
+                --dir=/backup
+            volumeMounts:
+            - mountPath: /maintenance-cert
+              name: maintenance-cert
+            - mountPath: /token
+              name: token
+          restartPolicy: OnFailure
+          volumes:
+          - name: token
+            secret:
+              defaultMode: 420
+              secretName: {{ template "meta.name" . }}-token
+          - name: maintenance-cert
+            secret:
+              defaultMode: 420
+              secretName: {{ template "meta.name" . }}-maintenance-cert
+{{- end }}

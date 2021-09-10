@@ -41,9 +41,14 @@ replication:
   logRpcTimeout: 5m
 
 maintenance:
+  token: ""
   server:
     enabled: true
     port: 8445
+  backup:
+    enabled: false
+    schedule: "0 */4 * * *"
+    bucket: ""
 
 priorityClassName: service-cluster-critical
 tolerations: []
