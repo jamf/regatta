@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
@@ -16,6 +17,7 @@ func init() {
 	backupCmd.PersistentFlags().String("address", "127.0.0.1:8445", "Regatta maintenance API address")
 	backupCmd.PersistentFlags().String("dir", "", "Target dir (current directory if empty)")
 	backupCmd.PersistentFlags().String("ca", "", "Path to the client CA cert file.")
+	backupCmd.PersistentFlags().String("token", "", "The access token to use for the authentication.")
 }
 
 var backupCmd = &cobra.Command{
@@ -36,7 +38,7 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 		}
 
 		creds := credentials.NewTLS(&tls.Config{RootCAs: cp})
-		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds))
+		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(token(viper.GetString("token"))))
 		if err != nil {
 			return err
 		}
@@ -53,4 +55,17 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 		return nil
 	},
 	DisableAutoGenTag: true,
+}
+
+type token string
+
+func (t token) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	if t != "" {
+		return map[string]string{"authorization": "Bearer " + string(t)}, nil
+	}
+	return nil, nil
+}
+
+func (token) RequireTransportSecurity() bool {
+	return true
 }

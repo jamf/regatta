@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/lni/dragonboat/v3/raftio"
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,7 +26,9 @@ import (
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -54,6 +57,7 @@ Still under some circumstances a larger message could be sent. So make sure the 
 	leaderCmd.PersistentFlags().String("maintenance.address", ":8445", "Address the replication API server should listen on.")
 	leaderCmd.PersistentFlags().String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
+	leaderCmd.PersistentFlags().String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
 }
 
 var leaderCmd = &cobra.Command{
@@ -308,14 +312,32 @@ func createMaintenanceServer(watcher *cert.Watcher, manager *tables.Manager) *re
 				return watcher.GetCertificate(), nil
 			},
 		})),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
+		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
 	)
 
 	proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterMaintenanceServer(maintenance, &regattaserver.MaintenanceServer{Tables: manager})
 
 	return maintenance
+}
+
+func authFunc(token string) func(ctx context.Context) (context.Context, error) {
+	if token == "" {
+		return func(ctx context.Context) (context.Context, error) {
+			return ctx, nil
+		}
+	}
+	return func(ctx context.Context) (context.Context, error) {
+		t, err := grpc_auth.AuthFromMD(ctx, "bearer")
+		if err != nil {
+			return ctx, err
+		}
+		if token != t {
+			return ctx, status.Errorf(codes.Unauthenticated, "Invalid token")
+		}
+		return ctx, nil
+	}
 }
 
 // waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
