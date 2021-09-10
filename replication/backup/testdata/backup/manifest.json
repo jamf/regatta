@@ -1,0 +1,18 @@
+{
+  "started": "2021-09-10T14:37:50.868666+02:00",
+  "finished": "2021-09-10T14:37:54.026+02:00",
+  "tables": [
+    {
+      "name": "applicable-device-secure-policy",
+      "type": "REPLICATED",
+      "file_name": "applicable-device-secure-policy.bak",
+      "md5": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "name": "regatta-test",
+      "type": "REPLICATED",
+      "file_name": "regatta-test.bak",
+      "md5": "897ed6bacc954b35a6501f23dace1f1c"
+    }
+  ]
+}
