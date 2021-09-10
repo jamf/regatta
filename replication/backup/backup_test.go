@@ -14,15 +14,22 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/dragonboat/v3/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage/tables"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func init() {
+	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+}
 
 func TestBackup_Backup(t *testing.T) {
 	type fields struct {

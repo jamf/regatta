@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bufio"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -21,6 +22,7 @@ import (
 )
 
 const manifestFileName = "manifest.json"
+const DefaultSnapshotChunkSize = 2 * 1024 * 1024
 
 type Clock interface {
 	Now() time.Time
@@ -109,14 +111,9 @@ func (b *Backup) Backup() (Manifest, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.Timeout)
 	defer cancel()
 
-	if b.Dir != "" {
-		stat, err := os.Stat(b.Dir)
-		if err != nil {
-			return manifest, err
-		}
-		if !stat.IsDir() {
-			return manifest, errors.New("argument 'dir' is not a directory")
-		}
+	err := checkDir(b.Dir)
+	if err != nil {
+		return manifest, err
 	}
 
 	meta, err := mc.Get(ctx, &proto.MetadataRequest{})
@@ -130,7 +127,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	for _, table := range meta.Tables {
 		t := table
 		wg.Go(func() error {
-			b.Log.Printf("downloading %s \n", t.Name)
+			b.Log.Printf("backing up table '%s' \n", t.Name)
 			stream, err := sc.Backup(ctx, &proto.BackupRequest{Table: []byte(t.Name)})
 			if err != nil {
 				return err
@@ -142,7 +139,7 @@ func (b *Backup) Backup() (Manifest, error) {
 			}
 
 			hash := md5.New()
-			w := io.MultiWriter(hash, sf)
+			w := io.MultiWriter(hash, sf.File)
 			_, err = io.Copy(w, snapshot.Reader{Stream: stream})
 			if err != nil {
 				return err
@@ -162,7 +159,7 @@ func (b *Backup) Backup() (Manifest, error) {
 					MD5:      hex.EncodeToString(hash.Sum(nil)),
 				})
 			}()
-			b.Log.Printf("downloaded %s \n", t.Name)
+			b.Log.Printf("backed up table '%s' \n", t.Name)
 			return nil
 		})
 	}
@@ -192,4 +189,158 @@ func (b *Backup) Backup() (Manifest, error) {
 	}
 	b.Log.Println("backup complete")
 	return manifest, nil
+}
+
+func (b *Backup) Restore() error {
+	b.ensureDefaults()
+
+	sc := proto.NewMaintenanceClient(b.Conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), b.Timeout)
+	defer cancel()
+
+	err := checkDir(b.Dir)
+	if err != nil {
+		return err
+	}
+
+	manFile, err := os.Open(filepath.Join(b.Dir, manifestFileName))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = manFile.Close()
+	}()
+
+	manifest := Manifest{}
+	err = json.NewDecoder(manFile).Decode(&manifest)
+	if err != nil {
+		return err
+	}
+	b.Log.Println("manifest loaded")
+
+	b.Log.Printf("going to restore %v \n", manifest.Tables)
+
+	hash := md5.New()
+	for _, table := range manifest.Tables {
+		hash.Reset()
+		tf, err := os.Open(filepath.Join(b.Dir, table.FileName))
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(hash, tf)
+		if err != nil {
+			return err
+		}
+		if hex.EncodeToString(hash.Sum(nil)) != table.MD5 {
+			return fmt.Errorf("table '%s' file '%s' corrupted (checksum mismatch)", table.Name, table.FileName)
+		}
+		b.Log.Printf("table '%s' checksum valid\n", table.Name)
+		_, err = tf.Seek(0, io.SeekStart)
+		if err != nil {
+			return err
+		}
+		stream, err := sc.Restore(ctx)
+		if err != nil {
+			return err
+		}
+		err = stream.Send(&proto.RestoreMessage{
+			Data: &proto.RestoreMessage_Info{
+				Info: &proto.RestoreInfo{
+					Table: []byte(table.Name),
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+		b.Log.Printf("table '%s' stream started\n", table.Name)
+
+		_, err = io.Copy(&Writer{Sender: stream}, bufio.NewReaderSize(tf, DefaultSnapshotChunkSize))
+		if err != nil {
+			return err
+		}
+
+		b.Log.Printf("table '%s' streamed\n", table.Name)
+		_, err = stream.CloseAndRecv()
+		if err != nil {
+			return err
+		}
+		b.Log.Printf("table '%s' restored\n", table.Name)
+	}
+
+	return nil
+}
+
+func checkDir(dir string) error {
+	if dir != "" {
+		stat, err := os.Stat(dir)
+		if err != nil {
+			return err
+		}
+		if !stat.IsDir() {
+			return fmt.Errorf("'%s' is not a directory", dir)
+		}
+	}
+	return nil
+}
+
+type Writer struct {
+	Sender proto.Maintenance_RestoreClient
+}
+
+func (g Writer) Write(p []byte) (int, error) {
+	ln := len(p)
+	if err := g.Sender.Send(&proto.RestoreMessage{
+		Data: &proto.RestoreMessage_Chunk{
+			Chunk: &proto.SnapshotChunk{
+				Data: p,
+				Len:  uint64(ln),
+			},
+		},
+	}); err != nil {
+		return 0, err
+	}
+	return ln, nil
+}
+
+type Reader struct {
+	Stream proto.Maintenance_RestoreServer
+}
+
+func (s Reader) Read(p []byte) (int, error) {
+	m, err := s.Stream.Recv()
+	if err != nil {
+		return 0, err
+	}
+	chunk := m.GetChunk()
+	if chunk == nil {
+		return 0, errors.New("chunk expected")
+	}
+	if len(p) < int(chunk.Len) {
+		return 0, io.ErrShortBuffer
+	}
+	return copy(p, chunk.Data), nil
+}
+
+func (s Reader) WriteTo(w io.Writer) (int64, error) {
+	n := int64(0)
+	for {
+		m, err := s.Stream.Recv()
+		if err == io.EOF {
+			return n, nil
+		}
+		if err != nil {
+			return n, err
+		}
+		chunk := m.GetChunk()
+		if chunk == nil {
+			return 0, errors.New("chunk expected")
+		}
+		w, err := w.Write(chunk.Data)
+		if err != nil {
+			return n, err
+		}
+		n = n + int64(w)
+	}
 }
