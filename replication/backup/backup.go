@@ -20,8 +20,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-const manifestFileName = "manifest.json"
-const DefaultSnapshotChunkSize = 2 * 1024 * 1024
+const (
+	manifestFileName         = "manifest.json"
+	defaultSnapshotChunkSize = 2 * 1024 * 1024
+)
 
 type Clock interface {
 	Now() time.Time
@@ -132,13 +134,13 @@ func (b *Backup) Backup() (Manifest, error) {
 				return err
 			}
 			fName := fmt.Sprintf("%s.bak", t.Name)
-			sf, err := snapshot.New(filepath.Join(b.Dir, fName))
+			sf, err := os.Create(filepath.Join(b.Dir, fName))
 			if err != nil {
 				return err
 			}
 
 			hash := md5.New()
-			w := io.MultiWriter(hash, sf.File)
+			w := io.MultiWriter(hash, sf)
 			_, err = io.Copy(w, snapshot.Reader{Stream: stream})
 			if err != nil {
 				return err
@@ -255,7 +257,7 @@ func (b *Backup) Restore() error {
 		}
 		b.Log.Printf("table '%s' stream started\n", table.Name)
 
-		_, err = io.Copy(&Writer{Sender: stream}, bufio.NewReaderSize(tf, DefaultSnapshotChunkSize))
+		_, err = io.Copy(&Writer{Sender: stream}, bufio.NewReaderSize(tf, defaultSnapshotChunkSize))
 		if err != nil {
 			return err
 		}
