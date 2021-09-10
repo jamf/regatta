@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
@@ -55,17 +54,4 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 		return nil
 	},
 	DisableAutoGenTag: true,
-}
-
-type token string
-
-func (t token) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
-	if t != "" {
-		return map[string]string{"authorization": "Bearer " + string(t)}, nil
-	}
-	return nil, nil
-}
-
-func (token) RequireTransportSecurity() bool {
-	return true
 }
