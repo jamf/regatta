@@ -204,6 +204,79 @@ func TestBackup_Backup(t *testing.T) {
 	}
 }
 
+func TestBackup_Restore(t *testing.T) {
+	type fields struct {
+		Timeout time.Duration
+		Dir     string
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		wantErrStr string
+	}{
+		{
+			name: "Restore backup",
+			fields: fields{
+				Dir: "testdata/backup",
+			},
+		},
+		{
+			name: "Restore empty",
+			fields: fields{
+				Dir: "testdata/backup-empty",
+			},
+		},
+		{
+			name: "Restore corrupted",
+			fields: fields{
+				Dir: "testdata/backup-corrupted",
+			},
+			wantErrStr: "checksum mismatch",
+		},
+		{
+			name: "Restore missing file",
+			fields: fields{
+				Dir: "testdata/backup-missing-file",
+			},
+			wantErrStr: "no such file or directory",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := require.New(t)
+
+			nh, nodes, err := startRaftNode()
+			r.NoError(err)
+			defer nh.Close()
+			tm := tables.NewManager(nh, nodes, tables.Config{
+				NodeID: 1,
+				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024},
+				Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+			})
+			r.NoError(tm.Start())
+			r.NoError(tm.WaitUntilReady())
+			defer tm.Close()
+
+			srv := startBackupServer(tm)
+			conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
+			r.NoError(err)
+
+			b := &Backup{
+				Conn:    conn,
+				Dir:     tt.fields.Dir,
+				Timeout: tt.fields.Timeout,
+				clock:   clock.NewMock(),
+			}
+			err = b.Restore()
+			if tt.wantErrStr != "" {
+				r.Contains(err.Error(), tt.wantErrStr)
+				return
+			}
+			r.NoError(err)
+		})
+	}
+}
+
 func TestBackup_ensureDefaults(t *testing.T) {
 	type fields struct {
 		Conn    *grpc.ClientConn

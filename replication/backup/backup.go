@@ -6,7 +6,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -302,45 +301,4 @@ func (g Writer) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return ln, nil
-}
-
-type Reader struct {
-	Stream proto.Maintenance_RestoreServer
-}
-
-func (s Reader) Read(p []byte) (int, error) {
-	m, err := s.Stream.Recv()
-	if err != nil {
-		return 0, err
-	}
-	chunk := m.GetChunk()
-	if chunk == nil {
-		return 0, errors.New("chunk expected")
-	}
-	if len(p) < int(chunk.Len) {
-		return 0, io.ErrShortBuffer
-	}
-	return copy(p, chunk.Data), nil
-}
-
-func (s Reader) WriteTo(w io.Writer) (int64, error) {
-	n := int64(0)
-	for {
-		m, err := s.Stream.Recv()
-		if err == io.EOF {
-			return n, nil
-		}
-		if err != nil {
-			return n, err
-		}
-		chunk := m.GetChunk()
-		if chunk == nil {
-			return 0, errors.New("chunk expected")
-		}
-		w, err := w.Write(chunk.Data)
-		if err != nil {
-			return n, err
-		}
-		n = n + int64(w)
-	}
 }

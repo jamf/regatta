@@ -3,13 +3,13 @@ package regattaserver
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/replication/backup"
 	"github.com/wandera/regatta/replication/snapshot"
 )
 
@@ -73,7 +73,7 @@ func (m *MaintenanceServer) Restore(srv proto.Maintenance_RestoreServer) error {
 	defer func() {
 		_ = os.Remove(sf.Path())
 	}()
-	_, err = io.Copy(sf.File, backup.Reader{Stream: srv})
+	_, err = io.Copy(sf.File, backupReader{stream: srv})
 	if err != nil {
 		return err
 	}
@@ -90,4 +90,45 @@ func (m *MaintenanceServer) Restore(srv proto.Maintenance_RestoreServer) error {
 		return err
 	}
 	return srv.SendAndClose(&proto.RestoreResponse{})
+}
+
+type backupReader struct {
+	stream proto.Maintenance_RestoreServer
+}
+
+func (s backupReader) Read(p []byte) (int, error) {
+	m, err := s.stream.Recv()
+	if err != nil {
+		return 0, err
+	}
+	chunk := m.GetChunk()
+	if chunk == nil {
+		return 0, errors.New("chunk expected")
+	}
+	if len(p) < int(chunk.Len) {
+		return 0, io.ErrShortBuffer
+	}
+	return copy(p, chunk.Data), nil
+}
+
+func (s backupReader) WriteTo(w io.Writer) (int64, error) {
+	n := int64(0)
+	for {
+		m, err := s.stream.Recv()
+		if err == io.EOF {
+			return n, nil
+		}
+		if err != nil {
+			return n, err
+		}
+		chunk := m.GetChunk()
+		if chunk == nil {
+			return 0, errors.New("chunk expected")
+		}
+		w, err := w.Write(chunk.Data)
+		if err != nil {
+			return n, err
+		}
+		n = n + int64(w)
+	}
 }

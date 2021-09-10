@@ -1,0 +1,12 @@
+{
+  "started": "2021-09-10T14:37:50.868666+02:00",
+  "finished": "2021-09-10T14:37:54.026+02:00",
+  "tables": [
+    {
+      "name": "regatta-test",
+      "type": "REPLICATED",
+      "file_name": "regatta-test.bak",
+      "md5": "897ed6bacc954b35a6501f23iach1f1c"
+    }
+  ]
+}
