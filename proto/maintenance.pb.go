@@ -68,6 +68,172 @@ func (x *BackupRequest) GetTable() []byte {
 	return nil
 }
 
+type RestoreMessage struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to Data:
+	//	*RestoreMessage_Info
+	//	*RestoreMessage_Chunk
+	Data isRestoreMessage_Data `protobuf_oneof:"data"`
+}
+
+func (x *RestoreMessage) Reset() {
+	*x = RestoreMessage{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_maintenance_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RestoreMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreMessage) ProtoMessage() {}
+
+func (x *RestoreMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_maintenance_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreMessage.ProtoReflect.Descriptor instead.
+func (*RestoreMessage) Descriptor() ([]byte, []int) {
+	return file_maintenance_proto_rawDescGZIP(), []int{1}
+}
+
+func (m *RestoreMessage) GetData() isRestoreMessage_Data {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (x *RestoreMessage) GetInfo() *RestoreInfo {
+	if x, ok := x.GetData().(*RestoreMessage_Info); ok {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *RestoreMessage) GetChunk() *SnapshotChunk {
+	if x, ok := x.GetData().(*RestoreMessage_Chunk); ok {
+		return x.Chunk
+	}
+	return nil
+}
+
+type isRestoreMessage_Data interface {
+	isRestoreMessage_Data()
+}
+
+type RestoreMessage_Info struct {
+	Info *RestoreInfo `protobuf:"bytes,1,opt,name=info,proto3,oneof"`
+}
+
+type RestoreMessage_Chunk struct {
+	Chunk *SnapshotChunk `protobuf:"bytes,2,opt,name=chunk,proto3,oneof"`
+}
+
+func (*RestoreMessage_Info) isRestoreMessage_Data() {}
+
+func (*RestoreMessage_Chunk) isRestoreMessage_Data() {}
+
+type RestoreInfo struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// table is name of the table in the stream
+	Table []byte `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
+}
+
+func (x *RestoreInfo) Reset() {
+	*x = RestoreInfo{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_maintenance_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RestoreInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreInfo) ProtoMessage() {}
+
+func (x *RestoreInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_maintenance_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreInfo.ProtoReflect.Descriptor instead.
+func (*RestoreInfo) Descriptor() ([]byte, []int) {
+	return file_maintenance_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RestoreInfo) GetTable() []byte {
+	if x != nil {
+		return x.Table
+	}
+	return nil
+}
+
+type RestoreResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *RestoreResponse) Reset() {
+	*x = RestoreResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_maintenance_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RestoreResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreResponse) ProtoMessage() {}
+
+func (x *RestoreResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_maintenance_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreResponse.ProtoReflect.Descriptor instead.
+func (*RestoreResponse) Descriptor() ([]byte, []int) {
+	return file_maintenance_proto_rawDescGZIP(), []int{3}
+}
+
 var File_maintenance_proto protoreflect.FileDescriptor
 
 var file_maintenance_proto_rawDesc = []byte{
@@ -76,14 +242,31 @@ var file_maintenance_proto_rawDesc = []byte{
 	0x2e, 0x76, 0x31, 0x1a, 0x11, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e,
 	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x25, 0x0a, 0x0d, 0x42, 0x61, 0x63, 0x6b, 0x75, 0x70,
 	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x32, 0x57, 0x0a,
-	0x0b, 0x4d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x48, 0x0a, 0x06,
-	0x42, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x12, 0x1d, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e,
-	0x61, 0x6e, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x43,
-	0x68, 0x75, 0x6e, 0x6b, 0x30, 0x01, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x22, 0x82, 0x01,
+	0x0a, 0x0e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
+	0x12, 0x31, 0x0a, 0x04, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b,
+	0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e,
+	0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x48, 0x00, 0x52, 0x04, 0x69,
+	0x6e, 0x66, 0x6f, 0x12, 0x35, 0x0a, 0x05, 0x63, 0x68, 0x75, 0x6e, 0x6b, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x2e, 0x76, 0x31, 0x2e, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x43, 0x68, 0x75, 0x6e,
+	0x6b, 0x48, 0x00, 0x52, 0x05, 0x63, 0x68, 0x75, 0x6e, 0x6b, 0x42, 0x06, 0x0a, 0x04, 0x64, 0x61,
+	0x74, 0x61, 0x22, 0x23, 0x0a, 0x0b, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x66,
+	0x6f, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x22, 0x11, 0x0a, 0x0f, 0x52, 0x65, 0x73, 0x74, 0x6f,
+	0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0xa5, 0x01, 0x0a, 0x0b, 0x4d,
+	0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x63, 0x65, 0x12, 0x48, 0x0a, 0x06, 0x42, 0x61,
+	0x63, 0x6b, 0x75, 0x70, 0x12, 0x1d, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e,
+	0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x61, 0x63, 0x6b, 0x75, 0x70, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x43, 0x68, 0x75,
+	0x6e, 0x6b, 0x30, 0x01, 0x12, 0x4c, 0x0a, 0x07, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x12,
+	0x1e, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x63, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a,
+	0x1f, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x63, 0x65, 0x2e, 0x76, 0x31,
+	0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x28, 0x01, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -98,19 +281,26 @@ func file_maintenance_proto_rawDescGZIP() []byte {
 	return file_maintenance_proto_rawDescData
 }
 
-var file_maintenance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_maintenance_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_maintenance_proto_goTypes = []interface{}{
-	(*BackupRequest)(nil), // 0: maintenance.v1.BackupRequest
-	(*SnapshotChunk)(nil), // 1: replication.v1.SnapshotChunk
+	(*BackupRequest)(nil),   // 0: maintenance.v1.BackupRequest
+	(*RestoreMessage)(nil),  // 1: maintenance.v1.RestoreMessage
+	(*RestoreInfo)(nil),     // 2: maintenance.v1.RestoreInfo
+	(*RestoreResponse)(nil), // 3: maintenance.v1.RestoreResponse
+	(*SnapshotChunk)(nil),   // 4: replication.v1.SnapshotChunk
 }
 var file_maintenance_proto_depIdxs = []int32{
-	0, // 0: maintenance.v1.Maintenance.Backup:input_type -> maintenance.v1.BackupRequest
-	1, // 1: maintenance.v1.Maintenance.Backup:output_type -> replication.v1.SnapshotChunk
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2, // 0: maintenance.v1.RestoreMessage.info:type_name -> maintenance.v1.RestoreInfo
+	4, // 1: maintenance.v1.RestoreMessage.chunk:type_name -> replication.v1.SnapshotChunk
+	0, // 2: maintenance.v1.Maintenance.Backup:input_type -> maintenance.v1.BackupRequest
+	1, // 3: maintenance.v1.Maintenance.Restore:input_type -> maintenance.v1.RestoreMessage
+	4, // 4: maintenance.v1.Maintenance.Backup:output_type -> replication.v1.SnapshotChunk
+	3, // 5: maintenance.v1.Maintenance.Restore:output_type -> maintenance.v1.RestoreResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_maintenance_proto_init() }
@@ -132,6 +322,46 @@ func file_maintenance_proto_init() {
 				return nil
 			}
 		}
+		file_maintenance_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RestoreMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_maintenance_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RestoreInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_maintenance_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RestoreResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+	}
+	file_maintenance_proto_msgTypes[1].OneofWrappers = []interface{}{
+		(*RestoreMessage_Info)(nil),
+		(*RestoreMessage_Chunk)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -139,7 +369,7 @@ func file_maintenance_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_maintenance_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

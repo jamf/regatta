@@ -9,9 +9,25 @@ import "replication.proto";
 // Maintenance service provides methods for maintenance purposes.
 service Maintenance {
   rpc Backup(BackupRequest) returns (stream replication.v1.SnapshotChunk);
+  rpc Restore(stream RestoreMessage) returns (RestoreResponse);
 }
 
 message BackupRequest {
   // table is name of the table to stream
   bytes table = 1;
+}
+
+message RestoreMessage {
+  oneof data {
+    RestoreInfo info = 1;
+    replication.v1.SnapshotChunk chunk = 2;
+  };
+}
+
+message RestoreInfo {
+  // table is name of the table in the stream
+  bytes table = 1;
+}
+
+message RestoreResponse {
 }
