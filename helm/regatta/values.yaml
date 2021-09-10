@@ -2,6 +2,9 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 replicas: 3
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
 team: delta
 
 # Either leader or follower
