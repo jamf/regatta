@@ -517,7 +517,7 @@ func (m *Manager) stopTable(clusterID uint64) error {
 	return nil
 }
 
-func (m *Manager) LoadTableFromSnapshot(name string, reader io.Reader) error {
+func (m *Manager) Restore(name string, reader io.Reader) error {
 	tbl, version, err := m.getTableVersion(name)
 	if err != nil && err != ErrTableDoesNotExist {
 		return err

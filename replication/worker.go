@@ -329,7 +329,7 @@ func (w *worker) recover() error {
 		return err
 	}
 	w.log.Info("snapshot stream saved, loading table")
-	err = w.tm.LoadTableFromSnapshot(w.Table, sf)
+	err = w.tm.Restore(w.Table, sf)
 	if err != nil {
 		return err
 	}
