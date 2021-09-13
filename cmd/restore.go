@@ -21,9 +21,11 @@ func init() {
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore",
-	Short: "Backup regatta to local files",
-	Long: `Command backs up regatta into a directory of choice, it currently backs up all the tables present in the target server.
-Backup consist of file per a table in binary compressed form + human-readable manifest file. Use restore command to load backup into the server.`,
+	Short: "Restore regatta from local files",
+	Long: `WARNING: The restore is a destructive operation and should be used only as part of break glass procedure.
+Command restore regatta cluster from a directory of choice, it will restore all the tables present in the manifest.json.
+The restore will be done sequentially, for the fine-grained control of what to restore use backup manifest file.
+It is almost certain that after restore the cold-start of all the followers watching the cluster restored is going to be necessary.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var cp *x509.CertPool
 		ca := viper.GetString("ca")
