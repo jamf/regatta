@@ -32,15 +32,18 @@ func Test_worker_do(t *testing.T) {
 	t.Log("load some data")
 	at, err := leaderTM.GetTable("test")
 	r.NoError(err)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	for i := 0; i < 50; i++ {
-		_, err = at.Put(ctx, &proto.PutRequest{
-			Key:   []byte(fmt.Sprintf("foo-%d", i)),
-			Value: []byte("bar"),
-		})
-		r.NoError(err)
-	}
+
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		for i := 0; i < 50; i++ {
+			_, err = at.Put(ctx, &proto.PutRequest{
+				Key:   []byte(fmt.Sprintf("foo-%d", i)),
+				Value: []byte("bar"),
+			})
+			r.NoError(err)
+		}
+	}()
 
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
@@ -75,17 +78,37 @@ func Test_worker_do(t *testing.T) {
 	r.NoError(w.do(idx, id))
 	table, err := followerTM.GetTable("test")
 	r.NoError(err)
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	response, err := table.Range(ctx, &proto.RangeRequest{
-		Table:        []byte("test"),
-		Key:          []byte{0},
-		RangeEnd:     []byte{0},
-		Linearizable: true,
-		CountOnly:    true,
-	})
+
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		response, err := table.Range(ctx, &proto.RangeRequest{
+			Table:        []byte("test"),
+			Key:          []byte{0},
+			RangeEnd:     []byte{0},
+			Linearizable: true,
+			CountOnly:    true,
+		})
+		r.NoError(err)
+		r.Equal(int64(50), response.Count)
+	}()
+
+	t.Log("reset table")
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		r.NoError(table.Reset(ctx))
+	}()
+	idx, id, err = w.tableState()
 	r.NoError(err)
-	r.Equal(int64(50), response.Count)
+	r.Equal(uint64(0), idx)
+
+	t.Log("do after reset")
+	r.NoError(w.do(idx, id))
+
+	idx, _, err = w.tableState()
+	r.NoError(err)
+	r.Greater(idx, uint64(0))
 }
 
 func Test_worker_recover(t *testing.T) {
