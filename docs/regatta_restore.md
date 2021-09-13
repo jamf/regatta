@@ -1,11 +1,13 @@
 ## regatta restore
 
-Backup regatta to local files
+Restore regatta from local files
 
 ### Synopsis
 
-Command backs up regatta into a directory of choice, it currently backs up all the tables present in the target server.
-Backup consist of file per a table in binary compressed form + human-readable manifest file. Use restore command to load backup into the server.
+WARNING: The restore is a destructive operation and should be used only as part of break glass procedure.
+Command restore regatta cluster from a directory of choice, it will restore all the tables present in the manifest.json.
+The restore will be done sequentially, for the fine-grained control of what to restore use backup manifest file.
+It is almost certain that after restore the cold-start of all the followers watching the cluster restored is going to be necessary.
 
 ```
 regatta restore [flags]
