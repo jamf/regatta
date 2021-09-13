@@ -357,7 +357,7 @@ func startBackupServer(manager *tables.Manager) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
-	proto.RegisterMaintenanceServer(server, &regattaserver.MaintenanceServer{Tables: manager})
+	proto.RegisterMaintenanceServer(server, &regattaserver.BackupServer{Tables: manager})
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
