@@ -40,10 +40,10 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 				return nil, err
 			}
 		}
-		return nil, nil
+		return &proto.ResetResponse{}, nil
 	}
 	if len(req.Table) <= 0 {
-		return nil, status.Error(codes.InvalidArgument, "table name must not be empty")
+		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
 	err := reset(string(req.Table))
 	if err != nil {
