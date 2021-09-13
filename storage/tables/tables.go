@@ -300,7 +300,12 @@ func (m *Manager) reconcile() error {
 		m.cacheTable(t)
 	}
 
-	start, stop := diffTables(tabs, m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption).ClusterInfoList)
+	nhi := m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
+	if nhi == nil {
+		return nil
+	}
+
+	start, stop := diffTables(tabs, nhi.ClusterInfoList)
 	for id, tbl := range start {
 		err = m.startTable(tbl.Name, id)
 		if err != nil {
