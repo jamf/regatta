@@ -12,9 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/lni/dragonboat/v3/raftio"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -26,9 +24,7 @@ import (
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -39,6 +35,7 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(raftFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
+	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
 
 	// Tables flags
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
@@ -51,13 +48,6 @@ Still under some circumstances a larger message could be sent. So make sure the 
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
-
-	// Maintenance flags
-	leaderCmd.PersistentFlags().Bool("maintenance.enabled", true, "Maintenance API enabled")
-	leaderCmd.PersistentFlags().String("maintenance.address", ":8445", "Address the replication API server should listen on.")
-	leaderCmd.PersistentFlags().String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
-	leaderCmd.PersistentFlags().String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
-	leaderCmd.PersistentFlags().String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
 }
 
 var leaderCmd = &cobra.Command{
@@ -151,7 +141,11 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 			defer watcher.Stop()
 			// Create server
-			regatta := createAPIServer(watcher, st, mTables)
+			regatta := createAPIServer(watcher)
+			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
+				Storage:       st,
+				ManagedTables: mTables,
+			})
 			// Start server
 			go func() {
 				log.Infof("regatta listening at %s", regatta.Addr)
@@ -179,7 +173,13 @@ func leader(_ *cobra.Command, _ []string) {
 				log.Panicf("cannot load clients CA: %v", err)
 			}
 
-			replication := createReplicationServer(watcher, caBytes, tm, db, logger)
+			replication := createReplicationServer(watcher, caBytes)
+			ls := regattaserver.NewLogServer(tm, db, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
+			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: tm})
+			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: tm})
+			proto.RegisterLogServer(replication, ls)
+
+			prometheus.MustRegister(ls)
 			// Start server
 			go func() {
 				log.Infof("regatta replication listening at %s", replication.Addr)
@@ -203,7 +203,9 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 			defer watcher.Stop()
 
-			maintenance := createMaintenanceServer(watcher, tm)
+			maintenance := createMaintenanceServer(watcher)
+			proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: tm})
+			proto.RegisterMaintenanceServer(maintenance, &regattaserver.BackupServer{Tables: tm})
 			// Start server
 			go func() {
 				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
@@ -272,13 +274,12 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(watcher *cert.Watcher, ca []byte, manager *tables.Manager,
-	db raftio.ILogDB, logger *zap.Logger) *regattaserver.RegattaServer {
+func createReplicationServer(watcher *cert.Watcher, ca []byte) *regattaserver.RegattaServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
 
 	// Create regatta replication server
-	replication := regattaserver.NewServer(
+	return regattaserver.NewServer(
 		viper.GetString("replication.address"),
 		viper.GetBool("api.reflection-api"),
 		grpc.Creds(credentials.NewTLS(&tls.Config{
@@ -291,53 +292,6 @@ func createReplicationServer(watcher *cert.Watcher, ca []byte, manager *tables.M
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
-
-	ls := regattaserver.NewLogServer(manager, db, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
-	proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: manager})
-	proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterLogServer(replication, ls)
-
-	prometheus.MustRegister(ls)
-
-	return replication
-}
-
-func createMaintenanceServer(watcher *cert.Watcher, manager *tables.Manager) *regattaserver.RegattaServer {
-	// Create regatta maintenance server
-	maintenance := regattaserver.NewServer(
-		viper.GetString("maintenance.address"),
-		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
-			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return watcher.GetCertificate(), nil
-			},
-		})),
-		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
-		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
-	)
-
-	proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: manager})
-	proto.RegisterMaintenanceServer(maintenance, &regattaserver.MaintenanceServer{Tables: manager})
-
-	return maintenance
-}
-
-func authFunc(token string) func(ctx context.Context) (context.Context, error) {
-	if token == "" {
-		return func(ctx context.Context) (context.Context, error) {
-			return ctx, nil
-		}
-	}
-	return func(ctx context.Context) (context.Context, error) {
-		t, err := grpc_auth.AuthFromMD(ctx, "bearer")
-		if err != nil {
-			return ctx, err
-		}
-		if token != t {
-			return ctx, status.Errorf(codes.Unauthenticated, "Invalid token")
-		}
-		return ctx, nil
-	}
 }
 
 // waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
