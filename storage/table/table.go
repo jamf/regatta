@@ -151,6 +151,22 @@ func (t *ActiveTable) LeaderIndex(ctx context.Context) (*IndexResponse, error) {
 	return val.(*IndexResponse), nil
 }
 
+// Reset resets the leader index to 0.
+func (t *ActiveTable) Reset(ctx context.Context) error {
+	li := uint64(0)
+	cmd := &proto.Command{
+		Type:        proto.Command_DUMMY,
+		Table:       []byte(t.Name),
+		LeaderIndex: &li,
+	}
+	bts, err := cmd.MarshalVT()
+	if err != nil {
+		return err
+	}
+	_, err = t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bts)
+	return err
+}
+
 // SnapshotRequest to write Command snapshot into provided writer.
 type SnapshotRequest struct {
 	Writer  io.Writer
