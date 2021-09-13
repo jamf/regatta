@@ -364,6 +364,8 @@ func startBackupServer(manager *tables.Manager) *regattaserver.RegattaServer {
 			panic(err)
 		}
 	}()
+	// Let the server start.
+	time.Sleep(100 * time.Millisecond)
 	return server
 }
 
