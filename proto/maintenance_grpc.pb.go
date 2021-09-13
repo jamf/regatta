@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type MaintenanceClient interface {
 	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (Maintenance_BackupClient, error)
 	Restore(ctx context.Context, opts ...grpc.CallOption) (Maintenance_RestoreClient, error)
+	Reset(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*ResetResponse, error)
 }
 
 type maintenanceClient struct {
@@ -96,12 +97,22 @@ func (x *maintenanceRestoreClient) CloseAndRecv() (*RestoreResponse, error) {
 	return m, nil
 }
 
+func (c *maintenanceClient) Reset(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*ResetResponse, error) {
+	out := new(ResetResponse)
+	err := c.cc.Invoke(ctx, "/maintenance.v1.Maintenance/Reset", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MaintenanceServer is the server API for Maintenance service.
 // All implementations must embed UnimplementedMaintenanceServer
 // for forward compatibility
 type MaintenanceServer interface {
 	Backup(*BackupRequest, Maintenance_BackupServer) error
 	Restore(Maintenance_RestoreServer) error
+	Reset(context.Context, *ResetRequest) (*ResetResponse, error)
 	mustEmbedUnimplementedMaintenanceServer()
 }
 
@@ -114,6 +125,9 @@ func (UnimplementedMaintenanceServer) Backup(*BackupRequest, Maintenance_BackupS
 }
 func (UnimplementedMaintenanceServer) Restore(Maintenance_RestoreServer) error {
 	return status.Errorf(codes.Unimplemented, "method Restore not implemented")
+}
+func (UnimplementedMaintenanceServer) Reset(context.Context, *ResetRequest) (*ResetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Reset not implemented")
 }
 func (UnimplementedMaintenanceServer) mustEmbedUnimplementedMaintenanceServer() {}
 
@@ -175,13 +189,36 @@ func (x *maintenanceRestoreServer) Recv() (*RestoreMessage, error) {
 	return m, nil
 }
 
+func _Maintenance_Reset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MaintenanceServer).Reset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/maintenance.v1.Maintenance/Reset",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MaintenanceServer).Reset(ctx, req.(*ResetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Maintenance_ServiceDesc is the grpc.ServiceDesc for Maintenance service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Maintenance_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "maintenance.v1.Maintenance",
 	HandlerType: (*MaintenanceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Reset",
+			Handler:    _Maintenance_Reset_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Backup",

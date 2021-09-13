@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/pebble/vfs"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
@@ -14,13 +15,14 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
 	rl "github.com/wandera/regatta/log"
-	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 )
 
 var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
@@ -56,8 +58,8 @@ func createTableManager(nh *dragonboat.NodeHost) (*tables.Manager, error) {
 	return tm, nil
 }
 
-func createAPIServer(watcher *cert.Watcher, st *tables.KVStorageWrapper, mTables []string) *regattaserver.RegattaServer {
-	regatta := regattaserver.NewServer(
+func createAPIServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
+	return regattaserver.NewServer(
 		viper.GetString("api.address"),
 		viper.GetBool("api.reflection-api"),
 		grpc.Creds(credentials.NewTLS(&tls.Config{
@@ -71,14 +73,39 @@ func createAPIServer(watcher *cert.Watcher, st *tables.KVStorageWrapper, mTables
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
+}
 
-	// Create and register grpc/rest endpoints
-	kvs := &regattaserver.KVServer{
-		Storage:       st,
-		ManagedTables: mTables,
+func createMaintenanceServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
+	// Create regatta maintenance server
+	return regattaserver.NewServer(
+		viper.GetString("maintenance.address"),
+		viper.GetBool("api.reflection-api"),
+		grpc.Creds(credentials.NewTLS(&tls.Config{
+			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return watcher.GetCertificate(), nil
+			},
+		})),
+		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
+		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
+	)
+}
+
+func authFunc(token string) func(ctx context.Context) (context.Context, error) {
+	if token == "" {
+		return func(ctx context.Context) (context.Context, error) {
+			return ctx, nil
+		}
 	}
-	proto.RegisterKVServer(regatta, kvs)
-	return regatta
+	return func(ctx context.Context) (context.Context, error) {
+		t, err := grpc_auth.AuthFromMD(ctx, "bearer")
+		if err != nil {
+			return ctx, err
+		}
+		if token != t {
+			return ctx, status.Errorf(codes.Unauthenticated, "Invalid token")
+		}
+		return ctx, nil
+	}
 }
 
 func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {

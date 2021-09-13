@@ -70,10 +70,6 @@ spec:
             --tables.names={{ .Values.tables.names }} \
             --replication.enabled={{ .Values.replication.server.enabled }} \
             --replication.address=0.0.0.0:{{ .Values.replication.server.port }} \
-            --maintenance.enabled={{ .Values.maintenance.server.enabled }} \
-            --maintenance.address=0.0.0.0:{{ .Values.maintenance.server.port }} \
-            --maintenance.cert-filename=/maintenance-cert/tls.crt \
-            --maintenance.key-filename=/maintenance-cert/tls.key \
           {{- if .Values.kafka.enabled }}
             --kafka.brokers={{ .Values.kafka.brokers }} \
             --kafka.check-topics={{ .Values.kafka.checkTopics }} \
@@ -91,6 +87,10 @@ spec:
             --replication.max-snapshot-recv-bytes-per-second={{ .Values.replication.maxSnapshotRecvBytesPerSecond | int64 }} \
             --replication.log-rpc-timeout={{ .Values.replication.logRpcTimeout }} \
           {{- end }}
+            --maintenance.enabled={{ .Values.maintenance.server.enabled }} \
+            --maintenance.address=0.0.0.0:{{ .Values.maintenance.server.port }} \
+            --maintenance.cert-filename=/maintenance-cert/tls.crt \
+            --maintenance.key-filename=/maintenance-cert/tls.key \
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \
             --replication.ca-filename=/replication-cert/ca.crt

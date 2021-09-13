@@ -33,6 +33,7 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(raftFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
 
 	// Replication flags
 	followerCmd.PersistentFlags().String("replication.leader-address", "localhost:8444", "Address of the leader replication API to connect to.")
@@ -152,29 +153,60 @@ func follower(_ *cobra.Command, _ []string) {
 
 	// Start servers
 	{
-		grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
-		// Create regatta API server
-		// Load API certificate
-		watcher := &cert.Watcher{
-			CertFile: viper.GetString("api.cert-filename"),
-			KeyFile:  viper.GetString("api.key-filename"),
-			Log:      logger.Named("cert").Sugar(),
-		}
-		err = watcher.Watch()
-		if err != nil {
-			log.Panicf("cannot watch certificate: %v", err)
-		}
-		defer watcher.Stop()
-		// Create server
-		regatta := createAPIServer(watcher, st, mTables)
-		// Start server
-		go func() {
-			log.Infof("regatta listening at %s", regatta.Addr)
-			if err := regatta.ListenAndServe(); err != nil {
-				log.Panicf("grpc listenAndServe failed: %v", err)
+		{
+			grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
+			// Create regatta API server
+			// Load API certificate
+			watcher := &cert.Watcher{
+				CertFile: viper.GetString("api.cert-filename"),
+				KeyFile:  viper.GetString("api.key-filename"),
+				Log:      logger.Named("cert").Sugar(),
 			}
-		}()
-		defer regatta.Shutdown()
+			err = watcher.Watch()
+			if err != nil {
+				log.Panicf("cannot watch certificate: %v", err)
+			}
+			defer watcher.Stop()
+			// Create server
+			regatta := createAPIServer(watcher)
+			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
+				Storage:       st,
+				ManagedTables: mTables,
+			})
+			// Start server
+			go func() {
+				log.Infof("regatta listening at %s", regatta.Addr)
+				if err := regatta.ListenAndServe(); err != nil {
+					log.Panicf("grpc listenAndServe failed: %v", err)
+				}
+			}()
+			defer regatta.Shutdown()
+		}
+
+		if viper.GetBool("maintenance.enabled") {
+			// Load maintenance API certificate
+			watcher := &cert.Watcher{
+				CertFile: viper.GetString("maintenance.cert-filename"),
+				KeyFile:  viper.GetString("maintenance.key-filename"),
+				Log:      logger.Named("cert").Sugar(),
+			}
+			err = watcher.Watch()
+			if err != nil {
+				log.Panicf("cannot watch maintenance certificate: %v", err)
+			}
+			defer watcher.Stop()
+
+			maintenance := createMaintenanceServer(watcher)
+			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: tm})
+			// Start server
+			go func() {
+				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
+				if err := maintenance.ListenAndServe(); err != nil {
+					log.Panicf("grpc listenAndServe failed: %v", err)
+				}
+			}()
+			defer maintenance.Shutdown()
+		}
 
 		// Create REST server
 		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))

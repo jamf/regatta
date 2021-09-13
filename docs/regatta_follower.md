@@ -16,6 +16,11 @@ regatta follower [flags]
       --dev-mode                                              Dev mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                  help for follower
       --log-level string                                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
+      --maintenance.address string                            Address the replication API server should listen on. (default ":8445")
+      --maintenance.cert-filename string                      Path to the API server certificate. (default "hack/replication/server.crt")
+      --maintenance.enabled                                   Maintenance API enabled (default true)
+      --maintenance.key-filename string                       Path to the API server private key file. (default "hack/replication/server.key")
+      --maintenance.token string                              Token to check for maintenance API access, if left empty (default) no token is checked.
       --raft.address string                                   RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
                                                               This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.
       --raft.compaction-overhead uint                         CompactionOverhead defines the number of most recent entries to keep after each Raft log compaction.
