@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	rootFlagSet    = pflag.NewFlagSet("root", pflag.ContinueOnError)
-	apiFlagSet     = pflag.NewFlagSet("api", pflag.ContinueOnError)
-	restFlagSet    = pflag.NewFlagSet("rest", pflag.ContinueOnError)
-	raftFlagSet    = pflag.NewFlagSet("raft", pflag.ContinueOnError)
-	kafkaFlagSet   = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
-	storageFlagSet = pflag.NewFlagSet("storage", pflag.ContinueOnError)
+	rootFlagSet        = pflag.NewFlagSet("root", pflag.ContinueOnError)
+	apiFlagSet         = pflag.NewFlagSet("api", pflag.ContinueOnError)
+	restFlagSet        = pflag.NewFlagSet("rest", pflag.ContinueOnError)
+	raftFlagSet        = pflag.NewFlagSet("raft", pflag.ContinueOnError)
+	kafkaFlagSet       = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
+	storageFlagSet     = pflag.NewFlagSet("storage", pflag.ContinueOnError)
+	maintenanceFlagSet = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
 )
 
 func init() {
@@ -102,6 +103,13 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 	kafkaFlagSet.String("kafka.client-key-filename", "", "Kafka client key.")
 	kafkaFlagSet.Bool("kafka.check-topics", false, `Enables checking if all "--kafka.topics" exist before kafka client connection attempt.`)
 	kafkaFlagSet.Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
+
+	// Maintenance flags
+	maintenanceFlagSet.Bool("maintenance.enabled", true, "Maintenance API enabled")
+	maintenanceFlagSet.String("maintenance.address", ":8445", "Address the replication API server should listen on.")
+	maintenanceFlagSet.String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
+	maintenanceFlagSet.String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
+	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
 }
 
 func initConfig(set *pflag.FlagSet) {
