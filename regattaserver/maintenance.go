@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ResetServer implements Maintenance service from proto/regatta.proto.
+// ResetServer implements some Maintenance service methods from proto/regatta.proto.
 type ResetServer struct {
 	proto.UnimplementedMaintenanceServer
 	Tables TableService
@@ -40,6 +40,7 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 				return nil, err
 			}
 		}
+		return nil, nil
 	}
 	if len(req.Table) <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "table name must not be empty")
@@ -51,7 +52,7 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 	return &proto.ResetResponse{}, nil
 }
 
-// BackupServer implements Maintenance service from proto/regatta.proto.
+// BackupServer implements some Maintenance service methods from proto/regatta.proto.
 type BackupServer struct {
 	proto.UnimplementedMaintenanceServer
 	Tables TableService
