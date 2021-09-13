@@ -10,13 +10,16 @@ import "replication.proto";
 service Maintenance {
   rpc Backup(BackupRequest) returns (stream replication.v1.SnapshotChunk);
   rpc Restore(stream RestoreMessage) returns (RestoreResponse);
+  rpc Reset(ResetRequest) returns (ResetResponse);
 }
 
+// BackupRequest requests and opens a stream with backup data.
 message BackupRequest {
-  // table is name of the table to stream
+  // table is name of the table to stream.
   bytes table = 1;
 }
 
+// RestoreMessage contains either info of the table being restored or chunk of a backup data.
 message RestoreMessage {
   oneof data {
     RestoreInfo info = 1;
@@ -24,10 +27,22 @@ message RestoreMessage {
   };
 }
 
+// RestoreInfo metadata of restore snapshot that is going to be uploaded.
 message RestoreInfo {
-  // table is name of the table in the stream
+  // table is name of the table in the stream.
   bytes table = 1;
 }
 
 message RestoreResponse {
+}
+
+// ResetRequest resets either a single or multiple tables in the cluster, meaning that their data will be repopulated from the Leader.
+message ResetRequest {
+  // table is a table name to reset.
+  bytes table = 1;
+  // reset_all if true all the tables will be reset, use with caution.
+  bool reset_all = 2;
+}
+
+message ResetResponse {
 }

@@ -11,15 +11,53 @@ import (
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/replication/snapshot"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// MaintenanceServer implements Maintenance service from proto/regatta.proto.
-type MaintenanceServer struct {
+// ResetServer implements Maintenance service from proto/regatta.proto.
+type ResetServer struct {
 	proto.UnimplementedMaintenanceServer
 	Tables TableService
 }
 
-func (m *MaintenanceServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_BackupServer) error {
+func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
+	reset := func(name string) error {
+		t, err := m.Tables.GetTable(name)
+		if err != nil {
+			return err
+		}
+		return t.Reset(ctx)
+	}
+	if req.ResetAll {
+		tables, err := m.Tables.GetTables()
+		if err != nil {
+			return nil, err
+		}
+		for _, table := range tables {
+			err := reset(table.Name)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if len(req.Table) <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "table name must not be empty")
+	}
+	err := reset(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	return &proto.ResetResponse{}, nil
+}
+
+// BackupServer implements Maintenance service from proto/regatta.proto.
+type BackupServer struct {
+	proto.UnimplementedMaintenanceServer
+	Tables TableService
+}
+
+func (m *BackupServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_BackupServer) error {
 	table, err := m.Tables.GetTable(string(req.Table))
 	if err != nil {
 		return err
@@ -57,7 +95,7 @@ func (m *MaintenanceServer) Backup(req *proto.BackupRequest, srv proto.Maintenan
 	return err
 }
 
-func (m *MaintenanceServer) Restore(srv proto.Maintenance_RestoreServer) error {
+func (m *BackupServer) Restore(srv proto.Maintenance_RestoreServer) error {
 	msg, err := srv.Recv()
 	if err != nil {
 		return err
