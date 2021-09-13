@@ -106,6 +106,10 @@ spec:
         - name: https-repl
           containerPort: {{ .Values.replication.server.port }}
         {{- end }}
+        {{- if .Values.maintenance.server.enabled }}
+        - name: https-mainten
+          containerPort: {{ .Values.maintenance.server.port }}
+        {{- end }}
         resources: {{- toYaml .Values.resources | nindent 10 }}
         readinessProbe:
           httpGet:
