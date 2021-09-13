@@ -178,5 +178,7 @@ func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *r
 			panic(err)
 		}
 	}()
+	// Let the server start.
+	time.Sleep(100 * time.Millisecond)
 	return server
 }

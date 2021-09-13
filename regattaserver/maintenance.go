@@ -73,7 +73,7 @@ func (m *MaintenanceServer) Restore(srv proto.Maintenance_RestoreServer) error {
 	defer func() {
 		_ = os.Remove(sf.Path())
 	}()
-	_, err = io.Copy(sf, restoreReader{stream: srv})
+	_, err = io.Copy(sf.File, backupReader{stream: srv})
 	if err != nil {
 		return err
 	}
@@ -85,14 +85,18 @@ func (m *MaintenanceServer) Restore(srv proto.Maintenance_RestoreServer) error {
 	if err != nil {
 		return err
 	}
-	return m.Tables.Restore(string(info.Table), sf)
+	err = m.Tables.Restore(string(info.Table), sf)
+	if err != nil {
+		return err
+	}
+	return srv.SendAndClose(&proto.RestoreResponse{})
 }
 
-type restoreReader struct {
+type backupReader struct {
 	stream proto.Maintenance_RestoreServer
 }
 
-func (s restoreReader) Read(p []byte) (int, error) {
+func (s backupReader) Read(p []byte) (int, error) {
 	m, err := s.stream.Recv()
 	if err != nil {
 		return 0, err
@@ -107,7 +111,7 @@ func (s restoreReader) Read(p []byte) (int, error) {
 	return copy(p, chunk.Data), nil
 }
 
-func (s restoreReader) WriteTo(w io.Writer) (int64, error) {
+func (s backupReader) WriteTo(w io.Writer) (int64, error) {
 	n := int64(0)
 	for {
 		m, err := s.stream.Recv()
