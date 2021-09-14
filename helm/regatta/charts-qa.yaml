@@ -48,4 +48,4 @@ charts:
           enabled: true
         backup:
           enabled: true
-          bucket: "s3://wandera-regatta-backup-qa"
+          bucket: "s3://wandera-w2-qa-regatta-backup-eu-west-1"
