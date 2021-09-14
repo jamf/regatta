@@ -72,6 +72,7 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 type Manager struct {
 	store store
 	nh    *dragonboat.NodeHost
+	mtx   sync.RWMutex
 	cache struct {
 		mu     sync.RWMutex
 		tables map[string]table.ActiveTable
@@ -159,6 +160,8 @@ func (m *Manager) ReturnTable(name string) (bool, error) {
 }
 
 func (m *Manager) CreateTable(name string) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	created, err := m.createTable(name)
 	if err != nil {
 		return err
@@ -195,6 +198,8 @@ func (m *Manager) createTable(name string) (table.Table, error) {
 }
 
 func (m *Manager) DeleteTable(name string) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	storeName := storedTableName(name)
 	tab, err := m.store.Get(storeName)
 	if err != nil {
@@ -214,6 +219,8 @@ func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
 		return t, nil
 	}
 
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
 	tab, _, err := m.getTableVersion(name)
 	if err != nil {
 		return table.ActiveTable{}, err
@@ -222,6 +229,9 @@ func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
 }
 
 func (m *Manager) GetTables() ([]table.Table, error) {
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
+
 	tabs, err := m.getTables()
 	if err != nil {
 		return nil, err
@@ -292,17 +302,23 @@ func (m *Manager) reconcileLoop() {
 }
 
 func (m *Manager) reconcile() error {
-	tabs, err := m.getTables()
+	// FIXME there is still a distributed race condition across the instances
+	tabs, nhi, err := func() (map[string]table.Table, *dragonboat.NodeHostInfo, error) {
+		m.mtx.RLock()
+		defer m.mtx.RUnlock()
+		tabs, err := m.getTables()
+		if err != nil {
+			return nil, nil, err
+		}
+		nhi := m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
+		return tabs, nhi, nil
+	}()
 	if err != nil {
 		return err
 	}
+
 	for _, t := range tabs {
 		m.cacheTable(t)
-	}
-
-	nhi := m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
-	if nhi == nil {
-		return nil
 	}
 
 	start, stop := diffTables(tabs, nhi.ClusterInfoList)
