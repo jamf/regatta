@@ -16,35 +16,48 @@ spec:
     spec:
       template:
         spec:
-          containers:
-          - name: {{ template "meta.name" . }}
+          initContainers:
+          - name: {{ template "meta.name" . }}-load-backup
             image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+            imagePullPolicy: {{ .Values.image.imagePullPolicy }}
+            args:
+            - "backup"
+            - "--address={{ template "meta.name" . }}-maintenance:{{ .Values.maintenance.server.port }}"
+            {{- if .Values.maintenance.token }}
+            - "--token=$(TOKEN)"
+            {{- end }}
+            - "--ca=/maintenance-cert/ca.crt"
+            - "--dir=/backup"
+            volumeMounts:
+            - mountPath: /maintenance-cert
+              name: maintenance-cert
+            - mountPath: /backup
+              name: backup
+            {{- if .Values.maintenance.token }}
+            env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "meta.name" . }}-token
+                  key: token
+            {{- end }}
+          containers:
+          - name: {{ template "meta.name" . }}-store-backup
+            image: "victorlap/s4cmd:2.1.0"
             imagePullPolicy: {{ .Values.image.imagePullPolicy }}
             command:
             - "bash"
             - "-c"
             - >-
-              apk add --update --no-cache python3 &&
-              python3 -m ensurepip &&
-              pip3 install --no-cache --upgrade pip setuptools s4cmd &&
               CURR_DATE=$(date "+%y-%m-%d-%H") &&
-              mkdir $CURR_DATE &&
-              regatta backup \
-                --address={{ template "meta.name" . }}-maintenance:{{ .Values.maintenance.server.port }} \
-                --token=/token/token \
-                --ca=/maintenance-cert/ca.crt \
-                --dir=/backup
+              s4cmd put /backup {{ .Values.maintenance.backup.bucket }}/$CURR_DATE
             volumeMounts:
-            - mountPath: /maintenance-cert
-              name: maintenance-cert
-            - mountPath: /token
-              name: token
+            - mountPath: /backup
+              name: backup
           restartPolicy: OnFailure
           volumes:
-          - name: token
-            secret:
-              defaultMode: 420
-              secretName: {{ template "meta.name" . }}-token
+          - name: backup
+            emptyDir: {}
           - name: maintenance-cert
             secret:
               defaultMode: 420

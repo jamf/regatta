@@ -44,8 +44,6 @@ charts:
           hostname: regatta.pc.wandera.com
       maintenance:
         token: AgCgH8MLNc41B4WAl/7peeKK0aRiV0hkHMPgHXwj4GUabWZ2n1w5hbkMnvH+Qqc6dCRKHIv/qzGeCrDn4PUfTybCSLQUIOypBCPWjjeVPrVWpbZLHrKK1BcMeFXS9OMX4bT+znPJbi7Fuxx9EyZoXaM4NwLDAZaN69nqhBUgnUrxXEjekkdGQ3JdsnxIADtCzQ8s41nEs97KFOrqrlfdJ/24AgBRib6hUyj9Gj+al5IFUmldpooWyaAr5pGYPMsXoZu3B7b2HQ1/urFIjhLD/yMNDdrvsxJYe2JRK6jOU5rawP9r7mlUyQ+3MGh7/s0ebgyolurCc4RCjfkqE940E2e93gux3sILz2xOXZLox8fFK/FVYYSoloez+D8M1vGfvUxk7pJpMGJBg+j9Fzx6opv2Ou2NuIz7U72cj/h6YycWsPMlYCy/oh/QFvE6+C7wGbmT5P6K7ymbDXofOSbbsBXyNBZC2+hW2bbZ/oj1ygXI0+UWTkQi7eFm/axG6DGzgPg2VK9wpLtHJoelU4RhdWEmAQDguGbb+AoJTc06Wphsn9osyt3p+iPtRA3RP1/Qw+vQWGhy/m9vIkgTacMWKWtgZL4FQ0QVkq446cEILb9sjxDujJQ1ZDQ1SiSqZdwnDODXZ7bZMhQyXV6lMseK0LgHnOf1P78MWmatmnsJLyDEO4nsmfiLapM4PTFKetIAUFa2wchS6Qp5BT3P7phRaHxl/BMJTOJsLRbvk19v5OsJNMwVcEE=
-        server:
-          enabled: true
         backup:
           enabled: true
           bucket: "s3://wandera-regatta-backup-prod"

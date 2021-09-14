@@ -34,8 +34,6 @@ charts:
         server:
           enabled: false
       maintenance:
-        server:
-          enabled: false
         backup:
           enabled: true
           bucket: "s3://NONEXISTING_BUCKET"
