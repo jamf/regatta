@@ -79,6 +79,7 @@ regatta leader [flags]
                                                        Still under some circumstances a larger message could be sent. So make sure the followers are able to accept slightly larger messages. (default 4194304)
       --rest.address string                            Address the REST API server should listen on. (default ":8079")
       --storage.block-cache-size int                   Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
+      --tables.delete strings                          Delete Regatta tables with given names
       --tables.names strings                           Create Regatta tables with given names
 ```
 

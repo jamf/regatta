@@ -39,6 +39,7 @@ func init() {
 
 	// Tables flags
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
+	leaderCmd.PersistentFlags().StringSlice("tables.delete", nil, "Delete Regatta tables with given names")
 
 	// Replication flags
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Replication API enabled")
@@ -116,6 +117,14 @@ func leader(_ *cobra.Command, _ []string) {
 				} else {
 					log.Errorf("failed to create table %s: %v", table, err)
 				}
+			}
+		}
+		dNames := viper.GetStringSlice("tables.delete")
+		for _, table := range dNames {
+			log.Debugf("deleting table %s", table)
+			err := tm.DeleteTable(table)
+			if err != nil {
+				log.Errorf("failed to delete table %s: %v", table, err)
 			}
 		}
 	}()
