@@ -39,11 +39,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        {{- if .Values.maintenance.token }}
         - name: TOKEN
           valueFrom:
             secretKeyRef:
               name: {{ template "meta.name" . }}-token
               key: token
+        {{- end }}
         command:
         - "bash"
         - "-c"
