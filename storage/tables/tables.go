@@ -37,10 +37,11 @@ const (
 )
 
 var (
-	ErrTableExists       = errors.New("table already exists")
-	ErrTableDoesNotExist = errors.New("table does not exist")
-	ErrManagerClosed     = errors.New("manager closed")
-	ErrLeaseNotAcquired  = errors.New("lease not acquired")
+	ErrTableExists             = errors.New("table already exists")
+	ErrTableDoesNotExist       = errors.New("table does not exist")
+	ErrManagerClosed           = errors.New("manager closed")
+	ErrLeaseNotAcquired        = errors.New("lease not acquired")
+	ErrNodeHostInfoUnavailable = errors.New("nodehost info unavailable")
 )
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
@@ -326,6 +327,9 @@ func (m *Manager) reconcile() error {
 			return nil, nil, err
 		}
 		nhi := m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
+		if nhi == nil {
+			return nil, nil, ErrNodeHostInfoUnavailable
+		}
 		return tabs, nhi, nil
 	}()
 	if err != nil {
