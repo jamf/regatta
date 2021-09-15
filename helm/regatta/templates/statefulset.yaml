@@ -96,7 +96,7 @@ spec:
           {{- end }}
             --maintenance.enabled={{ .Values.maintenance.server.enabled }} \
           {{- if .Values.maintenance.token }}
-            --maintenance.token=$(TOKEN)
+            --maintenance.token=$(TOKEN) \
           {{- end }}
             --maintenance.address=0.0.0.0:{{ .Values.maintenance.server.port }} \
             --maintenance.cert-filename=/maintenance-cert/tls.crt \

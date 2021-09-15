@@ -1,5 +1,5 @@
 {{- if .Values.maintenance.backup.enabled }}
-apiVersion: batch/v1
+apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   name: {{ template "meta.name" . }}
