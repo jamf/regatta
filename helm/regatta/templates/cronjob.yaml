@@ -28,6 +28,13 @@ spec:
             {{- end }}
             - "--ca=/maintenance-cert/ca.crt"
             - "--dir=/backup"
+            resources:
+              limits:
+                cpu: 200m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
             volumeMounts:
             - mountPath: /maintenance-cert
               name: maintenance-cert
@@ -43,14 +50,22 @@ spec:
             {{- end }}
           containers:
           - name: {{ template "meta.name" . }}-store-backup
-            image: "victorlap/s4cmd:2.1.0"
+            image: "peakcom/s5cmd:v1.3.0"
             imagePullPolicy: {{ .Values.image.imagePullPolicy }}
             command:
-            - "bash"
-            - "-c"
+            - /bin/sh
+            - -c
             - >-
-              CURR_DATE=$(date "+%y-%m-%d-%H-%M") &&
-              s4cmd put /backup {{ .Values.maintenance.backup.bucket }}/$CURR_DATE
+              CURR_DATE=$(date "+%y-%m-%d-%H-%M") &&              
+              ln -s /backup/ /$CURR_DATE &&
+              ./s5cmd cp /$CURR_DATE/ {{ .Values.maintenance.backup.bucket }}/
+            resources:
+              limits:
+                cpu: 200m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
             volumeMounts:
             - mountPath: /backup
               name: backup
