@@ -43,7 +43,7 @@ spec:
         - name: TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ template "meta.name" . }}-token
+              name: {{ template "meta.name" . }}-maintenance-token
               key: token
         {{- end }}
         command:

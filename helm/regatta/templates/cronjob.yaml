@@ -38,7 +38,7 @@ spec:
             - name: TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ template "meta.name" . }}-token
+                  name: {{ template "meta.name" . }}-maintenance-token
                   key: token
             {{- end }}
           containers:
@@ -49,7 +49,7 @@ spec:
             - "bash"
             - "-c"
             - >-
-              CURR_DATE=$(date "+%y-%m-%d-%H") &&
+              CURR_DATE=$(date "+%y-%m-%d-%H-%M") &&
               s4cmd put /backup {{ .Values.maintenance.backup.bucket }}/$CURR_DATE
             volumeMounts:
             - mountPath: /backup

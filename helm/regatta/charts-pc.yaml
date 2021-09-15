@@ -43,7 +43,7 @@ charts:
         server:
           hostname: regatta.pc.wandera.com
       maintenance:
-        token: AgCgH8MLNc41B4WAl/7peeKK0aRiV0hkHMPgHXwj4GUabWZ2n1w5hbkMnvH+Qqc6dCRKHIv/qzGeCrDn4PUfTybCSLQUIOypBCPWjjeVPrVWpbZLHrKK1BcMeFXS9OMX4bT+znPJbi7Fuxx9EyZoXaM4NwLDAZaN69nqhBUgnUrxXEjekkdGQ3JdsnxIADtCzQ8s41nEs97KFOrqrlfdJ/24AgBRib6hUyj9Gj+al5IFUmldpooWyaAr5pGYPMsXoZu3B7b2HQ1/urFIjhLD/yMNDdrvsxJYe2JRK6jOU5rawP9r7mlUyQ+3MGh7/s0ebgyolurCc4RCjfkqE940E2e93gux3sILz2xOXZLox8fFK/FVYYSoloez+D8M1vGfvUxk7pJpMGJBg+j9Fzx6opv2Ou2NuIz7U72cj/h6YycWsPMlYCy/oh/QFvE6+C7wGbmT5P6K7ymbDXofOSbbsBXyNBZC2+hW2bbZ/oj1ygXI0+UWTkQi7eFm/axG6DGzgPg2VK9wpLtHJoelU4RhdWEmAQDguGbb+AoJTc06Wphsn9osyt3p+iPtRA3RP1/Qw+vQWGhy/m9vIkgTacMWKWtgZL4FQ0QVkq446cEILb9sjxDujJQ1ZDQ1SiSqZdwnDODXZ7bZMhQyXV6lMseK0LgHnOf1P78MWmatmnsJLyDEO4nsmfiLapM4PTFKetIAUFa2wchS6Qp5BT3P7phRaHxl/BMJTOJsLRbvk19v5OsJNMwVcEE=
+        token: AgBo3sqjmywH0QlCT4zr+VsGJtb8osrg8rU/hbeXeoW/5WpSss47EZRG7nPxfd4S9dzSaapT7aw4Sdowf+pA/NsPP2GaH49uZ60WnzvWiNuYmhRrc/3dYpWIXYmwAIzJ+lbaIQ99tgxIdbo1vRi9OJb4GU3SOvfqRtHjSj7LgIBb6dKiyrLx43Psorvju3s6ZZXOcFellGidBw80vY3A81J15kSz3hHsSPORmBVPD2kDARoy12Q5oDziF93xTiwVCeUH3HWoU6YjdpezplulCoYQysgGAa9Xmu7HvlUBoDljYsW2TaObGYEIq5VEbm46P7drkJb2n3fVUm88T1O9m9xMwqq+STV+NRg6IpF6D7DYrtPm03tOucW9uxtva64hIsz58o8Qq7b9UnliLw44iE3WGO29sl46OJT8hRnyYfiSyEaWCbTaLvY8BW/eu1STaOcbpAZ6/cyO/WsTGYZHF7qULK7ffnrMzyHrj6h8Yhs12jyjz/Dr8uod0+JLIc9wmI53E11lHxtE1NWnwXxvkvJn1jyFyggy6/Ya0mU7uPJs2jTv/mcLoiXX3vgJhtVt2w+MGQTD18PbxTY5UzNFfGiNC+nDcHnFrvtEFdsgXzx8v/aPcxSEgRmCfDvRa3OrcdeS/Nj46J92cbmSNiwUhXpb6F9WgcF5OT0RzT5d9lTqsjtiEGummvtnwosBHVpz/0uaFN2gfkSC2dLibwHrvApszVmzS+L91Z5ov+NB04Rqv/2o52Q=
         backup:
           enabled: true
           bucket: "s3://wandera-w2-production-core-regatta-backup-eu-west-1"
