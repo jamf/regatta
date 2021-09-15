@@ -228,6 +228,21 @@ func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
 	return tab.AsActive(m.nh), nil
 }
 
+func (m *Manager) GetTableByID(id uint64) (table.ActiveTable, error) {
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
+	tables, err := m.getTables()
+	if err != nil {
+		return table.ActiveTable{}, err
+	}
+	for _, t := range tables {
+		if t.ClusterID == id {
+			return t.AsActive(m.nh), nil
+		}
+	}
+	return table.ActiveTable{}, ErrTableDoesNotExist
+}
+
 func (m *Manager) GetTables() ([]table.Table, error) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
@@ -371,6 +386,12 @@ func (m *Manager) cleanup() error {
 			return err
 		}
 		if c.Created.Before(time.Now().Add(-m.cleanupGracePeriod)) {
+			// Distributed data race guard
+			if _, err := m.GetTableByID(c.ClusterID); err != ErrTableDoesNotExist {
+				m.log.Warnf("[%d:%d] cluster data cleanup skipped, table should not be deleted", c.ClusterID, m.cfg.NodeID)
+				return m.store.Delete(l.Key, l.Ver)
+			}
+
 			if err := m.nh.SyncRemoveData(ctx, c.ClusterID, m.cfg.NodeID); err != nil {
 				return err
 			}
