@@ -1,9 +1,11 @@
 .idea
 .github
 .vscode
-/client
-/helm
-/hack
+.git
+docs
+helm
+hack
+report
 .gitignore
 /Dockerfile
 /Makefile
