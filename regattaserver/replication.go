@@ -186,8 +186,6 @@ var (
 
 // Replicate entries from the leader's log.
 func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_ReplicateServer) error {
-	// FIXME Server context not handled here. May lead to `Cancelled` errors during response.
-
 	t, err := l.Tables.GetTable(string(req.GetTable()))
 	if err != nil {
 		return fmt.Errorf("no table '%s' found: %v", req.GetTable(), err)
@@ -218,7 +216,13 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 	}
 
 	// Follower is behind and all entries can be sent from the leader's log.
-	return l.readLog(server, t.ClusterID, req.LeaderIndex, lastIndex)
+	ctx := server.Context()
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(server.Context(), 1*time.Minute)
+		defer cancel()
+		ctx = dctx
+	}
+	return l.readLog(ctx, server, t.ClusterID, req.LeaderIndex, lastIndex)
 }
 
 func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.RaftState, leaderBehind bool, err error) {
@@ -256,13 +260,26 @@ func (l *LogServer) iterateEntries(entries []raftpb.Entry, clusterID, lo, hi uin
 }
 
 // readLog and write it to the stream.
-func (l *LogServer) readLog(server proto.Log_ReplicateServer, clusterID, firstIndex, lastIndex uint64) error {
+func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServer, clusterID, firstIndex, lastIndex uint64) error {
 	var (
 		commands []*proto.ReplicateCommand
 		entries  []raftpb.Entry
 	)
 
 	for lo, hi := firstIndex, lastIndex; lo < hi; {
+		select {
+		case <-ctx.Done():
+			l.Log.Info("ending replication stream, deadline reached")
+			return nil
+		default:
+		}
+
+		// TODO make interval configurable
+		if d, ok := ctx.Deadline(); ok && time.Until(d) < 1*time.Second {
+			l.Log.Info("ending replication stream, deadline soon to be reached")
+			return nil
+		}
+
 		commands = commands[:0]
 		entries = entries[:0]
 
