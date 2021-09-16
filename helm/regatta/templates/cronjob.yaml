@@ -11,7 +11,7 @@ metadata:
     heritage: {{ .Release.Service }}
     team: {{ .Values.team }}
 spec:
-  schedule: {{ .Values.maintenance.backup.schedule }} 
+  schedule: {{ .Values.maintenance.backup.schedule }}
   jobTemplate:
     spec:
       template:
@@ -30,7 +30,7 @@ spec:
             - "--dir=/backup"
             resources:
               limits:
-                cpu: 1
+                cpu: '1'
                 memory: 256Mi
               requests:
                 cpu: 200m
@@ -56,12 +56,12 @@ spec:
             - /bin/sh
             - -c
             - >-
-              CURR_DATE=$(date "+%y-%m-%d-%H-%M") &&              
+              CURR_DATE=$(date "+%y-%m-%d-%H-%M") &&
               ln -s /backup/ /$CURR_DATE &&
-              ./s5cmd cp /$CURR_DATE/ {{ .Values.maintenance.backup.bucket }}/
+              ./s5cmd cp /$CURR_DATE/ {{ .Values.maintenance.backup.bucket }}/$CURR_DATE/
             resources:
               limits:
-                cpu: 1
+                cpu: '1'
                 memory: 256Mi
               requests:
                 cpu: 200m
