@@ -30,10 +30,10 @@ spec:
             - "--dir=/backup"
             resources:
               limits:
-                cpu: 200m
+                cpu: 1
                 memory: 256Mi
               requests:
-                cpu: 100m
+                cpu: 200m
                 memory: 128Mi
             volumeMounts:
             - mountPath: /maintenance-cert
@@ -61,10 +61,10 @@ spec:
               ./s5cmd cp /$CURR_DATE/ {{ .Values.maintenance.backup.bucket }}/
             resources:
               limits:
-                cpu: 200m
+                cpu: 1
                 memory: 256Mi
               requests:
-                cpu: 100m
+                cpu: 200m
                 memory: 128Mi
             volumeMounts:
             - mountPath: /backup
