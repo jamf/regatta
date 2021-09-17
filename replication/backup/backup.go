@@ -128,7 +128,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	for _, table := range meta.Tables {
 		t := table
 		wg.Go(func() error {
-			b.Log.Info("backing up table '%s'", t.Name)
+			b.Log.Infof("backing up table '%s'", t.Name)
 			stream, err := sc.Backup(ctx, &proto.BackupRequest{Table: []byte(t.Name)})
 			if err != nil {
 				return err
