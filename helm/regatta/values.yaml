@@ -47,6 +47,8 @@ maintenance:
     port: 8445
   backup:
     enabled: false
+    successfulJobsHistoryLimit: 4
+    failedJobsHistoryLimit: 2
     schedule: "0 */4 * * *"
     bucket: ""
 

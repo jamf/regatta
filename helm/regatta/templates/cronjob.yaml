@@ -12,6 +12,8 @@ metadata:
     team: {{ .Values.team }}
 spec:
   schedule: {{ .Values.maintenance.backup.schedule }}
+  successfulJobsHistoryLimit: {{ .Values.maintenance.backup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.maintenance.backup.failedJobsHistoryLimit }}
   jobTemplate:
     spec:
       template:
