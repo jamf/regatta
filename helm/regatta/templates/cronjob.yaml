@@ -28,6 +28,7 @@ spec:
             {{- end }}
             - "--ca=/maintenance-cert/ca.crt"
             - "--dir=/backup"
+            - "--json=true"
             resources:
               limits:
                 cpu: '1'
@@ -58,7 +59,7 @@ spec:
             - >-
               CURR_DATE=$(date "+%y-%m-%d-%H-%M") &&
               ln -s /backup/ /$CURR_DATE &&
-              ./s5cmd cp /$CURR_DATE/ {{ .Values.maintenance.backup.bucket }}/$CURR_DATE/
+              ./s5cmd --json cp /$CURR_DATE/ {{ .Values.maintenance.backup.bucket }}/$CURR_DATE/
             resources:
               limits:
                 cpu: '1'

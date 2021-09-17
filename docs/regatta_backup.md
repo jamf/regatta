@@ -18,6 +18,7 @@ regatta backup [flags]
       --ca string        Path to the client CA cert file.
       --dir string       Target dir (current directory if empty)
   -h, --help             help for backup
+      --json             Enables JSON logging.
       --token string     The access token to use for the authentication.
 ```
 
