@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/replication/backup"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -51,10 +52,7 @@ It is almost certain that after restore the cold-start of all the followers watc
 			Dir:  viper.GetString("dir"),
 		}
 		if viper.GetBool("json") {
-			l, err := zap.NewProduction()
-			if err != nil {
-				return err
-			}
+			l := rl.NewLogger(false, zap.InfoLevel.String())
 			b.Log = l.Sugar()
 		}
 		return b.Restore()
