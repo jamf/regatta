@@ -36,18 +36,18 @@ func (monotonic) Now() time.Time {
 }
 
 type Logger interface {
-	Println(args ...interface{})
-	Printf(msg string, args ...interface{})
+	Info(args ...interface{})
+	Infof(msg string, args ...interface{})
 }
 
 type nilLogger struct{}
 
-func (nilLogger) Println(args ...interface{}) {
+func (nilLogger) Info(args ...interface{}) {
 	fmt.Println(args...)
 }
 
-func (nilLogger) Printf(msg string, args ...interface{}) {
-	fmt.Printf(msg, args...)
+func (nilLogger) Infof(msg string, args ...interface{}) {
+	fmt.Printf(msg+"\n", args...)
 }
 
 // Manifest a backup manifest containing a backup info.
@@ -124,11 +124,11 @@ func (b *Backup) Backup() (Manifest, error) {
 
 	var wg errgroup.Group
 	var mtx sync.Mutex
-	b.Log.Printf("going to backup %v \n", meta.Tables)
+	b.Log.Infof("going to backup %v", meta.Tables)
 	for _, table := range meta.Tables {
 		t := table
 		wg.Go(func() error {
-			b.Log.Printf("backing up table '%s' \n", t.Name)
+			b.Log.Infof("backing up table '%s'", t.Name)
 			stream, err := sc.Backup(ctx, &proto.BackupRequest{Table: []byte(t.Name)})
 			if err != nil {
 				return err
@@ -160,7 +160,7 @@ func (b *Backup) Backup() (Manifest, error) {
 					MD5:      hex.EncodeToString(hash.Sum(nil)),
 				})
 			}()
-			b.Log.Printf("backed up table '%s' \n", t.Name)
+			b.Log.Infof("backed up table '%s'", t.Name)
 			return nil
 		})
 	}
@@ -171,7 +171,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	sort.Sort(manifestTables(manifest.Tables))
 	manifest.Finished = b.clock.Now()
 
-	b.Log.Println("tables backed up, writing manifest")
+	b.Log.Info("tables backed up, writing manifest")
 	manFile, err := os.Create(filepath.Join(b.Dir, manifestFileName))
 	if err != nil {
 		return manifest, err
@@ -188,7 +188,7 @@ func (b *Backup) Backup() (Manifest, error) {
 	if err != nil {
 		return manifest, err
 	}
-	b.Log.Println("backup complete")
+	b.Log.Info("backup complete")
 	return manifest, nil
 }
 
@@ -218,9 +218,9 @@ func (b *Backup) Restore() error {
 	if err != nil {
 		return err
 	}
-	b.Log.Println("manifest loaded")
+	b.Log.Info("manifest loaded")
 
-	b.Log.Printf("going to restore %v \n", manifest.Tables)
+	b.Log.Infof("going to restore %v", manifest.Tables)
 
 	hash := md5.New()
 	for _, table := range manifest.Tables {
@@ -236,7 +236,7 @@ func (b *Backup) Restore() error {
 		if hex.EncodeToString(hash.Sum(nil)) != table.MD5 {
 			return fmt.Errorf("table '%s' file '%s' corrupted (checksum mismatch)", table.Name, table.FileName)
 		}
-		b.Log.Printf("table '%s' checksum valid\n", table.Name)
+		b.Log.Infof("table '%s' checksum valid", table.Name)
 		_, err = tf.Seek(0, io.SeekStart)
 		if err != nil {
 			return err
@@ -255,19 +255,19 @@ func (b *Backup) Restore() error {
 		if err != nil {
 			return err
 		}
-		b.Log.Printf("table '%s' stream started\n", table.Name)
+		b.Log.Infof("table '%s' stream started", table.Name)
 
 		_, err = io.Copy(&Writer{Sender: stream}, bufio.NewReaderSize(tf, defaultSnapshotChunkSize))
 		if err != nil {
 			return err
 		}
 
-		b.Log.Printf("table '%s' streamed\n", table.Name)
+		b.Log.Infof("table '%s' streamed", table.Name)
 		_, err = stream.CloseAndRecv()
 		if err != nil {
 			return err
 		}
-		b.Log.Printf("table '%s' restored\n", table.Name)
+		b.Log.Infof("table '%s' restored", table.Name)
 	}
 
 	return nil

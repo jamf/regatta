@@ -7,7 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/replication/backup"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -17,6 +19,7 @@ func init() {
 	restoreCmd.PersistentFlags().String("dir", "", "Target dir (current directory if empty)")
 	restoreCmd.PersistentFlags().String("ca", "", "Path to the client CA cert file.")
 	restoreCmd.PersistentFlags().String("token", "", "The access token to use for the authentication.")
+	restoreCmd.PersistentFlags().Bool("json", false, "Enables JSON logging.")
 }
 
 var restoreCmd = &cobra.Command{
@@ -47,6 +50,10 @@ It is almost certain that after restore the cold-start of all the followers watc
 		b := backup.Backup{
 			Conn: conn,
 			Dir:  viper.GetString("dir"),
+		}
+		if viper.GetBool("json") {
+			l := rl.NewLogger(false, zap.InfoLevel.String())
+			b.Log = l.Sugar()
 		}
 		return b.Restore()
 	},

@@ -7,7 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/replication/backup"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -17,6 +19,7 @@ func init() {
 	backupCmd.PersistentFlags().String("dir", "", "Target dir (current directory if empty)")
 	backupCmd.PersistentFlags().String("ca", "", "Path to the client CA cert file.")
 	backupCmd.PersistentFlags().String("token", "", "The access token to use for the authentication.")
+	backupCmd.PersistentFlags().Bool("json", false, "Enables JSON logging.")
 }
 
 var backupCmd = &cobra.Command{
@@ -45,6 +48,10 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 		b := backup.Backup{
 			Conn: conn,
 			Dir:  viper.GetString("dir"),
+		}
+		if viper.GetBool("json") {
+			l := rl.NewLogger(false, zap.InfoLevel.String())
+			b.Log = l.Sugar()
 		}
 		_, err = b.Backup()
 		return err
