@@ -476,20 +476,26 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 
 	count := 0
 	var files []string
-	rollSST := func() (*sstable.Writer, error) {
+	rollSST := func() (*sstable.Writer, vfs.File, error) {
 		name := filepath.Join(p.dirname, fmt.Sprintf("ingest-%d.sst", count))
 		f, err := p.fs.Create(name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		files = append(files, name)
 		count = count + 1
-		return sstable.NewWriter(f, rp.WriterOptions()), nil
+		return sstable.NewWriter(f, rp.WriterOptions()), f, nil
 	}
 
-	w, err := rollSST()
+	w, f, err := rollSST()
 	if err != nil {
 		return err
+	}
+	syncAndCloseSST := func() (err error) {
+		defer func() {
+			err = w.Close()
+		}()
+		return f.Sync()
 	}
 
 	var first, last []byte
@@ -531,11 +537,10 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 			}
 
 			if w.EstimatedSize() >= maxBatchSize {
-				err := w.Close()
-				if err != nil {
+				if err := syncAndCloseSST(); err != nil {
 					return err
 				}
-				w, err = rollSST()
+				w, f, err = rollSST()
 				if err != nil {
 					return err
 				}
@@ -543,7 +548,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		}
 	}
 
-	if err := w.Close(); err != nil {
+	if err := syncAndCloseSST(); err != nil {
 		return err
 	}
 
