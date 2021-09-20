@@ -13,6 +13,7 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/bloom"
+	"github.com/cockroachdb/pebble/sstable"
 	"github.com/cockroachdb/pebble/vfs"
 	"go.uber.org/zap"
 )
@@ -51,6 +52,16 @@ const (
 )
 
 var ErrIsNotDir = errors.New("is not a dir")
+
+func WriterOptions() sstable.WriterOptions {
+	return sstable.WriterOptions{
+		BlockSize:      blockSize,
+		Compression:    sstable.SnappyCompression,
+		IndexBlockSize: indexBlockSize,
+		FilterPolicy:   bloom.FilterPolicy(10),
+		FilterType:     pebble.TableFilter,
+	}
+}
 
 func syncDir(fs vfs.FS, dir string) error {
 	if runtime.GOOS == "windows" {
