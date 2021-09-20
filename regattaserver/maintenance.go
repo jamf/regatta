@@ -27,7 +27,13 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 		if err != nil {
 			return err
 		}
-		return t.Reset(ctx)
+		dctx := ctx
+		if _, ok := dctx.Deadline(); !ok {
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			dctx = ctx
+		}
+		return t.Reset(dctx)
 	}
 	if req.ResetAll {
 		tables, err := m.Tables.GetTables()
