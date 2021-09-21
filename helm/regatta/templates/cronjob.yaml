@@ -15,8 +15,16 @@ spec:
   successfulJobsHistoryLimit: {{ .Values.maintenance.backup.successfulJobsHistoryLimit }}
   failedJobsHistoryLimit: {{ .Values.maintenance.backup.failedJobsHistoryLimit }}
   jobTemplate:
+    metadata:
+      labels:
+        app: {{ template "meta.name" . }}
+        release: {{ .Release.Name }}
     spec:
       template:
+        metadata:
+          labels:
+            app: {{ template "meta.name" . }}
+            release: {{ .Release.Name }}
         spec:
           initContainers:
           - name: {{ template "meta.name" . }}-load-backup
