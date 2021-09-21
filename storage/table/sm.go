@@ -1,7 +1,6 @@
 package table
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/sstable"
 	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/oxtoacart/bpool"
@@ -465,20 +465,41 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return err
 	}
 
-	br := bufio.NewReaderSize(r, maxBatchSize)
 	var total uint64
-	if err := binary.Read(br, binary.LittleEndian, &total); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, &total); err != nil {
 		return err
 	}
 
 	kv := &proto.KeyValue{}
 	buffer := make([]byte, 0, 128*1024)
-	b := db.NewBatch()
-	defer func() {
-		_ = b.Close()
-	}()
 	p.log.Debugf("Starting snapshot recover to %s DB", dbdir)
-	var batchSize uint64
+
+	count := 0
+	var files []string
+	rollSST := func() (*sstable.Writer, vfs.File, error) {
+		name := filepath.Join(p.dirname, fmt.Sprintf("ingest-%d.sst", count))
+		f, err := p.fs.Create(name)
+		if err != nil {
+			return nil, nil, err
+		}
+		files = append(files, name)
+		count = count + 1
+		return sstable.NewWriter(f, rp.WriterOptions()), f, nil
+	}
+
+	w, f, err := rollSST()
+	if err != nil {
+		return err
+	}
+	syncAndCloseSST := func() (err error) {
+		defer func() {
+			err = w.Close()
+		}()
+		return f.Sync()
+	}
+
+	var first, last []byte
+
 	for i := uint64(0); i < total; i++ {
 		select {
 		case <-stopc:
@@ -490,16 +511,15 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		default:
 			p.log.Debugf("recover i %d", i)
 			var toRead uint64
-			if err := binary.Read(br, binary.LittleEndian, &toRead); err != nil {
+			if err := binary.Read(r, binary.LittleEndian, &toRead); err != nil {
 				return err
 			}
 
-			batchSize = batchSize + toRead
 			if cap(buffer) < int(toRead) {
 				buffer = make([]byte, toRead)
 			}
 
-			if _, err := io.ReadFull(br, buffer[:toRead]); err != nil {
+			if _, err := io.ReadFull(r, buffer[:toRead]); err != nil {
 				return err
 			}
 			kv.Reset()
@@ -507,22 +527,36 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 				return err
 			}
 
-			if err := b.Set(kv.Key, kv.Value, nil); err != nil {
+			if first == nil {
+				first = kv.Key
+			}
+			last = kv.Key
+
+			if err := w.Set(kv.Key, kv.Value); err != nil {
 				return err
 			}
 
-			if batchSize >= maxBatchSize {
-				err := b.Commit(nil)
+			if w.EstimatedSize() >= maxBatchSize {
+				if err := syncAndCloseSST(); err != nil {
+					return err
+				}
+				w, f, err = rollSST()
 				if err != nil {
 					return err
 				}
-				b = db.NewBatch()
-				batchSize = 0
 			}
 		}
 	}
 
-	if err := b.Commit(nil); err != nil {
+	if err := syncAndCloseSST(); err != nil {
+		return err
+	}
+
+	if err := db.Ingest(files); err != nil {
+		return err
+	}
+
+	if err := db.Compact(first, last); err != nil {
 		return err
 	}
 

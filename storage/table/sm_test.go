@@ -244,7 +244,7 @@ var largeValues []string
 
 func init() {
 	for i := 0; i < 10_000; i++ {
-		largeValues = append(largeValues, util.RandString(2048))
+		largeValues = append(largeValues, util.RandString(10*1048))
 	}
 }
 
