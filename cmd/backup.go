@@ -54,6 +54,9 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 			b.Log = l.Sugar()
 		}
 		_, err = b.Backup()
+		if err != nil {
+			b.Log.Infof("backup failed: %v", err)
+		}
 		return err
 	},
 	PreRunE: func(cmd *cobra.Command, args []string) error {
