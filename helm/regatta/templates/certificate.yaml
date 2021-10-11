@@ -1,5 +1,5 @@
 {{- if not .Values.kind  }}
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ template "meta.name" . }}
@@ -49,7 +49,7 @@ data:
 {{- end }}
 ---
 {{- if not .Values.kind  }}
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ template "meta.name" . }}-replication
@@ -93,7 +93,7 @@ data:
 ---
 {{- if .Values.maintenance.server.enabled }}
 {{- if not .Values.kind }}
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ template "meta.name" . }}-maintenance
