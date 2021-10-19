@@ -1,0 +1,31 @@
+apiVersion: v1
+
+name: regatta
+namespace: regatta
+
+charts:
+- .:
+    values:
+      mode: follower
+      image:
+        tag: {{ env "TAG" | default "latest" | quote }}
+      reflectionAPI:
+        enabled: true
+      affinity:
+        podAntiAffinity:
+          topologyKey: kubernetes.io/hostname
+      persistence:
+        storage:
+          storageClassName: local-path-provisioner
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
+      raft:
+        initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
+      imagePullSecrets: awsecr-cred
+      kafka:
+        enabled: false
+      replication:
+        leaderAddress: regatta.dev.wandera.co.uk:8444
