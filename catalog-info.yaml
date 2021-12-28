@@ -7,6 +7,7 @@ metadata:
     example.com/custom: custom_label_value
   annotations:
     backstage.io/kubernetes-label-selector: 'app=regatta'
+    backstage.io/techdocs-ref: dir:.
   tags:
   - go
   links:

@@ -1,0 +1,7 @@
+site_name: 'example-docs'
+
+nav:
+- Home: regatta.md
+
+plugins:
+- techdocs-core
