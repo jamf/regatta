@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: regatta
+  description: Regatta
+  labels:
+    example.com/custom: custom_label_value
+  annotations: {}
+  tags:
+  - go
+  links:
+  - url: https://github.com/wandera/regatta
+    title: GitHub Repo
+    icon: github
+spec:
+  type: service
+  lifecycle: production
+  owner: delta
+  system: platform
+  providesApis:
+  - regatta

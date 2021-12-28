@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: regatta
+  description: Regatta API
+  tags:
+  - grpc
+  links:
+  - url: https://github.com/wandera/regatta
+    title: GitHub Repo
+    icon: github
+spec:
+  type: grpc
+  lifecycle: production
+  owner: delta
+  definition:
+    $text: https://github.com/wandera/regatta/blob/master/proto/regatta.proto
