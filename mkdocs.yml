@@ -1,7 +1,7 @@
-site_name: 'example-docs'
+site_name: 'Regatta'
 
 nav:
-- Home: regatta.md
+- Commands: regatta.md
 
 plugins:
 - techdocs-core
