@@ -1,6 +1,7 @@
 site_name: 'Regatta'
 
 nav:
+- General: ../README.md
 - Commands: regatta.md
 
 plugins:
