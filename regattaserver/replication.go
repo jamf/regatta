@@ -73,6 +73,7 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 		return err
 	}
 	defer func() {
+		_ = sf.Close()
 		_ = os.Remove(sf.Path())
 	}()
 

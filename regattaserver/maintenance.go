@@ -82,6 +82,7 @@ func (m *BackupServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_Ba
 		return err
 	}
 	defer func() {
+		_ = sf.Close()
 		_ = os.Remove(sf.Path())
 	}()
 
@@ -116,6 +117,7 @@ func (m *BackupServer) Restore(srv proto.Maintenance_RestoreServer) error {
 		return err
 	}
 	defer func() {
+		_ = sf.Close()
 		_ = os.Remove(sf.Path())
 	}()
 	_, err = io.Copy(sf.File, backupReader{stream: srv})

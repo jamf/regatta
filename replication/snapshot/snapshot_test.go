@@ -48,6 +48,7 @@ func Test_snapshotFile_Write(t *testing.T) {
 	r.NoError(err)
 	r.NoError(sf.Sync())
 	r.Equal(len(bts), n)
+	r.FileExists(sf.Path())
 }
 
 func Test_snapshotFile_ReadWrite(t *testing.T) {
