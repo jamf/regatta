@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/golang/snappy"
 	"github.com/juju/ratelimit"
@@ -94,7 +93,7 @@ func NewTemp() (*snapshotFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newFile(f, filepath.Join(dir, f.Name())), nil
+	return newFile(f, f.Name()), nil
 }
 
 func newFile(file *os.File, path string) *snapshotFile {
