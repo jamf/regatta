@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -182,7 +183,7 @@ func TestBackup_Backup(t *testing.T) {
 			}
 
 			srv := startBackupServer(tm)
-			conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
+			conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			path := filepath.Join(t.TempDir(), strings.ReplaceAll(tt.name, " ", "_"))
@@ -258,7 +259,7 @@ func TestBackup_Restore(t *testing.T) {
 			defer tm.Close()
 
 			srv := startBackupServer(tm)
-			conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
+			conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			b := &Backup{
