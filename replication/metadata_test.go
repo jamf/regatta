@@ -9,6 +9,7 @@ import (
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var tableManagerTestConfig = func() tables.Config {
@@ -27,7 +28,7 @@ func TestMetadata_Replicate(t *testing.T) {
 	defer srv.Shutdown()
 
 	t.Log("create replicator")
-	conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	metar := NewMetadata(proto.NewMetadataClient(conn), followerTM)
 	metar.Interval = 250 * time.Millisecond
