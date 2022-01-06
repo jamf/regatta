@@ -12,6 +12,7 @@ type KVService interface {
 	Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error)
 	Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error)
 	Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error)
+	Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error)
 }
 
 type SnapshotService interface {

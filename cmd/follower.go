@@ -148,7 +148,7 @@ func follower(_ *cobra.Command, _ []string) {
 	}
 
 	// Create storage
-	st := &tables.KVStorageWrapper{Manager: tm}
+	st := &tables.QueryService{Manager: tm}
 	mTables := viper.GetStringSlice("kafka.topics")
 
 	// Start servers

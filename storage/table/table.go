@@ -2,6 +2,7 @@ package table
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/cockroachdb/pebble"
@@ -122,6 +123,11 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 		return nil, err
 	}
 	return &proto.DeleteRangeResponse{Deleted: int64(res.Value)}, nil
+}
+
+func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+	// TODO implement
+	return nil, errors.New("not implemented")
 }
 
 // Snapshot streams snapshot to the provided writer.

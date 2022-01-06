@@ -17,6 +17,7 @@ type MockStorage struct {
 	rangeResponse       proto.RangeResponse
 	putResponse         proto.PutResponse
 	deleteRangeResponse proto.DeleteRangeResponse
+	txnResponse         proto.TxnResponse
 	rangeError          error
 	putError            error
 	deleteError         error
@@ -32,6 +33,10 @@ func (s *MockStorage) Put(_ context.Context, _ *proto.PutRequest) (*proto.PutRes
 
 func (s *MockStorage) Delete(_ context.Context, _ *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	return &s.deleteRangeResponse, s.deleteError
+}
+
+func (s *MockStorage) Txn(_ context.Context, _ *proto.TxnRequest) (*proto.TxnResponse, error) {
+	return &s.txnResponse, s.deleteError
 }
 
 type MockTableService struct {
