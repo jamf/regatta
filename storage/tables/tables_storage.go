@@ -7,11 +7,13 @@ import (
 	"github.com/wandera/regatta/proto"
 )
 
-type KVStorageWrapper struct {
+const defaultQueryTimeout = 5 * time.Second
+
+type QueryService struct {
 	Manager *Manager
 }
 
-func (k *KVStorageWrapper) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (k *QueryService) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	table, err := k.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
@@ -19,33 +21,46 @@ func (k *KVStorageWrapper) Range(ctx context.Context, req *proto.RangeRequest) (
 	if _, ok := ctx.Deadline(); !ok {
 		dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		return table.Range(dctx, req)
+		ctx = dctx
 	}
 	return table.Range(ctx, req)
 }
 
-func (k *KVStorageWrapper) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (k *QueryService) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	table, err := k.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
 	}
 	if _, ok := ctx.Deadline(); !ok {
-		dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
 		defer cancel()
-		return table.Put(dctx, req)
+		ctx = dctx
 	}
 	return table.Put(ctx, req)
 }
 
-func (k *KVStorageWrapper) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (k *QueryService) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	table, err := k.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
 	}
 	if _, ok := ctx.Deadline(); !ok {
-		dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
 		defer cancel()
-		return table.Delete(dctx, req)
+		ctx = dctx
 	}
 	return table.Delete(ctx, req)
+}
+
+func (k *QueryService) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+	table, err := k.Manager.GetTable(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
+		defer cancel()
+		ctx = dctx
+	}
+	return table.Txn(ctx, req)
 }

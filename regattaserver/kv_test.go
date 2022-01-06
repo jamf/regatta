@@ -226,8 +226,7 @@ func TestRegatta_Get(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := require.New(t)
 			kv := KVServer{
-				Storage:       test.ms,
-				ManagedTables: nil,
+				Storage: test.ms,
 			}
 
 			t.Log(test.name)
@@ -240,7 +239,7 @@ func TestRegatta_Get(t *testing.T) {
 
 func TestRegatta_Parallel(t *testing.T) {
 	kv := KVServer{Storage: &MockStorage{}}
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		t.Run("Run parallel reads/writes", func(t *testing.T) {
 			t.Parallel()
 			r := require.New(t)

@@ -166,6 +166,7 @@ message Compare {
     GREATER = 1;
     LESS = 2;
     NOT_EQUAL = 3;
+    EXISTS = 4;
   }
   enum CompareTarget {
     VERSION = 0;
