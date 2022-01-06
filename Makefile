@@ -54,7 +54,7 @@ PROTO_GO_OUTS=proto/mvcc.pb.go proto/mvcc_vtproto.pb.go \
 proto: $(PROTO_GO_OUTS)
 
 $(PROTO_GO_OUTS): proto/*.proto
-	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto
+	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=markdown,api.md
 
 # Build the docker image
 docker-build: proto
