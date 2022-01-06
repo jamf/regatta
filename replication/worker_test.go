@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func Test_worker_do(t *testing.T) {
@@ -46,7 +47,7 @@ func Test_worker_do(t *testing.T) {
 	}()
 
 	t.Log("create worker")
-	conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	w := &worker{
 		Table:      "test",
@@ -135,7 +136,7 @@ func Test_worker_recover(t *testing.T) {
 	r.NoError(err)
 
 	t.Log("create worker")
-	conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	w := &worker{Table: "test", snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
 
