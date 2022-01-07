@@ -2,7 +2,6 @@ package table
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"github.com/cockroachdb/pebble"
@@ -10,6 +9,7 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/table/fsm"
 	"github.com/wandera/regatta/storage/table/key"
 )
 
@@ -126,35 +126,58 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 }
 
 func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
-	// TODO implement
-	return nil, errors.New("not implemented")
+	cmd := &proto.Command{
+		Type:  proto.Command_TXN,
+		Table: req.Table,
+		Txn: &proto.Txn{
+			Compare: req.Compare,
+			Success: req.Success,
+			Failure: req.Failure,
+		},
+	}
+	bytes, err := cmd.MarshalVT()
+	if err != nil {
+		return nil, err
+	}
+	res, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes)
+	if err != nil {
+		return nil, err
+	}
+	txr := &proto.CommandResult{}
+	if err := txr.UnmarshalVT(res.Data); err != nil {
+		return nil, err
+	}
+	return &proto.TxnResponse{
+		Succeeded: res.Value == fsm.ResultSuccess,
+		Responses: txr.Responses,
+	}, nil
 }
 
 // Snapshot streams snapshot to the provided writer.
-func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) (*SnapshotResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
+func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) (*fsm.SnapshotResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, fsm.SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
 	if err != nil {
 		return nil, err
 	}
-	return val.(*SnapshotResponse), nil
+	return val.(*fsm.SnapshotResponse), nil
 }
 
 // LocalIndex returns local index.
-func (t *ActiveTable) LocalIndex(ctx context.Context) (*IndexResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, LocalIndexRequest{})
+func (t *ActiveTable) LocalIndex(ctx context.Context) (*fsm.IndexResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, fsm.LocalIndexRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return val.(*IndexResponse), nil
+	return val.(*fsm.IndexResponse), nil
 }
 
 // LeaderIndex returns leader index.
-func (t *ActiveTable) LeaderIndex(ctx context.Context) (*IndexResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, LeaderIndexRequest{})
+func (t *ActiveTable) LeaderIndex(ctx context.Context) (*fsm.IndexResponse, error) {
+	val, err := t.nh.SyncRead(ctx, t.ClusterID, fsm.LeaderIndexRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return val.(*IndexResponse), nil
+	return val.(*fsm.IndexResponse), nil
 }
 
 // Reset resets the leader index to 0.
@@ -171,35 +194,4 @@ func (t *ActiveTable) Reset(ctx context.Context) error {
 	}
 	_, err = t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bts)
 	return err
-}
-
-// SnapshotRequest to write Command snapshot into provided writer.
-type SnapshotRequest struct {
-	Writer  io.Writer
-	Stopper <-chan struct{}
-}
-
-// SnapshotResponse returns local index to which the snapshot was created.
-type SnapshotResponse struct {
-	Index uint64
-}
-
-// LocalIndexRequest to read local index.
-type LocalIndexRequest struct{}
-
-// LeaderIndexRequest to read leader index.
-type LeaderIndexRequest struct{}
-
-// IndexResponse returns local index.
-type IndexResponse struct {
-	Index uint64
-}
-
-// PathRequest request data disk paths.
-type PathRequest struct{}
-
-// PathResponse returns SM data paths.
-type PathResponse struct {
-	Path    string
-	WALPath string
 }
