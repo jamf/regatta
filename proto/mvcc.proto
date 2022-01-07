@@ -15,6 +15,7 @@ message Command {
     DUMMY = 2;
     PUT_BATCH = 3;
     DELETE_BATCH = 4;
+    TX = 5;
   }
 
   // table name of the table
@@ -38,8 +39,152 @@ message Command {
   // leader_index holds the value of the log index of a leader cluster from which this command was replicated from.
   optional uint64 leader_index = 5;
 
-  // Batch of KVs to either PUT or DELETE.
+  // Atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions).
   repeated KeyValue batch = 6;
+
+  // Atomic transaction (slow, supports reads and conditions).
+  optional Tx tx = 7;
+}
+
+message CommandResult {
+  repeated ResponseOp responses = 1;
+}
+
+message Tx {
+  // compare is a list of predicates representing a conjunction of terms.
+  // If the comparisons succeed, then the success requests will be processed in order,
+  // and the response will contain their respective responses in order.
+  // If the comparisons fail, then the failure requests will be processed in order,
+  // and the response will contain their respective responses in order.
+  repeated Compare compare = 1;
+  // success is a list of requests which will be applied when compare evaluates to true.
+  repeated RequestOp success = 2;
+  // failure is a list of requests which will be applied when compare evaluates to false.
+  repeated RequestOp failure = 3;
+}
+
+message RequestOp {
+  message Range {
+    // key is the first key for the range. If range_end is not given, the request only looks up key.
+    bytes key = 1;
+    // range_end is the upper bound on the requested range [key, range_end).
+    // If range_end is '\0', the range is all keys >= key.
+    // If range_end is key plus one (e.g., "aa"+1 == "ab", "a\xff"+1 == "b"),
+    // then the range request gets all keys prefixed with key.
+    // If both key and range_end are '\0', then the range request returns all keys.
+    bytes range_end = 2;
+    // limit is a limit on the number of keys returned for the request. When limit is set to 0,
+    // it is treated as no limit.
+    int64 limit = 3;
+
+    // keys_only when set returns only the keys and not the values.
+    bool keys_only = 4;
+
+    // count_only when set returns only the count of the keys in the range.
+    bool count_only = 5;
+  }
+
+  message Put {
+    // key is the key, in bytes, to put into the key-value store.
+    bytes key = 1;
+    // value is the value, in bytes, to associate with the key in the key-value store.
+    bytes value = 2;
+    // prev_kv if true the previous key-value pair will be returned in the put response.
+    bool prev_kv = 3;
+  }
+
+  message DeleteRange {
+    // key is the first key to delete in the range.
+    bytes key = 1;
+    // range_end is the key following the last key to delete for the range [key, range_end).
+    // If range_end is not given, the range is defined to contain only the key argument.
+    // If range_end is one bit larger than the given key, then the range is all the keys
+    // with the prefix (the given key).
+    // If range_end is '\0', the range is all keys greater than or equal to the key argument.
+    bytes range_end = 2;
+
+    // If prev_kv is set, etcd gets the previous key-value pairs before deleting it.
+    // The previous key-value pairs will be returned in the delete response.
+    bool prev_kv = 3;
+  }
+
+  // request is a union of request types accepted by a transaction.
+  oneof request {
+    Range request_range = 1;
+    Put request_put = 2;
+    DeleteRange request_delete_range = 3;
+  }
+}
+
+message ResponseOp {
+  message Range {
+    // kvs is the list of key-value pairs matched by the range request.
+    // kvs is empty when count is requested.
+    repeated KeyValue kvs = 1;
+    // more indicates if there are more keys to return in the requested range.
+    bool more = 2;
+    // count is set to the number of keys within the range when requested.
+    int64 count = 3;
+  }
+
+  message Put {
+    // if prev_kv is set in the request, the previous key-value pair will be returned.
+    mvcc.v1.KeyValue prev_kv = 1;
+  }
+
+  message DeleteRange {
+    // deleted is the number of keys deleted by the delete range request.
+    int64 deleted = 1;
+
+    // if prev_kv is set in the request, the previous key-value pairs will be returned.
+    repeated mvcc.v1.KeyValue prev_kvs = 2;
+  }
+  // response is a union of response types returned by a transaction.
+  oneof response {
+    Range response_range = 1;
+    Put response_put = 2;
+    DeleteRange response_delete_range = 3;
+  }
+}
+
+message Compare {
+  enum CompareResult {
+    EQUAL = 0;
+    GREATER = 1;
+    LESS = 2;
+    NOT_EQUAL = 3;
+  }
+  enum CompareTarget {
+    VERSION = 0;
+    CREATE = 1;
+    MOD = 2;
+    LEASE = 3;
+    VALUE = 4;
+  }
+  // result is logical comparison operation for this comparison.
+  CompareResult result = 1;
+  // target is the key-value field to inspect for the comparison.
+  CompareTarget target = 2;
+  // key is the subject key for the comparison operation.
+  bytes key = 3;
+  oneof target_union {
+    // version is the version of the given key
+    int64 version = 4;
+    // create_revision is the creation revision of the given key
+    int64 create_revision = 5;
+    // mod_revision is the last modified revision of the given key.
+    int64 mod_revision = 6;
+    // value is the value of the given key, in bytes.
+    bytes value = 7;
+    // lease is the lease id of the given key.
+    int64 lease = 8;
+    // leave room for more target_union field tags, jump to 64
+  }
+
+  // range_end compares the given target to all keys in the range [key, range_end).
+  // See RangeRequest for more details on key ranges.
+  bytes range_end = 64;
+  // TODO: fill out with most of the rest of RangeRequest fields when needed.
 }
 
 message KeyValue {

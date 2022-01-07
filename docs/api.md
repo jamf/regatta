@@ -15,26 +15,33 @@
   
 - [mvcc.proto](#mvcc.proto)
     - [Command](#mvcc.v1.Command)
+    - [CommandResult](#mvcc.v1.CommandResult)
+    - [Compare](#mvcc.v1.Compare)
     - [KeyValue](#mvcc.v1.KeyValue)
+    - [RequestOp](#mvcc.v1.RequestOp)
+    - [RequestOp.DeleteRange](#mvcc.v1.RequestOp.DeleteRange)
+    - [RequestOp.Put](#mvcc.v1.RequestOp.Put)
+    - [RequestOp.Range](#mvcc.v1.RequestOp.Range)
+    - [ResponseOp](#mvcc.v1.ResponseOp)
+    - [ResponseOp.DeleteRange](#mvcc.v1.ResponseOp.DeleteRange)
+    - [ResponseOp.Put](#mvcc.v1.ResponseOp.Put)
+    - [ResponseOp.Range](#mvcc.v1.ResponseOp.Range)
+    - [Tx](#mvcc.v1.Tx)
   
     - [Command.CommandType](#mvcc.v1.Command.CommandType)
+    - [Compare.CompareResult](#mvcc.v1.Compare.CompareResult)
+    - [Compare.CompareTarget](#mvcc.v1.Compare.CompareTarget)
   
 - [regatta.proto](#regatta.proto)
-    - [Compare](#regatta.v1.Compare)
     - [DeleteRangeRequest](#regatta.v1.DeleteRangeRequest)
     - [DeleteRangeResponse](#regatta.v1.DeleteRangeResponse)
     - [PutRequest](#regatta.v1.PutRequest)
     - [PutResponse](#regatta.v1.PutResponse)
     - [RangeRequest](#regatta.v1.RangeRequest)
     - [RangeResponse](#regatta.v1.RangeResponse)
-    - [RequestOp](#regatta.v1.RequestOp)
     - [ResponseHeader](#regatta.v1.ResponseHeader)
-    - [ResponseOp](#regatta.v1.ResponseOp)
     - [TxnRequest](#regatta.v1.TxnRequest)
     - [TxnResponse](#regatta.v1.TxnResponse)
-  
-    - [Compare.CompareResult](#regatta.v1.Compare.CompareResult)
-    - [Compare.CompareTarget](#regatta.v1.Compare.CompareTarget)
   
     - [KV](#regatta.v1.KV)
   
@@ -191,7 +198,50 @@ Maintenance service provides methods for maintenance purposes.
 | kv | [KeyValue](#mvcc.v1.KeyValue) |  | kv holds the KeyValue for the event. A PUT event contains current kv pair. A PUT event with kv.Version=1 indicates the creation of a key. A DELETE/EXPIRE event contains the deleted key with its modification revision set to the revision of deletion. |
 | prev_kv | [KeyValue](#mvcc.v1.KeyValue) |  | prev_kv holds the key-value pair before the event happens. |
 | leader_index | [uint64](#uint64) | optional | leader_index holds the value of the log index of a leader cluster from which this command was replicated from. |
-| batch | [KeyValue](#mvcc.v1.KeyValue) | repeated | Batch of KVs to either PUT or DELETE. |
+| batch | [KeyValue](#mvcc.v1.KeyValue) | repeated | Atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions). |
+| tx | [Tx](#mvcc.v1.Tx) | optional | Atomic transaction (slow, supports reads and conditions). |
+
+
+
+
+
+
+<a name="mvcc.v1.CommandResult"></a>
+
+### CommandResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| responses | [ResponseOp](#mvcc.v1.ResponseOp) | repeated |  |
+
+
+
+
+
+
+<a name="mvcc.v1.Compare"></a>
+
+### Compare
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| result | [Compare.CompareResult](#mvcc.v1.Compare.CompareResult) |  | result is logical comparison operation for this comparison. |
+| target | [Compare.CompareTarget](#mvcc.v1.Compare.CompareTarget) |  | target is the key-value field to inspect for the comparison. |
+| key | [bytes](#bytes) |  | key is the subject key for the comparison operation. |
+| version | [int64](#int64) |  | version is the version of the given key |
+| create_revision | [int64](#int64) |  | create_revision is the creation revision of the given key |
+| mod_revision | [int64](#int64) |  | mod_revision is the last modified revision of the given key. |
+| value | [bytes](#bytes) |  | value is the value of the given key, in bytes. |
+| lease | [int64](#int64) |  | lease is the lease id of the given key.
+
+leave room for more target_union field tags, jump to 64 |
+| range_end | [bytes](#bytes) |  | range_end compares the given target to all keys in the range [key, range_end). See RangeRequest for more details on key ranges.
+
+TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 
@@ -215,6 +265,158 @@ Maintenance service provides methods for maintenance purposes.
 
 
 
+
+<a name="mvcc.v1.RequestOp"></a>
+
+### RequestOp
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| request_range | [RequestOp.Range](#mvcc.v1.RequestOp.Range) |  |  |
+| request_put | [RequestOp.Put](#mvcc.v1.RequestOp.Put) |  |  |
+| request_delete_range | [RequestOp.DeleteRange](#mvcc.v1.RequestOp.DeleteRange) |  |  |
+
+
+
+
+
+
+<a name="mvcc.v1.RequestOp.DeleteRange"></a>
+
+### RequestOp.DeleteRange
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  | key is the first key to delete in the range. |
+| range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
+| prev_kv | [bool](#bool) |  | If prev_kv is set, etcd gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. |
+
+
+
+
+
+
+<a name="mvcc.v1.RequestOp.Put"></a>
+
+### RequestOp.Put
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  | key is the key, in bytes, to put into the key-value store. |
+| value | [bytes](#bytes) |  | value is the value, in bytes, to associate with the key in the key-value store. |
+| prev_kv | [bool](#bool) |  | prev_kv if true the previous key-value pair will be returned in the put response. |
+
+
+
+
+
+
+<a name="mvcc.v1.RequestOp.Range"></a>
+
+### RequestOp.Range
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [bytes](#bytes) |  | key is the first key for the range. If range_end is not given, the request only looks up key. |
+| range_end | [bytes](#bytes) |  | range_end is the upper bound on the requested range [key, range_end). If range_end is &#39;\0&#39;, the range is all keys &gt;= key. If range_end is key plus one (e.g., &#34;aa&#34;&#43;1 == &#34;ab&#34;, &#34;a\xff&#34;&#43;1 == &#34;b&#34;), then the range request gets all keys prefixed with key. If both key and range_end are &#39;\0&#39;, then the range request returns all keys. |
+| limit | [int64](#int64) |  | limit is a limit on the number of keys returned for the request. When limit is set to 0, it is treated as no limit. |
+| keys_only | [bool](#bool) |  | keys_only when set returns only the keys and not the values. |
+| count_only | [bool](#bool) |  | count_only when set returns only the count of the keys in the range. |
+
+
+
+
+
+
+<a name="mvcc.v1.ResponseOp"></a>
+
+### ResponseOp
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| response_range | [ResponseOp.Range](#mvcc.v1.ResponseOp.Range) |  |  |
+| response_put | [ResponseOp.Put](#mvcc.v1.ResponseOp.Put) |  |  |
+| response_delete_range | [ResponseOp.DeleteRange](#mvcc.v1.ResponseOp.DeleteRange) |  |  |
+
+
+
+
+
+
+<a name="mvcc.v1.ResponseOp.DeleteRange"></a>
+
+### ResponseOp.DeleteRange
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| deleted | [int64](#int64) |  | deleted is the number of keys deleted by the delete range request. |
+| prev_kvs | [KeyValue](#mvcc.v1.KeyValue) | repeated | if prev_kv is set in the request, the previous key-value pairs will be returned. |
+
+
+
+
+
+
+<a name="mvcc.v1.ResponseOp.Put"></a>
+
+### ResponseOp.Put
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| prev_kv | [KeyValue](#mvcc.v1.KeyValue) |  | if prev_kv is set in the request, the previous key-value pair will be returned. |
+
+
+
+
+
+
+<a name="mvcc.v1.ResponseOp.Range"></a>
+
+### ResponseOp.Range
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| kvs | [KeyValue](#mvcc.v1.KeyValue) | repeated | kvs is the list of key-value pairs matched by the range request. kvs is empty when count is requested. |
+| more | [bool](#bool) |  | more indicates if there are more keys to return in the requested range. |
+| count | [int64](#int64) |  | count is set to the number of keys within the range when requested. |
+
+
+
+
+
+
+<a name="mvcc.v1.Tx"></a>
+
+### Tx
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| compare | [Compare](#mvcc.v1.Compare) | repeated | compare is a list of predicates representing a conjunction of terms. If the comparisons succeed, then the success requests will be processed in order, and the response will contain their respective responses in order. If the comparisons fail, then the failure requests will be processed in order, and the response will contain their respective responses in order. |
+| success | [RequestOp](#mvcc.v1.RequestOp) | repeated | success is a list of requests which will be applied when compare evaluates to true. |
+| failure | [RequestOp](#mvcc.v1.RequestOp) | repeated | failure is a list of requests which will be applied when compare evaluates to false. |
+
+
+
+
+
  
 
 
@@ -230,6 +432,36 @@ Maintenance service provides methods for maintenance purposes.
 | DUMMY | 2 |  |
 | PUT_BATCH | 3 |  |
 | DELETE_BATCH | 4 |  |
+| TX | 5 |  |
+
+
+
+<a name="mvcc.v1.Compare.CompareResult"></a>
+
+### Compare.CompareResult
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| EQUAL | 0 |  |
+| GREATER | 1 |  |
+| LESS | 2 |  |
+| NOT_EQUAL | 3 |  |
+
+
+
+<a name="mvcc.v1.Compare.CompareTarget"></a>
+
+### Compare.CompareTarget
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| VERSION | 0 |  |
+| CREATE | 1 |  |
+| MOD | 2 |  |
+| LEASE | 3 |  |
+| VALUE | 4 |  |
 
 
  
@@ -244,33 +476,6 @@ Maintenance service provides methods for maintenance purposes.
 <p align="right"><a href="#top">Top</a></p>
 
 ## regatta.proto
-
-
-
-<a name="regatta.v1.Compare"></a>
-
-### Compare
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| result | [Compare.CompareResult](#regatta.v1.Compare.CompareResult) |  | result is logical comparison operation for this comparison. |
-| target | [Compare.CompareTarget](#regatta.v1.Compare.CompareTarget) |  | target is the key-value field to inspect for the comparison. |
-| key | [bytes](#bytes) |  | key is the subject key for the comparison operation. |
-| version | [int64](#int64) |  | version is the version of the given key |
-| create_revision | [int64](#int64) |  | create_revision is the creation revision of the given key |
-| mod_revision | [int64](#int64) |  | mod_revision is the last modified revision of the given key. |
-| value | [bytes](#bytes) |  | value is the value of the given key, in bytes. |
-| lease | [int64](#int64) |  | lease is the lease id of the given key.
-
-leave room for more target_union field tags, jump to 64 |
-| range_end | [bytes](#bytes) |  | range_end compares the given target to all keys in the range [key, range_end). See RangeRequest for more details on key ranges.
-
-TODO: fill out with most of the rest of RangeRequest fields when needed. |
-
-
-
 
 
 
@@ -386,24 +591,6 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 
-<a name="regatta.v1.RequestOp"></a>
-
-### RequestOp
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| request_range | [RangeRequest](#regatta.v1.RangeRequest) |  |  |
-| request_put | [PutRequest](#regatta.v1.PutRequest) |  |  |
-| request_delete_range | [DeleteRangeRequest](#regatta.v1.DeleteRangeRequest) |  |  |
-| request_txn | [TxnRequest](#regatta.v1.TxnRequest) |  |  |
-
-
-
-
-
-
 <a name="regatta.v1.ResponseHeader"></a>
 
 ### ResponseHeader
@@ -417,24 +604,6 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 | revision | [int64](#int64) |  | revision is the key-value store revision when the request was applied. |
 | raft_term | [uint64](#uint64) |  | raft_term is the raft term when the request was applied. |
 | raft_leader_id | [uint64](#uint64) |  | raft_leader_id is the ID of the actual raft quorum leader. |
-
-
-
-
-
-
-<a name="regatta.v1.ResponseOp"></a>
-
-### ResponseOp
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| response_range | [RangeResponse](#regatta.v1.RangeResponse) |  |  |
-| response_put | [PutResponse](#regatta.v1.PutResponse) |  |  |
-| response_delete_range | [DeleteRangeResponse](#regatta.v1.DeleteRangeResponse) |  |  |
-| response_txn | [TxnResponse](#regatta.v1.TxnResponse) |  |  |
 
 
 
@@ -463,9 +632,9 @@ if guard evaluates to true. // TODO decide if applying single key multiple times
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | table | [bytes](#bytes) |  | table name of the table |
-| compare | [Compare](#regatta.v1.Compare) | repeated | compare is a list of predicates representing a conjunction of terms. If the comparisons succeed, then the success requests will be processed in order, and the response will contain their respective responses in order. If the comparisons fail, then the failure requests will be processed in order, and the response will contain their respective responses in order. |
-| success | [RequestOp](#regatta.v1.RequestOp) | repeated | success is a list of requests which will be applied when compare evaluates to true. |
-| failure | [RequestOp](#regatta.v1.RequestOp) | repeated | failure is a list of requests which will be applied when compare evaluates to false. |
+| compare | [mvcc.v1.Compare](#mvcc.v1.Compare) | repeated | compare is a list of predicates representing a conjunction of terms. If the comparisons succeed, then the success requests will be processed in order, and the response will contain their respective responses in order. If the comparisons fail, then the failure requests will be processed in order, and the response will contain their respective responses in order. |
+| success | [mvcc.v1.RequestOp](#mvcc.v1.RequestOp) | repeated | success is a list of requests which will be applied when compare evaluates to true. |
+| failure | [mvcc.v1.RequestOp](#mvcc.v1.RequestOp) | repeated | failure is a list of requests which will be applied when compare evaluates to false. |
 
 
 
@@ -482,43 +651,13 @@ if guard evaluates to true. // TODO decide if applying single key multiple times
 | ----- | ---- | ----- | ----------- |
 | header | [ResponseHeader](#regatta.v1.ResponseHeader) |  |  |
 | succeeded | [bool](#bool) |  | succeeded is set to true if the compare evaluated to true or false otherwise. |
-| responses | [ResponseOp](#regatta.v1.ResponseOp) | repeated | responses is a list of responses corresponding to the results from applying success if succeeded is true or failure if succeeded is false. |
+| responses | [mvcc.v1.ResponseOp](#mvcc.v1.ResponseOp) | repeated | responses is a list of responses corresponding to the results from applying success if succeeded is true or failure if succeeded is false. |
 
 
 
 
 
  
-
-
-<a name="regatta.v1.Compare.CompareResult"></a>
-
-### Compare.CompareResult
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| EQUAL | 0 |  |
-| GREATER | 1 |  |
-| LESS | 2 |  |
-| NOT_EQUAL | 3 |  |
-| EXISTS | 4 |  |
-
-
-
-<a name="regatta.v1.Compare.CompareTarget"></a>
-
-### Compare.CompareTarget
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| VERSION | 0 |  |
-| CREATE | 1 |  |
-| MOD | 2 |  |
-| VALUE | 3 |  |
-| LEASE | 4 |  |
-
 
  
 
