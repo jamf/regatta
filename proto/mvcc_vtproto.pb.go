@@ -49,8 +49,8 @@ func (m *Command) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.Tx != nil {
-		size, err := m.Tx.MarshalToSizedBufferVT(dAtA[:i])
+	if m.Txn != nil {
+		size, err := m.Txn.MarshalToSizedBufferVT(dAtA[:i])
 		if err != nil {
 			return 0, err
 		}
@@ -156,7 +156,7 @@ func (m *CommandResult) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *Tx) MarshalVT() (dAtA []byte, err error) {
+func (m *Txn) MarshalVT() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -169,12 +169,12 @@ func (m *Tx) MarshalVT() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *Tx) MarshalToVT(dAtA []byte) (int, error) {
+func (m *Txn) MarshalToVT(dAtA []byte) (int, error) {
 	size := m.SizeVT()
 	return m.MarshalToSizedBufferVT(dAtA[:size])
 }
 
-func (m *Tx) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+func (m *Txn) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m == nil {
 		return 0, nil
 	}
@@ -1022,8 +1022,8 @@ func (m *Command) SizeVT() (n int) {
 			n += 1 + l + sov(uint64(l))
 		}
 	}
-	if m.Tx != nil {
-		l = m.Tx.SizeVT()
+	if m.Txn != nil {
+		l = m.Txn.SizeVT()
 		n += 1 + l + sov(uint64(l))
 	}
 	if m.unknownFields != nil {
@@ -1050,7 +1050,7 @@ func (m *CommandResult) SizeVT() (n int) {
 	return n
 }
 
-func (m *Tx) SizeVT() (n int) {
+func (m *Txn) SizeVT() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1642,7 +1642,7 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 			iNdEx = postIndex
 		case 7:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Tx", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Txn", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1669,10 +1669,10 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Tx == nil {
-				m.Tx = &Tx{}
+			if m.Txn == nil {
+				m.Txn = &Txn{}
 			}
-			if err := m.Tx.UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.Txn.UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1783,7 +1783,7 @@ func (m *CommandResult) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *Tx) UnmarshalVT(dAtA []byte) error {
+func (m *Txn) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1806,10 +1806,10 @@ func (m *Tx) UnmarshalVT(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Tx: wiretype end group for non-group")
+			return fmt.Errorf("proto: Txn: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Tx: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Txn: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

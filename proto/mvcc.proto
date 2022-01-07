@@ -15,7 +15,7 @@ message Command {
     DUMMY = 2;
     PUT_BATCH = 3;
     DELETE_BATCH = 4;
-    TX = 5;
+    TXN = 5;
   }
 
   // table name of the table
@@ -39,18 +39,18 @@ message Command {
   // leader_index holds the value of the log index of a leader cluster from which this command was replicated from.
   optional uint64 leader_index = 5;
 
-  // Atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions).
+  // batch is an atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions).
   repeated KeyValue batch = 6;
 
-  // Atomic transaction (slow, supports reads and conditions).
-  optional Tx tx = 7;
+  // txn is an atomic transaction (slow, supports reads and conditions).
+  optional Txn txn = 7;
 }
 
 message CommandResult {
   repeated ResponseOp responses = 1;
 }
 
-message Tx {
+message Txn {
   // compare is a list of predicates representing a conjunction of terms.
   // If the comparisons succeed, then the success requests will be processed in order,
   // and the response will contain their respective responses in order.
