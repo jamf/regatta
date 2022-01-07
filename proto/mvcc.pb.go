@@ -32,6 +32,7 @@ const (
 	Command_DUMMY        Command_CommandType = 2
 	Command_PUT_BATCH    Command_CommandType = 3
 	Command_DELETE_BATCH Command_CommandType = 4
+	Command_TXN          Command_CommandType = 5
 )
 
 // Enum value maps for Command_CommandType.
@@ -42,6 +43,7 @@ var (
 		2: "DUMMY",
 		3: "PUT_BATCH",
 		4: "DELETE_BATCH",
+		5: "TXN",
 	}
 	Command_CommandType_value = map[string]int32{
 		"PUT":          0,
@@ -49,6 +51,7 @@ var (
 		"DUMMY":        2,
 		"PUT_BATCH":    3,
 		"DELETE_BATCH": 4,
+		"TXN":          5,
 	}
 )
 
@@ -79,6 +82,113 @@ func (Command_CommandType) EnumDescriptor() ([]byte, []int) {
 	return file_mvcc_proto_rawDescGZIP(), []int{0, 0}
 }
 
+type Compare_CompareResult int32
+
+const (
+	Compare_EQUAL     Compare_CompareResult = 0
+	Compare_GREATER   Compare_CompareResult = 1
+	Compare_LESS      Compare_CompareResult = 2
+	Compare_NOT_EQUAL Compare_CompareResult = 3
+)
+
+// Enum value maps for Compare_CompareResult.
+var (
+	Compare_CompareResult_name = map[int32]string{
+		0: "EQUAL",
+		1: "GREATER",
+		2: "LESS",
+		3: "NOT_EQUAL",
+	}
+	Compare_CompareResult_value = map[string]int32{
+		"EQUAL":     0,
+		"GREATER":   1,
+		"LESS":      2,
+		"NOT_EQUAL": 3,
+	}
+)
+
+func (x Compare_CompareResult) Enum() *Compare_CompareResult {
+	p := new(Compare_CompareResult)
+	*p = x
+	return p
+}
+
+func (x Compare_CompareResult) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Compare_CompareResult) Descriptor() protoreflect.EnumDescriptor {
+	return file_mvcc_proto_enumTypes[1].Descriptor()
+}
+
+func (Compare_CompareResult) Type() protoreflect.EnumType {
+	return &file_mvcc_proto_enumTypes[1]
+}
+
+func (x Compare_CompareResult) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Compare_CompareResult.Descriptor instead.
+func (Compare_CompareResult) EnumDescriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{5, 0}
+}
+
+type Compare_CompareTarget int32
+
+const (
+	Compare_VERSION Compare_CompareTarget = 0
+	Compare_CREATE  Compare_CompareTarget = 1
+	Compare_MOD     Compare_CompareTarget = 2
+	Compare_LEASE   Compare_CompareTarget = 3
+	Compare_VALUE   Compare_CompareTarget = 4
+)
+
+// Enum value maps for Compare_CompareTarget.
+var (
+	Compare_CompareTarget_name = map[int32]string{
+		0: "VERSION",
+		1: "CREATE",
+		2: "MOD",
+		3: "LEASE",
+		4: "VALUE",
+	}
+	Compare_CompareTarget_value = map[string]int32{
+		"VERSION": 0,
+		"CREATE":  1,
+		"MOD":     2,
+		"LEASE":   3,
+		"VALUE":   4,
+	}
+)
+
+func (x Compare_CompareTarget) Enum() *Compare_CompareTarget {
+	p := new(Compare_CompareTarget)
+	*p = x
+	return p
+}
+
+func (x Compare_CompareTarget) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Compare_CompareTarget) Descriptor() protoreflect.EnumDescriptor {
+	return file_mvcc_proto_enumTypes[2].Descriptor()
+}
+
+func (Compare_CompareTarget) Type() protoreflect.EnumType {
+	return &file_mvcc_proto_enumTypes[2]
+}
+
+func (x Compare_CompareTarget) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Compare_CompareTarget.Descriptor instead.
+func (Compare_CompareTarget) EnumDescriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{5, 1}
+}
+
 type Command struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -100,8 +210,10 @@ type Command struct {
 	PrevKv *KeyValue `protobuf:"bytes,4,opt,name=prev_kv,json=prevKv,proto3" json:"prev_kv,omitempty"`
 	// leader_index holds the value of the log index of a leader cluster from which this command was replicated from.
 	LeaderIndex *uint64 `protobuf:"varint,5,opt,name=leader_index,json=leaderIndex,proto3,oneof" json:"leader_index,omitempty"`
-	// Batch of KVs to either PUT or DELETE.
+	// batch is an atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions).
 	Batch []*KeyValue `protobuf:"bytes,6,rep,name=batch,proto3" json:"batch,omitempty"`
+	// txn is an atomic transaction (slow, supports reads and conditions).
+	Txn *Txn `protobuf:"bytes,7,opt,name=txn,proto3,oneof" json:"txn,omitempty"`
 }
 
 func (x *Command) Reset() {
@@ -178,6 +290,486 @@ func (x *Command) GetBatch() []*KeyValue {
 	return nil
 }
 
+func (x *Command) GetTxn() *Txn {
+	if x != nil {
+		return x.Txn
+	}
+	return nil
+}
+
+type CommandResult struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Responses []*ResponseOp `protobuf:"bytes,1,rep,name=responses,proto3" json:"responses,omitempty"`
+}
+
+func (x *CommandResult) Reset() {
+	*x = CommandResult{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CommandResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommandResult) ProtoMessage() {}
+
+func (x *CommandResult) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
+func (*CommandResult) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CommandResult) GetResponses() []*ResponseOp {
+	if x != nil {
+		return x.Responses
+	}
+	return nil
+}
+
+type Txn struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// compare is a list of predicates representing a conjunction of terms.
+	// If the comparisons succeed, then the success requests will be processed in order,
+	// and the response will contain their respective responses in order.
+	// If the comparisons fail, then the failure requests will be processed in order,
+	// and the response will contain their respective responses in order.
+	Compare []*Compare `protobuf:"bytes,1,rep,name=compare,proto3" json:"compare,omitempty"`
+	// success is a list of requests which will be applied when compare evaluates to true.
+	Success []*RequestOp `protobuf:"bytes,2,rep,name=success,proto3" json:"success,omitempty"`
+	// failure is a list of requests which will be applied when compare evaluates to false.
+	Failure []*RequestOp `protobuf:"bytes,3,rep,name=failure,proto3" json:"failure,omitempty"`
+}
+
+func (x *Txn) Reset() {
+	*x = Txn{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Txn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Txn) ProtoMessage() {}
+
+func (x *Txn) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Txn.ProtoReflect.Descriptor instead.
+func (*Txn) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Txn) GetCompare() []*Compare {
+	if x != nil {
+		return x.Compare
+	}
+	return nil
+}
+
+func (x *Txn) GetSuccess() []*RequestOp {
+	if x != nil {
+		return x.Success
+	}
+	return nil
+}
+
+func (x *Txn) GetFailure() []*RequestOp {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+type RequestOp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// request is a union of request types accepted by a transaction.
+	//
+	// Types that are assignable to Request:
+	//	*RequestOp_RequestRange
+	//	*RequestOp_RequestPut
+	//	*RequestOp_RequestDeleteRange
+	Request isRequestOp_Request `protobuf_oneof:"request"`
+}
+
+func (x *RequestOp) Reset() {
+	*x = RequestOp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RequestOp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestOp) ProtoMessage() {}
+
+func (x *RequestOp) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestOp.ProtoReflect.Descriptor instead.
+func (*RequestOp) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{3}
+}
+
+func (m *RequestOp) GetRequest() isRequestOp_Request {
+	if m != nil {
+		return m.Request
+	}
+	return nil
+}
+
+func (x *RequestOp) GetRequestRange() *RequestOp_Range {
+	if x, ok := x.GetRequest().(*RequestOp_RequestRange); ok {
+		return x.RequestRange
+	}
+	return nil
+}
+
+func (x *RequestOp) GetRequestPut() *RequestOp_Put {
+	if x, ok := x.GetRequest().(*RequestOp_RequestPut); ok {
+		return x.RequestPut
+	}
+	return nil
+}
+
+func (x *RequestOp) GetRequestDeleteRange() *RequestOp_DeleteRange {
+	if x, ok := x.GetRequest().(*RequestOp_RequestDeleteRange); ok {
+		return x.RequestDeleteRange
+	}
+	return nil
+}
+
+type isRequestOp_Request interface {
+	isRequestOp_Request()
+}
+
+type RequestOp_RequestRange struct {
+	RequestRange *RequestOp_Range `protobuf:"bytes,1,opt,name=request_range,json=requestRange,proto3,oneof"`
+}
+
+type RequestOp_RequestPut struct {
+	RequestPut *RequestOp_Put `protobuf:"bytes,2,opt,name=request_put,json=requestPut,proto3,oneof"`
+}
+
+type RequestOp_RequestDeleteRange struct {
+	RequestDeleteRange *RequestOp_DeleteRange `protobuf:"bytes,3,opt,name=request_delete_range,json=requestDeleteRange,proto3,oneof"`
+}
+
+func (*RequestOp_RequestRange) isRequestOp_Request() {}
+
+func (*RequestOp_RequestPut) isRequestOp_Request() {}
+
+func (*RequestOp_RequestDeleteRange) isRequestOp_Request() {}
+
+type ResponseOp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// response is a union of response types returned by a transaction.
+	//
+	// Types that are assignable to Response:
+	//	*ResponseOp_ResponseRange
+	//	*ResponseOp_ResponsePut
+	//	*ResponseOp_ResponseDeleteRange
+	Response isResponseOp_Response `protobuf_oneof:"response"`
+}
+
+func (x *ResponseOp) Reset() {
+	*x = ResponseOp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResponseOp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResponseOp) ProtoMessage() {}
+
+func (x *ResponseOp) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResponseOp.ProtoReflect.Descriptor instead.
+func (*ResponseOp) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{4}
+}
+
+func (m *ResponseOp) GetResponse() isResponseOp_Response {
+	if m != nil {
+		return m.Response
+	}
+	return nil
+}
+
+func (x *ResponseOp) GetResponseRange() *ResponseOp_Range {
+	if x, ok := x.GetResponse().(*ResponseOp_ResponseRange); ok {
+		return x.ResponseRange
+	}
+	return nil
+}
+
+func (x *ResponseOp) GetResponsePut() *ResponseOp_Put {
+	if x, ok := x.GetResponse().(*ResponseOp_ResponsePut); ok {
+		return x.ResponsePut
+	}
+	return nil
+}
+
+func (x *ResponseOp) GetResponseDeleteRange() *ResponseOp_DeleteRange {
+	if x, ok := x.GetResponse().(*ResponseOp_ResponseDeleteRange); ok {
+		return x.ResponseDeleteRange
+	}
+	return nil
+}
+
+type isResponseOp_Response interface {
+	isResponseOp_Response()
+}
+
+type ResponseOp_ResponseRange struct {
+	ResponseRange *ResponseOp_Range `protobuf:"bytes,1,opt,name=response_range,json=responseRange,proto3,oneof"`
+}
+
+type ResponseOp_ResponsePut struct {
+	ResponsePut *ResponseOp_Put `protobuf:"bytes,2,opt,name=response_put,json=responsePut,proto3,oneof"`
+}
+
+type ResponseOp_ResponseDeleteRange struct {
+	ResponseDeleteRange *ResponseOp_DeleteRange `protobuf:"bytes,3,opt,name=response_delete_range,json=responseDeleteRange,proto3,oneof"`
+}
+
+func (*ResponseOp_ResponseRange) isResponseOp_Response() {}
+
+func (*ResponseOp_ResponsePut) isResponseOp_Response() {}
+
+func (*ResponseOp_ResponseDeleteRange) isResponseOp_Response() {}
+
+type Compare struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// result is logical comparison operation for this comparison.
+	Result Compare_CompareResult `protobuf:"varint,1,opt,name=result,proto3,enum=mvcc.v1.Compare_CompareResult" json:"result,omitempty"`
+	// target is the key-value field to inspect for the comparison.
+	Target Compare_CompareTarget `protobuf:"varint,2,opt,name=target,proto3,enum=mvcc.v1.Compare_CompareTarget" json:"target,omitempty"`
+	// key is the subject key for the comparison operation.
+	Key []byte `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	// Types that are assignable to TargetUnion:
+	//	*Compare_Version
+	//	*Compare_CreateRevision
+	//	*Compare_ModRevision
+	//	*Compare_Value
+	//	*Compare_Lease
+	TargetUnion isCompare_TargetUnion `protobuf_oneof:"target_union"`
+	// range_end compares the given target to all keys in the range [key, range_end).
+	// See RangeRequest for more details on key ranges.
+	RangeEnd []byte `protobuf:"bytes,64,opt,name=range_end,json=rangeEnd,proto3" json:"range_end,omitempty"` // TODO: fill out with most of the rest of RangeRequest fields when needed.
+}
+
+func (x *Compare) Reset() {
+	*x = Compare{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Compare) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Compare) ProtoMessage() {}
+
+func (x *Compare) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Compare.ProtoReflect.Descriptor instead.
+func (*Compare) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Compare) GetResult() Compare_CompareResult {
+	if x != nil {
+		return x.Result
+	}
+	return Compare_EQUAL
+}
+
+func (x *Compare) GetTarget() Compare_CompareTarget {
+	if x != nil {
+		return x.Target
+	}
+	return Compare_VERSION
+}
+
+func (x *Compare) GetKey() []byte {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (m *Compare) GetTargetUnion() isCompare_TargetUnion {
+	if m != nil {
+		return m.TargetUnion
+	}
+	return nil
+}
+
+func (x *Compare) GetVersion() int64 {
+	if x, ok := x.GetTargetUnion().(*Compare_Version); ok {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *Compare) GetCreateRevision() int64 {
+	if x, ok := x.GetTargetUnion().(*Compare_CreateRevision); ok {
+		return x.CreateRevision
+	}
+	return 0
+}
+
+func (x *Compare) GetModRevision() int64 {
+	if x, ok := x.GetTargetUnion().(*Compare_ModRevision); ok {
+		return x.ModRevision
+	}
+	return 0
+}
+
+func (x *Compare) GetValue() []byte {
+	if x, ok := x.GetTargetUnion().(*Compare_Value); ok {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *Compare) GetLease() int64 {
+	if x, ok := x.GetTargetUnion().(*Compare_Lease); ok {
+		return x.Lease
+	}
+	return 0
+}
+
+func (x *Compare) GetRangeEnd() []byte {
+	if x != nil {
+		return x.RangeEnd
+	}
+	return nil
+}
+
+type isCompare_TargetUnion interface {
+	isCompare_TargetUnion()
+}
+
+type Compare_Version struct {
+	// version is the version of the given key
+	Version int64 `protobuf:"varint,4,opt,name=version,proto3,oneof"`
+}
+
+type Compare_CreateRevision struct {
+	// create_revision is the creation revision of the given key
+	CreateRevision int64 `protobuf:"varint,5,opt,name=create_revision,json=createRevision,proto3,oneof"`
+}
+
+type Compare_ModRevision struct {
+	// mod_revision is the last modified revision of the given key.
+	ModRevision int64 `protobuf:"varint,6,opt,name=mod_revision,json=modRevision,proto3,oneof"`
+}
+
+type Compare_Value struct {
+	// value is the value of the given key, in bytes.
+	Value []byte `protobuf:"bytes,7,opt,name=value,proto3,oneof"`
+}
+
+type Compare_Lease struct {
+	// lease is the lease id of the given key.
+	Lease int64 `protobuf:"varint,8,opt,name=lease,proto3,oneof"` // leave room for more target_union field tags, jump to 64
+}
+
+func (*Compare_Version) isCompare_TargetUnion() {}
+
+func (*Compare_CreateRevision) isCompare_TargetUnion() {}
+
+func (*Compare_ModRevision) isCompare_TargetUnion() {}
+
+func (*Compare_Value) isCompare_TargetUnion() {}
+
+func (*Compare_Lease) isCompare_TargetUnion() {}
+
 type KeyValue struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -196,7 +788,7 @@ type KeyValue struct {
 func (x *KeyValue) Reset() {
 	*x = KeyValue{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_mvcc_proto_msgTypes[1]
+		mi := &file_mvcc_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -209,7 +801,7 @@ func (x *KeyValue) String() string {
 func (*KeyValue) ProtoMessage() {}
 
 func (x *KeyValue) ProtoReflect() protoreflect.Message {
-	mi := &file_mvcc_proto_msgTypes[1]
+	mi := &file_mvcc_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -222,7 +814,7 @@ func (x *KeyValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValue.ProtoReflect.Descriptor instead.
 func (*KeyValue) Descriptor() ([]byte, []int) {
-	return file_mvcc_proto_rawDescGZIP(), []int{1}
+	return file_mvcc_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *KeyValue) GetKey() []byte {
@@ -253,11 +845,409 @@ func (x *KeyValue) GetValue() []byte {
 	return nil
 }
 
+type RequestOp_Range struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// key is the first key for the range. If range_end is not given, the request only looks up key.
+	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// range_end is the upper bound on the requested range [key, range_end).
+	// If range_end is '\0', the range is all keys >= key.
+	// If range_end is key plus one (e.g., "aa"+1 == "ab", "a\xff"+1 == "b"),
+	// then the range request gets all keys prefixed with key.
+	// If both key and range_end are '\0', then the range request returns all keys.
+	RangeEnd []byte `protobuf:"bytes,2,opt,name=range_end,json=rangeEnd,proto3" json:"range_end,omitempty"`
+	// limit is a limit on the number of keys returned for the request. When limit is set to 0,
+	// it is treated as no limit.
+	Limit int64 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	// keys_only when set returns only the keys and not the values.
+	KeysOnly bool `protobuf:"varint,4,opt,name=keys_only,json=keysOnly,proto3" json:"keys_only,omitempty"`
+	// count_only when set returns only the count of the keys in the range.
+	CountOnly bool `protobuf:"varint,5,opt,name=count_only,json=countOnly,proto3" json:"count_only,omitempty"`
+}
+
+func (x *RequestOp_Range) Reset() {
+	*x = RequestOp_Range{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RequestOp_Range) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestOp_Range) ProtoMessage() {}
+
+func (x *RequestOp_Range) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestOp_Range.ProtoReflect.Descriptor instead.
+func (*RequestOp_Range) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{3, 0}
+}
+
+func (x *RequestOp_Range) GetKey() []byte {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *RequestOp_Range) GetRangeEnd() []byte {
+	if x != nil {
+		return x.RangeEnd
+	}
+	return nil
+}
+
+func (x *RequestOp_Range) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *RequestOp_Range) GetKeysOnly() bool {
+	if x != nil {
+		return x.KeysOnly
+	}
+	return false
+}
+
+func (x *RequestOp_Range) GetCountOnly() bool {
+	if x != nil {
+		return x.CountOnly
+	}
+	return false
+}
+
+type RequestOp_Put struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// key is the key, in bytes, to put into the key-value store.
+	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// value is the value, in bytes, to associate with the key in the key-value store.
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	// prev_kv if true the previous key-value pair will be returned in the put response.
+	PrevKv bool `protobuf:"varint,3,opt,name=prev_kv,json=prevKv,proto3" json:"prev_kv,omitempty"`
+}
+
+func (x *RequestOp_Put) Reset() {
+	*x = RequestOp_Put{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RequestOp_Put) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestOp_Put) ProtoMessage() {}
+
+func (x *RequestOp_Put) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestOp_Put.ProtoReflect.Descriptor instead.
+func (*RequestOp_Put) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{3, 1}
+}
+
+func (x *RequestOp_Put) GetKey() []byte {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *RequestOp_Put) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *RequestOp_Put) GetPrevKv() bool {
+	if x != nil {
+		return x.PrevKv
+	}
+	return false
+}
+
+type RequestOp_DeleteRange struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// key is the first key to delete in the range.
+	Key []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// range_end is the key following the last key to delete for the range [key, range_end).
+	// If range_end is not given, the range is defined to contain only the key argument.
+	// If range_end is one bit larger than the given key, then the range is all the keys
+	// with the prefix (the given key).
+	// If range_end is '\0', the range is all keys greater than or equal to the key argument.
+	RangeEnd []byte `protobuf:"bytes,2,opt,name=range_end,json=rangeEnd,proto3" json:"range_end,omitempty"`
+	// If prev_kv is set, etcd gets the previous key-value pairs before deleting it.
+	// The previous key-value pairs will be returned in the delete response.
+	PrevKv bool `protobuf:"varint,3,opt,name=prev_kv,json=prevKv,proto3" json:"prev_kv,omitempty"`
+}
+
+func (x *RequestOp_DeleteRange) Reset() {
+	*x = RequestOp_DeleteRange{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RequestOp_DeleteRange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestOp_DeleteRange) ProtoMessage() {}
+
+func (x *RequestOp_DeleteRange) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestOp_DeleteRange.ProtoReflect.Descriptor instead.
+func (*RequestOp_DeleteRange) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{3, 2}
+}
+
+func (x *RequestOp_DeleteRange) GetKey() []byte {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *RequestOp_DeleteRange) GetRangeEnd() []byte {
+	if x != nil {
+		return x.RangeEnd
+	}
+	return nil
+}
+
+func (x *RequestOp_DeleteRange) GetPrevKv() bool {
+	if x != nil {
+		return x.PrevKv
+	}
+	return false
+}
+
+type ResponseOp_Range struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// kvs is the list of key-value pairs matched by the range request.
+	// kvs is empty when count is requested.
+	Kvs []*KeyValue `protobuf:"bytes,1,rep,name=kvs,proto3" json:"kvs,omitempty"`
+	// more indicates if there are more keys to return in the requested range.
+	More bool `protobuf:"varint,2,opt,name=more,proto3" json:"more,omitempty"`
+	// count is set to the number of keys within the range when requested.
+	Count int64 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+}
+
+func (x *ResponseOp_Range) Reset() {
+	*x = ResponseOp_Range{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResponseOp_Range) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResponseOp_Range) ProtoMessage() {}
+
+func (x *ResponseOp_Range) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResponseOp_Range.ProtoReflect.Descriptor instead.
+func (*ResponseOp_Range) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{4, 0}
+}
+
+func (x *ResponseOp_Range) GetKvs() []*KeyValue {
+	if x != nil {
+		return x.Kvs
+	}
+	return nil
+}
+
+func (x *ResponseOp_Range) GetMore() bool {
+	if x != nil {
+		return x.More
+	}
+	return false
+}
+
+func (x *ResponseOp_Range) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type ResponseOp_Put struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// if prev_kv is set in the request, the previous key-value pair will be returned.
+	PrevKv *KeyValue `protobuf:"bytes,1,opt,name=prev_kv,json=prevKv,proto3" json:"prev_kv,omitempty"`
+}
+
+func (x *ResponseOp_Put) Reset() {
+	*x = ResponseOp_Put{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResponseOp_Put) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResponseOp_Put) ProtoMessage() {}
+
+func (x *ResponseOp_Put) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResponseOp_Put.ProtoReflect.Descriptor instead.
+func (*ResponseOp_Put) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{4, 1}
+}
+
+func (x *ResponseOp_Put) GetPrevKv() *KeyValue {
+	if x != nil {
+		return x.PrevKv
+	}
+	return nil
+}
+
+type ResponseOp_DeleteRange struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// deleted is the number of keys deleted by the delete range request.
+	Deleted int64 `protobuf:"varint,1,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	// if prev_kv is set in the request, the previous key-value pairs will be returned.
+	PrevKvs []*KeyValue `protobuf:"bytes,2,rep,name=prev_kvs,json=prevKvs,proto3" json:"prev_kvs,omitempty"`
+}
+
+func (x *ResponseOp_DeleteRange) Reset() {
+	*x = ResponseOp_DeleteRange{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_mvcc_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResponseOp_DeleteRange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResponseOp_DeleteRange) ProtoMessage() {}
+
+func (x *ResponseOp_DeleteRange) ProtoReflect() protoreflect.Message {
+	mi := &file_mvcc_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResponseOp_DeleteRange.ProtoReflect.Descriptor instead.
+func (*ResponseOp_DeleteRange) Descriptor() ([]byte, []int) {
+	return file_mvcc_proto_rawDescGZIP(), []int{4, 2}
+}
+
+func (x *ResponseOp_DeleteRange) GetDeleted() int64 {
+	if x != nil {
+		return x.Deleted
+	}
+	return 0
+}
+
+func (x *ResponseOp_DeleteRange) GetPrevKvs() []*KeyValue {
+	if x != nil {
+		return x.PrevKvs
+	}
+	return nil
+}
+
 var File_mvcc_proto protoreflect.FileDescriptor
 
 var file_mvcc_proto_rawDesc = []byte{
 	0x0a, 0x0a, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x07, 0x6d, 0x76,
-	0x63, 0x63, 0x2e, 0x76, 0x31, 0x22, 0xd2, 0x02, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e,
+	0x63, 0x63, 0x2e, 0x76, 0x31, 0x22, 0x88, 0x03, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e,
 	0x64, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c,
 	0x52, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x12, 0x30, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18,
 	0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1c, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e,
@@ -272,22 +1262,132 @@ var file_mvcc_proto_rawDesc = []byte{
 	0x52, 0x0b, 0x6c, 0x65, 0x61, 0x64, 0x65, 0x72, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x88, 0x01, 0x01,
 	0x12, 0x27, 0x0a, 0x05, 0x62, 0x61, 0x74, 0x63, 0x68, 0x18, 0x06, 0x20, 0x03, 0x28, 0x0b, 0x32,
 	0x11, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c,
-	0x75, 0x65, 0x52, 0x05, 0x62, 0x61, 0x74, 0x63, 0x68, 0x22, 0x4e, 0x0a, 0x0b, 0x43, 0x6f, 0x6d,
-	0x6d, 0x61, 0x6e, 0x64, 0x54, 0x79, 0x70, 0x65, 0x12, 0x07, 0x0a, 0x03, 0x50, 0x55, 0x54, 0x10,
-	0x00, 0x12, 0x0a, 0x0a, 0x06, 0x44, 0x45, 0x4c, 0x45, 0x54, 0x45, 0x10, 0x01, 0x12, 0x09, 0x0a,
-	0x05, 0x44, 0x55, 0x4d, 0x4d, 0x59, 0x10, 0x02, 0x12, 0x0d, 0x0a, 0x09, 0x50, 0x55, 0x54, 0x5f,
-	0x42, 0x41, 0x54, 0x43, 0x48, 0x10, 0x03, 0x12, 0x10, 0x0a, 0x0c, 0x44, 0x45, 0x4c, 0x45, 0x54,
-	0x45, 0x5f, 0x42, 0x41, 0x54, 0x43, 0x48, 0x10, 0x04, 0x42, 0x0f, 0x0a, 0x0d, 0x5f, 0x6c, 0x65,
-	0x61, 0x64, 0x65, 0x72, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x22, 0x7e, 0x0a, 0x08, 0x4b, 0x65,
-	0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x27, 0x0a, 0x0f, 0x63, 0x72, 0x65, 0x61,
-	0x74, 0x65, 0x5f, 0x72, 0x65, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x03, 0x52, 0x0e, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x52, 0x65, 0x76, 0x69, 0x73, 0x69, 0x6f,
-	0x6e, 0x12, 0x21, 0x0a, 0x0c, 0x6d, 0x6f, 0x64, 0x5f, 0x72, 0x65, 0x76, 0x69, 0x73, 0x69, 0x6f,
-	0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0b, 0x6d, 0x6f, 0x64, 0x52, 0x65, 0x76, 0x69,
-	0x73, 0x69, 0x6f, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x04, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x2f,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x75, 0x65, 0x52, 0x05, 0x62, 0x61, 0x74, 0x63, 0x68, 0x12, 0x23, 0x0a, 0x03, 0x74, 0x78, 0x6e,
+	0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31,
+	0x2e, 0x54, 0x78, 0x6e, 0x48, 0x01, 0x52, 0x03, 0x74, 0x78, 0x6e, 0x88, 0x01, 0x01, 0x22, 0x57,
+	0x0a, 0x0b, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x54, 0x79, 0x70, 0x65, 0x12, 0x07, 0x0a,
+	0x03, 0x50, 0x55, 0x54, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x44, 0x45, 0x4c, 0x45, 0x54, 0x45,
+	0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x44, 0x55, 0x4d, 0x4d, 0x59, 0x10, 0x02, 0x12, 0x0d, 0x0a,
+	0x09, 0x50, 0x55, 0x54, 0x5f, 0x42, 0x41, 0x54, 0x43, 0x48, 0x10, 0x03, 0x12, 0x10, 0x0a, 0x0c,
+	0x44, 0x45, 0x4c, 0x45, 0x54, 0x45, 0x5f, 0x42, 0x41, 0x54, 0x43, 0x48, 0x10, 0x04, 0x12, 0x07,
+	0x0a, 0x03, 0x54, 0x58, 0x4e, 0x10, 0x05, 0x42, 0x0f, 0x0a, 0x0d, 0x5f, 0x6c, 0x65, 0x61, 0x64,
+	0x65, 0x72, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x42, 0x06, 0x0a, 0x04, 0x5f, 0x74, 0x78, 0x6e,
+	0x22, 0x42, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x75, 0x6c,
+	0x74, 0x12, 0x31, 0x0a, 0x09, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x73, 0x18, 0x01,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x4f, 0x70, 0x52, 0x09, 0x72, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x73, 0x22, 0x8d, 0x01, 0x0a, 0x03, 0x54, 0x78, 0x6e, 0x12, 0x2a, 0x0a, 0x07,
+	0x63, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x10, 0x2e,
+	0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x52,
+	0x07, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x12, 0x2c, 0x0a, 0x07, 0x73, 0x75, 0x63, 0x63,
+	0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x6d, 0x76, 0x63, 0x63,
+	0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x4f, 0x70, 0x52, 0x07, 0x73,
+	0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x12, 0x2c, 0x0a, 0x07, 0x66, 0x61, 0x69, 0x6c, 0x75, 0x72,
+	0x65, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76,
+	0x31, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x4f, 0x70, 0x52, 0x07, 0x66, 0x61, 0x69,
+	0x6c, 0x75, 0x72, 0x65, 0x22, 0x90, 0x04, 0x0a, 0x09, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x4f, 0x70, 0x12, 0x3f, 0x0a, 0x0d, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x5f, 0x72, 0x61,
+	0x6e, 0x67, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x6d, 0x76, 0x63, 0x63,
+	0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x4f, 0x70, 0x2e, 0x52, 0x61,
+	0x6e, 0x67, 0x65, 0x48, 0x00, 0x52, 0x0c, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x61,
+	0x6e, 0x67, 0x65, 0x12, 0x39, 0x0a, 0x0b, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x5f, 0x70,
+	0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e,
+	0x76, 0x31, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x4f, 0x70, 0x2e, 0x50, 0x75, 0x74,
+	0x48, 0x00, 0x52, 0x0a, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x50, 0x75, 0x74, 0x12, 0x52,
+	0x0a, 0x14, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x5f, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65,
+	0x5f, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x6d,
+	0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x4f, 0x70,
+	0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x48, 0x00, 0x52, 0x12,
+	0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x61, 0x6e,
+	0x67, 0x65, 0x1a, 0x88, 0x01, 0x0a, 0x05, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x10, 0x0a, 0x03,
+	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x1b,
+	0x0a, 0x09, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x5f, 0x65, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0c, 0x52, 0x08, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x45, 0x6e, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x6c,
+	0x69, 0x6d, 0x69, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69,
+	0x74, 0x12, 0x1b, 0x0a, 0x09, 0x6b, 0x65, 0x79, 0x73, 0x5f, 0x6f, 0x6e, 0x6c, 0x79, 0x18, 0x04,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x4f, 0x6e, 0x6c, 0x79, 0x12, 0x1d,
+	0x0a, 0x0a, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x5f, 0x6f, 0x6e, 0x6c, 0x79, 0x18, 0x05, 0x20, 0x01,
+	0x28, 0x08, 0x52, 0x09, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x4f, 0x6e, 0x6c, 0x79, 0x1a, 0x46, 0x0a,
+	0x03, 0x50, 0x75, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x17, 0x0a, 0x07,
+	0x70, 0x72, 0x65, 0x76, 0x5f, 0x6b, 0x76, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x70,
+	0x72, 0x65, 0x76, 0x4b, 0x76, 0x1a, 0x55, 0x0a, 0x0b, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52,
+	0x61, 0x6e, 0x67, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x1b, 0x0a, 0x09, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x5f,
+	0x65, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x08, 0x72, 0x61, 0x6e, 0x67, 0x65,
+	0x45, 0x6e, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x70, 0x72, 0x65, 0x76, 0x5f, 0x6b, 0x76, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x70, 0x72, 0x65, 0x76, 0x4b, 0x76, 0x42, 0x09, 0x0a, 0x07,
+	0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0xd3, 0x03, 0x0a, 0x0a, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x4f, 0x70, 0x12, 0x42, 0x0a, 0x0e, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x5f, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19,
+	0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x4f, 0x70, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x48, 0x00, 0x52, 0x0d, 0x72, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x3c, 0x0a, 0x0c, 0x72, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x70, 0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x17, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x4f, 0x70, 0x2e, 0x50, 0x75, 0x74, 0x48, 0x00, 0x52, 0x0b, 0x72, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x50, 0x75, 0x74, 0x12, 0x55, 0x0a, 0x15, 0x72, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x5f, 0x72, 0x61, 0x6e, 0x67,
+	0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76,
+	0x31, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x4f, 0x70, 0x2e, 0x44, 0x65, 0x6c,
+	0x65, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x48, 0x00, 0x52, 0x13, 0x72, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x1a,
+	0x56, 0x0a, 0x05, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x23, 0x0a, 0x03, 0x6b, 0x76, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e,
+	0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x03, 0x6b, 0x76, 0x73, 0x12, 0x12, 0x0a,
+	0x04, 0x6d, 0x6f, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x6d, 0x6f, 0x72,
+	0x65, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03,
+	0x52, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x1a, 0x31, 0x0a, 0x03, 0x50, 0x75, 0x74, 0x12, 0x2a,
+	0x0a, 0x07, 0x70, 0x72, 0x65, 0x76, 0x5f, 0x6b, 0x76, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x11, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c,
+	0x75, 0x65, 0x52, 0x06, 0x70, 0x72, 0x65, 0x76, 0x4b, 0x76, 0x1a, 0x55, 0x0a, 0x0b, 0x44, 0x65,
+	0x6c, 0x65, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x64, 0x65, 0x6c,
+	0x65, 0x74, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x64, 0x65, 0x6c, 0x65,
+	0x74, 0x65, 0x64, 0x12, 0x2c, 0x0a, 0x08, 0x70, 0x72, 0x65, 0x76, 0x5f, 0x6b, 0x76, 0x73, 0x18,
+	0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e,
+	0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x07, 0x70, 0x72, 0x65, 0x76, 0x4b, 0x76,
+	0x73, 0x42, 0x0a, 0x0a, 0x08, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xdf, 0x03,
+	0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x12, 0x36, 0x0a, 0x06, 0x72, 0x65, 0x73,
+	0x75, 0x6c, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1e, 0x2e, 0x6d, 0x76, 0x63, 0x63,
+	0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x2e, 0x43, 0x6f, 0x6d, 0x70,
+	0x61, 0x72, 0x65, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x52, 0x06, 0x72, 0x65, 0x73, 0x75, 0x6c,
+	0x74, 0x12, 0x36, 0x0a, 0x06, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0e, 0x32, 0x1e, 0x2e, 0x6d, 0x76, 0x63, 0x63, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70,
+	0x61, 0x72, 0x65, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x54, 0x61, 0x72, 0x67, 0x65,
+	0x74, 0x52, 0x06, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x1a, 0x0a, 0x07, 0x76,
+	0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x03, 0x48, 0x00, 0x52, 0x07,
+	0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x29, 0x0a, 0x0f, 0x63, 0x72, 0x65, 0x61, 0x74,
+	0x65, 0x5f, 0x72, 0x65, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x05, 0x20, 0x01, 0x28, 0x03,
+	0x48, 0x00, 0x52, 0x0e, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x52, 0x65, 0x76, 0x69, 0x73, 0x69,
+	0x6f, 0x6e, 0x12, 0x23, 0x0a, 0x0c, 0x6d, 0x6f, 0x64, 0x5f, 0x72, 0x65, 0x76, 0x69, 0x73, 0x69,
+	0x6f, 0x6e, 0x18, 0x06, 0x20, 0x01, 0x28, 0x03, 0x48, 0x00, 0x52, 0x0b, 0x6d, 0x6f, 0x64, 0x52,
+	0x65, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x16, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x18, 0x07, 0x20, 0x01, 0x28, 0x0c, 0x48, 0x00, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x12,
+	0x16, 0x0a, 0x05, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x03, 0x48, 0x00,
+	0x52, 0x05, 0x6c, 0x65, 0x61, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x72, 0x61, 0x6e, 0x67, 0x65,
+	0x5f, 0x65, 0x6e, 0x64, 0x18, 0x40, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x08, 0x72, 0x61, 0x6e, 0x67,
+	0x65, 0x45, 0x6e, 0x64, 0x22, 0x40, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x52,
+	0x65, 0x73, 0x75, 0x6c, 0x74, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x51, 0x55, 0x41, 0x4c, 0x10, 0x00,
+	0x12, 0x0b, 0x0a, 0x07, 0x47, 0x52, 0x45, 0x41, 0x54, 0x45, 0x52, 0x10, 0x01, 0x12, 0x08, 0x0a,
+	0x04, 0x4c, 0x45, 0x53, 0x53, 0x10, 0x02, 0x12, 0x0d, 0x0a, 0x09, 0x4e, 0x4f, 0x54, 0x5f, 0x45,
+	0x51, 0x55, 0x41, 0x4c, 0x10, 0x03, 0x22, 0x47, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x72,
+	0x65, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x12, 0x0b, 0x0a, 0x07, 0x56, 0x45, 0x52, 0x53, 0x49,
+	0x4f, 0x4e, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x43, 0x52, 0x45, 0x41, 0x54, 0x45, 0x10, 0x01,
+	0x12, 0x07, 0x0a, 0x03, 0x4d, 0x4f, 0x44, 0x10, 0x02, 0x12, 0x09, 0x0a, 0x05, 0x4c, 0x45, 0x41,
+	0x53, 0x45, 0x10, 0x03, 0x12, 0x09, 0x0a, 0x05, 0x56, 0x41, 0x4c, 0x55, 0x45, 0x10, 0x04, 0x42,
+	0x0e, 0x0a, 0x0c, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x5f, 0x75, 0x6e, 0x69, 0x6f, 0x6e, 0x22,
+	0x7e, 0x0a, 0x08, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b,
+	0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x27, 0x0a,
+	0x0f, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x5f, 0x72, 0x65, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0e, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x52, 0x65,
+	0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x21, 0x0a, 0x0c, 0x6d, 0x6f, 0x64, 0x5f, 0x72, 0x65,
+	0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0b, 0x6d, 0x6f,
+	0x64, 0x52, 0x65, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42,
+	0x09, 0x5a, 0x07, 0x2e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -302,23 +1402,52 @@ func file_mvcc_proto_rawDescGZIP() []byte {
 	return file_mvcc_proto_rawDescData
 }
 
-var file_mvcc_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_mvcc_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_mvcc_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_mvcc_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_mvcc_proto_goTypes = []interface{}{
-	(Command_CommandType)(0), // 0: mvcc.v1.Command.CommandType
-	(*Command)(nil),          // 1: mvcc.v1.Command
-	(*KeyValue)(nil),         // 2: mvcc.v1.KeyValue
+	(Command_CommandType)(0),       // 0: mvcc.v1.Command.CommandType
+	(Compare_CompareResult)(0),     // 1: mvcc.v1.Compare.CompareResult
+	(Compare_CompareTarget)(0),     // 2: mvcc.v1.Compare.CompareTarget
+	(*Command)(nil),                // 3: mvcc.v1.Command
+	(*CommandResult)(nil),          // 4: mvcc.v1.CommandResult
+	(*Txn)(nil),                    // 5: mvcc.v1.Txn
+	(*RequestOp)(nil),              // 6: mvcc.v1.RequestOp
+	(*ResponseOp)(nil),             // 7: mvcc.v1.ResponseOp
+	(*Compare)(nil),                // 8: mvcc.v1.Compare
+	(*KeyValue)(nil),               // 9: mvcc.v1.KeyValue
+	(*RequestOp_Range)(nil),        // 10: mvcc.v1.RequestOp.Range
+	(*RequestOp_Put)(nil),          // 11: mvcc.v1.RequestOp.Put
+	(*RequestOp_DeleteRange)(nil),  // 12: mvcc.v1.RequestOp.DeleteRange
+	(*ResponseOp_Range)(nil),       // 13: mvcc.v1.ResponseOp.Range
+	(*ResponseOp_Put)(nil),         // 14: mvcc.v1.ResponseOp.Put
+	(*ResponseOp_DeleteRange)(nil), // 15: mvcc.v1.ResponseOp.DeleteRange
 }
 var file_mvcc_proto_depIdxs = []int32{
-	0, // 0: mvcc.v1.Command.type:type_name -> mvcc.v1.Command.CommandType
-	2, // 1: mvcc.v1.Command.kv:type_name -> mvcc.v1.KeyValue
-	2, // 2: mvcc.v1.Command.prev_kv:type_name -> mvcc.v1.KeyValue
-	2, // 3: mvcc.v1.Command.batch:type_name -> mvcc.v1.KeyValue
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0,  // 0: mvcc.v1.Command.type:type_name -> mvcc.v1.Command.CommandType
+	9,  // 1: mvcc.v1.Command.kv:type_name -> mvcc.v1.KeyValue
+	9,  // 2: mvcc.v1.Command.prev_kv:type_name -> mvcc.v1.KeyValue
+	9,  // 3: mvcc.v1.Command.batch:type_name -> mvcc.v1.KeyValue
+	5,  // 4: mvcc.v1.Command.txn:type_name -> mvcc.v1.Txn
+	7,  // 5: mvcc.v1.CommandResult.responses:type_name -> mvcc.v1.ResponseOp
+	8,  // 6: mvcc.v1.Txn.compare:type_name -> mvcc.v1.Compare
+	6,  // 7: mvcc.v1.Txn.success:type_name -> mvcc.v1.RequestOp
+	6,  // 8: mvcc.v1.Txn.failure:type_name -> mvcc.v1.RequestOp
+	10, // 9: mvcc.v1.RequestOp.request_range:type_name -> mvcc.v1.RequestOp.Range
+	11, // 10: mvcc.v1.RequestOp.request_put:type_name -> mvcc.v1.RequestOp.Put
+	12, // 11: mvcc.v1.RequestOp.request_delete_range:type_name -> mvcc.v1.RequestOp.DeleteRange
+	13, // 12: mvcc.v1.ResponseOp.response_range:type_name -> mvcc.v1.ResponseOp.Range
+	14, // 13: mvcc.v1.ResponseOp.response_put:type_name -> mvcc.v1.ResponseOp.Put
+	15, // 14: mvcc.v1.ResponseOp.response_delete_range:type_name -> mvcc.v1.ResponseOp.DeleteRange
+	1,  // 15: mvcc.v1.Compare.result:type_name -> mvcc.v1.Compare.CompareResult
+	2,  // 16: mvcc.v1.Compare.target:type_name -> mvcc.v1.Compare.CompareTarget
+	9,  // 17: mvcc.v1.ResponseOp.Range.kvs:type_name -> mvcc.v1.KeyValue
+	9,  // 18: mvcc.v1.ResponseOp.Put.prev_kv:type_name -> mvcc.v1.KeyValue
+	9,  // 19: mvcc.v1.ResponseOp.DeleteRange.prev_kvs:type_name -> mvcc.v1.KeyValue
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_mvcc_proto_init() }
@@ -340,7 +1469,139 @@ func file_mvcc_proto_init() {
 			}
 		}
 		file_mvcc_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CommandResult); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Txn); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RequestOp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResponseOp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Compare); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*KeyValue); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RequestOp_Range); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RequestOp_Put); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RequestOp_DeleteRange); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResponseOp_Range); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResponseOp_Put); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_mvcc_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResponseOp_DeleteRange); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -353,13 +1614,30 @@ func file_mvcc_proto_init() {
 		}
 	}
 	file_mvcc_proto_msgTypes[0].OneofWrappers = []interface{}{}
+	file_mvcc_proto_msgTypes[3].OneofWrappers = []interface{}{
+		(*RequestOp_RequestRange)(nil),
+		(*RequestOp_RequestPut)(nil),
+		(*RequestOp_RequestDeleteRange)(nil),
+	}
+	file_mvcc_proto_msgTypes[4].OneofWrappers = []interface{}{
+		(*ResponseOp_ResponseRange)(nil),
+		(*ResponseOp_ResponsePut)(nil),
+		(*ResponseOp_ResponseDeleteRange)(nil),
+	}
+	file_mvcc_proto_msgTypes[5].OneofWrappers = []interface{}{
+		(*Compare_Version)(nil),
+		(*Compare_CreateRevision)(nil),
+		(*Compare_ModRevision)(nil),
+		(*Compare_Value)(nil),
+		(*Compare_Lease)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_mvcc_proto_rawDesc,
-			NumEnums:      1,
-			NumMessages:   2,
+			NumEnums:      3,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
