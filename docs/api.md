@@ -26,7 +26,7 @@
     - [ResponseOp.DeleteRange](#mvcc.v1.ResponseOp.DeleteRange)
     - [ResponseOp.Put](#mvcc.v1.ResponseOp.Put)
     - [ResponseOp.Range](#mvcc.v1.ResponseOp.Range)
-    - [Tx](#mvcc.v1.Tx)
+    - [Txn](#mvcc.v1.Txn)
   
     - [Command.CommandType](#mvcc.v1.Command.CommandType)
     - [Compare.CompareResult](#mvcc.v1.Compare.CompareResult)
@@ -198,8 +198,8 @@ Maintenance service provides methods for maintenance purposes.
 | kv | [KeyValue](#mvcc.v1.KeyValue) |  | kv holds the KeyValue for the event. A PUT event contains current kv pair. A PUT event with kv.Version=1 indicates the creation of a key. A DELETE/EXPIRE event contains the deleted key with its modification revision set to the revision of deletion. |
 | prev_kv | [KeyValue](#mvcc.v1.KeyValue) |  | prev_kv holds the key-value pair before the event happens. |
 | leader_index | [uint64](#uint64) | optional | leader_index holds the value of the log index of a leader cluster from which this command was replicated from. |
-| batch | [KeyValue](#mvcc.v1.KeyValue) | repeated | Atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions). |
-| tx | [Tx](#mvcc.v1.Tx) | optional | Atomic transaction (slow, supports reads and conditions). |
+| batch | [KeyValue](#mvcc.v1.KeyValue) | repeated | batch is an atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions). |
+| txn | [Txn](#mvcc.v1.Txn) | optional | txn is an atomic transaction (slow, supports reads and conditions). |
 
 
 
@@ -401,9 +401,9 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 
-<a name="mvcc.v1.Tx"></a>
+<a name="mvcc.v1.Txn"></a>
 
-### Tx
+### Txn
 
 
 
@@ -432,7 +432,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 | DUMMY | 2 |  |
 | PUT_BATCH | 3 |  |
 | DELETE_BATCH | 4 |  |
-| TX | 5 |  |
+| TXN | 5 |  |
 
 
 
