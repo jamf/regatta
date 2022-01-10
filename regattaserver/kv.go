@@ -117,24 +117,25 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 	return r, nil
 }
 
+// TODO uncomment
 // Txn processes multiple requests in a single transaction.
 // A txn request increments the revision of the key-value store
 // and generates events with the same revision for every completed request.
 // It is not allowed to modify the same key several times within one txn.
-func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
-	tableString := string(req.GetTable())
-	for _, t := range s.ManagedTables {
-		if t == tableString {
-			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
-		}
-	}
+// func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+// tableString := string(req.GetTable())
+// for _, t := range s.ManagedTables {
+// 	if t == tableString {
+// 		return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
+// 	}
+// }
 
-	r, err := s.Storage.Txn(ctx, req)
-	if err != nil {
-		if err == storage.ErrNotFound {
-			return nil, status.Errorf(codes.NotFound, "key not found")
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	return r, nil
-}
+// r, err := s.Storage.Txn(ctx, req)
+// if err != nil {
+// 	if err == storage.ErrNotFound {
+// 		return nil, status.Errorf(codes.NotFound, "key not found")
+// 	}
+// 	return nil, status.Errorf(codes.Internal, err.Error())
+// }
+// return r, nil
+// }
