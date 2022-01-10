@@ -18,6 +18,7 @@ import (
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
+	"github.com/wandera/regatta/storage/table/fsm"
 	"go.uber.org/zap"
 )
 
@@ -493,7 +494,7 @@ func (m *Manager) startTable(name string, id uint64) error {
 	return m.nh.StartOnDiskCluster(
 		m.members,
 		false,
-		table.NewFSM(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
+		fsm.NewFSM(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }
@@ -522,11 +523,11 @@ type Cleanup struct {
 }
 
 func (m *Manager) stopTable(clusterID uint64) error {
-	v, err := m.nh.StaleRead(clusterID, table.PathRequest{})
+	v, err := m.nh.StaleRead(clusterID, fsm.PathRequest{})
 	if err != nil {
 		return err
 	}
-	pr := v.(*table.PathResponse)
+	pr := v.(*fsm.PathResponse)
 	b, err := json.Marshal(&Cleanup{
 		Created:    time.Now(),
 		ClusterID:  clusterID,
