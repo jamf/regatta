@@ -48,7 +48,7 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) 
 		return err
 	}
 
-	// iterate through he whole kv space and send it to writer
+	// iterate through the whole kv space and send it to writer
 	for iter.First(); iter.Valid(); iter.Next() {
 		select {
 		case <-stopc:
