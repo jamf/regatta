@@ -200,6 +200,7 @@ Maintenance service provides methods for maintenance purposes.
 | leader_index | [uint64](#uint64) | optional | leader_index holds the value of the log index of a leader cluster from which this command was replicated from. |
 | batch | [KeyValue](#mvcc.v1.KeyValue) | repeated | batch is an atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions). |
 | txn | [Txn](#mvcc.v1.Txn) | optional | txn is an atomic transaction (slow, supports reads and conditions). |
+| range_end | [bytes](#bytes) | optional | range_end is the key following the last key to affect for the range [kv.key, range_end). If range_end is not given, the range is defined to contain only the kv.key argument. If range_end is one bit larger than the given kv.key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
 
 
 

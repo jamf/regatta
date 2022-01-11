@@ -214,9 +214,13 @@ func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEnt
 	}
 
 	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
-	if req.RangeEnd != nil && !bytes.Equal(req.RangeEnd, wildcard) {
-		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RangeEnd))))
-		err = encodeUserKey(upperBuf, req.RangeEnd)
+	if req.RangeEnd != nil {
+		end := req.RangeEnd
+		if bytes.Equal(end, wildcard) {
+			end = key.LatestMaxKey
+		}
+		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(end))))
+		err = encodeUserKey(upperBuf, end)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -243,10 +247,6 @@ func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *prot
 		decoder := key.NewDecoder(r)
 		if err := decoder.Decode(&k); err != nil {
 			return err
-		}
-
-		if k.KeyType != key.TypeUser {
-			continue
 		}
 
 		if i == limit && limit != 0 {

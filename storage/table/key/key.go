@@ -31,6 +31,10 @@ const (
 // LatestKeyLen computes the length of key of a latest version.
 var LatestKeyLen = V1Len
 
+var LatestMinKey = V1MinKey()
+
+var LatestMaxKey = V1MaxKey()
+
 var (
 	// ErrUnknownKeyVersion key version is not implemented in this build.
 	ErrUnknownKeyVersion = errors.New("unknown key version")
