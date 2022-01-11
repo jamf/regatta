@@ -12,9 +12,10 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v3/statemachine"
+	"github.com/stretchr/testify/require"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
-	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap"
 )
 
 type inputRecord struct {
@@ -122,47 +123,31 @@ var input = map[int][]*proto.Command{
 
 // TestGenerateData is useful for generating test data for new features.
 func TestGenerateData(t *testing.T) {
+	t.Skip("Unskip for generation of a new version")
 	for version, commands := range input {
 		generateFiles(t, version, commands)
 	}
 }
 
+//nolint:unused
 func generateFiles(t *testing.T, index int, inputCommands []*proto.Command) {
-	inputFile := fmt.Sprintf("v%d-input.json", index)
-	inFile, err := os.Create(path.Join("testdata", inputFile))
+	inFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-input.json", index)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer inFile.Close()
 
-	outputFile := fmt.Sprintf("v%d-output.json", index)
-	outFile, err := os.Create(path.Join("testdata", outputFile))
+	outFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-output.json", index)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer outFile.Close()
 
-	c := pebble.NewCache(0)
-	defer c.Unref()
-	fsm := FSM{
-		pebble:     nil,
-		wo:         &pebble.WriteOptions{Sync: true},
-		fs:         vfs.NewMem(),
-		clusterID:  1,
-		nodeID:     1,
-		tableName:  "test",
-		dirname:    "/tmp",
-		walDirname: "/tmp",
-		closed:     false,
-		log:        zaptest.NewLogger(t).Sugar(),
-		blockCache: c,
-	}
-
-	db, err := rp.OpenDB(fsm.fs, fsm.dirname, fsm.walDirname, fsm.blockCache)
+	fsm, err := createTestFSM()
 	if err != nil {
 		t.Fatal(err)
 	}
-	atomic.StorePointer(&fsm.pebble, unsafe.Pointer(db))
+	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
 
 	var inputs []inputRecord
 	for i, cmd := range inputCommands {
@@ -193,15 +178,105 @@ func generateFiles(t *testing.T, index int, inputCommands []*proto.Command) {
 	var outputs []outputRecord
 	iter := db.NewIter(nil)
 	for iter.First(); iter.Valid(); iter.Next() {
-		outputs = append(outputs, outputRecord{
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		})
+		record := outputRecord{
+			Key:   make([]byte, len(iter.Key())),
+			Value: make([]byte, len(iter.Value())),
+		}
+		copy(record.Key, iter.Key())
+		copy(record.Value, iter.Value())
+		outputs = append(outputs, record)
 	}
 
 	oe := json.NewEncoder(outFile)
 	oe.SetIndent("", "  ")
 	if err := oe.Encode(outputs); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func createTestFSM() (*FSM, error) {
+	c := pebble.NewCache(0)
+	fsm := &FSM{
+		pebble:     nil,
+		wo:         &pebble.WriteOptions{Sync: true},
+		fs:         vfs.NewMem(),
+		clusterID:  1,
+		nodeID:     1,
+		tableName:  "test",
+		dirname:    "/tmp",
+		walDirname: "/tmp",
+		closed:     false,
+		log:        zap.NewNop().Sugar(),
+		blockCache: c,
+	}
+
+	db, err := rp.OpenDB(fsm.fs, fsm.dirname, fsm.walDirname, fsm.blockCache)
+	if err != nil {
+		return nil, err
+	}
+	atomic.StorePointer(&fsm.pebble, unsafe.Pointer(db))
+	return fsm, err
+}
+
+func TestDataConsistency(t *testing.T) {
+	for index := 0; index < len(input); index++ {
+		testConsistency(t, index)
+	}
+}
+
+func testConsistency(t *testing.T, index int) {
+	r := require.New(t)
+
+	inFile, err := os.Open(path.Join("testdata", fmt.Sprintf("v%d-input.json", index)))
+	if err != nil {
+		r.NoError(err)
+	}
+	defer inFile.Close()
+
+	outFile, err := os.Open(path.Join("testdata", fmt.Sprintf("v%d-output.json", index)))
+	if err != nil {
+		r.NoError(err)
+	}
+	defer outFile.Close()
+
+	fsm, err := createTestFSM()
+	if err != nil {
+		r.NoError(err)
+	}
+	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
+
+	var input []inputRecord
+	r.NoError(json.NewDecoder(inFile).Decode(&input))
+
+	for i, record := range input {
+		_, err := fsm.Update([]sm.Entry{
+			{
+				Index:  uint64(i),
+				Cmd:    record.Cmd,
+				Result: sm.Result{},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var output []outputRecord
+	r.NoError(json.NewDecoder(outFile).Decode(&output))
+
+	count := 0
+	iter := db.NewIter(nil)
+	for iter.First(); iter.Valid(); iter.Next() {
+		count++
+	}
+	r.Equal(len(output), count)
+
+	for _, record := range output {
+		value, closer, err := db.Get(record.Key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Equal(record.Value, value)
+		r.NoError(closer.Close())
 	}
 }
