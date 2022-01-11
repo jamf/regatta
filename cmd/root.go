@@ -33,6 +33,7 @@ Follower one is connected to.`,
 	SuggestFor:         []string{leaderCmd.Use, followerCmd.Use},
 	DisableFlagParsing: true,
 	DisableAutoGenTag:  true,
+	CompletionOptions:  cobra.CompletionOptions{DisableDefaultCmd: true},
 }
 
 // Execute cobra command.
