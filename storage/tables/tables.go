@@ -494,7 +494,7 @@ func (m *Manager) startTable(name string, id uint64) error {
 	return m.nh.StartOnDiskCluster(
 		m.members,
 		false,
-		fsm.NewFSM(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
+		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }
