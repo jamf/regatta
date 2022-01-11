@@ -44,6 +44,13 @@ message Command {
 
   // txn is an atomic transaction (slow, supports reads and conditions).
   optional Txn txn = 7;
+
+  // range_end is the key following the last key to affect for the range [kv.key, range_end).
+  // If range_end is not given, the range is defined to contain only the kv.key argument.
+  // If range_end is one bit larger than the given kv.key, then the range is all the keys
+  // with the prefix (the given key).
+  // If range_end is '\0', the range is all keys greater than or equal to the key argument.
+  optional bytes range_end = 8;
 }
 
 message CommandResult {

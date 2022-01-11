@@ -134,6 +134,56 @@ var input = map[int][]*proto.Command{
 			},
 		},
 	},
+	1: {
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_1"),
+				Value: []byte("value_1"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_2"),
+				Value: []byte("value_2"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("not_match"),
+				Value: []byte("value"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_DELETE,
+			Kv: &proto.KeyValue{
+				Key: []byte("key"),
+			},
+			RangeEnd: addOne([]byte("key")),
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_3"),
+				Value: []byte("value_3"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_DELETE,
+			Kv: &proto.KeyValue{
+				Key: []byte{0},
+			},
+			RangeEnd: []byte{0},
+		},
+	},
 }
 
 // TestGenerateData is useful for generating test data for new features.

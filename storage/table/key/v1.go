@@ -19,6 +19,22 @@ func V1Len(userkeyLen int) int {
 	return keyHeaderLen + 1 + userkeyLen
 }
 
+var V1MinKey = func() []byte {
+	var minKey []byte
+	for i := 0; i < keyV1BodyLen-1; i++ {
+		minKey = append(minKey, 0)
+	}
+	return minKey
+}
+
+var V1MaxKey = func() []byte {
+	var maxKey []byte
+	for i := 0; i < keyV1BodyLen-1; i++ {
+		maxKey = append(maxKey, 255)
+	}
+	return maxKey
+}
+
 type keyV1 struct {
 	keyType Type
 	key     []byte
