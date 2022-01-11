@@ -18,6 +18,21 @@ import (
 	"go.uber.org/zap"
 )
 
+/*
+This file is used for generating test data (`TestGenerateData`) to be provided
+to the state machine via commands and checking whether the state machine
+stays consistent (`TestDataConsistency`). The purpose of these tests is to
+catch undesired modifications to the state machine when refactoring or adding
+new features.
+
+When adding a feature to the state machine, resulting in a new command
+available, add the new commands to the `input` map as a new key-value
+pair with the version one higher than the highest version in the map and the commands
+as a slice `*proto.Command`s. Before running the tests, remove the skipping
+of tests in `TestGenerateData` to generate the data for the new commands.
+Before committing, put the line back in.
+*/
+
 type inputRecord struct {
 	Cmd []byte `json:"cmd"`
 }
@@ -130,14 +145,14 @@ func TestGenerateData(t *testing.T) {
 }
 
 //nolint:unused
-func generateFiles(t *testing.T, index int, inputCommands []*proto.Command) {
-	inFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-input.json", index)))
+func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
+	inFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-input.json", version)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer inFile.Close()
 
-	outFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-output.json", index)))
+	outFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-output.json", version)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,21 +234,21 @@ func createTestFSM() (*FSM, error) {
 }
 
 func TestDataConsistency(t *testing.T) {
-	for index := 0; index < len(input); index++ {
-		testConsistency(t, index)
+	for version := 0; version < len(input); version++ {
+		testConsistency(t, version)
 	}
 }
 
-func testConsistency(t *testing.T, index int) {
+func testConsistency(t *testing.T, version int) {
 	r := require.New(t)
 
-	inFile, err := os.Open(path.Join("testdata", fmt.Sprintf("v%d-input.json", index)))
+	inFile, err := os.Open(path.Join("testdata", fmt.Sprintf("v%d-input.json", version)))
 	if err != nil {
 		r.NoError(err)
 	}
 	defer inFile.Close()
 
-	outFile, err := os.Open(path.Join("testdata", fmt.Sprintf("v%d-output.json", index)))
+	outFile, err := os.Open(path.Join("testdata", fmt.Sprintf("v%d-output.json", version)))
 	if err != nil {
 		r.NoError(err)
 	}
@@ -247,7 +262,7 @@ func testConsistency(t *testing.T, index int) {
 	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
 
 	var inputRecords []inputRecord
-	r.NoError(json.NewDecoder(inFile).Decode(&input))
+	r.NoError(json.NewDecoder(inFile).Decode(&inputRecords))
 
 	for i, record := range inputRecords {
 		_, err := fsm.Update([]sm.Entry{
