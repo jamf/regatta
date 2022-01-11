@@ -243,12 +243,13 @@ func testConsistency(t *testing.T, index int) {
 	if err != nil {
 		r.NoError(err)
 	}
+	defer fsm.Close()
 	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
 
-	var input []inputRecord
+	var inputRecords []inputRecord
 	r.NoError(json.NewDecoder(inFile).Decode(&input))
 
-	for i, record := range input {
+	for i, record := range inputRecords {
 		_, err := fsm.Update([]sm.Entry{
 			{
 				Index:  uint64(i),
@@ -256,27 +257,20 @@ func testConsistency(t *testing.T, index int) {
 				Result: sm.Result{},
 			},
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		r.NoError(err)
 	}
 
-	var output []outputRecord
-	r.NoError(json.NewDecoder(outFile).Decode(&output))
+	var outputRecords []outputRecord
+	r.NoError(json.NewDecoder(outFile).Decode(&outputRecords))
 
-	count := 0
+	i := 0
 	iter := db.NewIter(nil)
 	for iter.First(); iter.Valid(); iter.Next() {
-		count++
+		r.Equal(outputRecords[i].Key, iter.Key())
+		r.Equal(outputRecords[i].Value, iter.Value())
+		r.NoError(iter.Error())
+		i++
 	}
-	r.Equal(len(output), count)
-
-	for _, record := range output {
-		value, closer, err := db.Get(record.Key)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.Equal(record.Value, value)
-		r.NoError(closer.Close())
-	}
+	r.Equal(len(outputRecords), i)
+	r.NoError(iter.Close())
 }
