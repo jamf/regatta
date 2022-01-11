@@ -48,7 +48,7 @@ const (
 	ResultSuccess
 )
 
-func NewFSM(tableName, stateMachineDir string, walDirname string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
+func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
