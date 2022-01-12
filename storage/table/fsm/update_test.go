@@ -258,7 +258,7 @@ func TestSM_Update(t *testing.T) {
 							Table:       []byte("test"),
 							Type:        proto.Command_DELETE,
 							Kv:          &proto.KeyValue{Key: []byte("test")},
-							RangeEnd:    addOne([]byte("test")),
+							RangeEnd:    incrementRightmostByte([]byte("test")),
 						}),
 					},
 				},
