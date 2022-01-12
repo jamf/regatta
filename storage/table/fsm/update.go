@@ -31,26 +31,27 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		if err := ctx.Init(updates[i]); err != nil {
 			return nil, err
 		}
+
+		var (
+			result sm.Result
+			err    error
+		)
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:
-			if err := handlePut(ctx); err != nil {
-				return nil, err
-			}
+			result, err = handlePut(ctx)
 		case proto.Command_DELETE:
-			if err := handleDelete(ctx); err != nil {
-				return nil, err
-			}
+			result, err = handleDelete(ctx)
 		case proto.Command_PUT_BATCH:
-			if err := handlePutBatch(ctx); err != nil {
-				return nil, err
-			}
+			result, err = handlePutBatch(ctx)
 		case proto.Command_DELETE_BATCH:
-			if err := handleDeleteBatch(ctx); err != nil {
-				return nil, err
-			}
+			result, err = handleDeleteBatch(ctx)
 		case proto.Command_DUMMY:
+			result = sm.Result{Value: ResultSuccess}
 		}
-		updates[i].Result = sm.Result{Value: ResultSuccess}
+		if err != nil {
+			return nil, err
+		}
+		updates[i].Result = result
 	}
 
 	if err := ctx.Commit(); err != nil {
@@ -60,50 +61,67 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	return updates, nil
 }
 
-func handlePut(ctx *updateContext) error {
+func handlePut(ctx *updateContext) (sm.Result, error) {
 	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
-		return err
+		return sm.Result{Value: ResultFailure}, err
 	}
 	if err := ctx.batch.Set(ctx.keyBuf.Bytes(), ctx.cmd.Kv.Value, nil); err != nil {
-		return err
+		return sm.Result{Value: ResultFailure}, err
 	}
-	return nil
+	return sm.Result{Value: ResultSuccess}, nil
 }
 
-func handleDelete(ctx *updateContext) error {
+func handleDelete(ctx *updateContext) (sm.Result, error) {
 	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
-		return err
+		return sm.Result{Value: ResultFailure}, err
 	}
-	if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-		return err
+	if ctx.cmd.RangeEnd != nil {
+		var end []byte
+		if bytes.Equal(ctx.cmd.RangeEnd, wildcard) {
+			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
+			end = incrementRightmostByte(maxUserKey)
+		} else {
+			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(end))))
+			if err := encodeUserKey(upperBuf, end); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			end = upperBuf.Bytes()
+		}
+		if err := ctx.batch.DeleteRange(ctx.keyBuf.Bytes(), end, nil); err != nil {
+			return sm.Result{Value: ResultFailure}, err
+		}
+	} else {
+		if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
+			return sm.Result{Value: ResultFailure}, err
+		}
 	}
-	return nil
+	return sm.Result{Value: ResultSuccess}, nil
 }
 
-func handlePutBatch(ctx *updateContext) error {
+func handlePutBatch(ctx *updateContext) (sm.Result, error) {
 	for _, kv := range ctx.cmd.Batch {
 		if err := encodeUserKey(ctx.keyBuf, kv.Key); err != nil {
-			return err
+			return sm.Result{Value: ResultFailure}, err
 		}
 		if err := ctx.batch.Set(ctx.keyBuf.Bytes(), kv.Value, nil); err != nil {
-			return err
+			return sm.Result{Value: ResultFailure}, err
 		}
 		ctx.keyBuf.Reset()
 	}
-	return nil
+	return sm.Result{Value: ResultSuccess}, nil
 }
 
-func handleDeleteBatch(ctx *updateContext) error {
+func handleDeleteBatch(ctx *updateContext) (sm.Result, error) {
 	for _, kv := range ctx.cmd.Batch {
 		if err := encodeUserKey(ctx.keyBuf, kv.Key); err != nil {
-			return err
+			return sm.Result{Value: ResultFailure}, err
 		}
 		if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-			return err
+			return sm.Result{Value: ResultFailure}, err
 		}
 		ctx.keyBuf.Reset()
 	}
-	return nil
+	return sm.Result{Value: ResultSuccess}, nil
 }
 
 type updateContext struct {

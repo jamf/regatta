@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
 )
 
@@ -132,6 +133,64 @@ var input = map[int][]*proto.Command{
 					Value: []byte("value"),
 				},
 			},
+		},
+	},
+	1: {
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_1"),
+				Value: []byte("value_1"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_2"),
+				Value: []byte("value_2"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("not_match"),
+				Value: []byte("value"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_DELETE,
+			Kv: &proto.KeyValue{
+				Key: []byte("key"),
+			},
+			RangeEnd: incrementRightmostByte([]byte("key")),
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_3"),
+				Value: []byte("value_3"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   key.LatestMaxKey,
+				Value: []byte("value_3"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_DELETE,
+			Kv: &proto.KeyValue{
+				Key: []byte{0},
+			},
+			RangeEnd: []byte{0},
 		},
 	},
 }

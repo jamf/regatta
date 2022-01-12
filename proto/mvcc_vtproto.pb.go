@@ -49,6 +49,15 @@ func (m *Command) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.RangeEnd != nil {
+		if len(m.RangeEnd) > 0 {
+			i -= len(m.RangeEnd)
+			copy(dAtA[i:], m.RangeEnd)
+			i = encodeVarint(dAtA, i, uint64(len(m.RangeEnd)))
+			i--
+			dAtA[i] = 0x42
+		}
+	}
 	if m.Txn != nil {
 		size, err := m.Txn.MarshalToSizedBufferVT(dAtA[:i])
 		if err != nil {
@@ -979,9 +988,11 @@ var vtprotoPool_Command = sync.Pool{
 func (m *Command) ResetVT() {
 	f0 := m.Table[:0]
 	f1 := m.Batch[:0]
+	f2 := m.RangeEnd[:0]
 	m.Reset()
 	m.Table = f0
 	m.Batch = f1
+	m.RangeEnd = f2
 }
 func (m *Command) ReturnToVTPool() {
 	if m != nil {
@@ -1025,6 +1036,12 @@ func (m *Command) SizeVT() (n int) {
 	if m.Txn != nil {
 		l = m.Txn.SizeVT()
 		n += 1 + l + sov(uint64(l))
+	}
+	if m.RangeEnd != nil {
+		l = len(m.RangeEnd)
+		if l > 0 {
+			n += 1 + l + sov(uint64(l))
+		}
 	}
 	if m.unknownFields != nil {
 		n += len(m.unknownFields)
@@ -1674,6 +1691,40 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 			}
 			if err := m.Txn.UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
 				return err
+			}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RangeEnd", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RangeEnd = append(m.RangeEnd[:0], dAtA[iNdEx:postIndex]...)
+			if m.RangeEnd == nil {
+				m.RangeEnd = []byte{}
 			}
 			iNdEx = postIndex
 		default:

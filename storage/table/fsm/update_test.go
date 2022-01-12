@@ -53,15 +53,6 @@ func TestSM_Update(t *testing.T) {
 			want: []sm.Entry{
 				{
 					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						LeaderIndex: &one,
-						Table:       []byte("test"),
-						Type:        proto.Command_PUT,
-						Kv: &proto.KeyValue{
-							Key:   []byte("test"),
-							Value: []byte("test"),
-						},
-					}),
 					Result: sm.Result{
 						Value: 1,
 						Data:  nil,
@@ -90,11 +81,6 @@ func TestSM_Update(t *testing.T) {
 			want: []sm.Entry{
 				{
 					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						LeaderIndex: &one,
-						Table:       []byte("test"),
-						Type:        proto.Command_DUMMY,
-					}),
 					Result: sm.Result{
 						Value: 1,
 						Data:  nil,
@@ -138,15 +124,6 @@ func TestSM_Update(t *testing.T) {
 			want: []sm.Entry{
 				{
 					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						LeaderIndex: &one,
-						Table:       []byte("test"),
-						Type:        proto.Command_PUT,
-						Kv: &proto.KeyValue{
-							Key:   []byte("test"),
-							Value: []byte("test"),
-						},
-					}),
 					Result: sm.Result{
 						Value: 1,
 						Data:  nil,
@@ -154,14 +131,6 @@ func TestSM_Update(t *testing.T) {
 				},
 				{
 					Index: 2,
-					Cmd: mustMarshallProto(&proto.Command{
-						LeaderIndex: &two,
-						Table:       []byte("test"),
-						Type:        proto.Command_DELETE,
-						Kv: &proto.KeyValue{
-							Key: []byte("test"),
-						},
-					}),
 					Result: sm.Result{
 						Value: 1,
 						Data:  nil,
@@ -204,25 +173,6 @@ func TestSM_Update(t *testing.T) {
 			want: []sm.Entry{
 				{
 					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						LeaderIndex: &one,
-						Table:       []byte("test"),
-						Type:        proto.Command_PUT_BATCH,
-						Batch: []*proto.KeyValue{
-							{
-								Key:   []byte("test"),
-								Value: []byte("test"),
-							},
-							{
-								Key:   []byte("test1"),
-								Value: []byte("test"),
-							},
-							{
-								Key:   []byte("test2"),
-								Value: []byte("test"),
-							},
-						},
-					}),
 					Result: sm.Result{
 						Value: 1,
 						Data:  nil,
@@ -262,22 +212,142 @@ func TestSM_Update(t *testing.T) {
 			want: []sm.Entry{
 				{
 					Index: 1,
-					Cmd: mustMarshallProto(&proto.Command{
-						LeaderIndex: &one,
-						Table:       []byte("test"),
-						Type:        proto.Command_DELETE_BATCH,
-						Batch: []*proto.KeyValue{
-							{
-								Key: []byte("test"),
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+			},
+			wantLeaderIndex: 1,
+		},
+		{
+			name: "Pebble - Successful DELETE range",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test1"),
+								Value: []byte("test"),
 							},
-							{
-								Key: []byte("test1"),
+						}),
+					},
+					{
+						Index: 2,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test2"),
+								Value: []byte("test"),
 							},
-							{
-								Key: []byte("test2"),
+						}),
+					},
+					{
+						Index: 3,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_DELETE,
+							Kv:          &proto.KeyValue{Key: []byte("test")},
+							RangeEnd:    incrementRightmostByte([]byte("test")),
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+				{
+					Index: 2,
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+				{
+					Index: 3,
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+			},
+			wantLeaderIndex: 1,
+		},
+		{
+			name: "Pebble - Successful DELETE all range",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test1"),
+								Value: []byte("test"),
 							},
-						},
-					}),
+						}),
+					},
+					{
+						Index: 2,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test2"),
+								Value: []byte("test"),
+							},
+						}),
+					},
+					{
+						Index: 3,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_DELETE,
+							Kv:          &proto.KeyValue{Key: []byte("test")},
+							RangeEnd:    []byte{0},
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+				{
+					Index: 2,
+					Result: sm.Result{
+						Value: 1,
+						Data:  nil,
+					},
+				},
+				{
+					Index: 3,
 					Result: sm.Result{
 						Value: 1,
 						Data:  nil,
@@ -299,16 +369,31 @@ func TestSM_Update(t *testing.T) {
 				r.Error(err)
 				return
 			}
-			r.Equal(tt.want, got)
 
-			// Test whether the leaderIndex has changed.
-			res, err := p.Lookup(LeaderIndexRequest{})
+			maxIndex := uint64(0)
+			for i, entry := range got {
+				r.Equal(tt.want[i].Index, entry.Index)
+				r.Equal(tt.want[i].Result, entry.Result)
+				maxIndex = entry.Index
+			}
+
+			// Test whether the index is stored.
+			res, err := p.Lookup(LocalIndexRequest{})
 			r.NoError(err)
 			indexRes, ok := res.(*IndexResponse)
 			if !ok {
 				r.Fail("could not cast response to *IndexResponse")
 			}
-			r.Equal(indexRes.Index, tt.wantLeaderIndex)
+			r.Equal(indexRes.Index, maxIndex)
+
+			// Test whether the leaderIndex has changed.
+			res, err = p.Lookup(LeaderIndexRequest{})
+			r.NoError(err)
+			indexRes, ok = res.(*IndexResponse)
+			if !ok {
+				r.Fail("could not cast response to *IndexResponse")
+			}
+			r.Equal(tt.wantLeaderIndex, indexRes.Index)
 		})
 	}
 }
