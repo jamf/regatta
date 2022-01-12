@@ -347,7 +347,7 @@ func TestSM_Range(t *testing.T) {
 			args: args{key: &proto.RangeRequest{
 				Table:     []byte(testTable),
 				Key:       []byte("testlarge"),
-				RangeEnd:  addOne([]byte("testlarge")),
+				RangeEnd:  incrementRightmostByte([]byte("testlarge")),
 				CountOnly: true,
 			}},
 			want: &proto.RangeResponse{Count: 10},
@@ -385,12 +385,4 @@ func TestSM_Range(t *testing.T) {
 			}
 		})
 	}
-}
-
-// addOne to the leftmost byte in the byte slice.
-func addOne(b []byte) []byte {
-	tmp := make([]byte, len(b))
-	copy(tmp, b)
-	tmp[len(tmp)-1] = tmp[len(tmp)-1] + 1
-	return tmp
 }

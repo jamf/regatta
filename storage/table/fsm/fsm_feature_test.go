@@ -166,7 +166,7 @@ var input = map[int][]*proto.Command{
 			Kv: &proto.KeyValue{
 				Key: []byte("key"),
 			},
-			RangeEnd: addOne([]byte("key")),
+			RangeEnd: incrementRightmostByte([]byte("key")),
 		},
 		{
 			Table: []byte("test"),
