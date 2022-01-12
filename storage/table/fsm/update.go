@@ -76,16 +76,18 @@ func handleDelete(ctx *updateContext) (sm.Result, error) {
 		return sm.Result{Value: ResultFailure}, err
 	}
 	if ctx.cmd.RangeEnd != nil {
-		end := ctx.cmd.RangeEnd
-		if bytes.Equal(end, wildcard) {
-			end = key.LatestMaxKey
+		var end []byte
+		if bytes.Equal(ctx.cmd.RangeEnd, wildcard) {
+			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
+			end = incrementRightmostByte(maxUserKey)
+		} else {
+			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(end))))
+			if err := encodeUserKey(upperBuf, end); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			end = upperBuf.Bytes()
 		}
-		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(end))))
-		if err := encodeUserKey(upperBuf, end); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-
-		if err := ctx.batch.DeleteRange(ctx.keyBuf.Bytes(), upperBuf.Bytes(), nil); err != nil {
+		if err := ctx.batch.DeleteRange(ctx.keyBuf.Bytes(), end, nil); err != nil {
 			return sm.Result{Value: ResultFailure}, err
 		}
 	} else {

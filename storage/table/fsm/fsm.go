@@ -34,6 +34,10 @@ var (
 		KeyType: key.TypeSystem,
 		Key:     []byte("leader_index"),
 	})
+	maxUserKey = mustEncodeKey(key.Key{
+		KeyType: key.TypeUser,
+		Key:     key.LatestMaxKey,
+	})
 )
 
 const (
@@ -215,16 +219,17 @@ func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEnt
 
 	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
 	if req.RangeEnd != nil {
-		end := req.RangeEnd
-		if bytes.Equal(end, wildcard) {
-			end = key.LatestMaxKey
+		if bytes.Equal(req.RangeEnd, wildcard) {
+			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum user key.
+			iterOptions.UpperBound = incrementRightmostByte(maxUserKey)
+		} else {
+			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RangeEnd))))
+			err = encodeUserKey(upperBuf, req.RangeEnd)
+			if err != nil {
+				return nil, nil, err
+			}
+			iterOptions.UpperBound = upperBuf.Bytes()
 		}
-		upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(end))))
-		err = encodeUserKey(upperBuf, end)
-		if err != nil {
-			return nil, nil, err
-		}
-		iterOptions.UpperBound = upperBuf.Bytes()
 	}
 
 	fill := addKVPair
@@ -315,4 +320,17 @@ func mustEncodeKey(k key.Key) []byte {
 	encoded := make([]byte, n)
 	copy(encoded, buff.Bytes())
 	return encoded
+}
+
+func incrementRightmostByte(in []byte) []byte {
+	for i := len(in) - 1; i >= 0; i-- {
+		in[i] = in[i] + 1
+		if in[i] != 0 {
+			break
+		}
+		if i == 0 {
+			return append([]byte{1}, in...)
+		}
+	}
+	return in
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
 )
 
@@ -172,6 +173,14 @@ var input = map[int][]*proto.Command{
 			Type:  proto.Command_PUT,
 			Kv: &proto.KeyValue{
 				Key:   []byte("key_3"),
+				Value: []byte("value_3"),
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_PUT,
+			Kv: &proto.KeyValue{
+				Key:   key.LatestMaxKey,
 				Value: []byte("value_3"),
 			},
 		},
