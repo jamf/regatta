@@ -3,6 +3,7 @@ package fsm
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
@@ -45,6 +46,8 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			result, err = handlePutBatch(ctx)
 		case proto.Command_DELETE_BATCH:
 			result, err = handleDeleteBatch(ctx)
+		case proto.Command_TXN:
+			result, err = handleTxn(ctx)
 		case proto.Command_DUMMY:
 			result = sm.Result{Value: ResultSuccess}
 		}
@@ -122,6 +125,74 @@ func handleDeleteBatch(ctx *updateContext) (sm.Result, error) {
 		ctx.keyBuf.Reset()
 	}
 	return sm.Result{Value: ResultSuccess}, nil
+}
+
+func handleTxn(ctx *updateContext) (sm.Result, error) {
+	if err := ctx.EnsureIndexed(); err != nil {
+		return sm.Result{Value: ResultFailure}, err
+	}
+
+	ok, err := handleTxnCompare(ctx, ctx.cmd.Txn.Compare)
+	if err != nil {
+		return sm.Result{}, err
+	}
+
+	if ok {
+		return handleTxnOps(ctx, ctx.cmd.Txn.Success)
+	}
+	return handleTxnOps(ctx, ctx.cmd.Txn.Failure)
+}
+
+func handleTxnCompare(ctx *updateContext, compare []*proto.Compare) (bool, error) {
+	result := true
+	for _, cmp := range compare {
+		if err := encodeUserKey(ctx.keyBuf, cmp.Key); err != nil {
+			return false, err
+		}
+		_, closer, err := ctx.batch.Get(ctx.keyBuf.Bytes())
+		// TODO other checks
+		result = result && !errors.Is(err, pebble.ErrNotFound)
+		if closer != nil {
+			if err := closer.Close(); err != nil {
+				return false, err
+			}
+		}
+		ctx.keyBuf.Reset()
+	}
+	return result, nil
+}
+
+func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) (sm.Result, error) {
+	res := &proto.CommandResult{}
+	for _, op := range req {
+		switch o := op.Request.(type) {
+		case *proto.RequestOp_RequestRange:
+			// TODO handle range
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: &proto.ResponseOp_Range{}}})
+		case *proto.RequestOp_RequestPut:
+			if err := encodeUserKey(ctx.keyBuf, o.RequestPut.Key); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			if err := ctx.batch.Set(ctx.keyBuf.Bytes(), o.RequestPut.Value, nil); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}})
+		case *proto.RequestOp_RequestDeleteRange:
+			if err := encodeUserKey(ctx.keyBuf, o.RequestDeleteRange.Key); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}})
+		}
+		ctx.keyBuf.Reset()
+	}
+	bts, err := res.MarshalVT()
+	if err != nil {
+		return sm.Result{Value: ResultFailure}, err
+	}
+	return sm.Result{Value: ResultSuccess, Data: bts}, nil
 }
 
 type updateContext struct {
