@@ -144,8 +144,33 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) (sm.Result, error)
 	for _, op := range req {
 		switch o := op.Request.(type) {
 		case *proto.RequestOp_RequestRange:
-			// TODO handle range
-			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: &proto.ResponseOp_Range{}}})
+			req := &proto.RangeRequest{
+				Key:       o.RequestRange.Key,
+				KeysOnly:  o.RequestRange.KeysOnly,
+				CountOnly: o.RequestRange.CountOnly,
+			}
+
+			var (
+				err      error
+				response *proto.RangeResponse
+			)
+
+			if o.RequestRange.RangeEnd != nil {
+				req.RangeEnd = o.RequestRange.RangeEnd
+				response, err = rangeLookup(ctx.db, req)
+			} else {
+				response, err = singleLookup(ctx.db, req, ctx.keyBuf)
+			}
+
+			if err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: &proto.ResponseOp_Range{
+				Kvs:   response.Kvs,
+				More:  response.More,
+				Count: response.Count,
+			}}})
 		case *proto.RequestOp_RequestPut:
 			if err := encodeUserKey(ctx.keyBuf, o.RequestPut.Key); err != nil {
 				return sm.Result{Value: ResultFailure}, err
