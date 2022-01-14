@@ -84,8 +84,8 @@ func handleDelete(ctx *updateContext) (sm.Result, error) {
 			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
 			end = incrementRightmostByte(maxUserKey)
 		} else {
-			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(end))))
-			if err := encodeUserKey(upperBuf, end); err != nil {
+			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(ctx.cmd.RangeEnd))))
+			if err := encodeUserKey(upperBuf, ctx.cmd.RangeEnd); err != nil {
 				return sm.Result{Value: ResultFailure}, err
 			}
 			end = upperBuf.Bytes()
