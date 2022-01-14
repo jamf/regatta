@@ -255,3 +255,32 @@ func (c *updateContext) Close() error {
 	c.cmd.ReturnToVTPool()
 	return nil
 }
+
+func delete(lowerBound, upperBound []byte, lowerBoundBuf *bytes.Buffer, batch *pebble.Batch) (sm.Result, error) {
+	if err := encodeUserKey(lowerBoundBuf, lowerBound); err != nil {
+		return sm.Result{Value: ResultFailure}, err
+	}
+
+	if upperBound != nil {
+		var end []byte
+		if bytes.Equal(upperBound, wildcard) {
+			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
+			end = incrementRightmostByte(maxUserKey)
+		} else {
+			upperBoundBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(upperBound))))
+			if err := encodeUserKey(upperBoundBuf, upperBound); err != nil {
+				return sm.Result{Value: ResultFailure}, err
+			}
+			end = upperBoundBuf.Bytes()
+		}
+
+		if err := batch.DeleteRange(lowerBoundBuf.Bytes(), end, nil); err != nil {
+			return sm.Result{Value: ResultFailure}, err
+		}
+	} else {
+		if err := batch.Delete(lowerBoundBuf.Bytes(), nil); err != nil {
+			return sm.Result{Value: ResultFailure}, err
+		}
+	}
+	return sm.Result{Value: ResultSuccess}, nil
+}
