@@ -135,6 +135,16 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 			Failure: req.Failure,
 		},
 	}
+
+	// Do not propose read-only transactions through the log
+	if isReadonlyTransaction(req) {
+		val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
+		if err != nil {
+			return nil, err
+		}
+		return val.(*proto.TxnResponse), nil
+	}
+
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -151,6 +161,27 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 		Succeeded: res.Value == fsm.ResultSuccess,
 		Responses: txr.Responses,
 	}, nil
+}
+
+func isReadonlyTransaction(req *proto.TxnRequest) bool {
+	for _, op := range req.Success {
+		switch op.Request.(type) {
+		case *proto.RequestOp_RequestPut:
+			return false
+		case *proto.RequestOp_RequestDeleteRange:
+			return false
+		}
+	}
+
+	for _, op := range req.Failure {
+		switch op.Request.(type) {
+		case *proto.RequestOp_RequestPut:
+			return false
+		case *proto.RequestOp_RequestDeleteRange:
+			return false
+		}
+	}
+	return true
 }
 
 // Snapshot streams snapshot to the provided writer.

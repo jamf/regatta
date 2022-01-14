@@ -458,11 +458,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| VERSION | 0 |  |
-| CREATE | 1 |  |
-| MOD | 2 |  |
-| LEASE | 3 |  |
-| VALUE | 4 |  |
+| VALUE | 0 |  |
 
 
  

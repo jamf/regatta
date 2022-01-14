@@ -162,11 +162,13 @@ message Compare {
     NOT_EQUAL = 3;
   }
   enum CompareTarget {
-    VERSION = 0;
-    CREATE = 1;
-    MOD = 2;
-    LEASE = 3;
-    VALUE = 4;
+    VALUE = 0;
+
+    // TODO implement other targets
+    // VERSION = 1;
+    // CREATE = 2;
+    // MOD = 3;
+    // LEASE = 3;
   }
   // result is logical comparison operation for this comparison.
   CompareResult result = 1;
