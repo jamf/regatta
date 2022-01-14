@@ -768,6 +768,106 @@ func TestHandleDeleteBatch(t *testing.T) {
 	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
+func TestHandleDeleteRange(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		cmd: &proto.Command{
+			Table:       []byte("test"),
+			Type:        proto.Command_PUT_BATCH,
+			LeaderIndex: &one,
+			Batch: []*proto.KeyValue{
+				{
+					Key:   []byte("key_1"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_2"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_3"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_4"),
+					Value: []byte("value"),
+				},
+			},
+		},
+		index:  1,
+		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT_BATCH.
+	res, err := handlePutBatch(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	c.batch = db.NewBatch()
+	c.cmd.Type = proto.Command_DELETE
+	c.cmd.RangeEnd = []byte("key_3")
+	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
+	c.cmd.Batch = nil
+	c.cmd.Kv = &proto.KeyValue{Key: []byte("key_1")}
+
+	// Make the DELETE RANGE - delete first two user keys.
+	res, err = handleDelete(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	// Assert that there left expected user keys.
+	iter := db.NewIter(allUserKeysOpts())
+	iter.First()
+	k := &key.Key{}
+	decodeKey(t, iter, k)
+	r.Equal([]byte("key_3"), k.Key)
+	iter.Next()
+	decodeKey(t, iter, k)
+	r.Equal([]byte("key_4"), k.Key)
+
+	// Skip the local index first and assert that there are no more keys in state machine.
+	iter.Next()
+	r.Equal(false, iter.Valid())
+	r.NoError(iter.Close())
+
+	c.batch = db.NewBatch()
+	c.cmd.RangeEnd = wildcard
+	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
+
+	// Make the DELETE RANGE - delete the rest of the user keys.
+	res, err = handleDelete(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	// Skip the local index first and assert that there are no more keys in state machine.
+	iter = db.NewIter(allUserKeysOpts())
+	iter.First()
+	r.Equal(false, iter.Valid())
+	r.NoError(iter.Close())
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
+
+	index, err = readLocalIndex(db, sysLeaderIndex)
+	r.NoError(err)
+	r.Equal(*c.cmd.LeaderIndex, index)
+	r.NoError(iter.Close())
+}
+
 // allKeysOpts returns *pebble.IterOptions for iterating over
 // all the user keys.
 func allUserKeysOpts() *pebble.IterOptions {
