@@ -126,6 +126,15 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 }
 
 func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+	// Do not propose read-only transactions through the log
+	if isReadonlyTransaction(req) {
+		val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
+		if err != nil {
+			return nil, err
+		}
+		return val.(*proto.TxnResponse), nil
+	}
+
 	cmd := &proto.Command{
 		Type:  proto.Command_TXN,
 		Table: req.Table,
@@ -134,15 +143,6 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 			Success: req.Success,
 			Failure: req.Failure,
 		},
-	}
-
-	// Do not propose read-only transactions through the log
-	if isReadonlyTransaction(req) {
-		val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
-		if err != nil {
-			return nil, err
-		}
-		return val.(*proto.TxnResponse), nil
 	}
 
 	bytes, err := cmd.MarshalVT()
@@ -165,19 +165,13 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 
 func isReadonlyTransaction(req *proto.TxnRequest) bool {
 	for _, op := range req.Success {
-		switch op.Request.(type) {
-		case *proto.RequestOp_RequestPut:
-			return false
-		case *proto.RequestOp_RequestDeleteRange:
+		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
 			return false
 		}
 	}
 
 	for _, op := range req.Failure {
-		switch op.Request.(type) {
-		case *proto.RequestOp_RequestPut:
-			return false
-		case *proto.RequestOp_RequestDeleteRange:
+		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
 			return false
 		}
 	}
