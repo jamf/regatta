@@ -4,17 +4,21 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/pebble"
+	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table/key"
 )
 
+var (
+	one = uint64(1)
+	two = uint64(2)
+)
+
 func TestSM_Update(t *testing.T) {
-	one := uint64(1)
-	two := uint64(2)
 	type fields struct {
 		smFactory func() sm.IOnDiskStateMachine
 	}
@@ -453,7 +457,7 @@ func TestUpdateContext_Init(t *testing.T) {
 
 func TestUpdateContext_EnsureIndexed(t *testing.T) {
 	r := require.New(t)
-	db, err := pebble.OpenDB(vfs.NewMem(), "/", "/", nil)
+	db, err := rp.OpenDB(vfs.NewMem(), "/", "/", nil)
 	r.NoError(err)
 	uc := updateContext{
 		db:     db,
@@ -478,7 +482,7 @@ func TestUpdateContext_EnsureIndexed(t *testing.T) {
 
 func TestUpdateContext_Commit(t *testing.T) {
 	r := require.New(t)
-	db, err := pebble.OpenDB(vfs.NewMem(), "/", "/", nil)
+	db, err := rp.OpenDB(vfs.NewMem(), "/", "/", nil)
 	r.NoError(err)
 
 	li := uint64(100)
@@ -501,4 +505,288 @@ func TestUpdateContext_Commit(t *testing.T) {
 	index, err = readLocalIndex(db, sysLeaderIndex)
 	r.NoError(err)
 	r.Equal(*uc.cmd.LeaderIndex, index)
+}
+
+func TestHandlePut(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		cmd: &proto.Command{
+			Table:       []byte("test"),
+			Type:        proto.Command_PUT,
+			LeaderIndex: &one,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_1"),
+				Value: []byte("value_1"),
+			},
+		},
+		index:  1,
+		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT.
+	res, err := handlePut(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	iter := db.NewIter(allUserKeysOpts())
+	iter.First()
+
+	k := &key.Key{}
+	decodeKey(t, iter, k)
+
+	r.Equal(c.cmd.Kv.Key, k.Key)
+	r.Equal(c.cmd.Kv.Value, iter.Value())
+
+	// Assert that there are no more user keys.
+	iter.Next()
+	r.Equal(false, iter.Valid())
+	r.NoError(iter.Close())
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
+
+	index, err = readLocalIndex(db, sysLeaderIndex)
+	r.NoError(err)
+	r.Equal(*c.cmd.LeaderIndex, index)
+}
+
+func TestHandleDelete(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		cmd: &proto.Command{
+			Table:       []byte("test"),
+			Type:        proto.Command_PUT,
+			LeaderIndex: &one,
+			Kv: &proto.KeyValue{
+				Key:   []byte("key_1"),
+				Value: []byte("value_1"),
+			},
+		},
+		index:  1,
+		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT.
+	res, err := handlePut(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	c.batch = db.NewBatch()
+	c.cmd.Type = proto.Command_DELETE
+	c.cmd.Kv.Value = nil
+	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
+
+	// Make the DELETE.
+	res, err = handleDelete(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	// Assert that there are no more user keys left.
+	iter := db.NewIter(allUserKeysOpts())
+	iter.First()
+	r.Equal(false, iter.Valid())
+	r.NoError(iter.Close())
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
+
+	index, err = readLocalIndex(db, sysLeaderIndex)
+	r.NoError(err)
+	r.Equal(*c.cmd.LeaderIndex, index)
+}
+
+func TestHandlePutBatch(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		cmd: &proto.Command{
+			Table:       []byte("test"),
+			Type:        proto.Command_PUT_BATCH,
+			LeaderIndex: &one,
+			Batch: []*proto.KeyValue{
+				{
+					Key:   []byte("key_1"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_2"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_3"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_4"),
+					Value: []byte("value"),
+				},
+			},
+		},
+		index:  1,
+		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT_BATCH.
+	res, err := handlePutBatch(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	var (
+		i int
+		k = &key.Key{}
+	)
+
+	iter := db.NewIter(allUserKeysOpts())
+	for iter.First(); iter.Valid(); iter.Next() {
+		decodeKey(t, iter, k)
+
+		r.Equal(c.cmd.Batch[i].Key, k.Key)
+		r.Equal(c.cmd.Batch[i].Value, iter.Value())
+		r.NoError(iter.Error())
+
+		i++
+	}
+	r.Equal(len(c.cmd.Batch), i)
+	r.NoError(iter.Close())
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
+
+	index, err = readLocalIndex(db, sysLeaderIndex)
+	r.NoError(err)
+	r.Equal(*c.cmd.LeaderIndex, index)
+}
+
+func TestHandleDeleteBatch(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		cmd: &proto.Command{
+			Table:       []byte("test"),
+			Type:        proto.Command_PUT_BATCH,
+			LeaderIndex: &one,
+			Batch: []*proto.KeyValue{
+				{
+					Key:   []byte("key_1"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_2"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_3"),
+					Value: []byte("value"),
+				},
+				{
+					Key:   []byte("key_4"),
+					Value: []byte("value"),
+				},
+			},
+		},
+		index:  1,
+		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT_BATCH.
+	res, err := handlePutBatch(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	c.batch = db.NewBatch()
+	c.cmd.Type = proto.Command_DELETE_BATCH
+	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
+	for i := range c.cmd.Batch {
+		c.cmd.Batch[i].Value = nil
+	}
+
+	// Make the DELETE_BATCH.
+	res, err = handleDeleteBatch(c)
+	r.NoError(err)
+	r.Equal(sm.Result{Value: ResultSuccess}, res)
+	r.NoError(c.Commit())
+
+	iter := db.NewIter(allUserKeysOpts())
+
+	// Skip the local index first and assert that there are no more keys in state machine.
+	iter.First()
+	r.Equal(false, iter.Valid())
+	r.NoError(iter.Close())
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
+
+	index, err = readLocalIndex(db, sysLeaderIndex)
+	r.NoError(err)
+	r.Equal(*c.cmd.LeaderIndex, index)
+}
+
+// allKeysOpts returns *pebble.IterOptions for iterating over
+// all the user keys.
+func allUserKeysOpts() *pebble.IterOptions {
+	return &pebble.IterOptions{
+		LowerBound: mustEncodeKey(key.Key{
+			KeyType: key.TypeUser,
+			Key:     key.LatestMinKey,
+		}),
+		UpperBound: incrementRightmostByte(mustEncodeKey(key.Key{
+			KeyType: key.TypeUser,
+			Key:     key.LatestMaxKey,
+		})),
+	}
+}
+
+// decodeKey into *key.Key as pointed by the supplied *pebble.Iterator.
+func decodeKey(t *testing.T, iter *pebble.Iterator, k *key.Key) {
+	dec := key.NewDecoder(bytes.NewReader(iter.Key()))
+	if err := dec.Decode(k); err != nil {
+		t.Fatalf("could not decode key: %v", err)
+	}
 }
