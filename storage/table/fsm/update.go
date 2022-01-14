@@ -75,30 +75,7 @@ func handlePut(ctx *updateContext) (sm.Result, error) {
 }
 
 func handleDelete(ctx *updateContext) (sm.Result, error) {
-	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
-		return sm.Result{Value: ResultFailure}, err
-	}
-	if ctx.cmd.RangeEnd != nil {
-		var end []byte
-		if bytes.Equal(ctx.cmd.RangeEnd, wildcard) {
-			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
-			end = incrementRightmostByte(maxUserKey)
-		} else {
-			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(ctx.cmd.RangeEnd))))
-			if err := encodeUserKey(upperBuf, ctx.cmd.RangeEnd); err != nil {
-				return sm.Result{Value: ResultFailure}, err
-			}
-			end = upperBuf.Bytes()
-		}
-		if err := ctx.batch.DeleteRange(ctx.keyBuf.Bytes(), end, nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-	} else {
-		if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return delete(ctx.cmd.Kv.Key, ctx.cmd.RangeEnd, ctx.keyBuf, ctx.batch)
 }
 
 func handlePutBatch(ctx *updateContext) (sm.Result, error) {
@@ -178,12 +155,13 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) (sm.Result, error)
 			}
 			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}})
 		case *proto.RequestOp_RequestDeleteRange:
-			if err := encodeUserKey(ctx.keyBuf, o.RequestDeleteRange.Key); err != nil {
-				return sm.Result{Value: ResultFailure}, err
+			// TODO(jsfpdn): If there are many DeleteRange requests, it would be beneficiary to also reuse the
+			//				 the buffer used for the `upperBound`, just as for `lowerBound`.
+			if smRes, err := delete(o.RequestDeleteRange.Key, o.RequestDeleteRange.RangeEnd, ctx.keyBuf, ctx.batch); err != nil {
+				return smRes, err
 			}
-			if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-				return sm.Result{Value: ResultFailure}, err
-			}
+			// TODO(jsfpdn): Does `ctx.batch.Count()` say how many records were deleted with `RangeDelete`?
+			// 				 Add the number of deleted records to the response.
 			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}})
 		}
 		ctx.keyBuf.Reset()
