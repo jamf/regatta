@@ -533,9 +533,8 @@ func TestHandlePut(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	res, err := handlePut(c)
+	_, err = handlePut(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
@@ -588,9 +587,8 @@ func TestHandleDelete(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	res, err := handlePut(c)
+	_, err = handlePut(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
@@ -599,9 +597,8 @@ func TestHandleDelete(t *testing.T) {
 	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
 
 	// Make the DELETE.
-	res, err = handleDelete(c)
+	_, err = handleDelete(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.
@@ -660,9 +657,8 @@ func TestHandlePutBatch(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	res, err := handlePutBatch(c)
+	_, err = handlePutBatch(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	var (
@@ -733,9 +729,8 @@ func TestHandleDeleteBatch(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	res, err := handlePutBatch(c)
+	_, err = handlePutBatch(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
@@ -746,9 +741,8 @@ func TestHandleDeleteBatch(t *testing.T) {
 	}
 
 	// Make the DELETE_BATCH.
-	res, err = handleDeleteBatch(c)
+	_, err = handleDeleteBatch(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
@@ -808,9 +802,8 @@ func TestHandleDeleteRange(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	res, err := handlePutBatch(c)
+	_, err = handlePutBatch(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
@@ -821,9 +814,8 @@ func TestHandleDeleteRange(t *testing.T) {
 	c.cmd.Kv = &proto.KeyValue{Key: []byte("key_1")}
 
 	// Make the DELETE RANGE - delete first two user keys.
-	res, err = handleDelete(c)
+	_, err = handleDelete(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there left expected user keys.
@@ -846,9 +838,8 @@ func TestHandleDeleteRange(t *testing.T) {
 	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
 
 	// Make the DELETE RANGE - delete the rest of the user keys.
-	res, err = handleDelete(c)
+	_, err = handleDelete(c)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	// Skip the local index first and assert that there are no more keys in state machine.
