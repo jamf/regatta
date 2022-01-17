@@ -180,9 +180,9 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) (sm.Result, error)
 			)
 
 			if o.RequestRange.RangeEnd != nil {
-				response, err = rangeLookup(ctx.db, o)
+				response, err = rangeLookup(ctx.batch, o)
 			} else {
-				response, err = singleLookup(ctx.db, o, ctx.keyBuf)
+				response, err = singleLookup(ctx.batch, o, ctx.keyBuf)
 			}
 
 			if err != nil {

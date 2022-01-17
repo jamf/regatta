@@ -210,7 +210,7 @@ func (p *FSM) GetHash() (uint64, error) {
 type fillEntriesFunc func(k key.Key, value []byte, response *proto.ResponseOp_Range) error
 
 // iterator prepares new pebble.Iterator with upper and lower bound.
-func iterator(db *pebble.DB, req *proto.RequestOp_RequestRange) (*pebble.Iterator, fillEntriesFunc, error) {
+func iterator(db pebble.Reader, req *proto.RequestOp_RequestRange) (*pebble.Iterator, fillEntriesFunc, error) {
 	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RequestRange.Key))))
 	err := encodeUserKey(lowerBuf, req.RequestRange.Key)
 	if err != nil {
