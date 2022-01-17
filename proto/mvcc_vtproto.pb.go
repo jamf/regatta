@@ -848,42 +848,6 @@ func (m *Compare) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *Compare_Version) MarshalToVT(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVT(dAtA[:size])
-}
-
-func (m *Compare_Version) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	i = encodeVarint(dAtA, i, uint64(m.Version))
-	i--
-	dAtA[i] = 0x20
-	return len(dAtA) - i, nil
-}
-func (m *Compare_CreateRevision) MarshalToVT(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVT(dAtA[:size])
-}
-
-func (m *Compare_CreateRevision) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	i = encodeVarint(dAtA, i, uint64(m.CreateRevision))
-	i--
-	dAtA[i] = 0x28
-	return len(dAtA) - i, nil
-}
-func (m *Compare_ModRevision) MarshalToVT(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVT(dAtA[:size])
-}
-
-func (m *Compare_ModRevision) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	i = encodeVarint(dAtA, i, uint64(m.ModRevision))
-	i--
-	dAtA[i] = 0x30
-	return len(dAtA) - i, nil
-}
 func (m *Compare_Value) MarshalToVT(dAtA []byte) (int, error) {
 	size := m.SizeVT()
 	return m.MarshalToSizedBufferVT(dAtA[:size])
@@ -891,23 +855,9 @@ func (m *Compare_Value) MarshalToVT(dAtA []byte) (int, error) {
 
 func (m *Compare_Value) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	i -= len(m.Value)
-	copy(dAtA[i:], m.Value)
-	i = encodeVarint(dAtA, i, uint64(len(m.Value)))
+	i = encodeVarint(dAtA, i, uint64(m.Value))
 	i--
-	dAtA[i] = 0x3a
-	return len(dAtA) - i, nil
-}
-func (m *Compare_Lease) MarshalToVT(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVT(dAtA[:size])
-}
-
-func (m *Compare_Lease) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	i = encodeVarint(dAtA, i, uint64(m.Lease))
-	i--
-	dAtA[i] = 0x40
+	dAtA[i] = 0x20
 	return len(dAtA) - i, nil
 }
 func (m *KeyValue) MarshalVT() (dAtA []byte, err error) {
@@ -1364,50 +1314,13 @@ func (m *Compare) SizeVT() (n int) {
 	return n
 }
 
-func (m *Compare_Version) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	n += 1 + sov(uint64(m.Version))
-	return n
-}
-func (m *Compare_CreateRevision) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	n += 1 + sov(uint64(m.CreateRevision))
-	return n
-}
-func (m *Compare_ModRevision) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	n += 1 + sov(uint64(m.ModRevision))
-	return n
-}
 func (m *Compare_Value) SizeVT() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	l = len(m.Value)
-	n += 1 + l + sov(uint64(l))
-	return n
-}
-func (m *Compare_Lease) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	n += 1 + sov(uint64(m.Lease))
+	n += 1 + sov(uint64(m.Value))
 	return n
 }
 func (m *KeyValue) SizeVT() (n int) {
@@ -3209,101 +3122,8 @@ func (m *Compare) UnmarshalVT(dAtA []byte) error {
 			iNdEx = postIndex
 		case 4:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
-			}
-			var v int64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.TargetUnion = &Compare_Version{v}
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CreateRevision", wireType)
-			}
-			var v int64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.TargetUnion = &Compare_CreateRevision{v}
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ModRevision", wireType)
-			}
-			var v int64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.TargetUnion = &Compare_ModRevision{v}
-		case 7:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
 			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLength
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLength
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := make([]byte, postIndex-iNdEx)
-			copy(v, dAtA[iNdEx:postIndex])
-			m.TargetUnion = &Compare_Value{v}
-			iNdEx = postIndex
-		case 8:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Lease", wireType)
-			}
 			var v int64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
@@ -3319,7 +3139,7 @@ func (m *Compare) UnmarshalVT(dAtA []byte) error {
 					break
 				}
 			}
-			m.TargetUnion = &Compare_Lease{v}
+			m.TargetUnion = &Compare_Value{v}
 		case 64:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field RangeEnd", wireType)
