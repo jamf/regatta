@@ -193,11 +193,84 @@ var input = map[int][]*proto.Command{
 			RangeEnd: []byte{0},
 		},
 	},
+	2: {
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_2"),
+							Value: []byte("value"),
+						}},
+					},
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_3"),
+							Value: []byte("value"),
+						}},
+					},
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_4"),
+							Value: []byte("value"),
+						}},
+					},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("key_1")}},
+				Failure: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_1"),
+							Value: []byte("value"),
+						}},
+					},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("key_1")}},
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_1"),
+							Value: []byte("valuevaluevalue"),
+						}},
+					},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_EQUAL, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("valuevaluevalue")}}},
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_1"),
+							Value: []byte("value"),
+						}},
+					},
+				},
+			},
+		},
+	},
 }
 
 // TestGenerateData is useful for generating test data for new features.
 func TestGenerateData(t *testing.T) {
-	t.Skip("Unskip for generation of a new version")
+	// t.Skip("Unskip for generation of a new version")
 	for version, commands := range input {
 		generateFiles(t, version, commands)
 	}

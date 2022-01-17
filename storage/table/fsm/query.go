@@ -20,10 +20,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		if req.RequestRange.RangeEnd != nil {
 			return rangeLookup(db, req)
 		}
-
-		buf := bufferPool.Get()
-		defer bufferPool.Put(buf)
-		return singleLookup(db, req, buf)
+		return singleLookup(db, req)
 	case SnapshotRequest:
 		idx, err := p.commandSnapshot(req.Writer, req.Stopper)
 		if err != nil {
@@ -117,7 +114,10 @@ func rangeLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.Re
 	return response, nil
 }
 
-func singleLookup(db pebble.Reader, req *proto.RequestOp_RequestRange, keyBuf *bytes.Buffer) (*proto.ResponseOp_Range, error) {
+func singleLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.ResponseOp_Range, error) {
+	keyBuf := bufferPool.Get()
+	defer bufferPool.Put(keyBuf)
+
 	err := encodeUserKey(keyBuf, req.RequestRange.Key)
 	if err != nil {
 		return nil, err
