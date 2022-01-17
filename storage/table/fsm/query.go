@@ -99,7 +99,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 	return idx, nil
 }
 
-func rangeLookup(db *pebble.DB, req *proto.RequestOp_RequestRange) (*proto.ResponseOp_Range, error) {
+func rangeLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.ResponseOp_Range, error) {
 	iter, fill, err := iterator(db, req)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func rangeLookup(db *pebble.DB, req *proto.RequestOp_RequestRange) (*proto.Respo
 	return response, nil
 }
 
-func singleLookup(db *pebble.DB, req *proto.RequestOp_RequestRange, keyBuf *bytes.Buffer) (*proto.ResponseOp_Range, error) {
+func singleLookup(db pebble.Reader, req *proto.RequestOp_RequestRange, keyBuf *bytes.Buffer) (*proto.ResponseOp_Range, error) {
 	err := encodeUserKey(keyBuf, req.RequestRange.Key)
 	if err != nil {
 		return nil, err
