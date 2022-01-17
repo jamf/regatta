@@ -34,18 +34,27 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		}
 
 		var (
-			result sm.Result
+			result = sm.Result{Value: ResultSuccess}
 			err    error
 		)
+
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:
-			result, err = handlePut(ctx)
+			if _, err = handlePut(ctx); err != nil {
+				result = sm.Result{Value: ResultFailure}
+			}
 		case proto.Command_DELETE:
-			result, err = handleDelete(ctx)
+			if _, err = handleDelete(ctx); err != nil {
+				result = sm.Result{Value: ResultFailure}
+			}
 		case proto.Command_PUT_BATCH:
-			result, err = handlePutBatch(ctx)
+			if _, err = handlePutBatch(ctx); err != nil {
+				result = sm.Result{Value: ResultFailure}
+			}
 		case proto.Command_DELETE_BATCH:
-			result, err = handleDeleteBatch(ctx)
+			if _, err = handleDeleteBatch(ctx); err != nil {
+				result = sm.Result{Value: ResultFailure}
+			}
 		case proto.Command_TXN:
 			result, err = handleTxn(ctx)
 		case proto.Command_DUMMY:
@@ -64,44 +73,65 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	return updates, nil
 }
 
-func handlePut(ctx *updateContext) (sm.Result, error) {
+func handlePut(ctx *updateContext) (*proto.ResponseOp_Put, error) {
 	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
-		return sm.Result{Value: ResultFailure}, err
+		return nil, err
 	}
 	if err := ctx.batch.Set(ctx.keyBuf.Bytes(), ctx.cmd.Kv.Value, nil); err != nil {
-		return sm.Result{Value: ResultFailure}, err
+		return nil, err
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return &proto.ResponseOp_Put{}, nil
 }
 
-func handleDelete(ctx *updateContext) (sm.Result, error) {
-	return delete(ctx.cmd.Kv.Key, ctx.cmd.RangeEnd, ctx.keyBuf, ctx.batch)
-}
-
-func handlePutBatch(ctx *updateContext) (sm.Result, error) {
+func handlePutBatch(ctx *updateContext) (*proto.ResponseOp_Put, error) {
 	for _, kv := range ctx.cmd.Batch {
-		if err := encodeUserKey(ctx.keyBuf, kv.Key); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-		if err := ctx.batch.Set(ctx.keyBuf.Bytes(), kv.Value, nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
+		ctx.cmd.Kv = kv
+		if _, err := handlePut(ctx); err != nil {
+			return nil, err
 		}
 		ctx.keyBuf.Reset()
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return &proto.ResponseOp_Put{}, nil
 }
 
-func handleDeleteBatch(ctx *updateContext) (sm.Result, error) {
-	for _, kv := range ctx.cmd.Batch {
-		if err := encodeUserKey(ctx.keyBuf, kv.Key); err != nil {
-			return sm.Result{Value: ResultFailure}, err
+func handleDelete(ctx *updateContext) (*proto.ResponseOp_DeleteRange, error) {
+	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
+		return nil, err
+	}
+
+	if ctx.cmd.RangeEnd != nil {
+		var end []byte
+		if bytes.Equal(ctx.cmd.RangeEnd, wildcard) {
+			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
+			end = incrementRightmostByte(maxUserKey)
+		} else {
+			upperBoundBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(ctx.cmd.RangeEnd))))
+			if err := encodeUserKey(upperBoundBuf, ctx.cmd.RangeEnd); err != nil {
+				return nil, err
+			}
+			end = upperBoundBuf.Bytes()
 		}
+
+		if err := ctx.batch.DeleteRange(ctx.keyBuf.Bytes(), end, nil); err != nil {
+			return nil, err
+		}
+	} else {
 		if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
+			return nil, err
+		}
+	}
+	return &proto.ResponseOp_DeleteRange{}, nil
+}
+
+func handleDeleteBatch(ctx *updateContext) (*proto.ResponseOp_DeleteRange, error) {
+	for _, kv := range ctx.cmd.Batch {
+		ctx.cmd.Kv = kv
+		if _, err := handleDelete(ctx); err != nil {
+			return nil, err
 		}
 		ctx.keyBuf.Reset()
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return &proto.ResponseOp_DeleteRange{}, nil
 }
 
 func handleTxn(ctx *updateContext) (sm.Result, error) {
@@ -144,50 +174,41 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) (sm.Result, error)
 	for _, op := range req {
 		switch o := op.Request.(type) {
 		case *proto.RequestOp_RequestRange:
-			req := &proto.RangeRequest{
-				Key:       o.RequestRange.Key,
-				KeysOnly:  o.RequestRange.KeysOnly,
-				CountOnly: o.RequestRange.CountOnly,
-			}
-
 			var (
 				err      error
-				response *proto.RangeResponse
+				response *proto.ResponseOp_Range
 			)
 
 			if o.RequestRange.RangeEnd != nil {
-				req.RangeEnd = o.RequestRange.RangeEnd
-				response, err = rangeLookup(ctx.db, req)
+				response, err = rangeLookup(ctx.db, o)
 			} else {
-				response, err = singleLookup(ctx.db, req, ctx.keyBuf)
+				response, err = singleLookup(ctx.db, o, ctx.keyBuf)
 			}
 
 			if err != nil {
 				return sm.Result{Value: ResultFailure}, err
 			}
 
-			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: &proto.ResponseOp_Range{
-				Kvs:   response.Kvs,
-				More:  response.More,
-				Count: response.Count,
-			}}})
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: response}})
 		case *proto.RequestOp_RequestPut:
-			if err := encodeUserKey(ctx.keyBuf, o.RequestPut.Key); err != nil {
+			ctx.cmd.Kv.Key = o.RequestPut.Key
+			ctx.cmd.Kv.Value = o.RequestPut.Value
+
+			response, err := handlePut(ctx)
+			if err != nil {
 				return sm.Result{Value: ResultFailure}, err
 			}
-			if err := ctx.batch.Set(ctx.keyBuf.Bytes(), o.RequestPut.Value, nil); err != nil {
-				return sm.Result{Value: ResultFailure}, err
-			}
-			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}})
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: response}})
 		case *proto.RequestOp_RequestDeleteRange:
-			// TODO(jsfpdn): If there are many DeleteRange requests, it would be beneficiary to also reuse the
-			//				 the buffer used for the `upperBound`, just as for `lowerBound`.
-			if smRes, err := delete(o.RequestDeleteRange.Key, o.RequestDeleteRange.RangeEnd, ctx.keyBuf, ctx.batch); err != nil {
-				return smRes, err
+			ctx.cmd.RangeEnd = o.RequestDeleteRange.RangeEnd
+			ctx.cmd.Kv.Key = o.RequestDeleteRange.Key
+
+			response, err := handleDelete(ctx)
+			if err != nil {
+				return sm.Result{Value: ResultFailure}, err
 			}
-			// TODO(jsfpdn): Does `ctx.batch.Count()` say how many records were deleted with `RangeDelete`?
-			// 				 Add the number of deleted records to the response.
-			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}})
+
+			res.Responses = append(res.Responses, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: response}})
 		}
 		ctx.keyBuf.Reset()
 	}
@@ -257,33 +278,4 @@ func (c *updateContext) Close() error {
 	}
 	c.cmd.ReturnToVTPool()
 	return nil
-}
-
-func delete(lowerBound, upperBound []byte, lowerBoundBuf *bytes.Buffer, batch *pebble.Batch) (sm.Result, error) {
-	if err := encodeUserKey(lowerBoundBuf, lowerBound); err != nil {
-		return sm.Result{Value: ResultFailure}, err
-	}
-
-	if upperBound != nil {
-		var end []byte
-		if bytes.Equal(upperBound, wildcard) {
-			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
-			end = incrementRightmostByte(maxUserKey)
-		} else {
-			upperBoundBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(upperBound))))
-			if err := encodeUserKey(upperBoundBuf, upperBound); err != nil {
-				return sm.Result{Value: ResultFailure}, err
-			}
-			end = upperBoundBuf.Bytes()
-		}
-
-		if err := batch.DeleteRange(lowerBoundBuf.Bytes(), end, nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-	} else {
-		if err := batch.Delete(lowerBoundBuf.Bytes(), nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-	}
-	return sm.Result{Value: ResultSuccess}, nil
 }

@@ -207,24 +207,24 @@ func (p *FSM) GetHash() (uint64, error) {
 }
 
 // fillEntriesFunc fills proto.RangeResponse response.
-type fillEntriesFunc func(k key.Key, value []byte, response *proto.RangeResponse) error
+type fillEntriesFunc func(k key.Key, value []byte, response *proto.ResponseOp_Range) error
 
 // iterator prepares new pebble.Iterator with upper and lower bound.
-func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEntriesFunc, error) {
-	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.Key))))
-	err := encodeUserKey(lowerBuf, req.Key)
+func iterator(db *pebble.DB, req *proto.RequestOp_RequestRange) (*pebble.Iterator, fillEntriesFunc, error) {
+	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RequestRange.Key))))
+	err := encodeUserKey(lowerBuf, req.RequestRange.Key)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
-	if req.RangeEnd != nil {
-		if bytes.Equal(req.RangeEnd, wildcard) {
+	if req.RequestRange.RangeEnd != nil {
+		if bytes.Equal(req.RequestRange.RangeEnd, wildcard) {
 			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum user key.
 			iterOptions.UpperBound = incrementRightmostByte(maxUserKey)
 		} else {
-			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RangeEnd))))
-			err = encodeUserKey(upperBuf, req.RangeEnd)
+			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RequestRange.RangeEnd))))
+			err = encodeUserKey(upperBuf, req.RequestRange.RangeEnd)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -233,9 +233,9 @@ func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEnt
 	}
 
 	fill := addKVPair
-	if req.KeysOnly {
+	if req.RequestRange.KeysOnly {
 		fill = addKeyOnly
-	} else if req.CountOnly {
+	} else if req.RequestRange.CountOnly {
 		fill = addCountOnly
 	}
 
@@ -244,7 +244,7 @@ func iterator(db *pebble.DB, req *proto.RangeRequest) (*pebble.Iterator, fillEnt
 
 // iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
 // Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
-func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.RangeResponse) error {
+func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.ResponseOp_Range) error {
 	i := 0
 	for iter.First(); iter.Valid(); iter.Next() {
 		k := key.Key{}
@@ -268,7 +268,7 @@ func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *prot
 }
 
 // addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
-func addKVPair(k key.Key, valueBytes []byte, response *proto.RangeResponse) error {
+func addKVPair(k key.Key, valueBytes []byte, response *proto.ResponseOp_Range) error {
 	tmpVal := make([]byte, len(valueBytes))
 	copy(tmpVal, valueBytes)
 
@@ -282,14 +282,14 @@ func addKVPair(k key.Key, valueBytes []byte, response *proto.RangeResponse) erro
 }
 
 // addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
-func addKeyOnly(k key.Key, _ []byte, response *proto.RangeResponse) error {
+func addKeyOnly(k key.Key, _ []byte, response *proto.ResponseOp_Range) error {
 	response.Kvs = append(response.Kvs, &proto.KeyValue{Key: k.Key})
 	response.Count++
 	return nil
 }
 
 // addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
-func addCountOnly(_ key.Key, _ []byte, response *proto.RangeResponse) error {
+func addCountOnly(_ key.Key, _ []byte, response *proto.ResponseOp_Range) error {
 	response.Count++
 	return nil
 }

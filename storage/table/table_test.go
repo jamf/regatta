@@ -85,40 +85,59 @@ func TestActiveTable_Range(t *testing.T) {
 			fields: fields{
 				Table: Table{},
 				nh: mockRaftHandler{
-					queryResult: &proto.RangeResponse{Count: 1, Kvs: []*proto.KeyValue{{
-						Key:   []byte("foo"),
-						Value: []byte("bar"),
-					}}},
+					queryResult: &proto.ResponseOp_Range{
+						Count: 1,
+						Kvs: []*proto.KeyValue{
+							{
+								Key:   []byte("foo"),
+								Value: []byte("bar"),
+							},
+						},
+					},
 				},
 			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("foo")},
 			},
-			want: &proto.RangeResponse{Count: 1, Kvs: []*proto.KeyValue{{
-				Key:   []byte("foo"),
-				Value: []byte("bar"),
-			}}},
+			want: &proto.RangeResponse{
+				Count: 1,
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   []byte("foo"),
+						Value: []byte("bar"),
+					},
+				},
+			},
 		},
 		{
 			name: "Query key found - linerizable",
 			fields: fields{
 				Table: Table{},
 				nh: mockRaftHandler{
-					queryResult: &proto.RangeResponse{Count: 1, Kvs: []*proto.KeyValue{{
-						Key:   []byte("foo"),
-						Value: []byte("bar"),
-					}}},
+					queryResult: &proto.ResponseOp_Range{
+						Count: 1, Kvs: []*proto.KeyValue{
+							{
+								Key:   []byte("foo"),
+								Value: []byte("bar"),
+							},
+						},
+					},
 				},
 			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("foo"), Linearizable: true},
 			},
-			want: &proto.RangeResponse{Count: 1, Kvs: []*proto.KeyValue{{
-				Key:   []byte("foo"),
-				Value: []byte("bar"),
-			}}},
+			want: &proto.RangeResponse{
+				Count: 1,
+				Kvs: []*proto.KeyValue{
+					{
+						Key:   []byte("foo"),
+						Value: []byte("bar"),
+					},
+				},
+			},
 		},
 		{
 			name: "Query key too long",
