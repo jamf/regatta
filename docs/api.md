@@ -233,9 +233,9 @@ Maintenance service provides methods for maintenance purposes.
 | result | [Compare.CompareResult](#mvcc.v1.Compare.CompareResult) |  | result is logical comparison operation for this comparison. |
 | target | [Compare.CompareTarget](#mvcc.v1.Compare.CompareTarget) |  | target is the key-value field to inspect for the comparison. |
 | key | [bytes](#bytes) |  | key is the subject key for the comparison operation. |
-| value | [int64](#int64) |  | value is the value of the given key, in bytes.
+| value | [bytes](#bytes) |  | value is the value of the given key, in bytes.
 
-create_revision is the creation revision of the given key int64 create_revision = 5; mod_revision is the last modified revision of the given key. int64 mod_revision = 6; version is the version of the given key bytes version = 7; lease is the lease id of the given key. int64 lease = 8; leave room for more target_union field tags, jump to 64 |
+create_revision is the creation revision of the given key int64 create_revision = 5; mod_revision is the last modified revision of the given key. int64 mod_revision = 6; version is the version of the given key int64 version = 7; lease is the lease id of the given key. int64 lease = 8; leave room for more target_union field tags, jump to 64 |
 | range_end | [bytes](#bytes) |  | range_end compares the given target to all keys in the range [key, range_end). See RangeRequest for more details on key ranges.
 
 TODO: fill out with most of the rest of RangeRequest fields when needed. |
