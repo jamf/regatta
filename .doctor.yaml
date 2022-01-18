@@ -2,3 +2,5 @@
 tasks:
 # Dismiss stale reviews in PR when new commits are pushed.
 - name: dismissStaleReviews
+# Check whether pull request contains fixup commits.
+- name: blockFixup
