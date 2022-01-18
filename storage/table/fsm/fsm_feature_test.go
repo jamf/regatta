@@ -259,7 +259,58 @@ var input = map[int][]*proto.Command{
 					{
 						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
 							Key:   []byte("key_1"),
+							Value: []byte("value1"),
+						}},
+					},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_GREATER, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_1"),
+							Value: []byte("value2"),
+						}},
+					},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_LESS, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_1"),
+							Value: []byte("value2"),
+						}},
+					},
+				},
+				Failure: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_1"),
 							Value: []byte("value"),
+						}},
+					},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestRange{RequestRange: &proto.RequestOp_Range{
+							Key: []byte("key_1"),
 						}},
 					},
 				},
@@ -270,7 +321,7 @@ var input = map[int][]*proto.Command{
 
 // TestGenerateData is useful for generating test data for new features.
 func TestGenerateData(t *testing.T) {
-	// t.Skip("Unskip for generation of a new version")
+	t.Skip("Unskip for generation of a new version")
 	for version, commands := range input {
 		generateFiles(t, version, commands)
 	}

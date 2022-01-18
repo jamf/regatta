@@ -200,9 +200,28 @@ func handleTxnCompare(ctx *updateContext, compare []*proto.Compare) (bool, error
 		if err := encodeUserKey(keyBuf, cmp.Key); err != nil {
 			return false, err
 		}
-		_, closer, err := ctx.batch.Get(keyBuf.Bytes())
-		// TODO other checks
-		result = result && !errors.Is(err, pebble.ErrNotFound)
+		value, closer, err := ctx.batch.Get(keyBuf.Bytes())
+		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+			return false, err
+		}
+
+		keyExists := !errors.Is(err, pebble.ErrNotFound)
+		cmpValue := true
+		if cmp.Target == proto.Compare_VALUE && cmp.GetValue() != nil {
+			switch cmp.Result {
+			case proto.Compare_EQUAL:
+				cmpValue = bytes.Equal(value, cmp.GetValue())
+			case proto.Compare_NOT_EQUAL:
+				cmpValue = !bytes.Equal(value, cmp.GetValue())
+			case proto.Compare_GREATER:
+				cmpValue = bytes.Compare(value, cmp.GetValue()) == -1
+			case proto.Compare_LESS:
+				cmpValue = bytes.Compare(value, cmp.GetValue()) == +1
+			}
+		}
+
+		result = result && keyExists && cmpValue
+
 		if closer != nil {
 			if err := closer.Close(); err != nil {
 				return false, err

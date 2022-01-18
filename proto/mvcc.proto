@@ -178,13 +178,13 @@ message Compare {
   bytes key = 3;
   oneof target_union {
     // value is the value of the given key, in bytes.
-    int64 value = 4;
+    bytes value = 4;
     // create_revision is the creation revision of the given key
     // int64 create_revision = 5;
     // mod_revision is the last modified revision of the given key.
     // int64 mod_revision = 6;
     // version is the version of the given key
-    // bytes version = 7;
+    // int64 version = 7;
     // lease is the lease id of the given key.
     // int64 lease = 8;
     // leave room for more target_union field tags, jump to 64

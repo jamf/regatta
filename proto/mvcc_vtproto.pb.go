@@ -855,9 +855,11 @@ func (m *Compare_Value) MarshalToVT(dAtA []byte) (int, error) {
 
 func (m *Compare_Value) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	i = encodeVarint(dAtA, i, uint64(m.Value))
+	i -= len(m.Value)
+	copy(dAtA[i:], m.Value)
+	i = encodeVarint(dAtA, i, uint64(len(m.Value)))
 	i--
-	dAtA[i] = 0x20
+	dAtA[i] = 0x22
 	return len(dAtA) - i, nil
 }
 func (m *KeyValue) MarshalVT() (dAtA []byte, err error) {
@@ -1320,7 +1322,8 @@ func (m *Compare_Value) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
-	n += 1 + sov(uint64(m.Value))
+	l = len(m.Value)
+	n += 1 + l + sov(uint64(l))
 	return n
 }
 func (m *KeyValue) SizeVT() (n int) {
@@ -3121,10 +3124,10 @@ func (m *Compare) UnmarshalVT(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 4:
-			if wireType != 0 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
 			}
-			var v int64
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -3134,12 +3137,25 @@ func (m *Compare) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int64(b&0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			if byteLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := make([]byte, postIndex-iNdEx)
+			copy(v, dAtA[iNdEx:postIndex])
 			m.TargetUnion = &Compare_Value{v}
+			iNdEx = postIndex
 		case 64:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field RangeEnd", wireType)
