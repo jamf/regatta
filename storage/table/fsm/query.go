@@ -97,9 +97,17 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 }
 
 func rangeLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.ResponseOp_Range, error) {
-	iter, fill, err := iterator(db, req)
+	opts, err := iterOptionsForBounds(req.RequestRange.Key, req.RequestRange.RangeEnd)
 	if err != nil {
 		return nil, err
+	}
+	iter := db.NewIter(opts)
+
+	fill := addKVPair
+	if req.RequestRange.KeysOnly {
+		fill = addKeyOnly
+	} else if req.RequestRange.CountOnly {
+		fill = addCountOnly
 	}
 
 	defer func() {
@@ -148,6 +156,59 @@ func singleLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.R
 		Kvs:   kvs,
 		Count: 1,
 	}, nil
+}
+
+// fillEntriesFunc fills proto.RangeResponse response.
+type fillEntriesFunc func(key, value []byte, response *proto.ResponseOp_Range) error
+
+// iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
+// Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
+func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.ResponseOp_Range) error {
+	i := 0
+	for iter.First(); iter.Valid(); iter.Next() {
+		k := key.Key{}
+		r := bytes.NewReader(iter.Key())
+		decoder := key.NewDecoder(r)
+		if err := decoder.Decode(&k); err != nil {
+			return err
+		}
+
+		if i == limit && limit != 0 {
+			response.More = iter.Next()
+			break
+		}
+		i++
+
+		if err := f(k.Key, iter.Value(), response); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
+func addKVPair(key, value []byte, response *proto.ResponseOp_Range) error {
+	kv := &proto.KeyValue{Key: make([]byte, len(key)), Value: make([]byte, len(value))}
+	copy(kv.Key, key)
+	copy(kv.Value, value)
+	response.Kvs = append(response.Kvs, kv)
+	response.Count++
+	return nil
+}
+
+// addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
+func addKeyOnly(key, _ []byte, response *proto.ResponseOp_Range) error {
+	kv := &proto.KeyValue{Key: make([]byte, len(key))}
+	copy(kv.Key, key)
+	response.Kvs = append(response.Kvs, kv)
+	response.Count++
+	return nil
+}
+
+// addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
+func addCountOnly(_, _ []byte, response *proto.ResponseOp_Range) error {
+	response.Count++
+	return nil
 }
 
 func writeCommand(w io.Writer, command *proto.Command) error {

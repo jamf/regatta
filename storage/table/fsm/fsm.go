@@ -17,7 +17,6 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/oxtoacart/bpool"
 	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
@@ -204,94 +203,6 @@ func (p *FSM) GetHash() (uint64, error) {
 	}
 
 	return hash64.Sum64(), nil
-}
-
-// fillEntriesFunc fills proto.RangeResponse response.
-type fillEntriesFunc func(k key.Key, value []byte, response *proto.ResponseOp_Range) error
-
-// iterator prepares new pebble.Iterator with upper and lower bound.
-func iterator(db pebble.Reader, req *proto.RequestOp_RequestRange) (*pebble.Iterator, fillEntriesFunc, error) {
-	lowerBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RequestRange.Key))))
-	err := encodeUserKey(lowerBuf, req.RequestRange.Key)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	iterOptions := &pebble.IterOptions{LowerBound: lowerBuf.Bytes()}
-	if req.RequestRange.RangeEnd != nil {
-		if bytes.Equal(req.RequestRange.RangeEnd, wildcard) {
-			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum user key.
-			iterOptions.UpperBound = incrementRightmostByte(maxUserKey)
-		} else {
-			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(req.RequestRange.RangeEnd))))
-			err = encodeUserKey(upperBuf, req.RequestRange.RangeEnd)
-			if err != nil {
-				return nil, nil, err
-			}
-			iterOptions.UpperBound = upperBuf.Bytes()
-		}
-	}
-
-	fill := addKVPair
-	if req.RequestRange.KeysOnly {
-		fill = addKeyOnly
-	} else if req.RequestRange.CountOnly {
-		fill = addCountOnly
-	}
-
-	return db.NewIter(iterOptions), fill, nil
-}
-
-// iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
-// Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
-func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.ResponseOp_Range) error {
-	i := 0
-	for iter.First(); iter.Valid(); iter.Next() {
-		k := key.Key{}
-		r := bytes.NewReader(iter.Key())
-		decoder := key.NewDecoder(r)
-		if err := decoder.Decode(&k); err != nil {
-			return err
-		}
-
-		if i == limit && limit != 0 {
-			response.More = iter.Next()
-			break
-		}
-		i++
-
-		if err := f(k, iter.Value(), response); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
-func addKVPair(k key.Key, valueBytes []byte, response *proto.ResponseOp_Range) error {
-	tmpVal := make([]byte, len(valueBytes))
-	copy(tmpVal, valueBytes)
-
-	kv := &proto.KeyValue{
-		Key:   k.Key,
-		Value: tmpVal,
-	}
-	response.Kvs = append(response.Kvs, kv)
-	response.Count++
-	return nil
-}
-
-// addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
-func addKeyOnly(k key.Key, _ []byte, response *proto.ResponseOp_Range) error {
-	response.Kvs = append(response.Kvs, &proto.KeyValue{Key: k.Key})
-	response.Count++
-	return nil
-}
-
-// addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
-func addCountOnly(_ key.Key, _ []byte, response *proto.ResponseOp_Range) error {
-	response.Count++
-	return nil
 }
 
 // encodeUserKey into provided writer.

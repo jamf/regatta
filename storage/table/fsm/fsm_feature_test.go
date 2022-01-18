@@ -316,12 +316,27 @@ var input = map[int][]*proto.Command{
 				},
 			},
 		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("key"), RangeEnd: wildcard, Result: proto.Compare_LESS, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("val")}}},
+				Success: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_5"),
+							Value: []byte("value"),
+						}},
+					},
+				},
+			},
+		},
 	},
 }
 
 // TestGenerateData is useful for generating test data for new features.
 func TestGenerateData(t *testing.T) {
-	t.Skip("Unskip for generation of a new version")
+	// t.Skip("Unskip for generation of a new version")
 	for version, commands := range input {
 		generateFiles(t, version, commands)
 	}
