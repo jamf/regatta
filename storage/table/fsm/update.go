@@ -3,7 +3,6 @@ package fsm
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
@@ -180,56 +179,14 @@ func handleTxn(ctx *updateContext) ([]*proto.ResponseOp, error) {
 	if err := ctx.EnsureIndexed(); err != nil {
 		return nil, err
 	}
-
-	ok, err := handleTxnCompare(ctx, ctx.cmd.Txn.Compare)
+	ok, err := txnCompare(ctx.batch, ctx.cmd.Txn.Compare)
 	if err != nil {
 		return nil, err
 	}
-
 	if ok {
 		return handleTxnOps(ctx, ctx.cmd.Txn.Success)
 	}
 	return handleTxnOps(ctx, ctx.cmd.Txn.Failure)
-}
-
-func handleTxnCompare(ctx *updateContext, compare []*proto.Compare) (bool, error) {
-	keyBuf := bufferPool.Get()
-	defer bufferPool.Put(keyBuf)
-	result := true
-	for _, cmp := range compare {
-		if err := encodeUserKey(keyBuf, cmp.Key); err != nil {
-			return false, err
-		}
-		value, closer, err := ctx.batch.Get(keyBuf.Bytes())
-		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
-			return false, err
-		}
-
-		keyExists := !errors.Is(err, pebble.ErrNotFound)
-		cmpValue := true
-		if cmp.Target == proto.Compare_VALUE && cmp.GetValue() != nil {
-			switch cmp.Result {
-			case proto.Compare_EQUAL:
-				cmpValue = bytes.Equal(value, cmp.GetValue())
-			case proto.Compare_NOT_EQUAL:
-				cmpValue = !bytes.Equal(value, cmp.GetValue())
-			case proto.Compare_GREATER:
-				cmpValue = bytes.Compare(value, cmp.GetValue()) == -1
-			case proto.Compare_LESS:
-				cmpValue = bytes.Compare(value, cmp.GetValue()) == +1
-			}
-		}
-
-		result = result && keyExists && cmpValue
-
-		if closer != nil {
-			if err := closer.Close(); err != nil {
-				return false, err
-			}
-		}
-		keyBuf.Reset()
-	}
-	return result, nil
 }
 
 func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.ResponseOp, error) {
@@ -288,7 +245,6 @@ type updateContext struct {
 	wo    *pebble.WriteOptions
 	db    *pebble.DB
 	cmd   *proto.Command
-	req   *proto.RequestOp
 	index uint64
 }
 
