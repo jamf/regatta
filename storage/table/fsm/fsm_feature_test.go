@@ -269,7 +269,7 @@ var input = map[int][]*proto.Command{
 			Table: []byte("test"),
 			Type:  proto.Command_TXN,
 			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_GREATER, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
+				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_LESS, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
 				Success: []*proto.RequestOp{
 					{
 						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
@@ -284,12 +284,12 @@ var input = map[int][]*proto.Command{
 			Table: []byte("test"),
 			Type:  proto.Command_TXN,
 			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_LESS, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
+				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_GREATER, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
 				Success: []*proto.RequestOp{
 					{
 						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
 							Key:   []byte("key_1"),
-							Value: []byte("value2"),
+							Value: []byte("value"),
 						}},
 					},
 				},
@@ -297,7 +297,7 @@ var input = map[int][]*proto.Command{
 					{
 						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
 							Key:   []byte("key_1"),
-							Value: []byte("value"),
+							Value: []byte("value2"),
 						}},
 					},
 				},
@@ -320,7 +320,7 @@ var input = map[int][]*proto.Command{
 			Table: []byte("test"),
 			Type:  proto.Command_TXN,
 			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key"), RangeEnd: wildcard, Result: proto.Compare_LESS, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("val")}}},
+				Compare: []*proto.Compare{{Key: []byte("key"), RangeEnd: wildcard, Result: proto.Compare_GREATER, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("val")}}},
 				Success: []*proto.RequestOp{
 					{
 						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{

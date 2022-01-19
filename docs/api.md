@@ -225,7 +225,13 @@ Maintenance service provides methods for maintenance purposes.
 <a name="mvcc.v1.Compare"></a>
 
 ### Compare
-
+Compare property `target` for every KV from DB in [key, range_end) with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
+that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left hand side of the comparison.
+Examples:
+  `DB[&#34;k&#34;][value] EQUAL target_union.value`
+  `DB[&#34;k&#34;][value] GREATER target_union.value`
+  `DB[&#34;k&#34;...&#34;h&#34;][value] GREATER target_union.value`
+  `DB[&#34;k&#34;][value] LESS target_union.value`
 
 
 | Field | Type | Label | Description |
@@ -233,9 +239,7 @@ Maintenance service provides methods for maintenance purposes.
 | result | [Compare.CompareResult](#mvcc.v1.Compare.CompareResult) |  | result is logical comparison operation for this comparison. |
 | target | [Compare.CompareTarget](#mvcc.v1.Compare.CompareTarget) |  | target is the key-value field to inspect for the comparison. |
 | key | [bytes](#bytes) |  | key is the subject key for the comparison operation. |
-| value | [bytes](#bytes) |  | value is the value of the given key, in bytes.
-
-create_revision is the creation revision of the given key int64 create_revision = 5; mod_revision is the last modified revision of the given key. int64 mod_revision = 6; version is the version of the given key int64 version = 7; lease is the lease id of the given key. int64 lease = 8; leave room for more target_union field tags, jump to 64 |
+| value | [bytes](#bytes) |  | value is the value of the given key, in bytes. |
 | range_end | [bytes](#bytes) |  | range_end compares the given target to all keys in the range [key, range_end). See RangeRequest for more details on key ranges.
 
 TODO: fill out with most of the rest of RangeRequest fields when needed. |
