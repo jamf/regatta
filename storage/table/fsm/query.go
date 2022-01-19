@@ -15,9 +15,9 @@ import (
 // Lookup locally looks up the data.
 func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	switch req := l.(type) {
-	case *proto.RequestOp_RequestRange:
+	case *proto.RequestOp_Range:
 		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-		if req.RequestRange.RangeEnd != nil {
+		if req.RangeEnd != nil {
 			return rangeLookup(db, req)
 		}
 		return singleLookup(db, req)
@@ -96,17 +96,17 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 	return idx, nil
 }
 
-func rangeLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.ResponseOp_Range, error) {
-	opts, err := iterOptionsForBounds(req.RequestRange.Key, req.RequestRange.RangeEnd)
+func rangeLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
+	opts, err := iterOptionsForBounds(req.Key, req.RangeEnd)
 	if err != nil {
 		return nil, err
 	}
 	iter := db.NewIter(opts)
 
 	fill := addKVPair
-	if req.RequestRange.KeysOnly {
+	if req.KeysOnly {
 		fill = addKeyOnly
-	} else if req.RequestRange.CountOnly {
+	} else if req.CountOnly {
 		fill = addCountOnly
 	}
 
@@ -115,18 +115,18 @@ func rangeLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.Re
 	}()
 
 	response := &proto.ResponseOp_Range{}
-	if err = iterate(iter, int(req.RequestRange.Limit), fill, response); err != nil {
+	if err = iterate(iter, int(req.Limit), fill, response); err != nil {
 		return nil, err
 	}
 
 	return response, nil
 }
 
-func singleLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.ResponseOp_Range, error) {
+func singleLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 
-	err := encodeUserKey(keyBuf, req.RequestRange.Key)
+	err := encodeUserKey(keyBuf, req.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -140,15 +140,15 @@ func singleLookup(db pebble.Reader, req *proto.RequestOp_RequestRange) (*proto.R
 		_ = closer.Close()
 	}()
 
-	kv := &proto.KeyValue{Key: req.RequestRange.Key}
+	kv := &proto.KeyValue{Key: req.Key}
 
-	if !(req.RequestRange.KeysOnly || req.RequestRange.CountOnly) {
+	if !(req.KeysOnly || req.CountOnly) {
 		kv.Value = make([]byte, len(value))
 		copy(kv.Value, value)
 	}
 
 	var kvs []*proto.KeyValue
-	if !req.RequestRange.CountOnly {
+	if !req.CountOnly {
 		kvs = append(kvs, kv)
 	}
 

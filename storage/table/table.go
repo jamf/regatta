@@ -52,14 +52,12 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 	var (
 		err   error
 		val   interface{}
-		reqOp = &proto.RequestOp_RequestRange{
-			RequestRange: &proto.RequestOp_Range{
-				Key:       req.Key,
-				RangeEnd:  req.RangeEnd,
-				Limit:     req.Limit,
-				KeysOnly:  req.KeysOnly,
-				CountOnly: req.CountOnly,
-			},
+		reqOp = &proto.RequestOp_Range{
+			Key:       req.Key,
+			RangeEnd:  req.RangeEnd,
+			Limit:     req.Limit,
+			KeysOnly:  req.KeysOnly,
+			CountOnly: req.CountOnly,
 		}
 	)
 
