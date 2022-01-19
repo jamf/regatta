@@ -202,9 +202,9 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.Response
 			)
 
 			if o.RequestRange.RangeEnd != nil {
-				response, err = rangeLookup(ctx.batch, o)
+				response, err = rangeLookup(ctx.batch, o.RequestRange)
 			} else {
-				response, err = singleLookup(ctx.batch, o)
+				response, err = singleLookup(ctx.batch, o.RequestRange)
 			}
 			if err != nil {
 				return nil, err
@@ -226,18 +226,6 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.Response
 		}
 	}
 	return results, nil
-}
-
-func wrapRequestOp(req pb.Message) *proto.RequestOp {
-	switch op := req.(type) {
-	case *proto.RequestOp_Range:
-		return &proto.RequestOp{Request: &proto.RequestOp_RequestRange{RequestRange: op}}
-	case *proto.RequestOp_Put:
-		return &proto.RequestOp{Request: &proto.RequestOp_RequestPut{RequestPut: op}}
-	case *proto.RequestOp_DeleteRange:
-		return &proto.RequestOp{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: op}}
-	}
-	return nil
 }
 
 func wrapResponseOp(req pb.Message) *proto.ResponseOp {

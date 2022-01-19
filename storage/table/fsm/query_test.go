@@ -14,7 +14,7 @@ func TestSM_Lookup(t *testing.T) {
 		smFactory func() sm.IOnDiskStateMachine
 	}
 	type args struct {
-		key *proto.RequestOp_RequestRange
+		key *proto.RequestOp_Range
 	}
 	tests := []struct {
 		name    string
@@ -29,10 +29,8 @@ func TestSM_Lookup(t *testing.T) {
 				smFactory: emptySM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key: []byte("Hello"),
-					},
+				key: &proto.RequestOp_Range{
+					Key: []byte("Hello"),
 				},
 			},
 			wantErr: true,
@@ -43,10 +41,8 @@ func TestSM_Lookup(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key: []byte("Hello"),
-					},
+				key: &proto.RequestOp_Range{
+					Key: []byte("Hello"),
 				},
 			},
 			wantErr: true,
@@ -57,10 +53,8 @@ func TestSM_Lookup(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key: []byte(fmt.Sprintf(testKeyFormat, 0)),
-					},
+				key: &proto.RequestOp_Range{
+					Key: []byte(fmt.Sprintf(testKeyFormat, 0)),
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -79,10 +73,8 @@ func TestSM_Lookup(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-					},
+				key: &proto.RequestOp_Range{
+					Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -101,11 +93,9 @@ func TestSM_Lookup(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						KeysOnly: true,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					KeysOnly: true,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -121,11 +111,9 @@ func TestSM_Lookup(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						CountOnly: true,
-					},
+				key: &proto.RequestOp_Range{
+					Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					CountOnly: true,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -156,7 +144,7 @@ func TestSM_Range(t *testing.T) {
 		smFactory func() sm.IOnDiskStateMachine
 	}
 	type args struct {
-		key *proto.RequestOp_RequestRange
+		key *proto.RequestOp_Range
 	}
 
 	tests := []struct {
@@ -172,12 +160,10 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 2)),
-						Limit:    0,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 2)),
+					Limit:    0,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -200,12 +186,10 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 9)),
-						Limit:    1,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 9)),
+					Limit:    1,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -225,12 +209,10 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testKeyFormat, 0)),
-						RangeEnd: []byte{0},
-						Limit:    3,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testKeyFormat, 0)),
+					RangeEnd: []byte{0},
+					Limit:    3,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -258,12 +240,10 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd: []byte{0},
-						Limit:    3,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd: []byte{0},
+					Limit:    3,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -291,12 +271,10 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte{0},
-						RangeEnd: []byte{0},
-						Limit:    0,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte{0},
+					RangeEnd: []byte{0},
+					Limit:    0,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -309,13 +287,11 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 5)),
-						KeysOnly: true,
-						Limit:    3,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 5)),
+					KeysOnly: true,
+					Limit:    3,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -334,13 +310,11 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 3)),
-						KeysOnly: true,
-						Limit:    10,
-					},
+				key: &proto.RequestOp_Range{
+					Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 3)),
+					KeysOnly: true,
+					Limit:    10,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -358,13 +332,11 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd:  []byte(fmt.Sprintf(testLargeKeyFormat, 5)),
-						CountOnly: true,
-						Limit:     3,
-					},
+				key: &proto.RequestOp_Range{
+					Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd:  []byte(fmt.Sprintf(testLargeKeyFormat, 5)),
+					CountOnly: true,
+					Limit:     3,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -377,13 +349,11 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
-						RangeEnd:  []byte(fmt.Sprintf(testLargeKeyFormat, 3)),
-						CountOnly: true,
-						Limit:     10,
-					},
+				key: &proto.RequestOp_Range{
+					Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					RangeEnd:  []byte(fmt.Sprintf(testLargeKeyFormat, 3)),
+					CountOnly: true,
+					Limit:     10,
 				},
 			},
 			want: &proto.ResponseOp_Range{
@@ -396,12 +366,10 @@ func TestSM_Range(t *testing.T) {
 				smFactory: filledSM,
 			},
 			args: args{
-				key: &proto.RequestOp_RequestRange{
-					RequestRange: &proto.RequestOp_Range{
-						Key:       []byte("testlarge"),
-						RangeEnd:  incrementRightmostByte([]byte("testlarge")),
-						CountOnly: true,
-					},
+				key: &proto.RequestOp_Range{
+					Key:       []byte("testlarge"),
+					RangeEnd:  incrementRightmostByte([]byte("testlarge")),
+					CountOnly: true,
 				},
 			},
 			want: &proto.ResponseOp_Range{
