@@ -555,7 +555,7 @@ func TestHandlePut(t *testing.T) {
 		Key:   []byte("key_1"),
 		Value: []byte("value_1"),
 	}
-	_, err = handlePut(c, wrapRequest(req))
+	_, err = handlePut(c, req)
 	r.NoError(err)
 	r.NoError(c.Commit())
 
@@ -603,19 +603,19 @@ func TestHandleDelete(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	_, err = handlePut(c, wrapRequest(&proto.RequestOp_Put{
+	_, err = handlePut(c, &proto.RequestOp_Put{
 		Key:   []byte("key_1"),
 		Value: []byte("value_1"),
-	}))
+	})
 	r.NoError(err)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
 
 	// Make the DELETE.
-	_, err = handleDelete(c, wrapRequest(&proto.RequestOp_DeleteRange{
+	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{
 		Key: []byte("key_1"),
-	}))
+	})
 	r.NoError(err)
 	r.NoError(c.Commit())
 
@@ -654,11 +654,11 @@ func TestHandlePutBatch(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	ops := []*proto.RequestOp{
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_1"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_2"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_3"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_4"), Value: []byte("value")}),
+	ops := []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
 	}
 	_, err = handlePutBatch(c, ops)
 	r.NoError(err)
@@ -673,8 +673,8 @@ func TestHandlePutBatch(t *testing.T) {
 	for iter.First(); iter.Valid(); iter.Next() {
 		decodeKey(t, iter, k)
 
-		r.Equal(ops[i].GetRequestPut().Key, k.Key)
-		r.Equal(ops[i].GetRequestPut().Value, iter.Value())
+		r.Equal(ops[i].Key, k.Key)
+		r.Equal(ops[i].Value, iter.Value())
 		r.NoError(iter.Error())
 
 		i++
@@ -711,11 +711,11 @@ func TestHandleDeleteBatch(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	_, err = handlePutBatch(c, []*proto.RequestOp{
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_1"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_2"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_3"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_4"), Value: []byte("value")}),
+	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
 	})
 	r.NoError(err)
 	r.NoError(c.Commit())
@@ -726,11 +726,11 @@ func TestHandleDeleteBatch(t *testing.T) {
 	}
 
 	// Make the DELETE_BATCH.
-	_, err = handleDeleteBatch(c, []*proto.RequestOp{
-		wrapRequest(&proto.RequestOp_DeleteRange{Key: []byte("key_1")}),
-		wrapRequest(&proto.RequestOp_DeleteRange{Key: []byte("key_2")}),
-		wrapRequest(&proto.RequestOp_DeleteRange{Key: []byte("key_3")}),
-		wrapRequest(&proto.RequestOp_DeleteRange{Key: []byte("key_4")}),
+	_, err = handleDeleteBatch(c, []*proto.RequestOp_DeleteRange{
+		{Key: []byte("key_1")},
+		{Key: []byte("key_2")},
+		{Key: []byte("key_3")},
+		{Key: []byte("key_4")},
 	})
 	r.NoError(err)
 	r.NoError(c.Commit())
@@ -771,11 +771,11 @@ func TestHandleDeleteRange(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	_, err = handlePutBatch(c, []*proto.RequestOp{
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_1"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_2"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_3"), Value: []byte("value")}),
-		wrapRequest(&proto.RequestOp_Put{Key: []byte("key_4"), Value: []byte("value")}),
+	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
 	})
 	r.NoError(err)
 	r.NoError(c.Commit())
@@ -783,7 +783,7 @@ func TestHandleDeleteRange(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE RANGE - delete first two user keys.
-	_, err = handleDelete(c, wrapRequest(&proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_3")}))
+	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_3")})
 	r.NoError(err)
 	r.NoError(c.Commit())
 
@@ -805,7 +805,7 @@ func TestHandleDeleteRange(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE RANGE - delete the rest of the user keys.
-	_, err = handleDelete(c, wrapRequest(&proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: wildcard}))
+	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: wildcard})
 	r.NoError(err)
 	r.NoError(c.Commit())
 

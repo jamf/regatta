@@ -8,6 +8,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
+	pb "google.golang.org/protobuf/proto"
 )
 
 // Update updates the object.
@@ -33,51 +34,54 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		res := &proto.CommandResult{}
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:
-			rop, err := handlePut(ctx, wrapRequest(&proto.RequestOp_Put{
+			rop, err := handlePut(ctx, &proto.RequestOp_Put{
 				Key:    ctx.cmd.Kv.Key,
 				Value:  ctx.cmd.Kv.Value,
 				PrevKv: false,
-			}))
+			})
 			if err != nil {
 				return nil, err
 			}
-			res.Responses = append(res.Responses, rop)
+			res.Responses = append(res.Responses, wrapResponseOp(rop))
 		case proto.Command_DELETE:
-			rop, err := handleDelete(ctx, wrapRequest(&proto.RequestOp_DeleteRange{
+			rop, err := handleDelete(ctx, &proto.RequestOp_DeleteRange{
 				Key:      ctx.cmd.Kv.Key,
 				RangeEnd: ctx.cmd.RangeEnd,
 				PrevKv:   false,
-			}))
+			})
 			if err != nil {
 				return nil, err
 			}
-			res.Responses = append(res.Responses, rop)
+			res.Responses = append(res.Responses, wrapResponseOp(rop))
 		case proto.Command_PUT_BATCH:
-			req := make([]*proto.RequestOp, len(ctx.cmd.Batch))
+			req := make([]*proto.RequestOp_Put, len(ctx.cmd.Batch))
 			for i, kv := range ctx.cmd.Batch {
-				req[i] = wrapRequest(&proto.RequestOp_Put{
+				req[i] = &proto.RequestOp_Put{
 					Key:   kv.Key,
 					Value: kv.Value,
-				})
+				}
 			}
 			rop, err := handlePutBatch(ctx, req)
 			if err != nil {
 				return nil, err
 			}
-			res.Responses = append(res.Responses, rop...)
-
+			for _, put := range rop {
+				res.Responses = append(res.Responses, wrapResponseOp(put))
+			}
 		case proto.Command_DELETE_BATCH:
-			req := make([]*proto.RequestOp, len(ctx.cmd.Batch))
+			req := make([]*proto.RequestOp_DeleteRange, len(ctx.cmd.Batch))
 			for i, kv := range ctx.cmd.Batch {
-				req[i] = wrapRequest(&proto.RequestOp_DeleteRange{
+				req[i] = &proto.RequestOp_DeleteRange{
 					Key: kv.Key,
-				})
+				}
 			}
 			rop, err := handleDeleteBatch(ctx, req)
 			if err != nil {
 				return nil, err
 			}
-			res.Responses = append(res.Responses, rop...)
+			for _, del := range rop {
+				res.Responses = append(res.Responses, wrapResponseOp(del))
+			}
 		case proto.Command_TXN:
 			rop, err := handleTxn(ctx)
 			if err != nil {
@@ -104,8 +108,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	return updates, nil
 }
 
-func handlePut(ctx *updateContext, op *proto.RequestOp) (*proto.ResponseOp, error) {
-	put := op.GetRequestPut()
+func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_Put, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	if err := encodeUserKey(keyBuf, put.Key); err != nil {
@@ -114,11 +117,11 @@ func handlePut(ctx *updateContext, op *proto.RequestOp) (*proto.ResponseOp, erro
 	if err := ctx.batch.Set(keyBuf.Bytes(), put.Value, nil); err != nil {
 		return nil, err
 	}
-	return &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}}, nil
+	return &proto.ResponseOp_Put{}, nil
 }
 
-func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp) ([]*proto.ResponseOp, error) {
-	var results []*proto.ResponseOp
+func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp_Put) ([]*proto.ResponseOp_Put, error) {
+	var results []*proto.ResponseOp_Put
 	for _, op := range ops {
 		res, err := handlePut(ctx, op)
 		if err != nil {
@@ -129,8 +132,7 @@ func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp) ([]*proto.Respon
 	return results, nil
 }
 
-func handleDelete(ctx *updateContext, op *proto.RequestOp) (*proto.ResponseOp, error) {
-	del := op.GetRequestDeleteRange()
+func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.ResponseOp_DeleteRange, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	if err := encodeUserKey(keyBuf, del.Key); err != nil {
@@ -160,11 +162,11 @@ func handleDelete(ctx *updateContext, op *proto.RequestOp) (*proto.ResponseOp, e
 			return nil, err
 		}
 	}
-	return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}}, nil
+	return &proto.ResponseOp_DeleteRange{}, nil
 }
 
-func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp) ([]*proto.ResponseOp, error) {
-	var results []*proto.ResponseOp
+func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) ([]*proto.ResponseOp_DeleteRange, error) {
+	var results []*proto.ResponseOp_DeleteRange
 	for _, op := range ops {
 		res, err := handleDelete(ctx, op)
 		if err != nil {
@@ -209,33 +211,43 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.Response
 			}
 			results = append(results, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: response}})
 		case *proto.RequestOp_RequestPut:
-			response, err := handlePut(ctx, op)
+			response, err := handlePut(ctx, o.RequestPut)
 			if err != nil {
 				return nil, err
 			}
-			results = append(results, response)
+			results = append(results, wrapResponseOp(response))
 		case *proto.RequestOp_RequestDeleteRange:
-			response, err := handleDelete(ctx, op)
+			response, err := handleDelete(ctx, o.RequestDeleteRange)
 			if err != nil {
 				return nil, err
 			}
 
-			results = append(results, response)
+			results = append(results, wrapResponseOp(response))
 		}
 	}
 	return results, nil
 }
 
-func wrapRequest(req interface{}) *proto.RequestOp {
+func wrapRequestOp(req pb.Message) *proto.RequestOp {
 	switch op := req.(type) {
+	case *proto.RequestOp_Range:
+		return &proto.RequestOp{Request: &proto.RequestOp_RequestRange{RequestRange: op}}
 	case *proto.RequestOp_Put:
 		return &proto.RequestOp{Request: &proto.RequestOp_RequestPut{RequestPut: op}}
 	case *proto.RequestOp_DeleteRange:
 		return &proto.RequestOp{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: op}}
-	case *proto.RequestOp_RequestPut:
-		return &proto.RequestOp{Request: op}
-	case *proto.RequestOp_RequestDeleteRange:
-		return &proto.RequestOp{Request: op}
+	}
+	return nil
+}
+
+func wrapResponseOp(req pb.Message) *proto.ResponseOp {
+	switch op := req.(type) {
+	case *proto.ResponseOp_Range:
+		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: op}}
+	case *proto.ResponseOp_Put:
+		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: op}}
+	case *proto.ResponseOp_DeleteRange:
+		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: op}}
 	}
 	return nil
 }
