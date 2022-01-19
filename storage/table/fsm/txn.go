@@ -23,42 +23,48 @@ func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 				result = result && txnCompareSingle(cmp, iter.Value())
 			}
 		} else {
-			if err := encodeUserKey(keyBuf, cmp.Key); err != nil {
-				return false, err
-			}
-			value, closer, err := reader.Get(keyBuf.Bytes())
-			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
-				return false, err
-			}
-
-			result = result && txnCompareSingle(cmp, value)
-
-			if closer != nil {
-				if err := closer.Close(); err != nil {
-					return false, err
+			err := func() error {
+				if err := encodeUserKey(keyBuf, cmp.Key); err != nil {
+					return err
 				}
+				value, closer, err := reader.Get(keyBuf.Bytes())
+				defer func() {
+					if closer != nil {
+						_ = closer.Close()
+					}
+				}()
+
+				if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+					return err
+				}
+
+				result = !errors.Is(err, pebble.ErrNotFound) && txnCompareSingle(cmp, value)
+
+				keyBuf.Reset()
+				return nil
+			}()
+			if err != nil {
+				return false, err
 			}
-			keyBuf.Reset()
 		}
 	}
 	return result, nil
 }
 
 func txnCompareSingle(cmp *proto.Compare, value []byte) bool {
-	keyExists := value != nil
 	cmpValue := true
-	if cmp.Target == proto.Compare_VALUE && cmp.GetValue() != nil {
+	if cmp.Target == proto.Compare_VALUE && cmp.TargetUnion != nil {
 		switch cmp.Result {
 		case proto.Compare_EQUAL:
 			cmpValue = bytes.Equal(value, cmp.GetValue())
 		case proto.Compare_NOT_EQUAL:
 			cmpValue = !bytes.Equal(value, cmp.GetValue())
 		case proto.Compare_GREATER:
-			cmpValue = bytes.Compare(value, cmp.GetValue()) == -1
+			cmpValue = bytes.Compare(value, cmp.GetValue()) == 1
 		case proto.Compare_LESS:
-			cmpValue = bytes.Compare(value, cmp.GetValue()) == +1
+			cmpValue = bytes.Compare(value, cmp.GetValue()) == -1
 		}
 	}
 
-	return keyExists && cmpValue
+	return cmpValue
 }

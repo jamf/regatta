@@ -154,6 +154,13 @@ message ResponseOp {
   }
 }
 
+// Compare property `target` for every KV from DB in [key, range_end) with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
+// that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left hand side of the comparison.
+// Examples:
+//   `DB["k"][value] EQUAL target_union.value`
+//   `DB["k"][value] GREATER target_union.value`
+//   `DB["k"..."h"][value] GREATER target_union.value`
+//   `DB["k"][value] LESS target_union.value`
 message Compare {
   enum CompareResult {
     EQUAL = 0;
@@ -179,6 +186,7 @@ message Compare {
   oneof target_union {
     // value is the value of the given key, in bytes.
     bytes value = 4;
+
     // create_revision is the creation revision of the given key
     // int64 create_revision = 5;
     // mod_revision is the last modified revision of the given key.
@@ -188,6 +196,7 @@ message Compare {
     // lease is the lease id of the given key.
     // int64 lease = 8;
     // leave room for more target_union field tags, jump to 64
+
   }
 
   // range_end compares the given target to all keys in the range [key, range_end).
