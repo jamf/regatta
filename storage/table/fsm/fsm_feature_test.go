@@ -336,7 +336,7 @@ var input = map[int][]*proto.Command{
 
 // TestGenerateData is useful for generating test data for new features.
 func TestGenerateData(t *testing.T) {
-	// t.Skip("Unskip for generation of a new version")
+	t.Skip("Unskip for generation of a new version")
 	for version, commands := range input {
 		generateFiles(t, version, commands)
 	}
