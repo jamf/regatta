@@ -12,8 +12,8 @@ import (
 
 func TestSM_Snapshot(t *testing.T) {
 	type args struct {
-		producingSMFactory func() sm.IOnDiskStateMachine
-		receivingSMFactory func() sm.IOnDiskStateMachine
+		producingSMFactory func() *FSM
+		receivingSMFactory func() *FSM
 	}
 	tests := []struct {
 		name string
@@ -41,7 +41,7 @@ func TestSM_Snapshot(t *testing.T) {
 			p := tt.args.producingSMFactory()
 			defer p.Close()
 
-			want, err := p.(sm.IHash).GetHash()
+			want, err := p.GetHash()
 			r.NoError(err)
 
 			snp, err := p.PrepareSnapshot()
@@ -69,7 +69,7 @@ func TestSM_Snapshot(t *testing.T) {
 
 			t.Log("Recovery finished")
 
-			got, err := ep.(sm.IHash).GetHash()
+			got, err := ep.GetHash()
 			r.NoError(err)
 			r.Equal(want, got, "the hash of recovered DB should be the same as of the original one")
 
@@ -92,8 +92,8 @@ func TestSM_Snapshot(t *testing.T) {
 
 func TestSM_Snapshot_Stopped(t *testing.T) {
 	type args struct {
-		producingSMFactory func() sm.IOnDiskStateMachine
-		receivingSMFactory func() sm.IOnDiskStateMachine
+		producingSMFactory func() *FSM
+		receivingSMFactory func() *FSM
 	}
 	tests := []struct {
 		name string
