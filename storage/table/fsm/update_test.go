@@ -865,16 +865,19 @@ func Test_handleTxn(t *testing.T) {
 	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_1")}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: nil}}}}, nil)
 	r.NoError(err)
 	r.Equal(1, len(res))
+	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{}), res[0])
 
 	// compare key_5 nil value and associate the key with "value"
 	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: nil}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: []byte("value")}}}}, nil)
 	r.NoError(err)
 	r.Equal(1, len(res))
+	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{}), res[0])
 
 	// compare key_5 value with "value" and delete keys up to key_4 (non-inclusive)
 	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: []byte("value")}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_4")}}}}, nil)
 	r.NoError(err)
 	r.Equal(1, len(res))
+	r.Equal(wrapResponseOp(&proto.ResponseOp_DeleteRange{}), res[0])
 
 	r.NoError(c.Commit())
 
