@@ -260,9 +260,9 @@ func Test_txnCompareSingle(t *testing.T) {
 					Result:      proto.Compare_NOT_EQUAL,
 					TargetUnion: &proto.Compare_Value{Value: []byte("test")},
 				},
-				value: []byte("test"),
+				value: []byte("testytest"),
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "GREATER - greater value",
