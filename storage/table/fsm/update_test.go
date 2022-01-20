@@ -559,6 +559,17 @@ func Test_handlePut(t *testing.T) {
 	r.NoError(err)
 	r.NoError(c.Commit())
 
+	// Make the PUT update.
+	req = &proto.RequestOp_Put{
+		Key:    []byte("key_1"),
+		Value:  []byte("value_2"),
+		PrevKv: true,
+	}
+	res, err := handlePut(c, req)
+	r.NoError(err)
+	r.Equal(&proto.ResponseOp_Put{PrevKv: &proto.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")}}, res)
+	r.NoError(c.Commit())
+
 	iter := db.NewIter(allUserKeysOpts())
 	iter.First()
 
@@ -613,10 +624,12 @@ func Test_handleDelete(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE.
-	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{
-		Key: []byte("key_1"),
+	res, err := handleDelete(c, &proto.RequestOp_DeleteRange{
+		Key:    []byte("key_1"),
+		PrevKv: true,
 	})
 	r.NoError(err)
+	r.Equal(&proto.ResponseOp_DeleteRange{PrevKvs: []*proto.KeyValue{{Key: []byte("key_1"), Value: []byte("value_1")}}}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.
@@ -868,16 +881,22 @@ func Test_handleTxn(t *testing.T) {
 	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{}), res[0])
 
 	// compare key_5 nil value and associate the key with "value"
-	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: nil}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: []byte("value")}}}}, nil)
+	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: nil}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: []byte("value"), PrevKv: true}}}}, nil)
 	r.NoError(err)
 	r.Equal(1, len(res))
-	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{}), res[0])
+	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{PrevKv: &proto.KeyValue{Key: []byte("key_5"), Value: nil}}), res[0])
 
 	// compare key_5 value with "value" and delete keys up to key_4 (non-inclusive)
-	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: []byte("value")}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_4")}}}}, nil)
+	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: []byte("value")}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_4"), PrevKv: true}}}}, nil)
 	r.NoError(err)
 	r.Equal(1, len(res))
-	r.Equal(wrapResponseOp(&proto.ResponseOp_DeleteRange{}), res[0])
+	r.Equal(wrapResponseOp(&proto.ResponseOp_DeleteRange{
+		PrevKvs: []*proto.KeyValue{
+			{Key: []byte("key_1"), Value: []byte("value")},
+			{Key: []byte("key_2"), Value: []byte("value")},
+			{Key: []byte("key_3"), Value: []byte("value")},
+		},
+	}), res[0])
 
 	r.NoError(c.Commit())
 

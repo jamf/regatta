@@ -31,7 +31,7 @@ type KVClient interface {
 	// Txn processes multiple requests in a single transaction.
 	// A txn request increments the revision of the key-value store
 	// and generates events with the same revision for every completed request.
-	// It is not allowed to modify the same key several times within one txn.
+	// It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
 	Txn(ctx context.Context, in *TxnRequest, opts ...grpc.CallOption) (*TxnResponse, error)
 }
 
@@ -92,7 +92,7 @@ type KVServer interface {
 	// Txn processes multiple requests in a single transaction.
 	// A txn request increments the revision of the key-value store
 	// and generates events with the same revision for every completed request.
-	// It is not allowed to modify the same key several times within one txn.
+	// It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
 	Txn(context.Context, *TxnRequest) (*TxnResponse, error)
 	mustEmbedUnimplementedKVServer()
 }
