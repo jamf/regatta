@@ -610,10 +610,10 @@ func (*ResponseOp_ResponseDeleteRange) isResponseOp_Response() {}
 // Compare property `target` for every KV from DB in [key, range_end) with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
 // that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left hand side of the comparison.
 // Examples:
-//   `DB["k"][value] EQUAL target_union.value`
-//   `DB["k"][value] GREATER target_union.value`
-//   `DB["k"..."h"][value] GREATER target_union.value`
-//   `DB["k"][value] LESS target_union.value`
+// * `DB[key][value] EQUAL target_union.value`
+// * `DB[key][value] GREATER target_union.value`
+// * `DB[key...range_end][value] GREATER target_union.value`
+// * `DB[key][value] LESS target_union.value`
 type Compare struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

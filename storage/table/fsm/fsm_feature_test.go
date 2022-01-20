@@ -331,6 +331,21 @@ var input = map[int][]*proto.Command{
 				},
 			},
 		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_TXN,
+			Txn: &proto.Txn{
+				Compare: []*proto.Compare{{Key: []byte("nonsense"), RangeEnd: []byte("nonsense2")}},
+				Failure: []*proto.RequestOp{
+					{
+						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+							Key:   []byte("key_6"),
+							Value: []byte("value"),
+						}},
+					},
+				},
+			},
+		},
 	},
 }
 

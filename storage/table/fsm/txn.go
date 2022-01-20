@@ -11,7 +11,6 @@ import (
 func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
-	result := true
 	for _, cmp := range compare {
 		if cmp.RangeEnd != nil {
 			opts, err := iterOptionsForBounds(cmp.Key, cmp.RangeEnd)
@@ -19,13 +18,18 @@ func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 				return false, err
 			}
 			iter := reader.NewIter(opts)
+			if !iter.First() {
+				return false, nil
+			}
 			for iter.First(); iter.Valid(); iter.Next() {
-				result = result && txnCompareSingle(cmp, iter.Value())
+				if !txnCompareSingle(cmp, iter.Value()) {
+					return false, nil
+				}
 			}
 		} else {
-			err := func() error {
+			res, err := func() (bool, error) {
 				if err := encodeUserKey(keyBuf, cmp.Key); err != nil {
-					return err
+					return false, err
 				}
 				value, closer, err := reader.Get(keyBuf.Bytes())
 				defer func() {
@@ -34,21 +38,29 @@ func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 					}
 				}()
 
-				if err != nil && !errors.Is(err, pebble.ErrNotFound) {
-					return err
+				if err != nil {
+					if errors.Is(err, pebble.ErrNotFound) {
+						return false, nil
+					}
+					return false, err
 				}
 
-				result = !errors.Is(err, pebble.ErrNotFound) && txnCompareSingle(cmp, value)
+				if !txnCompareSingle(cmp, value) {
+					return false, nil
+				}
 
 				keyBuf.Reset()
-				return nil
+				return true, nil
 			}()
 			if err != nil {
 				return false, err
 			}
+			if !res {
+				return false, nil
+			}
 		}
 	}
-	return result, nil
+	return true, nil
 }
 
 func txnCompareSingle(cmp *proto.Compare, value []byte) bool {
