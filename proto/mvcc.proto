@@ -33,8 +33,7 @@ message Command {
   // its modification revision set to the revision of deletion.
   KeyValue kv = 3;
 
-  // prev_kv holds the key-value pair before the event happens.
-  KeyValue prev_kv = 4;
+  reserved 4;
 
   // leader_index holds the value of the log index of a leader cluster from which this command was replicated from.
   optional uint64 leader_index = 5;
@@ -51,6 +50,9 @@ message Command {
   // with the prefix (the given key).
   // If range_end is '\0', the range is all keys greater than or equal to the key argument.
   optional bytes range_end = 8;
+
+  // prev_kvs if to fetch previous KVs.
+  bool prev_kvs = 9;
 }
 
 message CommandResult {
