@@ -225,9 +225,8 @@ Maintenance service provides methods for maintenance purposes.
 <a name="mvcc.v1.Compare"></a>
 
 ### Compare
-Compare property `target` for every KV from DB in `[key, range_end)` with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
-that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left-hand side of the comparison. The Compare always evaluates to
-false when key does not exist as well as when the range `[key,range_end)` result is empty range of keys.
+Compare property `target` for every KV from DB in [key, range_end) with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
+that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left-hand side of the comparison.
 Examples:
 * `DB[key][value] EQUAL target_union.value`
 * `DB[key][value] GREATER target_union.value`
@@ -621,9 +620,9 @@ may apply to the same or different entries in the database. All tests in the gua
 MultiOp returns the results. If all tests are true, MultiOp executes t op (see item 2 below), otherwise
 it executes f op (see item 3 below).
 2. A list of database operations called t op. Each operation in the list is either an insert, delete, or
-lookup operation, and applies to a single database entry. Two different operations in the list may apply
+lookup operation, and applies to a database entry(ies). Two different operations in the list may apply
 to the same or different entries in the database. These operations are executed
-if guard evaluates to true. // TODO decide if applying single key multiple times would be possible (if it should return validation error)
+if guard evaluates to true.
 3. A list of database operations called f op. Like t op, but executed if guard evaluates to false.
 
 
@@ -672,7 +671,7 @@ KV for handling the read/put requests
 | Range | [RangeRequest](#regatta.v1.RangeRequest) | [RangeResponse](#regatta.v1.RangeResponse) | Range gets the keys in the range from the key-value store. |
 | Put | [PutRequest](#regatta.v1.PutRequest) | [PutResponse](#regatta.v1.PutResponse) | Put puts the given key into the key-value store. |
 | DeleteRange | [DeleteRangeRequest](#regatta.v1.DeleteRangeRequest) | [DeleteRangeResponse](#regatta.v1.DeleteRangeResponse) | DeleteRange deletes the given range from the key-value store. |
-| Txn | [TxnRequest](#regatta.v1.TxnRequest) | [TxnResponse](#regatta.v1.TxnResponse) | Txn processes multiple requests in a single transaction. A txn request increments the revision of the key-value store and generates events with the same revision for every completed request. It is not allowed to modify the same key several times within one txn. |
+| Txn | [TxnRequest](#regatta.v1.TxnRequest) | [TxnResponse](#regatta.v1.TxnResponse) | Txn processes multiple requests in a single transaction. A txn request increments the revision of the key-value store and generates events with the same revision for every completed request. It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key). |
 
  
 

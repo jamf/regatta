@@ -3,6 +3,7 @@ package fsm
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
@@ -109,15 +110,28 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 }
 
 func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_Put, error) {
+	resp := &proto.ResponseOp_Put{}
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	if err := encodeUserKey(keyBuf, put.Key); err != nil {
 		return nil, err
 	}
+	if put.PrevKv {
+		if err := ctx.EnsureIndexed(); err != nil {
+			return nil, err
+		}
+		rng, err := singleLookup(ctx.batch, &proto.RequestOp_Range{Key: put.Key})
+		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+			return nil, err
+		}
+		if !errors.Is(err, pebble.ErrNotFound) {
+			resp.PrevKv = rng.Kvs[0]
+		}
+	}
 	if err := ctx.batch.Set(keyBuf.Bytes(), put.Value, nil); err != nil {
 		return nil, err
 	}
-	return &proto.ResponseOp_Put{}, nil
+	return resp, nil
 }
 
 func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp_Put) ([]*proto.ResponseOp_Put, error) {
@@ -133,6 +147,7 @@ func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp_Put) ([]*proto.Re
 }
 
 func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.ResponseOp_DeleteRange, error) {
+	resp := &proto.ResponseOp_DeleteRange{}
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	if err := encodeUserKey(keyBuf, del.Key); err != nil {
@@ -140,6 +155,19 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 	}
 
 	if del.RangeEnd != nil {
+		if del.PrevKv {
+			if err := ctx.EnsureIndexed(); err != nil {
+				return nil, err
+			}
+			rng, err := rangeLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key, RangeEnd: del.RangeEnd})
+			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+				return nil, err
+			}
+			if !errors.Is(err, pebble.ErrNotFound) {
+				resp.PrevKvs = rng.Kvs
+			}
+		}
+
 		var end []byte
 		if bytes.Equal(del.RangeEnd, wildcard) {
 			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
@@ -158,11 +186,23 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 			return nil, err
 		}
 	} else {
+		if del.PrevKv {
+			if err := ctx.EnsureIndexed(); err != nil {
+				return nil, err
+			}
+			rng, err := singleLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key})
+			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+				return nil, err
+			}
+			if !errors.Is(err, pebble.ErrNotFound) {
+				resp.PrevKvs = rng.Kvs
+			}
+		}
 		if err := ctx.batch.Delete(keyBuf.Bytes(), nil); err != nil {
 			return nil, err
 		}
 	}
-	return &proto.ResponseOp_DeleteRange{}, nil
+	return resp, nil
 }
 
 func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) ([]*proto.ResponseOp_DeleteRange, error) {
