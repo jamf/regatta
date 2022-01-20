@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 )
 
 func TestSM_Lookup(t *testing.T) {
 	type fields struct {
-		smFactory func() sm.IOnDiskStateMachine
+		smFactory func() *FSM
 	}
 	type args struct {
 		key *proto.RequestOp_Range
@@ -141,7 +140,7 @@ func TestSM_Lookup(t *testing.T) {
 
 func TestSM_Range(t *testing.T) {
 	type fields struct {
-		smFactory func() sm.IOnDiskStateMachine
+		smFactory func() *FSM
 	}
 	type args struct {
 		key *proto.RequestOp_Range
