@@ -132,7 +132,7 @@ func TestSMReOpen(t *testing.T) {
 	r.Equal(testIndex, index)
 }
 
-func emptySM() sm.IOnDiskStateMachine {
+func emptySM() *FSM {
 	p := &FSM{
 		fs:         vfs.NewMem(),
 		clusterID:  1,
@@ -148,7 +148,7 @@ func emptySM() sm.IOnDiskStateMachine {
 	return p
 }
 
-func filledSM() sm.IOnDiskStateMachine {
+func filledSM() *FSM {
 	entries := make([]sm.Entry, 0, smallEntries+largeEntries)
 	for i := 0; i < smallEntries; i++ {
 		entries = append(entries, sm.Entry{
@@ -195,7 +195,7 @@ func filledSM() sm.IOnDiskStateMachine {
 	return p
 }
 
-func filledLargeValuesSM() sm.IOnDiskStateMachine {
+func filledLargeValuesSM() *FSM {
 	entries := make([]sm.Entry, len(largeValues))
 	for i := 0; i < len(entries); i++ {
 		entries[i] = sm.Entry{

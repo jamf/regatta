@@ -20,7 +20,7 @@ var (
 
 func TestSM_Update(t *testing.T) {
 	type fields struct {
-		smFactory func() sm.IOnDiskStateMachine
+		smFactory func() *FSM
 	}
 	type args struct {
 		updates []sm.Entry
@@ -530,7 +530,7 @@ func TestUpdateContext_Commit(t *testing.T) {
 	r.Equal(*uc.cmd.LeaderIndex, index)
 }
 
-func TestHandlePut(t *testing.T) {
+func Test_handlePut(t *testing.T) {
 	r := require.New(t)
 
 	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
@@ -583,7 +583,7 @@ func TestHandlePut(t *testing.T) {
 	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
-func TestHandleDelete(t *testing.T) {
+func Test_handleDelete(t *testing.T) {
 	r := require.New(t)
 
 	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
@@ -635,7 +635,7 @@ func TestHandleDelete(t *testing.T) {
 	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
-func TestHandlePutBatch(t *testing.T) {
+func Test_handlePutBatch(t *testing.T) {
 	r := require.New(t)
 
 	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
@@ -692,7 +692,7 @@ func TestHandlePutBatch(t *testing.T) {
 	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
-func TestHandleDeleteBatch(t *testing.T) {
+func Test_handleDeleteBatch(t *testing.T) {
 	r := require.New(t)
 
 	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
@@ -752,7 +752,7 @@ func TestHandleDeleteBatch(t *testing.T) {
 	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
-func TestHandleDeleteRange(t *testing.T) {
+func Test_handleDeleteRange(t *testing.T) {
 	r := require.New(t)
 
 	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
@@ -824,6 +824,77 @@ func TestHandleDeleteRange(t *testing.T) {
 	r.NoError(err)
 	r.Equal(*c.cmd.LeaderIndex, index)
 	r.NoError(iter.Close())
+}
+
+func Test_handleTxn(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		cmd: &proto.Command{
+			LeaderIndex: &one,
+		},
+		index: 1,
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT_BATCH.
+	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
+	})
+	r.NoError(err)
+	r.NoError(c.Commit())
+
+	c.batch = db.NewBatch()
+
+	// empty transaction
+	res, err := handleTxn(c, []*proto.Compare{{Key: []byte("key_1")}}, nil, nil)
+	r.NoError(err)
+	r.Empty(res)
+
+	// insert key_5 with nil value
+	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_1")}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: nil}}}}, nil)
+	r.NoError(err)
+	r.Equal(1, len(res))
+
+	// compare key_5 nil value and associate the key with "value"
+	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: nil}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: []byte("value")}}}}, nil)
+	r.NoError(err)
+	r.Equal(1, len(res))
+
+	// compare key_5 value with "value" and delete keys up to key_4 (non-inclusive)
+	res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: []byte("value")}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_4")}}}}, nil)
+	r.NoError(err)
+	r.Equal(1, len(res))
+
+	r.NoError(c.Commit())
+
+	iter := db.NewIter(allUserKeysOpts())
+	count := 0
+	for iter.First(); iter.Valid(); iter.Next() {
+		count++
+		r.Equal("value", string(iter.Value()))
+	}
+	// just keys key_4 and key_5 should remain
+	r.Equal(2, count)
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
+
+	index, err = readLocalIndex(db, sysLeaderIndex)
+	r.NoError(err)
+	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
 // allKeysOpts returns *pebble.IterOptions for iterating over

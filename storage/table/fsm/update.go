@@ -83,7 +83,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				res.Responses = append(res.Responses, wrapResponseOp(del))
 			}
 		case proto.Command_TXN:
-			rop, err := handleTxn(ctx)
+			rop, err := handleTxn(ctx, ctx.cmd.Txn.Compare, ctx.cmd.Txn.Success, ctx.cmd.Txn.Failure)
 			if err != nil {
 				return nil, err
 			}
@@ -177,18 +177,18 @@ func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) (
 	return results, nil
 }
 
-func handleTxn(ctx *updateContext) ([]*proto.ResponseOp, error) {
+func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*proto.RequestOp) ([]*proto.ResponseOp, error) {
 	if err := ctx.EnsureIndexed(); err != nil {
 		return nil, err
 	}
-	ok, err := txnCompare(ctx.batch, ctx.cmd.Txn.Compare)
+	ok, err := txnCompare(ctx.batch, compare)
 	if err != nil {
 		return nil, err
 	}
 	if ok {
-		return handleTxnOps(ctx, ctx.cmd.Txn.Success)
+		return handleTxnOps(ctx, success)
 	}
-	return handleTxnOps(ctx, ctx.cmd.Txn.Failure)
+	return handleTxnOps(ctx, fail)
 }
 
 func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.ResponseOp, error) {
