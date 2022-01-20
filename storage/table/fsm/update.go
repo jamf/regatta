@@ -38,7 +38,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			rop, err := handlePut(ctx, &proto.RequestOp_Put{
 				Key:    ctx.cmd.Kv.Key,
 				Value:  ctx.cmd.Kv.Value,
-				PrevKv: false,
+				PrevKv: ctx.cmd.PrevKvs,
 			})
 			if err != nil {
 				return nil, err
@@ -48,7 +48,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			rop, err := handleDelete(ctx, &proto.RequestOp_DeleteRange{
 				Key:      ctx.cmd.Kv.Key,
 				RangeEnd: ctx.cmd.RangeEnd,
-				PrevKv:   false,
+				PrevKv:   ctx.cmd.PrevKvs,
 			})
 			if err != nil {
 				return nil, err
