@@ -225,7 +225,14 @@ Maintenance service provides methods for maintenance purposes.
 <a name="mvcc.v1.Compare"></a>
 
 ### Compare
-
+Compare property `target` for every KV from DB in `[key, range_end)` with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
+that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left-hand side of the comparison. The Compare always evaluates to
+false when key does not exist as well as when the range `[key,range_end)` result is empty range of keys.
+Examples:
+* `DB[key][value] EQUAL target_union.value`
+* `DB[key][value] GREATER target_union.value`
+* `DB[key...range_end][value] GREATER target_union.value`
+* `DB[key][value] LESS target_union.value`
 
 
 | Field | Type | Label | Description |
@@ -233,13 +240,7 @@ Maintenance service provides methods for maintenance purposes.
 | result | [Compare.CompareResult](#mvcc.v1.Compare.CompareResult) |  | result is logical comparison operation for this comparison. |
 | target | [Compare.CompareTarget](#mvcc.v1.Compare.CompareTarget) |  | target is the key-value field to inspect for the comparison. |
 | key | [bytes](#bytes) |  | key is the subject key for the comparison operation. |
-| version | [int64](#int64) |  | version is the version of the given key |
-| create_revision | [int64](#int64) |  | create_revision is the creation revision of the given key |
-| mod_revision | [int64](#int64) |  | mod_revision is the last modified revision of the given key. |
 | value | [bytes](#bytes) |  | value is the value of the given key, in bytes. |
-| lease | [int64](#int64) |  | lease is the lease id of the given key.
-
-leave room for more target_union field tags, jump to 64 |
 | range_end | [bytes](#bytes) |  | range_end compares the given target to all keys in the range [key, range_end). See RangeRequest for more details on key ranges.
 
 TODO: fill out with most of the rest of RangeRequest fields when needed. |
@@ -458,11 +459,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| VERSION | 0 |  |
-| CREATE | 1 |  |
-| MOD | 2 |  |
-| LEASE | 3 |  |
-| VALUE | 4 |  |
+| VALUE | 0 |  |
 
 
  

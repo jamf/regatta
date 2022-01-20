@@ -8,7 +8,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/table/key"
+	pb "google.golang.org/protobuf/proto"
 )
 
 // Update updates the object.
@@ -16,11 +16,10 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 
 	ctx := &updateContext{
-		batch:  db.NewBatch(),
-		db:     db,
-		wo:     p.wo,
-		cmd:    proto.CommandFromVTPool(),
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		batch: db.NewBatch(),
+		db:    db,
+		wo:    p.wo,
+		cmd:   proto.CommandFromVTPool(),
 	}
 
 	defer func() {
@@ -32,26 +31,74 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			return nil, err
 		}
 
-		var (
-			result sm.Result
-			err    error
-		)
+		res := &proto.CommandResult{}
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:
-			result, err = handlePut(ctx)
+			rop, err := handlePut(ctx, &proto.RequestOp_Put{
+				Key:    ctx.cmd.Kv.Key,
+				Value:  ctx.cmd.Kv.Value,
+				PrevKv: false,
+			})
+			if err != nil {
+				return nil, err
+			}
+			res.Responses = append(res.Responses, wrapResponseOp(rop))
 		case proto.Command_DELETE:
-			result, err = handleDelete(ctx)
+			rop, err := handleDelete(ctx, &proto.RequestOp_DeleteRange{
+				Key:      ctx.cmd.Kv.Key,
+				RangeEnd: ctx.cmd.RangeEnd,
+				PrevKv:   false,
+			})
+			if err != nil {
+				return nil, err
+			}
+			res.Responses = append(res.Responses, wrapResponseOp(rop))
 		case proto.Command_PUT_BATCH:
-			result, err = handlePutBatch(ctx)
+			req := make([]*proto.RequestOp_Put, len(ctx.cmd.Batch))
+			for i, kv := range ctx.cmd.Batch {
+				req[i] = &proto.RequestOp_Put{
+					Key:   kv.Key,
+					Value: kv.Value,
+				}
+			}
+			rop, err := handlePutBatch(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			for _, put := range rop {
+				res.Responses = append(res.Responses, wrapResponseOp(put))
+			}
 		case proto.Command_DELETE_BATCH:
-			result, err = handleDeleteBatch(ctx)
+			req := make([]*proto.RequestOp_DeleteRange, len(ctx.cmd.Batch))
+			for i, kv := range ctx.cmd.Batch {
+				req[i] = &proto.RequestOp_DeleteRange{
+					Key: kv.Key,
+				}
+			}
+			rop, err := handleDeleteBatch(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			for _, del := range rop {
+				res.Responses = append(res.Responses, wrapResponseOp(del))
+			}
+		case proto.Command_TXN:
+			rop, err := handleTxn(ctx)
+			if err != nil {
+				return nil, err
+			}
+			res.Responses = append(res.Responses, rop...)
 		case proto.Command_DUMMY:
-			result = sm.Result{Value: ResultSuccess}
 		}
-		if err != nil {
-			return nil, err
+
+		updates[i].Result.Value = ResultSuccess
+		if len(res.Responses) > 0 {
+			bts, err := res.MarshalVT()
+			if err != nil {
+				return nil, err
+			}
+			updates[i].Result.Data = bts
 		}
-		updates[i].Result = result
 	}
 
 	if err := ctx.Commit(); err != nil {
@@ -61,76 +108,144 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	return updates, nil
 }
 
-func handlePut(ctx *updateContext) (sm.Result, error) {
-	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
-		return sm.Result{Value: ResultFailure}, err
+func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_Put, error) {
+	keyBuf := bufferPool.Get()
+	defer bufferPool.Put(keyBuf)
+	if err := encodeUserKey(keyBuf, put.Key); err != nil {
+		return nil, err
 	}
-	if err := ctx.batch.Set(ctx.keyBuf.Bytes(), ctx.cmd.Kv.Value, nil); err != nil {
-		return sm.Result{Value: ResultFailure}, err
+	if err := ctx.batch.Set(keyBuf.Bytes(), put.Value, nil); err != nil {
+		return nil, err
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return &proto.ResponseOp_Put{}, nil
 }
 
-func handleDelete(ctx *updateContext) (sm.Result, error) {
-	if err := encodeUserKey(ctx.keyBuf, ctx.cmd.Kv.Key); err != nil {
-		return sm.Result{Value: ResultFailure}, err
+func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp_Put) ([]*proto.ResponseOp_Put, error) {
+	var results []*proto.ResponseOp_Put
+	for _, op := range ops {
+		res, err := handlePut(ctx, op)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, res)
 	}
-	if ctx.cmd.RangeEnd != nil {
+	return results, nil
+}
+
+func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.ResponseOp_DeleteRange, error) {
+	keyBuf := bufferPool.Get()
+	defer bufferPool.Put(keyBuf)
+	if err := encodeUserKey(keyBuf, del.Key); err != nil {
+		return nil, err
+	}
+
+	if del.RangeEnd != nil {
 		var end []byte
-		if bytes.Equal(ctx.cmd.RangeEnd, wildcard) {
+		if bytes.Equal(del.RangeEnd, wildcard) {
 			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
 			end = incrementRightmostByte(maxUserKey)
 		} else {
-			upperBuf := bytes.NewBuffer(make([]byte, 0, key.LatestKeyLen(len(ctx.cmd.RangeEnd))))
-			if err := encodeUserKey(upperBuf, ctx.cmd.RangeEnd); err != nil {
-				return sm.Result{Value: ResultFailure}, err
+			upperBoundBuf := bufferPool.Get()
+			defer bufferPool.Put(upperBoundBuf)
+
+			if err := encodeUserKey(upperBoundBuf, del.RangeEnd); err != nil {
+				return nil, err
 			}
-			end = upperBuf.Bytes()
+			end = upperBoundBuf.Bytes()
 		}
-		if err := ctx.batch.DeleteRange(ctx.keyBuf.Bytes(), end, nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
+
+		if err := ctx.batch.DeleteRange(keyBuf.Bytes(), end, nil); err != nil {
+			return nil, err
 		}
 	} else {
-		if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
+		if err := ctx.batch.Delete(keyBuf.Bytes(), nil); err != nil {
+			return nil, err
 		}
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return &proto.ResponseOp_DeleteRange{}, nil
 }
 
-func handlePutBatch(ctx *updateContext) (sm.Result, error) {
-	for _, kv := range ctx.cmd.Batch {
-		if err := encodeUserKey(ctx.keyBuf, kv.Key); err != nil {
-			return sm.Result{Value: ResultFailure}, err
+func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) ([]*proto.ResponseOp_DeleteRange, error) {
+	var results []*proto.ResponseOp_DeleteRange
+	for _, op := range ops {
+		res, err := handleDelete(ctx, op)
+		if err != nil {
+			return nil, err
 		}
-		if err := ctx.batch.Set(ctx.keyBuf.Bytes(), kv.Value, nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-		ctx.keyBuf.Reset()
+		results = append(results, res)
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	return results, nil
 }
 
-func handleDeleteBatch(ctx *updateContext) (sm.Result, error) {
-	for _, kv := range ctx.cmd.Batch {
-		if err := encodeUserKey(ctx.keyBuf, kv.Key); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-		if err := ctx.batch.Delete(ctx.keyBuf.Bytes(), nil); err != nil {
-			return sm.Result{Value: ResultFailure}, err
-		}
-		ctx.keyBuf.Reset()
+func handleTxn(ctx *updateContext) ([]*proto.ResponseOp, error) {
+	if err := ctx.EnsureIndexed(); err != nil {
+		return nil, err
 	}
-	return sm.Result{Value: ResultSuccess}, nil
+	ok, err := txnCompare(ctx.batch, ctx.cmd.Txn.Compare)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return handleTxnOps(ctx, ctx.cmd.Txn.Success)
+	}
+	return handleTxnOps(ctx, ctx.cmd.Txn.Failure)
+}
+
+func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.ResponseOp, error) {
+	var results []*proto.ResponseOp
+	for _, op := range req {
+		switch o := op.Request.(type) {
+		case *proto.RequestOp_RequestRange:
+			var (
+				err      error
+				response *proto.ResponseOp_Range
+			)
+
+			if o.RequestRange.RangeEnd != nil {
+				response, err = rangeLookup(ctx.batch, o.RequestRange)
+			} else {
+				response, err = singleLookup(ctx.batch, o.RequestRange)
+			}
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: response}})
+		case *proto.RequestOp_RequestPut:
+			response, err := handlePut(ctx, o.RequestPut)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, wrapResponseOp(response))
+		case *proto.RequestOp_RequestDeleteRange:
+			response, err := handleDelete(ctx, o.RequestDeleteRange)
+			if err != nil {
+				return nil, err
+			}
+
+			results = append(results, wrapResponseOp(response))
+		}
+	}
+	return results, nil
+}
+
+func wrapResponseOp(req pb.Message) *proto.ResponseOp {
+	switch op := req.(type) {
+	case *proto.ResponseOp_Range:
+		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: op}}
+	case *proto.ResponseOp_Put:
+		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: op}}
+	case *proto.ResponseOp_DeleteRange:
+		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: op}}
+	}
+	return nil
 }
 
 type updateContext struct {
-	batch  *pebble.Batch
-	wo     *pebble.WriteOptions
-	db     *pebble.DB
-	cmd    *proto.Command
-	keyBuf *bytes.Buffer
-	index  uint64
+	batch *pebble.Batch
+	wo    *pebble.WriteOptions
+	db    *pebble.DB
+	cmd   *proto.Command
+	index uint64
 }
 
 func (c *updateContext) EnsureIndexed() error {
@@ -155,7 +270,6 @@ func (c *updateContext) Init(entry sm.Entry) error {
 	if err := c.cmd.UnmarshalVT(entry.Cmd); err != nil {
 		return err
 	}
-	c.keyBuf.Reset()
 	return nil
 }
 

@@ -59,7 +59,9 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 			},
@@ -130,14 +132,18 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 				{
 					Index: 2,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+						}}),
 					},
 				},
 			},
@@ -179,7 +185,11 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 			},
@@ -218,7 +228,11 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+						}}),
 					},
 				},
 			},
@@ -272,21 +286,27 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 				{
 					Index: 2,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 				{
 					Index: 3,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+						}}),
 					},
 				},
 			},
@@ -340,21 +360,27 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 				{
 					Index: 2,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+						}}),
 					},
 				},
 				{
 					Index: 3,
 					Result: sm.Result{
 						Value: 1,
-						Data:  nil,
+						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
+							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+						}}),
 					},
 				},
 			},
@@ -436,8 +462,7 @@ func TestUpdateContext_Init(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			uc := updateContext{
-				cmd:    &proto.Command{},
-				keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+				cmd: &proto.Command{},
 			}
 			err := uc.Init(tt.args.entry)
 			if tt.wantErr {
@@ -450,7 +475,6 @@ func TestUpdateContext_Init(t *testing.T) {
 			r.Equal(tt.want.cmd.LeaderIndex, uc.cmd.LeaderIndex)
 			r.Equal(tt.want.cmd.Txn, uc.cmd.Txn)
 			r.Equal(tt.want.cmd.Kv, uc.cmd.Kv)
-			r.Equal(0, uc.keyBuf.Len())
 		})
 	}
 }
@@ -460,10 +484,9 @@ func TestUpdateContext_EnsureIndexed(t *testing.T) {
 	db, err := rp.OpenDB(vfs.NewMem(), "/", "/", nil)
 	r.NoError(err)
 	uc := updateContext{
-		db:     db,
-		batch:  db.NewBatch(),
-		cmd:    proto.CommandFromVTPool(),
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		db:    db,
+		batch: db.NewBatch(),
+		cmd:   proto.CommandFromVTPool(),
 	}
 	tk := []byte("key")
 	tv := []byte("value")
@@ -522,20 +545,18 @@ func TestHandlePut(t *testing.T) {
 			Table:       []byte("test"),
 			Type:        proto.Command_PUT,
 			LeaderIndex: &one,
-			Kv: &proto.KeyValue{
-				Key:   []byte("key_1"),
-				Value: []byte("value_1"),
-			},
 		},
-		index:  1,
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		index: 1,
 	}
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	res, err := handlePut(c)
+	req := &proto.RequestOp_Put{
+		Key:   []byte("key_1"),
+		Value: []byte("value_1"),
+	}
+	_, err = handlePut(c, req)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
@@ -544,8 +565,8 @@ func TestHandlePut(t *testing.T) {
 	k := &key.Key{}
 	decodeKey(t, iter, k)
 
-	r.Equal(c.cmd.Kv.Key, k.Key)
-	r.Equal(c.cmd.Kv.Value, iter.Value())
+	r.Equal(req.Key, k.Key)
+	r.Equal(req.Value, iter.Value())
 
 	// Assert that there are no more user keys.
 	iter.Next()
@@ -575,33 +596,27 @@ func TestHandleDelete(t *testing.T) {
 		db:    db,
 		cmd: &proto.Command{
 			Table:       []byte("test"),
-			Type:        proto.Command_PUT,
 			LeaderIndex: &one,
-			Kv: &proto.KeyValue{
-				Key:   []byte("key_1"),
-				Value: []byte("value_1"),
-			},
 		},
-		index:  1,
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		index: 1,
 	}
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	res, err := handlePut(c)
+	_, err = handlePut(c, &proto.RequestOp_Put{
+		Key:   []byte("key_1"),
+		Value: []byte("value_1"),
+	})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
-	c.cmd.Type = proto.Command_DELETE
-	c.cmd.Kv.Value = nil
-	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
 
 	// Make the DELETE.
-	res, err = handleDelete(c)
+	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{
+		Key: []byte("key_1"),
+	})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.
@@ -632,37 +647,21 @@ func TestHandlePutBatch(t *testing.T) {
 		batch: db.NewBatch(),
 		db:    db,
 		cmd: &proto.Command{
-			Table:       []byte("test"),
-			Type:        proto.Command_PUT_BATCH,
 			LeaderIndex: &one,
-			Batch: []*proto.KeyValue{
-				{
-					Key:   []byte("key_1"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_2"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_3"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_4"),
-					Value: []byte("value"),
-				},
-			},
 		},
-		index:  1,
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		index: 1,
 	}
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	res, err := handlePutBatch(c)
+	ops := []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
+	}
+	_, err = handlePutBatch(c, ops)
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	var (
@@ -674,13 +673,13 @@ func TestHandlePutBatch(t *testing.T) {
 	for iter.First(); iter.Valid(); iter.Next() {
 		decodeKey(t, iter, k)
 
-		r.Equal(c.cmd.Batch[i].Key, k.Key)
-		r.Equal(c.cmd.Batch[i].Value, iter.Value())
+		r.Equal(ops[i].Key, k.Key)
+		r.Equal(ops[i].Value, iter.Value())
 		r.NoError(iter.Error())
 
 		i++
 	}
-	r.Equal(len(c.cmd.Batch), i)
+	r.Equal(len(ops), i)
 	r.NoError(iter.Close())
 
 	// Check the system keys.
@@ -705,50 +704,35 @@ func TestHandleDeleteBatch(t *testing.T) {
 		batch: db.NewBatch(),
 		db:    db,
 		cmd: &proto.Command{
-			Table:       []byte("test"),
-			Type:        proto.Command_PUT_BATCH,
 			LeaderIndex: &one,
-			Batch: []*proto.KeyValue{
-				{
-					Key:   []byte("key_1"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_2"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_3"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_4"),
-					Value: []byte("value"),
-				},
-			},
 		},
-		index:  1,
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		index: 1,
 	}
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	res, err := handlePutBatch(c)
+	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
+	})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
-	c.cmd.Type = proto.Command_DELETE_BATCH
-	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
 	for i := range c.cmd.Batch {
 		c.cmd.Batch[i].Value = nil
 	}
 
 	// Make the DELETE_BATCH.
-	res, err = handleDeleteBatch(c)
+	_, err = handleDeleteBatch(c, []*proto.RequestOp_DeleteRange{
+		{Key: []byte("key_1")},
+		{Key: []byte("key_2")},
+		{Key: []byte("key_3")},
+		{Key: []byte("key_4")},
+	})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
@@ -780,50 +764,27 @@ func TestHandleDeleteRange(t *testing.T) {
 		batch: db.NewBatch(),
 		db:    db,
 		cmd: &proto.Command{
-			Table:       []byte("test"),
-			Type:        proto.Command_PUT_BATCH,
 			LeaderIndex: &one,
-			Batch: []*proto.KeyValue{
-				{
-					Key:   []byte("key_1"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_2"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_3"),
-					Value: []byte("value"),
-				},
-				{
-					Key:   []byte("key_4"),
-					Value: []byte("value"),
-				},
-			},
 		},
-		index:  1,
-		keyBuf: bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen)),
+		index: 1,
 	}
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	res, err := handlePutBatch(c)
+	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
+	})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
-	c.cmd.Type = proto.Command_DELETE
-	c.cmd.RangeEnd = []byte("key_3")
-	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
-	c.cmd.Batch = nil
-	c.cmd.Kv = &proto.KeyValue{Key: []byte("key_1")}
 
 	// Make the DELETE RANGE - delete first two user keys.
-	res, err = handleDelete(c)
+	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_3")})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there left expected user keys.
@@ -842,13 +803,10 @@ func TestHandleDeleteRange(t *testing.T) {
 	r.NoError(iter.Close())
 
 	c.batch = db.NewBatch()
-	c.cmd.RangeEnd = wildcard
-	c.keyBuf = bytes.NewBuffer(make([]byte, 0, key.LatestVersionLen))
 
 	// Make the DELETE RANGE - delete the rest of the user keys.
-	res, err = handleDelete(c)
+	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: wildcard})
 	r.NoError(err)
-	r.Equal(sm.Result{Value: ResultSuccess}, res)
 	r.NoError(c.Commit())
 
 	// Skip the local index first and assert that there are no more keys in state machine.

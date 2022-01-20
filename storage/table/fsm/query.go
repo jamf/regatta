@@ -15,62 +15,12 @@ import (
 // Lookup locally looks up the data.
 func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	switch req := l.(type) {
-	case *proto.RangeRequest:
+	case *proto.RequestOp_Range:
 		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 		if req.RangeEnd != nil {
-			iter, fill, err := iterator(db, req)
-			if err != nil {
-				return nil, err
-			}
-
-			defer func() {
-				if err := iter.Close(); err != nil {
-					p.log.Error(err)
-				}
-			}()
-
-			response := &proto.RangeResponse{}
-			if err = iterate(iter, int(req.Limit), fill, response); err != nil {
-				return nil, err
-			}
-
-			return response, nil
+			return rangeLookup(db, req)
 		}
-
-		buf := bufferPool.Get()
-		defer bufferPool.Put(buf)
-		err := encodeUserKey(buf, req.Key)
-		if err != nil {
-			return nil, err
-		}
-
-		value, closer, err := db.Get(buf.Bytes())
-		if err != nil {
-			return nil, err
-		}
-
-		defer func() {
-			if err := closer.Close(); err != nil {
-				p.log.Error(err)
-			}
-		}()
-
-		kv := &proto.KeyValue{Key: req.Key}
-
-		if !(req.KeysOnly || req.CountOnly) {
-			kv.Value = make([]byte, len(value))
-			copy(kv.Value, value)
-		}
-
-		var kvs []*proto.KeyValue
-		if !req.CountOnly {
-			kvs = append(kvs, kv)
-		}
-
-		return &proto.RangeResponse{
-			Kvs:   kvs,
-			Count: 1,
-		}, nil
+		return singleLookup(db, req)
 	case SnapshotRequest:
 		idx, err := p.commandSnapshot(req.Writer, req.Stopper)
 		if err != nil {
@@ -93,6 +43,8 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		return &IndexResponse{Index: idx}, nil
 	case PathRequest:
 		return &PathResponse{Path: p.dirname, WALPath: p.walDirname}, nil
+	default:
+		p.log.Warn("received unknown lookup request of type %t", req)
 	}
 
 	return nil, storage.ErrUnknownQueryType
@@ -142,6 +94,121 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 		}
 	}
 	return idx, nil
+}
+
+func rangeLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
+	opts, err := iterOptionsForBounds(req.Key, req.RangeEnd)
+	if err != nil {
+		return nil, err
+	}
+	iter := db.NewIter(opts)
+
+	fill := addKVPair
+	if req.KeysOnly {
+		fill = addKeyOnly
+	} else if req.CountOnly {
+		fill = addCountOnly
+	}
+
+	defer func() {
+		_ = iter.Close()
+	}()
+
+	response := &proto.ResponseOp_Range{}
+	if err = iterate(iter, int(req.Limit), fill, response); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func singleLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
+	keyBuf := bufferPool.Get()
+	defer bufferPool.Put(keyBuf)
+
+	err := encodeUserKey(keyBuf, req.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	value, closer, err := db.Get(keyBuf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		_ = closer.Close()
+	}()
+
+	kv := &proto.KeyValue{Key: req.Key}
+
+	if !(req.KeysOnly || req.CountOnly) {
+		kv.Value = make([]byte, len(value))
+		copy(kv.Value, value)
+	}
+
+	var kvs []*proto.KeyValue
+	if !req.CountOnly {
+		kvs = append(kvs, kv)
+	}
+
+	return &proto.ResponseOp_Range{
+		Kvs:   kvs,
+		Count: 1,
+	}, nil
+}
+
+// fillEntriesFunc fills proto.RangeResponse response.
+type fillEntriesFunc func(key, value []byte, response *proto.ResponseOp_Range) error
+
+// iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
+// Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
+func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.ResponseOp_Range) error {
+	i := 0
+	for iter.First(); iter.Valid(); iter.Next() {
+		k := key.Key{}
+		r := bytes.NewReader(iter.Key())
+		decoder := key.NewDecoder(r)
+		if err := decoder.Decode(&k); err != nil {
+			return err
+		}
+
+		if i == limit && limit != 0 {
+			response.More = iter.Next()
+			break
+		}
+		i++
+
+		if err := f(k.Key, iter.Value(), response); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
+func addKVPair(key, value []byte, response *proto.ResponseOp_Range) error {
+	kv := &proto.KeyValue{Key: make([]byte, len(key)), Value: make([]byte, len(value))}
+	copy(kv.Key, key)
+	copy(kv.Value, value)
+	response.Kvs = append(response.Kvs, kv)
+	response.Count++
+	return nil
+}
+
+// addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
+func addKeyOnly(key, _ []byte, response *proto.ResponseOp_Range) error {
+	kv := &proto.KeyValue{Key: make([]byte, len(key))}
+	copy(kv.Key, key)
+	response.Kvs = append(response.Kvs, kv)
+	response.Count++
+	return nil
+}
+
+// addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
+func addCountOnly(_, _ []byte, response *proto.ResponseOp_Range) error {
+	response.Count++
+	return nil
 }
 
 func writeCommand(w io.Writer, command *proto.Command) error {

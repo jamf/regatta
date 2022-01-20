@@ -50,13 +50,21 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 		return nil, storage.ErrKeyLengthExceeded
 	}
 	var (
-		err error
-		val interface{}
+		err   error
+		val   interface{}
+		reqOp = &proto.RequestOp_Range{
+			Key:       req.Key,
+			RangeEnd:  req.RangeEnd,
+			Limit:     req.Limit,
+			KeysOnly:  req.KeysOnly,
+			CountOnly: req.CountOnly,
+		}
 	)
+
 	if req.Linearizable {
-		val, err = t.nh.SyncRead(ctx, t.ClusterID, req)
+		val, err = t.nh.SyncRead(ctx, t.ClusterID, reqOp)
 	} else {
-		val, err = t.nh.StaleRead(t.ClusterID, req)
+		val, err = t.nh.StaleRead(t.ClusterID, reqOp)
 	}
 
 	if err != nil {
@@ -65,8 +73,13 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 		}
 		return nil, err
 	}
-	response := val.(*proto.RangeResponse)
-	return response, nil
+
+	response := val.(*proto.ResponseOp_Range)
+	return &proto.RangeResponse{
+		Kvs:   response.Kvs,
+		Count: response.Count,
+		More:  response.More,
+	}, nil
 }
 
 // Put performs a Put proposal into the Raft, supplied context must have a deadline set.
@@ -126,6 +139,15 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 }
 
 func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+	// Do not propose read-only transactions through the log
+	if isReadonlyTransaction(req) {
+		val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
+		if err != nil {
+			return nil, err
+		}
+		return val.(*proto.TxnResponse), nil
+	}
+
 	cmd := &proto.Command{
 		Type:  proto.Command_TXN,
 		Table: req.Table,
@@ -135,6 +157,7 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 			Failure: req.Failure,
 		},
 	}
+
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -151,6 +174,21 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 		Succeeded: res.Value == fsm.ResultSuccess,
 		Responses: txr.Responses,
 	}, nil
+}
+
+func isReadonlyTransaction(req *proto.TxnRequest) bool {
+	for _, op := range req.Success {
+		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+			return false
+		}
+	}
+
+	for _, op := range req.Failure {
+		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // Snapshot streams snapshot to the provided writer.
