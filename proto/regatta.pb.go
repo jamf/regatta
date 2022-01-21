@@ -620,9 +620,9 @@ func (x *DeleteRangeResponse) GetPrevKvs() []*KeyValue {
 // MultiOp returns the results. If all tests are true, MultiOp executes t op (see item 2 below), otherwise
 // it executes f op (see item 3 below).
 // 2. A list of database operations called t op. Each operation in the list is either an insert, delete, or
-// lookup operation, and applies to a single database entry. Two different operations in the list may apply
+// lookup operation, and applies to a database entry(ies). Two different operations in the list may apply
 // to the same or different entries in the database. These operations are executed
-// if guard evaluates to true. // TODO decide if applying single key multiple times would be possible (if it should return validation error)
+// if guard evaluates to true.
 // 3. A list of database operations called f op. Like t op, but executed if guard evaluates to false.
 type TxnRequest struct {
 	state         protoimpl.MessageState

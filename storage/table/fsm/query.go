@@ -142,7 +142,7 @@ func singleLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.Response
 
 	kv := &proto.KeyValue{Key: req.Key}
 
-	if !(req.KeysOnly || req.CountOnly) {
+	if !(req.KeysOnly || req.CountOnly) && len(value) > 0 {
 		kv.Value = make([]byte, len(value))
 		copy(kv.Value, value)
 	}

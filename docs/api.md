@@ -196,11 +196,11 @@ Maintenance service provides methods for maintenance purposes.
 | table | [bytes](#bytes) |  | table name of the table |
 | type | [Command.CommandType](#mvcc.v1.Command.CommandType) |  | type is the kind of event. If type is a PUT, it indicates new data has been stored to the key. If type is a DELETE, it indicates the key was deleted. |
 | kv | [KeyValue](#mvcc.v1.KeyValue) |  | kv holds the KeyValue for the event. A PUT event contains current kv pair. A PUT event with kv.Version=1 indicates the creation of a key. A DELETE/EXPIRE event contains the deleted key with its modification revision set to the revision of deletion. |
-| prev_kv | [KeyValue](#mvcc.v1.KeyValue) |  | prev_kv holds the key-value pair before the event happens. |
 | leader_index | [uint64](#uint64) | optional | leader_index holds the value of the log index of a leader cluster from which this command was replicated from. |
 | batch | [KeyValue](#mvcc.v1.KeyValue) | repeated | batch is an atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions). |
 | txn | [Txn](#mvcc.v1.Txn) | optional | txn is an atomic transaction (slow, supports reads and conditions). |
 | range_end | [bytes](#bytes) | optional | range_end is the key following the last key to affect for the range [kv.key, range_end). If range_end is not given, the range is defined to contain only the kv.key argument. If range_end is one bit larger than the given kv.key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
+| prev_kvs | [bool](#bool) |  | prev_kvs if to fetch previous KVs. |
 
 
 
@@ -225,9 +225,8 @@ Maintenance service provides methods for maintenance purposes.
 <a name="mvcc.v1.Compare"></a>
 
 ### Compare
-Compare property `target` for every KV from DB in `[key, range_end)` with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
-that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left-hand side of the comparison. The Compare always evaluates to
-false when key does not exist as well as when the range `[key,range_end)` result is empty range of keys.
+Compare property `target` for every KV from DB in [key, range_end) with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
+that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left-hand side of the comparison.
 Examples:
 * `DB[key][value] EQUAL target_union.value`
 * `DB[key][value] GREATER target_union.value`
@@ -621,9 +620,9 @@ may apply to the same or different entries in the database. All tests in the gua
 MultiOp returns the results. If all tests are true, MultiOp executes t op (see item 2 below), otherwise
 it executes f op (see item 3 below).
 2. A list of database operations called t op. Each operation in the list is either an insert, delete, or
-lookup operation, and applies to a single database entry. Two different operations in the list may apply
+lookup operation, and applies to a database entry(ies). Two different operations in the list may apply
 to the same or different entries in the database. These operations are executed
-if guard evaluates to true. // TODO decide if applying single key multiple times would be possible (if it should return validation error)
+if guard evaluates to true.
 3. A list of database operations called f op. Like t op, but executed if guard evaluates to false.
 
 
@@ -672,7 +671,7 @@ KV for handling the read/put requests
 | Range | [RangeRequest](#regatta.v1.RangeRequest) | [RangeResponse](#regatta.v1.RangeResponse) | Range gets the keys in the range from the key-value store. |
 | Put | [PutRequest](#regatta.v1.PutRequest) | [PutResponse](#regatta.v1.PutResponse) | Put puts the given key into the key-value store. |
 | DeleteRange | [DeleteRangeRequest](#regatta.v1.DeleteRangeRequest) | [DeleteRangeResponse](#regatta.v1.DeleteRangeResponse) | DeleteRange deletes the given range from the key-value store. |
-| Txn | [TxnRequest](#regatta.v1.TxnRequest) | [TxnResponse](#regatta.v1.TxnResponse) | Txn processes multiple requests in a single transaction. A txn request increments the revision of the key-value store and generates events with the same revision for every completed request. It is not allowed to modify the same key several times within one txn. |
+| Txn | [TxnRequest](#regatta.v1.TxnRequest) | [TxnResponse](#regatta.v1.TxnResponse) | Txn processes multiple requests in a single transaction. A txn request increments the revision of the key-value store and generates events with the same revision for every completed request. It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key). |
 
  
 

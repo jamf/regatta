@@ -49,6 +49,16 @@ func (m *Command) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.PrevKvs {
+		i--
+		if m.PrevKvs {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x48
+	}
 	if m.RangeEnd != nil {
 		if len(m.RangeEnd) > 0 {
 			i -= len(m.RangeEnd)
@@ -84,16 +94,6 @@ func (m *Command) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i = encodeVarint(dAtA, i, uint64(*m.LeaderIndex))
 		i--
 		dAtA[i] = 0x28
-	}
-	if m.PrevKv != nil {
-		size, err := m.PrevKv.MarshalToSizedBufferVT(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = encodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x22
 	}
 	if m.Kv != nil {
 		size, err := m.Kv.MarshalToSizedBufferVT(dAtA[:i])
@@ -972,10 +972,6 @@ func (m *Command) SizeVT() (n int) {
 		l = m.Kv.SizeVT()
 		n += 1 + l + sov(uint64(l))
 	}
-	if m.PrevKv != nil {
-		l = m.PrevKv.SizeVT()
-		n += 1 + l + sov(uint64(l))
-	}
 	if m.LeaderIndex != nil {
 		n += 1 + sov(uint64(*m.LeaderIndex))
 	}
@@ -994,6 +990,9 @@ func (m *Command) SizeVT() (n int) {
 		if l > 0 {
 			n += 1 + l + sov(uint64(l))
 		}
+	}
+	if m.PrevKvs {
+		n += 2
 	}
 	if m.unknownFields != nil {
 		n += len(m.unknownFields)
@@ -1476,42 +1475,6 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PrevKv", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLength
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLength
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.PrevKv == nil {
-				m.PrevKv = &KeyValue{}
-			}
-			if err := m.PrevKv.UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 5:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field LeaderIndex", wireType)
@@ -1643,6 +1606,26 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 				m.RangeEnd = []byte{}
 			}
 			iNdEx = postIndex
+		case 9:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PrevKvs", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.PrevKvs = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
