@@ -13,6 +13,7 @@ regatta follower [flags]
       --api.cert-filename string                              Path to the API server certificate. (default "hack/server.crt")
       --api.key-filename string                               Path to the API server private key file. (default "hack/server.key")
       --api.reflection-api                                    Whether reflection API is provided. Should not be turned on in production.
+      --api.transactions-enabled                              Whether the transactions API is enabled.
       --dev-mode                                              Dev mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                  help for follower
       --log-level string                                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")

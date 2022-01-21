@@ -425,21 +425,6 @@ func TestRegatta_PutInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
 }
 
-func TestRegatta_PutUnimplemented(t *testing.T) {
-	r := require.New(t)
-	kv := KVServer{
-		Storage: &MockStorage{},
-	}
-
-	t.Log("Put kv with unimplemented prev_kv")
-	_, err := kv.Put(context.Background(), &proto.PutRequest{
-		Table:  table1Name,
-		Key:    key1Name,
-		PrevKv: true,
-	})
-	r.EqualError(err, status.Errorf(codes.Unimplemented, "prev_kv not implemented").Error())
-}
-
 func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
@@ -467,29 +452,6 @@ func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 		Key:   key1Name,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
-}
-
-func TestRegatta_DeleteRangeUnimplemented(t *testing.T) {
-	a := assert.New(t)
-	kv := KVServer{
-		Storage: &MockStorage{},
-	}
-
-	t.Log("Delete kv with unimplemented range_end")
-	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
-		Table:    table1Name,
-		Key:      key1Name,
-		RangeEnd: key2Name,
-	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "range_end not implemented").Error())
-
-	t.Log("Delete kv with unimplemented prev_kv")
-	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
-		Table:  table1Name,
-		Key:    key1Name,
-		PrevKv: true,
-	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "prev_kv not implemented").Error())
 }
 
 func TestRegatta_DeleteRange(t *testing.T) {

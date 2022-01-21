@@ -240,8 +240,15 @@ func incrementRightmostByte(in []byte) []byte {
 			break
 		}
 		if i == 0 {
-			return append([]byte{1}, in...)
+			return prependByte(in, 1)
 		}
 	}
 	return in
+}
+
+func prependByte(x []byte, y byte) []byte {
+	x = append(x, 0)
+	copy(x[1:], x)
+	x[0] = y
+	return x
 }
