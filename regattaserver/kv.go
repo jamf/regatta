@@ -109,7 +109,7 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 // and generates events with the same revision for every completed request.
 // It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
 func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
-	if s.TxnEnabled {
+	if !s.TxnEnabled {
 		return nil, status.Errorf(codes.FailedPrecondition, "transactions are not enabled")
 	}
 
