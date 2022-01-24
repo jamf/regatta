@@ -75,7 +75,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	case PathRequest:
 		return &PathResponse{Path: p.dirname, WALPath: p.walDirname}, nil
 	default:
-		p.log.Warn("received unknown lookup request of type %t", req)
+		p.log.Warnf("received unknown lookup request of type %T", req)
 	}
 
 	return nil, storage.ErrUnknownQueryType
