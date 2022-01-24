@@ -44,7 +44,7 @@ const (
 	maxBatchSize = 16 * 1024 * 1024
 )
 
-// UpdateResult if operation succeeded or not, both values men that operation finished, value just indicates with which result.
+// UpdateResult if operation succeeded or not, both values mean that operation finished, value just indicates with which result.
 // You should always check for err from proposals to detect unfinished or failed operations.
 type UpdateResult uint64
 
