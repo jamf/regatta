@@ -1,7 +1,9 @@
 # Range API
+
 Serves for retrieval of data.
 
-### Key lookup
+## Key Lookup
+
 To query a single key set just `table` and `key` field of the message.
 
 ```bash
@@ -11,7 +13,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Prefix Search
+## Prefix Search
 
 To query key-value pairs with a shared prefix,
 supply the `key` and `range_end` fields,
@@ -27,7 +29,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Range Search
+## Range Search
 
 To query key-value pairs in a given range, supply the `key` and `range_end` fields.
 All pairs whose keys belong to the right-open interval `[key, range_end)` will be returned.
@@ -60,7 +62,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### List All Pairs
+## List All Pairs
 
 When `key` and `range_end` are both set to `\0`, then all key-value pairs are returned.
 
@@ -75,7 +77,7 @@ $ grpcurl -insecure "-d={
 > [Known issue](https://snappli.atlassian.net/browse/WND-38353):
 Regatta may return a gRCP error since the response might be larger than the 4MB gRPC size limit.
 
-### Get Keys Only
+## Get Keys Only
 
 List keys in the range `[key, range_end)` with the `keys_only` option.
 
@@ -88,7 +90,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Get Count Only
+## Get Count Only
 
 Get only the number of keys in the range `[key, range_end)` with the `count_only` option.
 This can also be used without the `range_end` field to test the existence of `key`.

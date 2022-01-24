@@ -1,6 +1,6 @@
 # DeleteRange API
 
-### Delete single key
+## Delete Single Key
 
 To delete a single key-value pair supply just a `key` argument.
 
@@ -11,7 +11,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-### Delete keys by prefix
+## Delete Keys By Prefix
 
 To delete key-value pairs with a shared prefix, supply the `key` and `range_end` fields, where `key` is the prefix
 and `range_end` == `key` + 1. For example, to find all key-value pairs prefixed with the timestamp `1626783802`,
@@ -25,7 +25,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-### Delete keys range
+## Delete Keys Range
 
 To delete key-value pairs in a given range, supply the `key` and `range_end` fields. All pairs whose keys belong to the
 right-open interval `[key, range_end)` will be deleted.
@@ -58,7 +58,7 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-### Delete all keys
+## Delete All Keys
 
 When `key` and `range_end` are both set to `\0`, then all key-value pairs are deleted.
 
