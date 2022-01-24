@@ -5,17 +5,27 @@ It provides primitive grouping of requests whose execution is guarded,
 supporting the protection of data from concurrent modification.
 
 Transactions consist of two parts - `RequestOp` operations and `Compare`
-predicates. Transactions can be recursivelly chained - a transaction may
-execute another transaction. Conditional execution of transactions is
+predicates. Conditional execution of transactions is
 also supported.
 
 Protobuf definitions of the discussed API can be found in [`mvcc.proto`](../proto/mvcc.proto).
 
 ## Retrieving or Modifying Data With Transactions
 
+Transactions can be invoked by sending `TxnRequest` message via the [`Txn`
+remote procedure call](api.md#kv), `regatta.v1.KV/Txn`, which returns `TxnResponse` message.
+
+`TxnRequest` consists of `Compare` predicates, `RequestOp` operations to be executed
+depending on the evaluation of the predicates, and the table name in which the transaction
+will be executed.
+
+`TxnResponse` consists of a `ResponseHeader`, `ResponseOp` responses, and a `succeeded`
+field denoting whether the `Compare` predicates evaluated to true
+(i.e. `TxnResponse.succeeded == true`) or not.
+
 `RequestOp` messages are the basic building blocks of transactions.
 These are the operations used to retrieve data from the data store or to
-modify it. A `RequestOp` can be one of `Range`, `Put`, or `DeleteRange` messages.
+modify it. A `RequestOp` is one of `Range`, `Put`, or `DeleteRange` messages.
 They can be guarded with predicates, as described in
 [the next section](#predicates-conditional-execution-of-transactions).
 More detailed description and their features of the individual operations can be
@@ -23,23 +33,29 @@ found in the [protobuf definition file](../proto/mvcc.proto).
 
 `RequestOp` messages are used in the `success` and `failure` repeated fields in
 the `Txn` messages. If conditional execution of transactions is not desired,
-us the `success` field and leave the rest empty.
+use the `success` field and leave the rest empty.
 For conditional execution, read the next section.
 
-## Conditional Execution of Transactions
+`ResponseOp` messages are the results of the operations in a given transaction.
+A `ResponseOp` is one of `Range`, `Put`, or `DeleteRange` messages, depending on the
+type of the corresponding `RequestOp` operation provided in the transaction.
+An *n*-th `ResponseOp` message maps to an *n*-th `RequestOp` message in the transaction.
 
-Transactions can be executed conditionally, after supplying a list of
+## Conditional Execution
+
+Operations in transactions can be executed conditionally, after supplying a list of
 predicates representing a conjunction of terms to be evaluated on the data
 in Regatta. This is the repeated `compare` field in the `Txn` protobuf message.
 Depending on the result of the conjuction of the terms, either `success`
-or `failure` operations is executed. If all of the `compare` terms evaluate
+or `failure` operations are executed. If all of the `compare` terms evaluate
 to true, then the `success` operations are executed. Otherwise, `failure`
 operations are executed.
 
-The comparisons (`compare`) and the operations itself (either
+The predicates (`compare`) and the operations themselves (either
 `success` or `failure`) form a single, non-divisible transaction.
 
-This is the current Protobuf definition of the `Compare` message,
+This is the current Protobuf definition of the `Compare` message
+(see the [API documentation of `Compare`](api.md#mvcc.v1.Compare)),
 representing a single term in a given conjunction:
 
 ```protobuf
@@ -86,5 +102,3 @@ Executed via the `regatta.v1.KV/Txn` API.
 ### Transaction With No Predicates
 
 ### Transaction With Predicates
-
-### Recursive Transaction
