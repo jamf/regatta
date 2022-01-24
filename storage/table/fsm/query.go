@@ -49,7 +49,11 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 		return lookup(db, req)
 	case SnapshotRequest:
-		idx, err := p.commandSnapshot(req.Writer, req.Stopper)
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		snapshot := db.NewSnapshot()
+		defer snapshot.Close()
+
+		idx, err := commandSnapshot(snapshot, p.tableName, req.Writer, req.Stopper)
 		if err != nil {
 			return nil, err
 		}
@@ -77,20 +81,11 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	return nil, storage.ErrUnknownQueryType
 }
 
-func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error) {
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-	snapshot := db.NewSnapshot()
-	iter := snapshot.NewIter(nil)
-	defer func() {
-		if err := iter.Close(); err != nil {
-			p.log.Error(err)
-		}
-		if err := snapshot.Close(); err != nil {
-			p.log.Error(err)
-		}
-	}()
+func commandSnapshot(reader pebble.Reader, tableName string, w io.Writer, stopc <-chan struct{}) (uint64, error) {
+	iter := reader.NewIter(nil)
+	defer iter.Close()
 
-	idx, err := readLocalIndex(snapshot, sysLocalIndex)
+	idx, err := readLocalIndex(reader, sysLocalIndex)
 	if err != nil {
 		return 0, err
 	}
@@ -108,7 +103,7 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 			}
 			if k.KeyType == key.TypeUser {
 				if err := writeCommand(w, &proto.Command{
-					Table: []byte(p.tableName),
+					Table: []byte(tableName),
 					Type:  proto.Command_PUT,
 					Kv: &proto.KeyValue{
 						Key:   k.Key,
