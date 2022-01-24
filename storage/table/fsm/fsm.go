@@ -44,9 +44,13 @@ const (
 	maxBatchSize = 16 * 1024 * 1024
 )
 
+// UpdateResult if operation succeeded or not, both values mean that operation finished, value just indicates with which result.
+// You should always check for err from proposals to detect unfinished or failed operations.
+type UpdateResult uint64
+
 const (
 	// ResultFailure failed to apply update.
-	ResultFailure = iota
+	ResultFailure UpdateResult = iota
 	// ResultSuccess applied update.
 	ResultSuccess
 )
@@ -240,8 +244,15 @@ func incrementRightmostByte(in []byte) []byte {
 			break
 		}
 		if i == 0 {
-			return append([]byte{1}, in...)
+			return prependByte(in, 1)
 		}
 	}
 	return in
+}
+
+func prependByte(x []byte, y byte) []byte {
+	x = append(x, 0)
+	copy(x[1:], x)
+	x[0] = y
+	return x
 }
