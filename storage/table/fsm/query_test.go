@@ -296,6 +296,38 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Lookup with Compare success without any Op",
+			fields: fields{
+				smFactory: filledSM,
+			},
+			req: &proto.TxnRequest{
+				Compare: []*proto.Compare{
+					{
+						Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
+					},
+				},
+			},
+			want: &proto.TxnResponse{
+				Succeeded: true,
+			},
+		},
+		{
+			name: "Lookup with Compare fail without any Op",
+			fields: fields{
+				smFactory: filledSM,
+			},
+			req: &proto.TxnRequest{
+				Compare: []*proto.Compare{
+					{
+						Key: []byte("nonsense"),
+					},
+				},
+			},
+			want: &proto.TxnResponse{
+				Succeeded: false,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
