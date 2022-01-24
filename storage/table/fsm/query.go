@@ -15,12 +15,39 @@ import (
 // Lookup locally looks up the data.
 func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	switch req := l.(type) {
+	case *proto.TxnRequest:
+		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		snapshot := db.NewSnapshot()
+		defer snapshot.Close()
+
+		ok, err := txnCompare(snapshot, req.Compare)
+		if err != nil {
+			return nil, err
+		}
+
+		var ops []*proto.RequestOp_Range
+		if ok {
+			for _, op := range req.Success {
+				ops = append(ops, op.GetRequestRange())
+			}
+		} else {
+			for _, op := range req.Failure {
+				ops = append(ops, op.GetRequestRange())
+			}
+		}
+
+		resp := &proto.TxnResponse{Succeeded: ok}
+		for _, op := range ops {
+			rr, err := lookup(snapshot, op)
+			if err != nil {
+				return nil, err
+			}
+			resp.Responses = append(resp.Responses, wrapResponseOp(rr))
+		}
+		return resp, nil
 	case *proto.RequestOp_Range:
 		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-		if req.RangeEnd != nil {
-			return rangeLookup(db, req)
-		}
-		return singleLookup(db, req)
+		return lookup(db, req)
 	case SnapshotRequest:
 		idx, err := p.commandSnapshot(req.Writer, req.Stopper)
 		if err != nil {
@@ -96,12 +123,19 @@ func (p *FSM) commandSnapshot(w io.Writer, stopc <-chan struct{}) (uint64, error
 	return idx, nil
 }
 
-func rangeLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
+func lookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
+	if req.RangeEnd != nil {
+		return rangeLookup(reader, req)
+	}
+	return singleLookup(reader, req)
+}
+
+func rangeLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
 	opts, err := iterOptionsForBounds(req.Key, req.RangeEnd)
 	if err != nil {
 		return nil, err
 	}
-	iter := db.NewIter(opts)
+	iter := reader.NewIter(opts)
 
 	fill := addKVPair
 	if req.KeysOnly {
@@ -122,7 +156,7 @@ func rangeLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseO
 	return response, nil
 }
 
-func singleLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
+func singleLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 
@@ -131,7 +165,7 @@ func singleLookup(db pebble.Reader, req *proto.RequestOp_Range) (*proto.Response
 		return nil, err
 	}
 
-	value, closer, err := db.Get(keyBuf.Bytes())
+	value, closer, err := reader.Get(keyBuf.Bytes())
 	if err != nil {
 		return nil, err
 	}

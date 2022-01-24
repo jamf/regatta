@@ -220,6 +220,7 @@ func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) (
 	return results, nil
 }
 
+// handleTxn handle transaction operation, returns if the operation succeeded (if success, or fail was applied) list or respective results and error.
 func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*proto.RequestOp) (bool, []*proto.ResponseOp, error) {
 	if err := ctx.EnsureIndexed(); err != nil {
 		return false, nil, err
@@ -241,20 +242,14 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.Response
 	for _, op := range req {
 		switch o := op.Request.(type) {
 		case *proto.RequestOp_RequestRange:
-			var (
-				err      error
-				response *proto.ResponseOp_Range
-			)
-
-			if o.RequestRange.RangeEnd != nil {
-				response, err = rangeLookup(ctx.batch, o.RequestRange)
-			} else {
-				response, err = singleLookup(ctx.batch, o.RequestRange)
-			}
+			response, err := lookup(ctx.batch, o.RequestRange)
 			if err != nil {
-				return nil, err
+				if !errors.Is(err, pebble.ErrNotFound) {
+					return nil, err
+				}
+				response = &proto.ResponseOp_Range{}
 			}
-			results = append(results, &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: response}})
+			results = append(results, wrapResponseOp(response))
 		case *proto.RequestOp_RequestPut:
 			response, err := handlePut(ctx, o.RequestPut)
 			if err != nil {
@@ -271,6 +266,18 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.Response
 		}
 	}
 	return results, nil
+}
+
+func wrapRequestOp(req pb.Message) *proto.RequestOp {
+	switch op := req.(type) {
+	case *proto.RequestOp_Range:
+		return &proto.RequestOp{Request: &proto.RequestOp_RequestRange{RequestRange: op}}
+	case *proto.RequestOp_Put:
+		return &proto.RequestOp{Request: &proto.RequestOp_RequestPut{RequestPut: op}}
+	case *proto.RequestOp_DeleteRange:
+		return &proto.RequestOp{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: op}}
+	}
+	return nil
 }
 
 func wrapResponseOp(req pb.Message) *proto.ResponseOp {
