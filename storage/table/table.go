@@ -171,7 +171,7 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 		return nil, err
 	}
 	return &proto.TxnResponse{
-		Succeeded: res.Value == fsm.ResultSuccess,
+		Succeeded: fsm.UpdateResult(res.Value) == fsm.ResultSuccess,
 		Responses: txr.Responses,
 	}, nil
 }

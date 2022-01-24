@@ -31,7 +31,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		if err := ctx.Init(updates[i]); err != nil {
 			return nil, err
 		}
-
+		updateResult := ResultSuccess
 		res := &proto.CommandResult{}
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:
@@ -84,15 +84,17 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 				res.Responses = append(res.Responses, wrapResponseOp(del))
 			}
 		case proto.Command_TXN:
-			rop, err := handleTxn(ctx, ctx.cmd.Txn.Compare, ctx.cmd.Txn.Success, ctx.cmd.Txn.Failure)
+			succ, rop, err := handleTxn(ctx, ctx.cmd.Txn.Compare, ctx.cmd.Txn.Success, ctx.cmd.Txn.Failure)
 			if err != nil {
 				return nil, err
+			}
+			if !succ {
+				updateResult = ResultFailure
 			}
 			res.Responses = append(res.Responses, rop...)
 		case proto.Command_DUMMY:
 		}
 
-		updates[i].Result.Value = ResultSuccess
 		if len(res.Responses) > 0 {
 			bts, err := res.MarshalVT()
 			if err != nil {
@@ -100,6 +102,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			}
 			updates[i].Result.Data = bts
 		}
+		updates[i].Result.Value = uint64(updateResult)
 	}
 
 	if err := ctx.Commit(); err != nil {
@@ -217,18 +220,20 @@ func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) (
 	return results, nil
 }
 
-func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*proto.RequestOp) ([]*proto.ResponseOp, error) {
+func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*proto.RequestOp) (bool, []*proto.ResponseOp, error) {
 	if err := ctx.EnsureIndexed(); err != nil {
-		return nil, err
+		return false, nil, err
 	}
 	ok, err := txnCompare(ctx.batch, compare)
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	}
 	if ok {
-		return handleTxnOps(ctx, success)
+		res, err := handleTxnOps(ctx, success)
+		return true, res, err
 	}
-	return handleTxnOps(ctx, fail)
+	res, err := handleTxnOps(ctx, fail)
+	return false, res, err
 }
 
 func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.ResponseOp, error) {
