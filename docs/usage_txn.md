@@ -10,13 +10,15 @@ also supported.
 
 Protobuf definitions of the discussed API can be found in [`mvcc.proto`](../proto/mvcc.proto).
 
+To gain better understanding of how to use the transaction API, see [examples](#examples).
+
 ## Retrieving or Modifying Data With Transactions
 
 Transactions can be invoked by sending `TxnRequest` message via the [`Txn`
 remote procedure call](api.md#kv), `regatta.v1.KV/Txn`, which returns `TxnResponse` message.
 
 `TxnRequest` consists of `Compare` predicates, `RequestOp` operations to be executed
-depending on the evaluation of the predicates, and the table name in which the transaction
+depending on the evaluation of the predicates, and the name of a table in which the transaction
 will be executed.
 
 `TxnResponse` consists of a `ResponseHeader`, `ResponseOp` responses, and a `succeeded`
@@ -32,9 +34,10 @@ More detailed description and their features of the individual operations can be
 found in the [protobuf definition file](../proto/mvcc.proto).
 
 `RequestOp` messages are used in the `success` and `failure` repeated fields in
-the `Txn` messages. If conditional execution of transactions is not desired,
-use the `success` field and leave the rest empty.
-For conditional execution, read the next section.
+the `Txn` messages. This is the "execution body" of the if/then/else construct of
+conditional execution described [below](#conditional-execution). If a conditional
+execution of transactions is not desired, supplement the `RequestOp` operations
+only in the `success` field and leave the rest empty.
 
 `ResponseOp` messages are the results of the operations in a given transaction.
 A `ResponseOp` is one of `Range`, `Put`, or `DeleteRange` messages, depending on the
@@ -95,9 +98,9 @@ message Compare {
 * `CompareTarget` - domain on which the `CompareResult` is performed. Only `VALUE` is currently
    supported.
 
-## Examples (TBD)
+## Examples
 
-Executed via the `regatta.v1.KV/Txn` API.
+Transactions are executed via the `regatta.v1.KV/Txn` remote procedure call.
 
 ### Transaction With No Predicates
 
