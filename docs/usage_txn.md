@@ -105,3 +105,30 @@ Transactions are executed via the `regatta.v1.KV/Txn` remote procedure call.
 ### Transaction With No Predicates
 
 ### Transaction With Predicates
+
+The following transaction checks whether there's a key-value pair
+`john:doe` in table `regatta-test`. If such key-value pair
+exists, a new record `jane:doe` is upserted in a compare-swap fashion,
+as defined in the `success` branch. Mind the upper case `EQUAL` and `VALUE`
+special values for `compare.result` and `compare.target`, respectively.
+
+```bash
+grpcurl \
+  -insecure \
+  "-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"compare\": [{
+      \"result\": \"EQUAL\",
+      \"target\": \"VALUE\",
+      \"key\": \"$(echo -n "john" | base64)\",
+      \"value\": \"$(echo -n "doe" | base64)\"
+    }],
+    \"success\": [{
+      \"request_put\": {
+        \"key\": \"$(echo -n "jane" | base64)\"
+        \"value\": \"$(echo -n "doe" | base64)\"
+      }
+    }]
+  }" \
+  localhost:8443 regatta.v1.KV/Txn
+```
