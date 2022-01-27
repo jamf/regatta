@@ -43,9 +43,6 @@ func TestWatcher_TLSConfig(t *testing.T) {
 		}, 10*time.Second, 250*time.Millisecond, "certificate not loaded")
 	}
 
-	t.Log("watch empty cert and key fail should fail")
-	r.Error(w.Watch())
-
 	t.Log("watch valid cert and key")
 	validKeyFile, validCertFile, validTLSConf := createValidTLSPairInDir(t.TempDir(), "valid")
 	mustCopyFile(validCertFile, testCertFile)
@@ -69,12 +66,11 @@ func TestWatcher_TLSConfig(t *testing.T) {
 	_ = os.Remove(testKeyFile)
 	validateCert(validTLSConf)
 
-	// FIXME fix flakiness
-	// t.Log("replace with different valid cert and key")
-	// validKeyFile2, validCertFile2, validTLSConf2 := createValidTLSPairInDir(t.TempDir(), "valid")
-	// mustCopyFile(validCertFile2, testCertFile)
-	// mustCopyFile(validKeyFile2, testKeyFile)
-	// validateCert(validTLSConf2)
+	t.Log("replace with different valid cert and key")
+	validKeyFile2, validCertFile2, validTLSConf2 := createValidTLSPairInDir(t.TempDir(), "valid")
+	mustCopyFile(validCertFile2, testCertFile)
+	mustCopyFile(validKeyFile2, testKeyFile)
+	validateCert(validTLSConf2)
 }
 
 func TestWatcher_load(t *testing.T) {
