@@ -21,4 +21,8 @@ var (
 	ErrInvalidClusterID = errors.New("invalid cluster ID")
 	// ErrStateMachineClosed state machine is closed.
 	ErrStateMachineClosed = errors.New("calling action on closed state machine")
+	// ErrNoResultFound FSM should have returned a result, but it didn't.
+	ErrNoResultFound = errors.New("FSM returned no results")
+	// ErrUnknownResultType FSM returned a result of the wrong type.
+	ErrUnknownResultType = errors.New("unknown result type")
 )

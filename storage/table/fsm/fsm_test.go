@@ -240,7 +240,7 @@ func init() {
 func mustMarshallProto(message pb.Message) []byte {
 	bytes, err := pb.Marshal(message)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	return bytes
 }

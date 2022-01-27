@@ -100,15 +100,29 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 			Key:   req.Key,
 			Value: req.Value,
 		},
+		PrevKvs: req.PrevKv,
 	}
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
 		return nil, err
 	}
-	if _, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes); err != nil {
+	res, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes)
+	if err != nil {
 		return nil, err
 	}
-	return &proto.PutResponse{}, nil
+	pr := &proto.CommandResult{}
+	if err := pr.UnmarshalVT(res.Data); err != nil {
+		return nil, err
+	}
+	if len(pr.Responses) == 0 {
+		return nil, storage.ErrNoResultFound
+	}
+	switch r := pr.Responses[0].Response.(type) {
+	case *proto.ResponseOp_ResponsePut:
+		return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv}, nil
+	default:
+		return nil, storage.ErrUnknownResultType
+	}
 }
 
 // Delete performs a DeleteRange proposal into the Raft, supplied context must have a deadline set.
@@ -125,6 +139,8 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 		Kv: &proto.KeyValue{
 			Key: req.Key,
 		},
+		PrevKvs:  req.PrevKv,
+		RangeEnd: req.RangeEnd,
 	}
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
@@ -135,7 +151,19 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 	if err != nil {
 		return nil, err
 	}
-	return &proto.DeleteRangeResponse{Deleted: int64(res.Value)}, nil
+	dr := &proto.CommandResult{}
+	if err := dr.UnmarshalVT(res.Data); err != nil {
+		return nil, err
+	}
+	if len(dr.Responses) == 0 {
+		return nil, storage.ErrNoResultFound
+	}
+	switch r := dr.Responses[0].Response.(type) {
+	case *proto.ResponseOp_ResponseDeleteRange:
+		return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs}, nil
+	default:
+		return nil, storage.ErrUnknownResultType
+	}
 }
 
 func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {

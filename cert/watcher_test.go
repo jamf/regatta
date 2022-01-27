@@ -43,9 +43,6 @@ func TestWatcher_TLSConfig(t *testing.T) {
 		}, 10*time.Second, 250*time.Millisecond, "certificate not loaded")
 	}
 
-	t.Log("watch empty cert and key fail should fail")
-	r.Error(w.Watch())
-
 	t.Log("watch valid cert and key")
 	validKeyFile, validCertFile, validTLSConf := createValidTLSPairInDir(t.TempDir(), "valid")
 	mustCopyFile(validCertFile, testCertFile)

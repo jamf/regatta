@@ -45,16 +45,6 @@ table_1value_1
         - KV versioning
     - not implemented fields:
         - `min_mod_revision`, `max_mod_revision`, `min_create_revision`, `max_create_revision`
-- `KV.Put`
-    - not implemented features:
-        - return previous KV
-    - not implemented fields:
-        - `prev_kv`
-- `KV.DeleteRange`
-    - not implemented features:
-        - return previous KV
-    - not implemented fields:
-        - `prev_kv`
 
 ### Range
 
