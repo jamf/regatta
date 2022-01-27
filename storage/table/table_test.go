@@ -386,6 +386,28 @@ func TestActiveTable_Delete(t *testing.T) {
 			want: &proto.DeleteRangeResponse{PrevKvs: []*proto.KeyValue{{Key: []byte("foo"), Value: []byte("val")}}},
 		},
 		{
+			name: "Delete existing range",
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mustMarshallProto(&proto.Command{
+						Type:     proto.Command_DELETE,
+						Kv:       &proto.KeyValue{Key: []byte("foo")},
+						RangeEnd: []byte("foo1"),
+					})).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}},
+					}}})}, nil)
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Key:      []byte("foo"),
+					RangeEnd: []byte("foo1"),
+				},
+			},
+			want: &proto.DeleteRangeResponse{},
+		},
+		{
 			name: "Delete non-existent key",
 			args: args{
 				ctx: context.TODO(),
