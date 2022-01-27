@@ -104,18 +104,86 @@ Transactions are executed via the `regatta.v1.KV/Txn` remote procedure call.
 
 ### Transaction With No Predicates
 
+Let's suppose we wish to atomically insert multiple records into table `regatta-test`,
+and list them back. We could achieve this by defining multiple `PUT` operations,
+one for each record, and a `RANGE` operation, listing the inserted records,
+in the `success` branch.
+
+```bash
+grpcurl \
+-insecure \
+"-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"success\": [{
+      \"request_put\": {
+        \"key\": \"$(echo -n "brba:walter" | base64)\",
+        \"value\": \"$(echo -n "white" | base64)\"
+      }
+    }, {
+      \"request_put\": {
+        \"key\": \"$(echo -n "brba:jessie" | base64)\",
+        \"value\": \"$(echo -n "pinkman" | base64)\"
+      }
+    }, {
+      \"request_put\": {
+        \"key\": \"$(echo -n "brba:hank" | base64)\",
+        \"value\": \"$(echo -n "schrader" | base64)\"
+      }
+    }, {
+      \"request_range\": {
+        \"key\": \"$(echo -n "brba:" | base64)\",
+        \"range_end\": \"$(echo -n "brbb:" | base64)\",
+        \"count_only\": \"true\"
+      }
+    }]
+}" \
+localhost:8443 regatta.v1.KV/Txn
+```
+
+This would be the expected response:
+
+```bash
+{
+  "succeeded": true,
+  "responses": [
+    {
+      "responsePut": {
+
+      }
+    },
+    {
+      "responsePut": {
+
+      }
+    },
+    {
+      "responsePut": {
+
+      }
+    },
+    {
+      "responseRange": {
+        "count": "3"
+      }
+    }
+  ]
+}
+```
+
 ### Transaction With Predicates
 
 The following transaction checks whether there's a key-value pair
 `john:doe` in table `regatta-test`. If such key-value pair
 exists, a new record `jane:doe` is upserted in a compare-swap fashion,
-as defined in the `success` branch. Mind the upper case `EQUAL` and `VALUE`
-special values for `compare.result` and `compare.target`, respectively.
+as defined in the `success` branch. We also wish to retrieve the previous
+key-value of the newly upserted record, as stated in `success[0].request_put.prev_kv = true`.
+Mind the upper case `EQUAL` and `VALUE` special values for `compare[0].result` and
+`compare[0].target`, respectively. The two records are then listed.
 
 ```bash
 grpcurl \
-  -insecure \
-  "-d={
+-insecure \
+"-d={
     \"table\": \"$(echo -n "regatta-test" | base64)\",
     \"compare\": [{
       \"result\": \"EQUAL\",
@@ -125,10 +193,116 @@ grpcurl \
     }],
     \"success\": [{
       \"request_put\": {
+        \"key\": \"$(echo -n "jane" | base64)\",
+        \"value\": \"$(echo -n "doe" | base64)\",
+        \"prev_kv\": \"true\"
+      }
+    }, {
+      \"request_range\": {
         \"key\": \"$(echo -n "jane" | base64)\"
-        \"value\": \"$(echo -n "doe" | base64)\"
+      }
+    }, {
+      \"request_range\": {
+        \"key\": \"$(echo -n "john" | base64)\"
       }
     }]
-  }" \
-  localhost:8443 regatta.v1.KV/Txn
+}" \
+localhost:8443 regatta.v1.KV/Txn
+```
+
+This would be one of the possible responses:
+
+```bash
+{
+  "succeeded": true,
+  "responses": [
+    {
+      "responsePut": {
+        "prevKv": {
+          "key": "amFuZQ==",
+          "value": "ZG9l"
+        }
+      }
+    },
+    {
+      "responseRange": {
+        "kvs": [
+          {
+            "key": "amFuZQ==",
+            "value": "ZG9l"
+          }
+        ],
+        "count": "1"
+      }
+    },
+    {
+      "responseRange": {
+        "kvs": [
+          {
+            "key": "am9obg==",
+            "value": "ZG9l"
+          }
+        ],
+        "count": "1"
+      }
+    }
+  ]
+}
+```
+
+We could also provide additional operations in the `failure` branch,
+which will execute when some of the predicates in `compare` evaluate
+to false. Let's extend the previous example by inserting a different
+record if the record `john:doe` is not found.
+
+```bash
+grpcurl \
+-insecure \
+"-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"compare\": [{
+      \"result\": \"EQUAL\",
+      \"target\": \"VALUE\",
+      \"key\": \"$(echo -n "john" | base64)\",
+      \"value\": \"$(echo -n "doe" | base64)\"
+    }],
+    \"success\": [{
+      \"request_put\": {
+        \"key\": \"$(echo -n "jane" | base64)\",
+        \"value\": \"$(echo -n "doe" | base64)\",
+        \"prev_kv\": \"true\"
+      }
+    }, {
+      \"request_range\": {
+        \"key\": \"$(echo -n "jane" | base64)\"
+      }
+    }, {
+      \"request_range\": {
+        \"key\": \"$(echo -n "john" | base64)\"
+      }
+    }],
+    \"failure\": [{
+      \"request_put\": {
+        \"key\": \"$(echo -n "foo" | base64)\",
+        \"value\": \"$(echo -n "bar" | base64)\"
+      }
+    }]
+}" \
+localhost:8443 regatta.v1.KV/Txn
+```
+
+Before executing this transaction, delete the `john:doe`
+record in the database to enfore execution of the `failure` branch.
+This would then be the expected response:
+
+```bash
+{
+  "responses": [
+    {
+      "responsePut": {
+
+      }
+    }
+  ]
+}
 ```
