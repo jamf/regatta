@@ -70,11 +70,11 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 		}
 	}
 
-	_, err := s.Storage.Put(ctx, req)
+	r, err := s.Storage.Put(ctx, req)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &proto.PutResponse{}, nil
+	return r, nil
 }
 
 // DeleteRange implements proto/regatta.proto KV.DeleteRange method.
