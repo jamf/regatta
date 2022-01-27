@@ -9,6 +9,7 @@ import (
 	"github.com/lni/dragonboat/v3/client"
 	"github.com/lni/dragonboat/v3/logger"
 	sm "github.com/lni/dragonboat/v3/statemachine"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
@@ -16,6 +17,7 @@ import (
 	"github.com/wandera/regatta/storage/table/key"
 	"github.com/wandera/regatta/util"
 	"go.uber.org/zap"
+	pb "google.golang.org/protobuf/proto"
 )
 
 func init() {
@@ -29,50 +31,47 @@ var (
 )
 
 type mockRaftHandler struct {
-	queryResult    interface{}
-	proposalResult sm.Result
-	proposalError  error
+	mock.Mock
 }
 
-func (m mockRaftHandler) SyncRead(ctx context.Context, id uint64, req interface{}) (interface{}, error) {
-	return m.queryResult, m.proposalError
+func (m *mockRaftHandler) SyncRead(ctx context.Context, id uint64, req interface{}) (interface{}, error) {
+	args := m.Called(ctx, id, req)
+	return args.Get(0), args.Error(1)
 }
 
-func (m mockRaftHandler) StaleRead(id uint64, req interface{}) (interface{}, error) {
-	return m.queryResult, m.proposalError
+func (m *mockRaftHandler) StaleRead(id uint64, req interface{}) (interface{}, error) {
+	args := m.Called(id, req)
+	return args.Get(0), args.Error(1)
 }
 
-func (m mockRaftHandler) SyncPropose(ctx context.Context, session *client.Session, bytes []byte) (sm.Result, error) {
-	return m.proposalResult, m.proposalError
+func (m *mockRaftHandler) SyncPropose(ctx context.Context, session *client.Session, bytes []byte) (sm.Result, error) {
+	args := m.Called(ctx, session, bytes)
+	return args.Get(0).(sm.Result), args.Error(1)
 }
 
-func (m mockRaftHandler) GetNoOPSession(id uint64) *client.Session {
+func (m *mockRaftHandler) GetNoOPSession(id uint64) *client.Session {
 	return &client.Session{}
 }
 
 func TestActiveTable_Range(t *testing.T) {
-	type fields struct {
-		Table Table
-		nh    raftHandler
-	}
 	type args struct {
 		ctx context.Context
 		req *proto.RangeRequest
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		on      func(*mockRaftHandler)
+		assert  func(*mockRaftHandler)
 		args    args
 		want    *proto.RangeResponse
 		wantErr error
 	}{
 		{
 			name: "Query unknown key",
-			fields: fields{
-				Table: Table{},
-				nh: mockRaftHandler{
-					proposalError: pebble.ErrNotFound,
-				},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("StaleRead", mock.Anything, mock.Anything).
+					Return(nil, pebble.ErrNotFound)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -82,19 +81,18 @@ func TestActiveTable_Range(t *testing.T) {
 		},
 		{
 			name: "Query key found",
-			fields: fields{
-				Table: Table{},
-				nh: mockRaftHandler{
-					queryResult: &proto.ResponseOp_Range{
-						Count: 1,
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("StaleRead", mock.Anything, mock.Anything).
+					Return(&proto.ResponseOp_Range{
 						Kvs: []*proto.KeyValue{
 							{
 								Key:   []byte("foo"),
 								Value: []byte("bar"),
 							},
 						},
-					},
-				},
+						Count: 1,
+					}, nil)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -112,18 +110,18 @@ func TestActiveTable_Range(t *testing.T) {
 		},
 		{
 			name: "Query key found - linerizable",
-			fields: fields{
-				Table: Table{},
-				nh: mockRaftHandler{
-					queryResult: &proto.ResponseOp_Range{
-						Count: 1, Kvs: []*proto.KeyValue{
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncRead", mock.Anything, mock.Anything, mock.Anything).
+					Return(&proto.ResponseOp_Range{
+						Kvs: []*proto.KeyValue{
 							{
 								Key:   []byte("foo"),
 								Value: []byte("bar"),
 							},
 						},
-					},
-				},
+						Count: 1,
+					}, nil)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -141,10 +139,6 @@ func TestActiveTable_Range(t *testing.T) {
 		},
 		{
 			name: "Query key too long",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: longKey},
@@ -153,10 +147,6 @@ func TestActiveTable_Range(t *testing.T) {
 		},
 		{
 			name: "Query range end too long",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("foo"), RangeEnd: longKey},
@@ -165,11 +155,10 @@ func TestActiveTable_Range(t *testing.T) {
 		},
 		{
 			name: "Query unknown error",
-			fields: fields{
-				Table: Table{},
-				nh: mockRaftHandler{
-					proposalError: errUnknown,
-				},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("StaleRead", mock.Anything, mock.Anything).
+					Return(nil, errUnknown)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -181,9 +170,16 @@ func TestActiveTable_Range(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
+			nh := &mockRaftHandler{}
+			if tt.on != nil {
+				tt.on(nh)
+			}
+			if tt.assert != nil {
+				tt.assert(nh)
+			}
 			at := &ActiveTable{
-				Table: tt.fields.Table,
-				nh:    tt.fields.nh,
+				Table: Table{},
+				nh:    nh,
 			}
 			got, err := at.Range(tt.args.ctx, tt.args.req)
 			if tt.wantErr != nil {
@@ -197,26 +193,26 @@ func TestActiveTable_Range(t *testing.T) {
 }
 
 func TestActiveTable_Put(t *testing.T) {
-	type fields struct {
-		Table Table
-		nh    raftHandler
-	}
 	type args struct {
 		ctx context.Context
 		req *proto.PutRequest
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		on      func(*mockRaftHandler)
+		assert  func(*mockRaftHandler)
 		args    args
 		want    *proto.PutResponse
 		wantErr error
 	}{
 		{
 			name: "Put KV success",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{proposalResult: sm.Result{}},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}},
+					}}})}, nil)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -229,10 +225,6 @@ func TestActiveTable_Put(t *testing.T) {
 		},
 		{
 			name: "Put KV empty key",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{
@@ -244,10 +236,6 @@ func TestActiveTable_Put(t *testing.T) {
 		},
 		{
 			name: "Put KV key too long",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{
@@ -259,10 +247,6 @@ func TestActiveTable_Put(t *testing.T) {
 		},
 		{
 			name: "Put KV value too long",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.PutRequest{
@@ -274,9 +258,10 @@ func TestActiveTable_Put(t *testing.T) {
 		},
 		{
 			name: "Put KV unknown error",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{proposalError: errUnknown},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					Return(sm.Result{}, errUnknown)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -291,9 +276,16 @@ func TestActiveTable_Put(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
+			nh := &mockRaftHandler{}
+			if tt.on != nil {
+				tt.on(nh)
+			}
+			if tt.assert != nil {
+				tt.assert(nh)
+			}
 			at := &ActiveTable{
-				Table: tt.fields.Table,
-				nh:    tt.fields.nh,
+				Table: Table{},
+				nh:    nh,
 			}
 			got, err := at.Put(tt.args.ctx, tt.args.req)
 			if tt.wantErr != nil {
@@ -307,27 +299,20 @@ func TestActiveTable_Put(t *testing.T) {
 }
 
 func TestActiveTable_Delete(t *testing.T) {
-	type fields struct {
-		Table Table
-		nh    raftHandler
-	}
 	type args struct {
 		ctx context.Context
 		req *proto.DeleteRangeRequest
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		on      func(*mockRaftHandler)
+		assert  func(*mockRaftHandler)
 		args    args
 		want    *proto.DeleteRangeResponse
 		wantErr error
 	}{
 		{
 			name: "Delete with empty key",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{},
@@ -336,9 +321,12 @@ func TestActiveTable_Delete(t *testing.T) {
 		},
 		{
 			name: "Delete existing key",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{proposalResult: sm.Result{Value: 1}},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 1}},
+					}}})}, nil)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -348,22 +336,21 @@ func TestActiveTable_Delete(t *testing.T) {
 		},
 		{
 			name: "Delete non-existent key",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{proposalResult: sm.Result{Value: 0}},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{Key: []byte("foo")},
+			},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}},
+					}}})}, nil)
 			},
 			want: &proto.DeleteRangeResponse{Deleted: 0},
 		},
 		{
 			name: "Delete key too long",
-			fields: fields{
-				Table: Table{},
-				nh:    mockRaftHandler{},
-			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{Key: longKey},
@@ -372,11 +359,10 @@ func TestActiveTable_Delete(t *testing.T) {
 		},
 		{
 			name: "Delete unknown error",
-			fields: fields{
-				Table: Table{},
-				nh: mockRaftHandler{
-					proposalError: errUnknown,
-				},
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					Return(sm.Result{}, errUnknown)
 			},
 			args: args{
 				ctx: context.TODO(),
@@ -388,9 +374,16 @@ func TestActiveTable_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
+			nh := &mockRaftHandler{}
+			if tt.on != nil {
+				tt.on(nh)
+			}
+			if tt.assert != nil {
+				tt.assert(nh)
+			}
 			at := &ActiveTable{
-				Table: tt.fields.Table,
-				nh:    tt.fields.nh,
+				Table: Table{},
+				nh:    nh,
 			}
 			got, err := at.Delete(tt.args.ctx, tt.args.req)
 			if tt.wantErr != nil {
@@ -435,4 +428,12 @@ func TestTable_AsActive(t *testing.T) {
 			r.Equal(tt.want, tab.AsActive(nil))
 		})
 	}
+}
+
+func mustMarshallProto(message pb.Message) []byte {
+	bytes, err := pb.Marshal(message)
+	if err != nil {
+		panic(err)
+	}
+	return bytes
 }
