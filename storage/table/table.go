@@ -100,6 +100,7 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 			Key:   req.Key,
 			Value: req.Value,
 		},
+		PrevKvs: req.PrevKv,
 	}
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
@@ -125,6 +126,8 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 		Kv: &proto.KeyValue{
 			Key: req.Key,
 		},
+		PrevKvs:  req.PrevKv,
+		RangeEnd: req.RangeEnd,
 	}
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
