@@ -209,7 +209,10 @@ func TestActiveTable_Put(t *testing.T) {
 			name: "Put KV success",
 			on: func(handler *mockRaftHandler) {
 				handler.
-					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					On("SyncPropose", mock.Anything, mock.Anything, mustMarshallProto(&proto.Command{
+						Type: proto.Command_PUT,
+						Kv:   &proto.KeyValue{Key: []byte("foo"), Value: []byte("bar")},
+					})).
 					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
 						Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}},
 					}}})}, nil)
@@ -222,6 +225,29 @@ func TestActiveTable_Put(t *testing.T) {
 				},
 			},
 			want: &proto.PutResponse{},
+		},
+		{
+			name: "Put KV with prev",
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mustMarshallProto(&proto.Command{
+						Type:    proto.Command_PUT,
+						Kv:      &proto.KeyValue{Key: []byte("foo"), Value: []byte("bar")},
+						PrevKvs: true,
+					})).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{PrevKv: &proto.KeyValue{Key: []byte("foo"), Value: []byte("val")}}},
+					}}})}, nil)
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.PutRequest{
+					Key:    []byte("foo"),
+					Value:  []byte("bar"),
+					PrevKv: true,
+				},
+			},
+			want: &proto.PutResponse{PrevKv: &proto.KeyValue{Key: []byte("foo"), Value: []byte("val")}},
 		},
 		{
 			name: "Put KV empty key",
@@ -323,7 +349,10 @@ func TestActiveTable_Delete(t *testing.T) {
 			name: "Delete existing key",
 			on: func(handler *mockRaftHandler) {
 				handler.
-					On("SyncPropose", mock.Anything, mock.Anything, mock.Anything).
+					On("SyncPropose", mock.Anything, mock.Anything, mustMarshallProto(&proto.Command{
+						Type: proto.Command_DELETE,
+						Kv:   &proto.KeyValue{Key: []byte("foo")},
+					})).
 					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
 						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 1}},
 					}}})}, nil)
@@ -333,6 +362,50 @@ func TestActiveTable_Delete(t *testing.T) {
 				req: &proto.DeleteRangeRequest{Key: []byte("foo")},
 			},
 			want: &proto.DeleteRangeResponse{Deleted: 1},
+		},
+		{
+			name: "Delete existing key with prev",
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mustMarshallProto(&proto.Command{
+						Type:    proto.Command_DELETE,
+						Kv:      &proto.KeyValue{Key: []byte("foo")},
+						PrevKvs: true,
+					})).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{PrevKvs: []*proto.KeyValue{{Key: []byte("foo"), Value: []byte("val")}}}},
+					}}})}, nil)
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Key:    []byte("foo"),
+					PrevKv: true,
+				},
+			},
+			want: &proto.DeleteRangeResponse{PrevKvs: []*proto.KeyValue{{Key: []byte("foo"), Value: []byte("val")}}},
+		},
+		{
+			name: "Delete existing range",
+			on: func(handler *mockRaftHandler) {
+				handler.
+					On("SyncPropose", mock.Anything, mock.Anything, mustMarshallProto(&proto.Command{
+						Type:     proto.Command_DELETE,
+						Kv:       &proto.KeyValue{Key: []byte("foo")},
+						RangeEnd: []byte("foo1"),
+					})).
+					Return(sm.Result{Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{{
+						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}},
+					}}})}, nil)
+			},
+			args: args{
+				ctx: context.TODO(),
+				req: &proto.DeleteRangeRequest{
+					Key:      []byte("foo"),
+					RangeEnd: []byte("foo1"),
+				},
+			},
+			want: &proto.DeleteRangeResponse{},
 		},
 		{
 			name: "Delete non-existent key",
