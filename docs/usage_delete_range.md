@@ -1,5 +1,7 @@
 # DeleteRange API
 
+Delete records from Regatta.
+
 ## Delete Single Key
 
 To delete a single key-value pair supply just a `key` argument.
@@ -69,3 +71,7 @@ $ grpcurl -insecure "-d={
     \"range_end\": \"$(echo -n "\0" | base64)\"}" \
     127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
+
+Additionaly, `"prev_kvs": "true"` could be supplied to the request,
+which would return the previous key-value pairs affected by the delete,
+if any exist.
