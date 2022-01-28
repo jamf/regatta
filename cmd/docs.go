@@ -11,7 +11,7 @@ import (
 var docsDest string
 
 func init() {
-	docsCmd.PersistentFlags().StringVar(&docsDest, "destination", "docs", "Destination folder where docs should be generated.")
+	docsCmd.PersistentFlags().StringVar(&docsDest, "destination", "docs", "Destination folder where CLI docs should be generated.")
 }
 
 var docsCmd = &cobra.Command{
