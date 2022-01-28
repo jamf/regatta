@@ -142,7 +142,7 @@ localhost:8443 regatta.v1.KV/Txn
 
 This would be the expected response:
 
-```bash
+```json
 {
   "succeeded": true,
   "responses": [
@@ -212,7 +212,7 @@ localhost:8443 regatta.v1.KV/Txn
 
 This would be one of the possible responses:
 
-```bash
+```json
 {
   "succeeded": true,
   "responses": [
@@ -295,7 +295,7 @@ Before executing this transaction, delete the `john:doe`
 record in the database to enfore execution of the `failure` branch.
 This would then be the expected response:
 
-```bash
+```json
 {
   "responses": [
     {
