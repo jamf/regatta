@@ -63,6 +63,7 @@ docker-build: proto
 kind: docker-build kind-cluster
 	kubectl --context kind-regatta create namespace regatta || true
 	cd helm/regatta && kubecrt charts-kind.yaml | kubectl --context kind-regatta apply -f -
+	kubectl -n regatta rollout restart statefulset/regatta
 
 kind-cluster:
 	kind create cluster --config hack/kind-cluster-config.yaml || true
