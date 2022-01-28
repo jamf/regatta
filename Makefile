@@ -41,7 +41,7 @@ test: prepare
 build: regatta docs
 
 docs: regatta
-	./regatta docs
+	./regatta docs --destination=docs/cli
 
 regatta: proto *.go **/*.go
 	CGO_ENABLED=1 go build -o regatta
