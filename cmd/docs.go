@@ -11,14 +11,14 @@ import (
 var docsDest string
 
 func init() {
-	docsCmd.PersistentFlags().StringVar(&docsDest, "destination", "docs", "Destination folder where docs should be generated.")
+	docsCmd.PersistentFlags().StringVar(&docsDest, "destination", "docs", "Destination folder where CLI docs should be generated.")
 }
 
 var docsCmd = &cobra.Command{
 	Use:                "docs",
 	Short:              "Generate docs",
 	Hidden:             true,
-	DisableFlagParsing: true,
+	DisableFlagParsing: false,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		err := os.MkdirAll(docsDest, 0777)
 		if err != nil {
