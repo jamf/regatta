@@ -10,7 +10,7 @@ The Regatta is designed as hub-and-spoke or consistent-core system. Within the t
 statically defined leader cluster. Having a statically defined leader cluster reduces the operational costs and greatly
 simplifies the system due to less moving parts.
 
-Regatta topology is designed as a multi-group Raft cluster within each DC with asynchronous replication across
+Regatta topology is designed as a multi-group Raft cluster within each data center with asynchronous replication across
 locations. There are two types of clusters within Regatta multi-location deployment.
 
 > Regatta leader refers to cluster accepting and confirming Write proposals. (Sometimes referred as Core)
@@ -33,7 +33,7 @@ This is not only useful for disaster scenarios but also enables the easy rolling
 
 ## Tables
 
-The Regatta support the notion of tables throughout its API. The tables could be imagined as sort of keyspaces or
+The Regatta supports the notion of tables throughout its API. The tables could be imagined as sort of keyspaces or
 schemas. Each table is its own Raft group replicating within a single location, while also being a single replication
 unit for cross-location replication. That said, all the API guarantees regarding consistency are always scoped to a
 single table. There is no guarantee of data consistency within multiple tables.
