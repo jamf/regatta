@@ -24,7 +24,7 @@ Regatta is a read-optimised distributed key-value store.
 
 ## Usage
 
-* For CLI usage check [docs](./docs) folder.
+* For CLI usage check [cli docs](./docs/cli/regatta.md).
 * For API documentation check [api docs](./docs/api.md).
 * For detailed API usage check [usage docs](./docs/usage.md).
 
