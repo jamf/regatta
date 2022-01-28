@@ -25,7 +25,8 @@ Expected response:
 }
 ```
 
-Expected response if the record with key `key_1` previously existed:
+Expected response if the record with key `key_1` previously existed
+and `prev_kv` was set to true:
 
 ```json
 {

@@ -72,6 +72,6 @@ $ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-Additionaly, we can supply `"prev_kvs": "true"` to the request,
-which would return the previous key-value pair we upserted with
-the request, if any exists.
+Additionaly, `"prev_kvs": "true"` could be supplied to the request,
+which would return the previous key-value pairs affected by the delete,
+if any exist.
