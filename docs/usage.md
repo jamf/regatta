@@ -55,7 +55,7 @@ Serves for retrieval of data.
 
 ### Put
 
-Serves for update or create of a single KV pair. page.
+Serves for update or create of a single KV pair.
 
 - [API](api.md#PutRequest)
 - [Detailed usage](usage_put.md)
