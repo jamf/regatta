@@ -154,7 +154,6 @@ func leader(_ *cobra.Command, _ []string) {
 			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
 				Storage:       st,
 				ManagedTables: mTables,
-				TxnEnabled:    viper.GetBool("api.transactions-enabled"),
 			})
 			// Start server
 			go func() {
