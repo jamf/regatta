@@ -42,10 +42,10 @@ spec:
             resources:
               limits:
                 cpu: '1'
-                memory: 256Mi
+                memory: 1Gi
               requests:
                 cpu: 200m
-                memory: 128Mi
+                memory: 512Mi
             volumeMounts:
             - mountPath: /maintenance-cert
               name: maintenance-cert
