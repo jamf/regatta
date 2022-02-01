@@ -94,9 +94,27 @@ message Compare {
 > create revision, modification revision, and lease ID of a given record.
 
 * `CompareResult` - logical operation to be performed on the [`CompareTarget`](#comparetarget).
-    It must be one of `EQUAL`, `GREATER`, `LESS`, or `NOT_EQUAL`.
+    It must be one of `EQUAL`, `GREATER`, `LESS`, or `NOT_EQUAL`. Testing for existence of a
+    given key is described in [Testing Existence of Key](#testing-existence-of-key) and testing
+    for existence of a key within range is described in
+    [Testing Existence of Key Within Range](#testing-existence-of-key-within-range).
 * `CompareTarget` - domain on which the `CompareResult` is performed. Only `VALUE` is currently
    supported.
+
+### Testing Existence of Key
+
+A predicate testing for existence of a given key can also be created.
+To do so, supply only the `key` in the `Compare` message. Example of such
+predicate can be found [here](#predicate-testing-existence-of-key).
+
+### Testing Existence of Key Within Range
+
+To test the existence of some keys within a given range, supply only the
+`key` and `range_end` in the `Compare` message. Example of such predicate
+can be found [here](#predicate-testing-existence-of-key-within-range).
+Note that the predicate evaluates to false if and only if no key exists
+in the provided range. Also, `key` and `range_end` form a right-open interval,
+i.e. `[key, range_end)`.
 
 ## Examples
 
@@ -304,5 +322,107 @@ This would then be the expected response:
       }
     }
   ]
+}
+```
+
+### Predicate Testing Existence of Key
+
+The following predicate evaluates to true if a key-value pair with the key
+`john` exists in Regatta. If so, the success operations are then executed.
+
+```bash
+grpcurl \
+-insecure \
+"-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"compare\": [{
+      \"key\": \"$(echo -n "john" | base64)\"
+    }],
+    \"success\": [{
+      \"request_put\": {
+        \"key\": \"$(echo -n "jane" | base64)\",
+        \"value\": \"$(echo -n "doe" | base64)\"
+      }
+    }]
+}" \
+localhost:8443 regatta.v1.KV/Txn
+```
+
+Suppose a key-value pair with the key `john` exists,
+this would be the expected response:
+
+```json
+{
+  "succeeded": true,
+  "responses": [
+    {
+      "responsePut": {
+
+      }
+    }
+  ]
+}
+```
+
+Otherwise, such response would be returned:
+
+```json
+{
+
+}
+```
+
+### Predicate Testing Existence of Key Within Range
+
+To test if there is any key-value pair between the keys `jack`
+and `john`, exluding the key-value pair with the key `john`,
+we supply `jack` and `john` as the `key` and `range_end` in
+the predicate. If such pair exists, a count of such key-value
+pairs is retrieved.
+
+```bash
+grpcurl \
+-insecure \
+"-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"compare\": [{
+      \"key\": \"$(echo -n "jack" | base64)\",
+      \"range_end\": \"$(echo -n "john" | base64)\"
+    }],
+    \"success\": [{
+      \"request_range\": {
+        \"key\": \"$(echo -n "jack" | base64)\",
+        \"range_end\": \"$(echo -n "john" | base64)\",
+        \"count_only\": "true"
+      }
+    }]
+}" \
+localhost:8443 regatta.v1.KV/Txn
+```
+
+Suppose records with the keys `alex`, `jack`, `jim`, `john`, and `pete`
+exist. This would be the expected response:
+
+```json
+{
+  "succeeded": true,
+  "responses": [
+    {
+      "responseRange": {
+        "count": "2"
+      }
+    }
+  ]
+}
+```
+
+> Note that `key` and `range_end` form a right-open interval (`[key, range_end)`), hence the response
+> does not contain the pair with `john` as a key.
+
+If only keys `alex`, `john`, and `pete` exist, such response would be returned:
+
+```json
+{
+
 }
 ```
