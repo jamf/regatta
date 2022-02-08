@@ -5,12 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/lni/dragonboat/v3/raftio"
+	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/raftpb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
@@ -109,24 +107,24 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 
 // LogServer implements Log service from proto/replication.proto.
 type LogServer struct {
-	DB             raftio.ILogDB
-	Tables         TableService
-	NodeID         uint64
-	Log            *zap.SugaredLogger
-	maxMessageSize uint64
+	Tables     TableService
+	LogReaders LogReaderService
+	NodeID     uint64
+	Log        *zap.SugaredLogger
 
-	metrics struct {
+	maxMessageSize uint64
+	metrics        struct {
 		replicationIndex *prometheus.GaugeVec
 	}
 	proto.UnimplementedLogServer
 }
 
-func NewLogServer(tm *tables.Manager, db raftio.ILogDB, logger *zap.Logger, maxMessageSize uint64) *LogServer {
+func NewLogServer(tm *tables.Manager, lr LogReaderService, logger *zap.Logger, maxMessageSize uint64) *LogServer {
 	ls := &LogServer{
 		Tables:         tm,
-		DB:             db,
 		NodeID:         tm.NodeID(),
 		Log:            logger.Sugar().Named("log-replication-server"),
+		LogReaders:     lr,
 		maxMessageSize: maxMessageSize,
 		metrics: struct {
 			replicationIndex *prometheus.GaugeVec
@@ -196,15 +194,22 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		return fmt.Errorf("invalid leaderIndex: leaderIndex must be greater than 0")
 	}
 
-	rs, leaderBehind, err := l.readRaftState(t.ClusterID, req.LeaderIndex)
+	reader, err := l.LogReaders.GetLogReader(t.ClusterID)
 	if err != nil {
 		return err
 	}
-	if leaderBehind {
-		return server.Send(repErrLeaderBehind)
+
+	firstIndex, lastIndex := reader.GetRange()
+	if err != nil {
+		return err
 	}
 
-	lastIndex := rs.FirstIndex + rs.EntryCount
+	// Adjust of open interval
+	lastIndex = lastIndex + 1
+
+	if lastIndex < req.LeaderIndex {
+		return server.Send(repErrLeaderBehind)
+	}
 
 	// Follower is up-to-date with the leader, therefore there are no new data to be sent.
 	if lastIndex == req.LeaderIndex {
@@ -212,7 +217,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 	}
 
 	// Follower's leaderIndex is in the leader's snapshot, not in the log.
-	if req.LeaderIndex < rs.FirstIndex {
+	if req.LeaderIndex < firstIndex {
 		return server.Send(repErrUseSnapshot)
 	}
 
@@ -223,50 +228,12 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		defer cancel()
 		ctx = dctx
 	}
-	return l.readLog(ctx, server, t.ClusterID, req.LeaderIndex, lastIndex)
-}
-
-func (l *LogServer) readRaftState(clusterID, leaderIndex uint64) (rs raftio.RaftState, leaderBehind bool, err error) {
-	defer func() {
-		if errRec := recover(); errRec != nil {
-			if msg, ok := errRec.(string); ok && strings.HasPrefix(msg, "first index") {
-				// ReadRaftState panicked because req.LeaderIndex > rs.MaxIndex.
-				// When the leader is behind, ReadRaftState causes panic with
-				// a string that starts with "first index".
-				leaderBehind = true
-				l.Log.Warnf("leader behind - %s (leaderIndex %d)", msg, leaderIndex)
-			} else {
-				// Something else caused the panic, so raise as error.
-				err = fmt.Errorf("ReadRaftState panicked: %v", errRec)
-			}
-		}
-	}()
-
-	rs, err = l.DB.ReadRaftState(clusterID, l.NodeID, leaderIndex-1)
-	if err != nil {
-		err = fmt.Errorf("could not get raft state: %v", err)
-		return
-	}
-	return
-}
-
-func (l *LogServer) iterateEntries(entries []raftpb.Entry, clusterID, lo, hi uint64) (ents []raftpb.Entry, err error) {
-	defer func() {
-		if errRec := recover(); errRec != nil {
-			err = fmt.Errorf("IterateEntries panicked: %v", errRec)
-		}
-	}()
-	ents, _, err = l.DB.IterateEntries(entries, math.MaxUint64, clusterID, l.NodeID, lo, hi, l.maxMessageSize)
-	return
+	return l.readLog(ctx, server, reader, req.LeaderIndex, lastIndex)
 }
 
 // readLog and write it to the stream.
-func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServer, clusterID, firstIndex, lastIndex uint64) error {
-	var (
-		commands []*proto.ReplicateCommand
-		entries  []raftpb.Entry
-	)
-
+func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServer, reader dragonboat.ReadonlyLogReader, firstIndex, lastIndex uint64) error {
+	var commands []*proto.ReplicateCommand
 	for lo, hi := firstIndex, lastIndex; lo < hi; {
 		select {
 		case <-ctx.Done():
@@ -281,10 +248,7 @@ func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServe
 			return nil
 		}
 
-		commands = commands[:0]
-		entries = entries[:0]
-
-		entries, err := l.iterateEntries(entries, clusterID, lo, hi)
+		entries, err := reader.Entries(lo, hi, l.maxMessageSize)
 		if err != nil {
 			return fmt.Errorf("could not iterate over entries: %v", err)
 		}
@@ -293,15 +257,18 @@ func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServe
 			return nil
 		}
 
+		if cap(commands) < len(entries) {
+			commands = make([]*proto.ReplicateCommand, 0, len(entries))
+		} else {
+			commands = commands[:0]
+		}
+
 		for _, e := range entries {
 			cmd, err := entryToCommand(e)
 			if err != nil {
 				return err
 			}
-
-			if cmd != nil {
-				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
-			}
+			commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
 		}
 
 		msg := &proto.ReplicateResponse{

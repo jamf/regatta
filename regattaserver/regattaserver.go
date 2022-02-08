@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/lni/dragonboat/v3"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
 )
@@ -23,4 +24,8 @@ type TableService interface {
 	GetTables() ([]table.Table, error)
 	GetTable(name string) (table.ActiveTable, error)
 	Restore(name string, reader io.Reader) error
+}
+
+type LogReaderService interface {
+	GetLogReader(clusterID uint64) (dragonboat.ReadonlyLogReader, error)
 }
