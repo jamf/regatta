@@ -142,8 +142,8 @@ github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8Nz
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/coreos/go-systemd/v22 v22.3.2/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/coufalja/dragonboat/v3 v3.1.1-0.20210906100809-1858f0a07682 h1:Dvw1HpNjV2ZOnzVKGelDmakIPd74cSTVxtJOna37URk=
-github.com/coufalja/dragonboat/v3 v3.1.1-0.20210906100809-1858f0a07682/go.mod h1:Wtqeqg74VRG4NPfo7I5ryFSZ5ZQLqn8Abd6Q3qzhFQw=
+github.com/coufalja/dragonboat/v3 v3.1.1-0.20220208094532-d3c76719e485 h1:zjdqJLT4QkLr0uILWEy623OSp1YjDw8eDtawn7mW5mU=
+github.com/coufalja/dragonboat/v3 v3.1.1-0.20220208094532-d3c76719e485/go.mod h1:Wtqeqg74VRG4NPfo7I5ryFSZ5ZQLqn8Abd6Q3qzhFQw=
 github.com/cpuguy83/go-md2man v1.0.10 h1:BSKMNlYxDvnunlTymqtgONjNnaRV1sTpcovwwjF22jk=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
 github.com/cpuguy83/go-md2man/v2 v2.0.1 h1:r/myEWzV9lfsM1tFLgDyu0atFtJ1fXn261LKYj/3DxU=
