@@ -34,10 +34,11 @@ func Test_worker_do(t *testing.T) {
 	at, err := leaderTM.GetTable("test")
 	r.NoError(err)
 
+	keyCount := 1000
 	func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		for i := 0; i < 50; i++ {
+		for i := 0; i < keyCount; i++ {
 			_, err = at.Put(ctx, &proto.PutRequest{
 				Key:   []byte(fmt.Sprintf("foo-%d", i)),
 				Value: []byte("bar"),
@@ -91,8 +92,11 @@ func Test_worker_do(t *testing.T) {
 			CountOnly:    true,
 		})
 		r.NoError(err)
-		r.Equal(int64(50), response.Count)
+		r.Equal(int64(keyCount), response.Count)
 	}()
+
+	idxBefore, _, err := w.tableState()
+	r.NoError(err)
 
 	t.Log("reset table")
 	func() {
@@ -107,9 +111,9 @@ func Test_worker_do(t *testing.T) {
 	t.Log("do after reset")
 	r.NoError(w.do(idx, id))
 
-	idx, _, err = w.tableState()
+	idxAfter, _, err := w.tableState()
 	r.NoError(err)
-	r.Greater(idx, uint64(0))
+	r.Equal(idxBefore, idxAfter)
 }
 
 func Test_worker_recover(t *testing.T) {
@@ -189,13 +193,9 @@ func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, follo
 func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
-	db, err := nh.GetReadOnlyLogDB()
-	if err != nil {
-		panic(err)
-	}
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterLogServer(server, &regattaserver.LogServer{Tables: manager, NodeID: manager.NodeID(), Log: zap.NewNop().Sugar(), DB: db})
+	proto.RegisterLogServer(server, regattaserver.NewLogServer(manager, nh, zap.NewNop(), 1024))
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {

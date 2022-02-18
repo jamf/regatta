@@ -2,7 +2,7 @@ module github.com/wandera/regatta
 
 go 1.17
 
-replace github.com/lni/dragonboat/v3 => github.com/coufalja/dragonboat/v3 v3.1.1-0.20210906100809-1858f0a07682
+replace github.com/lni/dragonboat/v3 => github.com/coufalja/dragonboat/v3 v3.1.1-0.20220208094532-d3c76719e485
 
 require (
 	github.com/AlekSi/gocov-xml v0.0.0-20190121064608-3a14fb1c4737

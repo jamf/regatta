@@ -96,11 +96,6 @@ func leader(_ *cobra.Command, _ []string) {
 	}
 	defer tm.Close()
 
-	db, err := nh.GetReadOnlyLogDB()
-	if err != nil {
-		log.Panic(err)
-	}
-
 	go func() {
 		if err := tm.WaitUntilReady(); err != nil {
 			log.Infof("table manager failed to start: %v", err)
@@ -183,7 +178,7 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 
 			replication := createReplicationServer(watcher, caBytes)
-			ls := regattaserver.NewLogServer(tm, db, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
+			ls := regattaserver.NewLogServer(tm, nh, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
 			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: tm})
 			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: tm})
 			proto.RegisterLogServer(replication, ls)
