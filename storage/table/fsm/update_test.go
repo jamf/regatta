@@ -481,7 +481,7 @@ func TestUpdateContext_Init(t *testing.T) {
 
 func TestUpdateContext_EnsureIndexed(t *testing.T) {
 	r := require.New(t)
-	db, err := rp.OpenDB(vfs.NewMem(), "/", "/", nil)
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	r.NoError(err)
 	uc := updateContext{
 		db:    db,
@@ -505,7 +505,7 @@ func TestUpdateContext_EnsureIndexed(t *testing.T) {
 
 func TestUpdateContext_Commit(t *testing.T) {
 	r := require.New(t)
-	db, err := rp.OpenDB(vfs.NewMem(), "/", "/", nil)
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	r.NoError(err)
 
 	li := uint64(100)
@@ -533,7 +533,7 @@ func TestUpdateContext_Commit(t *testing.T) {
 func Test_handlePut(t *testing.T) {
 	r := require.New(t)
 
-	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	if err != nil {
 		t.Fatalf("could not open pebble db: %v", err)
 	}
@@ -597,7 +597,7 @@ func Test_handlePut(t *testing.T) {
 func Test_handleDelete(t *testing.T) {
 	r := require.New(t)
 
-	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	if err != nil {
 		t.Fatalf("could not open pebble db: %v", err)
 	}
@@ -651,7 +651,7 @@ func Test_handleDelete(t *testing.T) {
 func Test_handlePutBatch(t *testing.T) {
 	r := require.New(t)
 
-	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	if err != nil {
 		t.Fatalf("could not open pebble db: %v", err)
 	}
@@ -708,7 +708,7 @@ func Test_handlePutBatch(t *testing.T) {
 func Test_handleDeleteBatch(t *testing.T) {
 	r := require.New(t)
 
-	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	if err != nil {
 		t.Fatalf("could not open pebble db: %v", err)
 	}
@@ -768,7 +768,7 @@ func Test_handleDeleteBatch(t *testing.T) {
 func Test_handleDeleteRange(t *testing.T) {
 	r := require.New(t)
 
-	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	if err != nil {
 		t.Fatalf("could not open pebble db: %v", err)
 	}
@@ -842,7 +842,7 @@ func Test_handleDeleteRange(t *testing.T) {
 func Test_handleTxn(t *testing.T) {
 	r := require.New(t)
 
-	db, err := rp.OpenDB(vfs.NewMem(), "", "", pebble.NewCache(0))
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	if err != nil {
 		t.Fatalf("could not open pebble db: %v", err)
 	}

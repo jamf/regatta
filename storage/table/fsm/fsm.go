@@ -137,7 +137,14 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	walDirPath := path.Join(p.walDirname, randomDir)
 
 	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
-	db, err := rp.OpenDB(p.fs, dbdir, walDirPath, p.blockCache)
+	db, err := rp.OpenDB(
+		dbdir,
+		rp.WithFS(p.fs),
+		rp.WithWALDir(walDirPath),
+		rp.WithCache(p.blockCache),
+		rp.WithLogger(p.log),
+		rp.WithEventListener(makeLoggingEventListener(p.log)),
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -255,4 +262,57 @@ func prependByte(x []byte, y byte) []byte {
 	copy(x[1:], x)
 	x[0] = y
 	return x
+}
+
+func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
+	return pebble.EventListener{
+		BackgroundError: func(err error) {
+			logger.Errorf("background error: %s", err)
+		},
+		CompactionBegin: func(info pebble.CompactionInfo) {
+			logger.Debugf("%s", info)
+		},
+		CompactionEnd: func(info pebble.CompactionInfo) {
+			logger.Infof("%s", info)
+		},
+		DiskSlow: func(info pebble.DiskSlowInfo) {
+			logger.Warnf("%s", info)
+		},
+		FlushBegin: func(info pebble.FlushInfo) {
+			logger.Debugf("%s", info)
+		},
+		FlushEnd: func(info pebble.FlushInfo) {
+			logger.Debugf("%s", info)
+		},
+		ManifestCreated: func(info pebble.ManifestCreateInfo) {
+			logger.Debugf("%s", info)
+		},
+		ManifestDeleted: func(info pebble.ManifestDeleteInfo) {
+			logger.Debugf("%s", info)
+		},
+		TableCreated: func(info pebble.TableCreateInfo) {
+			logger.Debugf("%s", info)
+		},
+		TableDeleted: func(info pebble.TableDeleteInfo) {
+			logger.Debugf("%s", info)
+		},
+		TableIngested: func(info pebble.TableIngestInfo) {
+			logger.Debugf("%s", info)
+		},
+		TableStatsLoaded: func(info pebble.TableStatsInfo) {
+			logger.Debugf("%s", info)
+		},
+		WALCreated: func(info pebble.WALCreateInfo) {
+			logger.Debugf("%s", info)
+		},
+		WALDeleted: func(info pebble.WALDeleteInfo) {
+			logger.Debugf("%s", info)
+		},
+		WriteStallBegin: func(info pebble.WriteStallBeginInfo) {
+			logger.Infof("%s", info)
+		},
+		WriteStallEnd: func() {
+			logger.Infof("write stall ending")
+		},
+	}
 }
