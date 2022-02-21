@@ -98,4 +98,4 @@ kind: false
 noServiceMonitor: false
 
 tables:
-  names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain
+  names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,activation-profile

@@ -45,4 +45,4 @@ charts:
           enabled: true
           bucket: "s3://NONEXISTING_BUCKET"
       tables:
-        names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,regatta-test,performance_test_ghz_table_1,performance_test_ghz_table_2,performance_test_ghz_table_3,performance_test_ghz_table_4,performance_test_ghz_table_5
+        names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,activation-profile,regatta-test,performance_test_ghz_table_1,performance_test_ghz_table_2,performance_test_ghz_table_3,performance_test_ghz_table_4,performance_test_ghz_table_5
