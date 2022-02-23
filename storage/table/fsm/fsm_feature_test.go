@@ -375,6 +375,7 @@ func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer fsm.Close()
 	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
 
 	var inputs []inputRecord
@@ -434,6 +435,7 @@ func createTestFSM() (*FSM, error) {
 		walDirname: "/tmp",
 		closed:     false,
 		log:        zap.NewNop().Sugar(),
+		metrics:    newMetrics("test", 1),
 	}
 
 	db, err := rp.OpenDB(fsm.dirname, rp.WithFS(fsm.fs))
