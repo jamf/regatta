@@ -16,6 +16,7 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/oxtoacart/bpool"
+	"github.com/prometheus/client_golang/prometheus"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/table/key"
@@ -55,7 +56,7 @@ const (
 	ResultSuccess
 )
 
-func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
+func New(tableName, stateMachineDir, walDirname string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
@@ -78,6 +79,7 @@ func New(tableName, stateMachineDir string, walDirname string, fs vfs.FS, blockC
 			fs:         fs,
 			blockCache: blockCache,
 			log:        zap.S().Named("table").Named(tableName),
+			metrics:    newMetrics(tableName, clusterID),
 		}
 	}
 }
@@ -95,6 +97,7 @@ type FSM struct {
 	closed     bool
 	log        *zap.SugaredLogger
 	blockCache *pebble.Cache
+	metrics    *metrics
 }
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
@@ -151,6 +154,10 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 
+	if err := prometheus.Register(p); err != nil {
+		p.log.Errorf("unable to register metrics for FSM: %s", err)
+	}
+
 	return readLocalIndex(db, sysLocalIndex)
 }
 
@@ -181,6 +188,7 @@ func (p *FSM) Sync() error {
 // Close closes the KVStateMachine IStateMachine.
 func (p *FSM) Close() error {
 	p.closed = true
+	prometheus.Unregister(p)
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
 	if db == nil {
 		return nil
@@ -214,6 +222,25 @@ func (p *FSM) GetHash() (uint64, error) {
 	}
 
 	return hash64.Sum64(), nil
+}
+
+func (p *FSM) Collect(ch chan<- prometheus.Metric) {
+	if p.metrics == nil {
+		return
+	}
+	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	if db == nil {
+		return
+	}
+	p.metrics.collected = db.Metrics()
+	p.metrics.Collect(ch)
+}
+
+func (p *FSM) Describe(ch chan<- *prometheus.Desc) {
+	if p.metrics == nil {
+		return
+	}
+	p.metrics.Describe(ch)
 }
 
 // encodeUserKey into provided writer.
