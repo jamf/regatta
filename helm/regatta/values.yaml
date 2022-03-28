@@ -87,7 +87,7 @@ kafka:
   checkTopics: false
   dialerTimeout: 10s
   groupID: ""
-  topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,carrier-predictor-v3
+  topics: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy
   tls: false
   serverCert: ""
   clientCert: ""
@@ -98,4 +98,4 @@ kind: false
 noServiceMonitor: false
 
 tables:
-  names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,activation-profile,device-identity,block-ca-cert-chains,carrier-predictor-v3
+  names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,activation-profile,device-identity,block-ca-cert-chains
