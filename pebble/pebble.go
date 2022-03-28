@@ -185,7 +185,7 @@ func GetCurrentDBDirName(fs vfs.FS, dir string) (string, error) {
 
 // CreateNodeDataDir creates new SM data dir.
 func CreateNodeDataDir(fs vfs.FS, dir string) error {
-	if err := fs.MkdirAll(dir, 0755); err != nil {
+	if err := fs.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	return syncDir(fs, filepath.Dir(dir))
