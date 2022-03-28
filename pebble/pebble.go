@@ -13,7 +13,6 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
-	"go.uber.org/zap"
 )
 
 const (
@@ -21,8 +20,6 @@ const (
 	currentDBFilename string = "current"
 	// updatingDBFilename static filename with recovering Pebble DB directory name (before the switch).
 	updatingDBFilename string = "current.updating"
-	// defaultCacheSize LRU cache size.
-	defaultCacheSize = 8 * 1024 * 1024
 )
 
 var ErrIsNotDir = errors.New("is not a dir")
@@ -50,20 +47,54 @@ func syncDir(fs vfs.FS, dir string) error {
 
 // functions below are used to manage the current data directory of Pebble DB.
 
+type Option interface {
+	apply(options *pebble.Options)
+}
+
+type funcOption struct {
+	f func(options *pebble.Options)
+}
+
+func (fdo *funcOption) apply(do *pebble.Options) {
+	fdo.f(do)
+}
+
+func WithFS(fs vfs.FS) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.FS = fs
+	}}
+}
+
+func WithCache(cache *pebble.Cache) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.Cache = cache
+	}}
+}
+
+func WithWALDir(walDirName string) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.WALDir = walDirName
+	}}
+}
+
+func WithLogger(logger pebble.Logger) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.Logger = logger
+	}}
+}
+
+func WithEventListener(listener pebble.EventListener) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.EventListener = listener
+	}}
+}
+
 // OpenDB opens DB on paths given (using sane defaults).
-func OpenDB(fs vfs.FS, dbdir string, walDirname string, cache *pebble.Cache) (*pebble.DB, error) {
-	if cache == nil {
-		cache = pebble.NewCache(defaultCacheSize)
-		defer cache.Unref()
-	}
-
+func OpenDB(dbdir string, options ...Option) (*pebble.DB, error) {
 	opts := DefaultOptions()
-	opts.Cache = cache
-	opts.FS = fs
-	opts.WALDir = walDirname
-	opts.Logger = zap.S().Named("pebble")
-	opts.EventListener = makeLoggingEventListener(zap.S().Named("pebble").Named("events"))
-
+	for _, option := range options {
+		option.apply(opts)
+	}
 	return pebble.Open(dbdir, opts)
 }
 
@@ -154,7 +185,7 @@ func GetCurrentDBDirName(fs vfs.FS, dir string) (string, error) {
 
 // CreateNodeDataDir creates new SM data dir.
 func CreateNodeDataDir(fs vfs.FS, dir string) error {
-	if err := fs.MkdirAll(dir, 0755); err != nil {
+	if err := fs.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	return syncDir(fs, filepath.Dir(dir))
@@ -185,57 +216,4 @@ func CleanupNodeDataDir(fs vfs.FS, dir string) error {
 		}
 	}
 	return nil
-}
-
-func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
-	return pebble.EventListener{
-		BackgroundError: func(err error) {
-			logger.Errorf("background error: %s", err)
-		},
-		CompactionBegin: func(info pebble.CompactionInfo) {
-			logger.Debugf("%s", info)
-		},
-		CompactionEnd: func(info pebble.CompactionInfo) {
-			logger.Infof("%s", info)
-		},
-		DiskSlow: func(info pebble.DiskSlowInfo) {
-			logger.Warnf("%s", info)
-		},
-		FlushBegin: func(info pebble.FlushInfo) {
-			logger.Debugf("%s", info)
-		},
-		FlushEnd: func(info pebble.FlushInfo) {
-			logger.Debugf("%s", info)
-		},
-		ManifestCreated: func(info pebble.ManifestCreateInfo) {
-			logger.Debugf("%s", info)
-		},
-		ManifestDeleted: func(info pebble.ManifestDeleteInfo) {
-			logger.Debugf("%s", info)
-		},
-		TableCreated: func(info pebble.TableCreateInfo) {
-			logger.Debugf("%s", info)
-		},
-		TableDeleted: func(info pebble.TableDeleteInfo) {
-			logger.Debugf("%s", info)
-		},
-		TableIngested: func(info pebble.TableIngestInfo) {
-			logger.Debugf("%s", info)
-		},
-		TableStatsLoaded: func(info pebble.TableStatsInfo) {
-			logger.Debugf("%s", info)
-		},
-		WALCreated: func(info pebble.WALCreateInfo) {
-			logger.Debugf("%s", info)
-		},
-		WALDeleted: func(info pebble.WALDeleteInfo) {
-			logger.Debugf("%s", info)
-		},
-		WriteStallBegin: func(info pebble.WriteStallBeginInfo) {
-			logger.Infof("%s", info)
-		},
-		WriteStallEnd: func() {
-			logger.Infof("write stall ending")
-		},
-	}
 }

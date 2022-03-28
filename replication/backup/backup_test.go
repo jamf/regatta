@@ -187,7 +187,7 @@ func TestBackup_Backup(t *testing.T) {
 			r.NoError(err)
 
 			path := filepath.Join(t.TempDir(), strings.ReplaceAll(tt.name, " ", "_"))
-			r.NoError(os.MkdirAll(path, 0777))
+			r.NoError(os.MkdirAll(path, 0o777))
 			b := &Backup{
 				Conn:    conn,
 				Dir:     path,
