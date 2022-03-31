@@ -5,8 +5,10 @@ import (
 )
 
 var (
-	// ErrNotFound returned when the key is not found.
-	ErrNotFound = errors.New("key not found")
+	// ErrKeyNotFound returned when the key is not found.
+	ErrKeyNotFound = errors.New("key not found")
+	// ErrTableNotFound returned when the table is not found.
+	ErrTableNotFound = errors.New("table not found")
 	// ErrEmptyKey returned when the key is not provided.
 	ErrEmptyKey = errors.New("key must not be empty")
 	// ErrKeyLengthExceeded key length exceeded max allowed value.
