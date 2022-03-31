@@ -44,7 +44,9 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 
 	val, err := s.Storage.Range(ctx, req)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if err == storage.ErrTableNotFound {
+			return nil, status.Errorf(codes.NotFound, "table not found")
+		} else if err == storage.ErrKeyNotFound {
 			return nil, status.Errorf(codes.NotFound, "key not found")
 		}
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -71,6 +73,9 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 
 	r, err := s.Storage.Put(ctx, req)
 	if err != nil {
+		if err == storage.ErrTableNotFound {
+			return nil, status.Errorf(codes.NotFound, "table not found")
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return r, nil
@@ -95,7 +100,9 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 
 	r, err := s.Storage.Delete(ctx, req)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if err == storage.ErrTableNotFound {
+			return nil, status.Errorf(codes.NotFound, "table not found")
+		} else if err == storage.ErrKeyNotFound {
 			return nil, status.Errorf(codes.NotFound, "key not found")
 		}
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -121,7 +128,9 @@ func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnRe
 
 	r, err := s.Storage.Txn(ctx, req)
 	if err != nil {
-		if err == storage.ErrNotFound {
+		if err == storage.ErrTableNotFound {
+			return nil, status.Errorf(codes.NotFound, "table not found")
+		} else if err == storage.ErrKeyNotFound {
 			return nil, status.Errorf(codes.NotFound, "key not found")
 		}
 		return nil, status.Errorf(codes.Internal, err.Error())
