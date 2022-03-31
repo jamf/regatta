@@ -77,7 +77,7 @@ func TestActiveTable_Range(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("missing")},
 			},
-			wantErr: storage.ErrNotFound,
+			wantErr: storage.ErrKeyNotFound,
 		},
 		{
 			name: "Query key found",

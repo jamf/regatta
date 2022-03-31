@@ -301,7 +301,7 @@ func TestRegatta_RangeNotFound(t *testing.T) {
 	}
 
 	t.Log("Get non-existing kv from existing table")
-	kv.Storage = &MockStorage{rangeError: storage.ErrNotFound}
+	kv.Storage = &MockStorage{rangeError: storage.ErrKeyNotFound}
 	_, err := kv.Range(context.Background(), &proto.RangeRequest{
 		Table: table1Name,
 		Key:   []byte("non_existing_key"),
@@ -309,11 +309,12 @@ func TestRegatta_RangeNotFound(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
 
 	t.Log("Get kv from non-existing table")
+	kv.Storage = &MockStorage{rangeError: storage.ErrTableNotFound}
 	_, err = kv.Range(context.Background(), &proto.RangeRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
 	})
-	r.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
+	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
 func TestRegatta_RangeInvalidArgument(t *testing.T) {
@@ -423,6 +424,15 @@ func TestRegatta_PutInvalidArgument(t *testing.T) {
 		Value: table1Value1,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
+
+	t.Log("Put with non-existing table")
+	kv.Storage = &MockStorage{putError: storage.ErrTableNotFound}
+	_, err = kv.Put(context.Background(), &proto.PutRequest{
+		Table: []byte("non_existing_table"),
+		Key:   key1Name,
+		Value: table1Value1,
+	})
+	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
 func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
@@ -452,6 +462,14 @@ func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 		Key:   key1Name,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
+
+	t.Log("Delete with non-existing table")
+	kv.Storage = &MockStorage{deleteError: storage.ErrTableNotFound}
+	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+		Table: []byte("non_existing_table"),
+		Key:   key1Name,
+	})
+	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
 func TestRegatta_DeleteRange(t *testing.T) {
@@ -470,7 +488,7 @@ func TestRegatta_DeleteRange(t *testing.T) {
 	r.Equal(int64(1), drresp.GetDeleted())
 
 	t.Log("Delete non-existing kv")
-	kv.Storage = &MockStorage{deleteError: storage.ErrNotFound}
+	kv.Storage = &MockStorage{deleteError: storage.ErrKeyNotFound}
 	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   key1Name,

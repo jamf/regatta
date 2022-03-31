@@ -16,6 +16,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/wandera/regatta/proto"
+	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
 	"github.com/wandera/regatta/storage/table/fsm"
@@ -39,7 +40,7 @@ const (
 
 var (
 	ErrTableExists             = errors.New("table already exists")
-	ErrTableDoesNotExist       = errors.New("table does not exist")
+	ErrTableDoesNotExist       = storage.ErrTableNotFound
 	ErrManagerClosed           = errors.New("manager closed")
 	ErrLeaseNotAcquired        = errors.New("lease not acquired")
 	ErrNodeHostInfoUnavailable = errors.New("nodehost info unavailable")

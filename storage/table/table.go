@@ -69,7 +69,7 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 
 	if err != nil {
 		if err == pebble.ErrNotFound {
-			return nil, storage.ErrNotFound
+			return nil, storage.ErrKeyNotFound
 		}
 		return nil, err
 	}
