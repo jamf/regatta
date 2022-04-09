@@ -60,6 +60,7 @@ func DefaultOptions() *pebble.Options {
 	// memory cost.
 	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
 	return &pebble.Options{
+		FormatMajorVersion:          pebble.FormatRangeKeys,
 		L0CompactionThreshold:       l0FileNumCompactionTrigger,
 		L0StopWritesThreshold:       l0StopWritesTrigger,
 		LBaseMaxBytes:               maxBytesForLevelBase,
@@ -75,7 +76,7 @@ func DefaultOptions() *pebble.Options {
 }
 
 func WriterOptions() sstable.WriterOptions {
-	return DefaultOptions().MakeWriterOptions(0)
+	return DefaultOptions().MakeWriterOptions(0, sstable.TableFormatPebblev2)
 }
 
 func ReaderOptions() sstable.ReaderOptions {
