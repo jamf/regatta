@@ -196,7 +196,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return err
 	}
 
-	if err := db.Compact(first, last); err != nil {
+	if err := db.Compact(first, last, false); err != nil {
 		return err
 	}
 
