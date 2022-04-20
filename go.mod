@@ -7,7 +7,7 @@ require (
 	github.com/VictoriaMetrics/metrics v1.18.1
 	github.com/axw/gocov v1.0.0
 	github.com/benbjohnson/clock v1.1.0
-	github.com/cenkalti/backoff/v4 v4.1.2
+	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cockroachdb/pebble v0.0.0-20220407171941-2120d145e292
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/golang/snappy v0.0.4
