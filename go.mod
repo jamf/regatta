@@ -6,7 +6,7 @@ require (
 	github.com/AlekSi/gocov-xml v0.0.0-20190121064608-3a14fb1c4737
 	github.com/VictoriaMetrics/metrics v1.18.1
 	github.com/axw/gocov v1.0.0
-	github.com/benbjohnson/clock v1.1.0
+	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cockroachdb/pebble v0.0.0-20220407171941-2120d145e292
 	github.com/fsnotify/fsnotify v1.5.1
@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/common v0.32.1
 	github.com/pseudomuto/protoc-gen-doc v1.5.0
 	github.com/segmentio/kafka-go v0.4.23
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.11.0
 	github.com/stretchr/testify v1.7.1
