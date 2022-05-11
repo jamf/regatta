@@ -3,21 +3,6 @@ IMG ?= regatta:latest
 
 all: proto check test build
 
-prepare:
-	@echo "Downloading tools"
-ifeq (, $(shell which go-junit-report))
-	go get -d github.com/jstemmer/go-junit-report
-	go install github.com/jstemmer/go-junit-report
-endif
-ifeq (, $(shell which gocov))
-	go get -d github.com/axw/gocov/gocov
-	go install github.com/axw/gocov/gocov
-endif
-ifeq (, $(shell which gocov-xml))
-	go get -d github.com/AlekSi/gocov-xml
-	go install github.com/AlekSi/gocov-xml
-endif
-
 run: build
 	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
 
@@ -32,11 +17,8 @@ ifeq (, $(shell which golangci-lint))
 endif
 	golangci-lint run
 
-test: prepare
-	mkdir -p report
-	go test ./... -coverprofile report/coverage.txt -race -v | tee report/report.txt
-	go-junit-report -set-exit-code < report/report.txt > report/report.xml
-	gocov convert report/coverage.txt | gocov-xml > report/coverage.xml
+test:
+	go test ./... -cover -race -v
 
 build: regatta docs
 
