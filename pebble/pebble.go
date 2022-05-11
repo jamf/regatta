@@ -61,7 +61,12 @@ func (fdo *funcOption) apply(do *pebble.Options) {
 
 func WithFS(fs vfs.FS) Option {
 	return &funcOption{func(options *pebble.Options) {
-		options.FS = fs
+		options.FS = vfs.WithDiskHealthChecks(fs, 5*time.Second, func(path string, duration time.Duration) {
+			options.EventListener.DiskSlow(pebble.DiskSlowInfo{
+				Path:     path,
+				Duration: duration,
+			})
+		})
 	}}
 }
 
