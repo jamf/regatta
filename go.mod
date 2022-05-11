@@ -3,12 +3,12 @@ module github.com/wandera/regatta
 go 1.17
 
 require (
-	github.com/AlekSi/gocov-xml v0.0.0-20190121064608-3a14fb1c4737
+	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/VictoriaMetrics/metrics v1.18.1
-	github.com/axw/gocov v1.0.0
+	github.com/axw/gocov v1.1.0
 	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
-	github.com/cockroachdb/pebble v0.0.0-20220407171941-2120d145e292
+	github.com/cockroachdb/pebble v0.0.0-20220415182917-06c9d3be25b3
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/golang/snappy v0.0.4
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
@@ -18,7 +18,7 @@ require (
 	github.com/lni/dragonboat/v3 v3.1.1-0.20220408124445-68619d033a59
 	github.com/lni/vfs v0.2.1-0.20220408085249-8be85be1c3c1
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
-	github.com/planetscale/vtprotobuf v0.2.0
+	github.com/planetscale/vtprotobuf v0.3.0
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/common v0.34.0
 	github.com/pseudomuto/protoc-gen-doc v1.5.0
