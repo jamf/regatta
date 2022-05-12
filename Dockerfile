@@ -1,5 +1,5 @@
 # Build the regatta binary
-FROM golang:1.17-alpine3.14 as builder
+FROM golang:1.18-alpine3.14 as builder
 RUN apk add --update --no-cache build-base
 WORKDIR /github.com/wandera/regatta
 # This will cache the go mod download step, unless go.mod or go.sum changes

@@ -13,7 +13,7 @@ jobs:
     if: (github.event.issue.pull_request != '' && contains(github.event.comment.body, '/test')) || github.event_name == 'pull_request' || github.event_name == 'push'
     strategy:
       matrix:
-        go-version: [ 1.17.x ]
+        go-version: [ 1.18.x ]
         os: [ ubuntu-latest ] # Add macos-latest back once $$$ are solved
     runs-on: ${{ matrix.os }}
     steps:
