@@ -7,7 +7,7 @@ require (
 	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cockroachdb/pebble v0.0.0-20220415182917-06c9d3be25b3
-	github.com/fsnotify/fsnotify v1.5.1
+	github.com/fsnotify/fsnotify v1.5.4
 	github.com/golang/snappy v0.0.4
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -16,7 +16,7 @@ require (
 	github.com/lni/vfs v0.2.1-0.20220408085249-8be85be1c3c1
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/planetscale/vtprotobuf v0.3.0
-	github.com/prometheus/client_golang v1.12.1
+	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.34.0
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/segmentio/kafka-go v0.4.31
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.7.1
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/grpc v1.46.0
+	google.golang.org/grpc v1.46.2
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.0
 )
