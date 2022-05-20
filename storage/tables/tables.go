@@ -90,7 +90,6 @@ type Manager struct {
 	cleanupTimeout     time.Duration
 	log                *zap.SugaredLogger
 	blockCache         *pebble.Cache
-	join               sync.Once
 }
 
 type Lease struct {
@@ -506,8 +505,8 @@ func (m *Manager) startTable(name string, id uint64) error {
 		)
 	}
 	return m.nh.StartOnDiskCluster(
-		map[uint64]dragonboat.Target{},
-		true,
+		m.members,
+		false,
 		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
