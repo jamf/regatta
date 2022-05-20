@@ -34,6 +34,7 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(raftFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Replication flags
 	followerCmd.PersistentFlags().String("replication.leader-address", "localhost:8444", "Address of the leader replication API to connect to.")

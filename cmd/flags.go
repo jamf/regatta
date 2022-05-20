@@ -10,13 +10,14 @@ import (
 )
 
 var (
-	rootFlagSet        = pflag.NewFlagSet("root", pflag.ContinueOnError)
-	apiFlagSet         = pflag.NewFlagSet("api", pflag.ContinueOnError)
-	restFlagSet        = pflag.NewFlagSet("rest", pflag.ContinueOnError)
-	raftFlagSet        = pflag.NewFlagSet("raft", pflag.ContinueOnError)
-	kafkaFlagSet       = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
-	storageFlagSet     = pflag.NewFlagSet("storage", pflag.ContinueOnError)
-	maintenanceFlagSet = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
+	rootFlagSet         = pflag.NewFlagSet("root", pflag.ContinueOnError)
+	apiFlagSet          = pflag.NewFlagSet("api", pflag.ContinueOnError)
+	restFlagSet         = pflag.NewFlagSet("rest", pflag.ContinueOnError)
+	raftFlagSet         = pflag.NewFlagSet("raft", pflag.ContinueOnError)
+	kafkaFlagSet        = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
+	storageFlagSet      = pflag.NewFlagSet("storage", pflag.ContinueOnError)
+	maintenanceFlagSet  = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
+	experimentalFlagSet = pflag.NewFlagSet("experimental", pflag.ContinueOnError)
 )
 
 func init() {
@@ -110,6 +111,8 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 	maintenanceFlagSet.String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	maintenanceFlagSet.String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
+
+	experimentalFlagSet.Bool("experimental.tanlogdb", false, "Whether experimental LogDB implementation Tan is used in-place of Pebble based one.")
 }
 
 func initConfig(set *pflag.FlagSet) {
