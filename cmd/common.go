@@ -12,6 +12,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	dbl "github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v3/plugin/tan"
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
 	rl "github.com/wandera/regatta/log"
@@ -129,7 +130,12 @@ func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 		MaxReceiveQueueSize:           viper.GetUint64("raft.max-recv-queue-size"),
 		MaxSendQueueSize:              viper.GetUint64("raft.max-send-queue-size"),
 	}
-	nhc.Expert.LogDB = buildLogDBConfig()
+
+	if viper.GetBool("experimental.tanlogdb") {
+		nhc.Expert.LogDBFactory = tan.Factory
+	} else {
+		nhc.Expert.LogDB = buildLogDBConfig()
+	}
 
 	err := nhc.Prepare()
 	if err != nil {

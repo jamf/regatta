@@ -12,7 +12,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/lni/dragonboat/v3 v3.1.1-0.20220408124445-68619d033a59
+	github.com/lni/dragonboat/v3 v3.1.1-0.20220517163206-e0cab9aaf83c
 	github.com/lni/vfs v0.2.1-0.20220408085249-8be85be1c3c1
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/planetscale/vtprotobuf v0.3.0

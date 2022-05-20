@@ -36,6 +36,7 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
+	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Tables flags
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
