@@ -280,6 +280,10 @@ func (m *Manager) Start() error {
 			}
 		}
 	}()
+
+	if m.nh.HasNodeInfo(metaFSMClusterID, m.cfg.NodeID) {
+		return m.nh.StartConcurrentCluster(map[uint64]dragonboat.Target{}, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
+	}
 	return m.nh.StartConcurrentCluster(m.members, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
 }
 
@@ -492,6 +496,14 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 }
 
 func (m *Manager) startTable(name string, id uint64) error {
+	if m.nh.HasNodeInfo(id, m.cfg.NodeID) {
+		return m.nh.StartOnDiskCluster(
+			map[uint64]dragonboat.Target{},
+			false,
+			fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
+			tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
+		)
+	}
 	return m.nh.StartOnDiskCluster(
 		m.members,
 		false,
