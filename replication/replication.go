@@ -1,6 +1,8 @@
 package replication
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -52,6 +54,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 	return &Manager{
 		reconcileInterval: cfg.ReconcileInterval,
 		tm:                tm,
+		metadataClient:    proto.NewMetadataClient(conn),
 		factory: &workerFactory{
 			pollInterval:      cfg.Workers.PollInterval,
 			leaseInterval:     cfg.Workers.LeaseInterval,
@@ -85,6 +88,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 type Manager struct {
 	reconcileInterval time.Duration
 	tm                *tables.Manager
+	metadataClient    proto.MetadataClient
 	factory           workerCreator
 	workers           struct {
 		registry map[string]*worker
@@ -118,12 +122,14 @@ func (m *Manager) Start() {
 			m.log.Errorf("manager failed to start: %v", err)
 			return
 		}
-
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
-			if err := m.reconcile(); err != nil {
-				m.log.Errorf("reconciler error: %v", err)
+			if err := m.reconcileTables(); err != nil {
+				m.log.Errorf("failed to reconcile tables: %v", err)
+			}
+			if err := m.reconcileWorkers(); err != nil {
+				m.log.Errorf("failed to reconcile replication workers: %v", err)
 			}
 			select {
 			case <-t.C:
@@ -136,19 +142,35 @@ func (m *Manager) Start() {
 	}()
 }
 
-func (m *Manager) reconcile() error {
+func (m *Manager) reconcileTables() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := m.metadataClient.Get(ctx, &proto.MetadataRequest{})
+	if err != nil {
+		return err
+	}
+	for _, tabs := range response.GetTables() {
+		if err := m.tm.CreateTable(tabs.Name); err != nil && !errors.Is(err, tables.ErrTableExists) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Manager) reconcileWorkers() error {
 	tbs, err := m.tm.GetTables()
 	if err != nil {
 		return err
 	}
 
 	for _, tbl := range tbs {
-		if _, ok := m.workers.registry[tbl.Name]; !ok {
-			worker := m.factory.create(tbl.Name)
-			m.startWorker(worker)
+		if !m.hasWorker(tbl.Name) {
+			m.startWorker(m.factory.create(tbl.Name))
 		}
 	}
 
+	m.workers.mtx.RLock()
+	defer m.workers.mtx.RUnlock()
 	for name, worker := range m.workers.registry {
 		found := false
 		for _, tbl := range tbs {
