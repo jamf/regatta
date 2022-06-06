@@ -20,6 +20,7 @@ import (
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func init() {
@@ -27,7 +28,6 @@ func init() {
 }
 
 type mockWorkerFactory struct {
-	workerFactory
 	mock.Mock
 }
 
@@ -137,6 +137,43 @@ func TestManager_reconcile(t *testing.T) {
 	}, 10*time.Second, 250*time.Millisecond, "replication worker not found in registry")
 	m.Close()
 	r.Empty(m.workers.registry)
+}
+
+func TestManager_reconcileTables(t *testing.T) {
+	r := require.New(t)
+	leaderTM, followerTM, leaderNH, followerNH, closer := prepareLeaderAndFollowerRaft(t)
+	defer closer()
+	srv := startReplicationServer(leaderTM, leaderNH)
+	defer srv.Shutdown()
+
+	t.Log("create replicator")
+	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	r.NoError(err)
+
+	m := NewManager(followerTM, followerNH, conn, Config{})
+
+	t.Log("create table")
+	r.NoError(leaderTM.CreateTable("test"))
+	r.NoError(m.reconcileTables())
+	r.Eventually(func() bool {
+		_, err := followerTM.GetTable("test")
+		return err == nil
+	}, 10*time.Second, 200*time.Millisecond, "table not created in time")
+
+	t.Log("create another table")
+	r.NoError(leaderTM.CreateTable("test2"))
+	r.NoError(m.reconcileTables())
+	r.Eventually(func() bool {
+		_, err := followerTM.GetTable("test2")
+		return err == nil
+	}, 10*time.Second, 200*time.Millisecond, "table not created in time")
+
+	t.Log("skip network errors")
+	r.NoError(conn.Close())
+
+	tabs, err := followerTM.GetTables()
+	r.NoError(err)
+	r.Len(tabs, 2)
 }
 
 func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
