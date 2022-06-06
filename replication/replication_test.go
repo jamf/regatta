@@ -1,11 +1,13 @@
 package replication
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
 	"time"
 
+	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/lni/dragonboat/v3/logger"
@@ -14,8 +16,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func init() {
@@ -23,12 +27,22 @@ func init() {
 }
 
 type mockWorkerFactory struct {
+	workerFactory
 	mock.Mock
 }
 
 func (m *mockWorkerFactory) create(table string) *worker {
 	args := m.Called(table)
 	return args.Get(0).(*worker)
+}
+
+type mockMetadataClient struct {
+	mock.Mock
+}
+
+func (m *mockMetadataClient) Get(ctx context.Context, in *proto.MetadataRequest, opts ...grpc.CallOption) (*proto.MetadataResponse, error) {
+	args := m.Called(ctx, in, opts)
+	return args.Get(0).(*proto.MetadataResponse), args.Error(1)
 }
 
 func TestManager_reconcile(t *testing.T) {
@@ -44,12 +58,12 @@ func TestManager_reconcile(t *testing.T) {
 	defer followerTM.Close()
 
 	m := NewManager(followerTM, followerNH, nil, Config{})
+	mc := &mockMetadataClient{}
+	m.metadataClient = mc
 	m.reconcileInterval = 250 * time.Millisecond
 	wf := &mockWorkerFactory{}
 	m.factory = wf
 	m.log = zap.NewNop().Sugar()
-
-	m.Start()
 
 	wf.On("create", "test").Once().Return(&worker{
 		Table:         "test",
@@ -105,21 +119,22 @@ func TestManager_reconcile(t *testing.T) {
 		},
 	})
 
-	r.NoError(followerTM.CreateTable("test"))
+	mc.On("Get", mock.Anything, &proto.MetadataRequest{}, mock.Anything).Return(&proto.MetadataResponse{Tables: []*proto.Table{
+		{
+			Name: "test",
+		},
+		{
+			Name: "test2",
+		},
+	}}, nil)
+
+	m.Start()
 	r.Eventually(func() bool {
 		return m.hasWorker("test")
 	}, 10*time.Second, 250*time.Millisecond, "replication worker not found in registry")
-
-	r.NoError(followerTM.CreateTable("test2"))
 	r.Eventually(func() bool {
 		return m.hasWorker("test2")
 	}, 10*time.Second, 250*time.Millisecond, "replication worker not found in registry")
-
-	r.NoError(followerTM.DeleteTable("test"))
-	r.Eventually(func() bool {
-		return !m.hasWorker("test")
-	}, 10*time.Second, 250*time.Millisecond, "replication worker not deleted from registry")
-
 	m.Close()
 	r.Empty(m.workers.registry)
 }
@@ -147,4 +162,12 @@ func getTestPort() int {
 	l, _ := net.Listen("tcp", ":0")
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+func tableManagerTestConfig() tables.Config {
+	return tables.Config{
+		NodeID: 1,
+		Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024},
+		Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+	}
 }
