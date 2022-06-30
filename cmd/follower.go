@@ -127,11 +127,6 @@ func follower(_ *cobra.Command, _ []string) {
 			log.Panicf("cannot create replication conn: %v", err)
 		}
 
-		mc := proto.NewMetadataClient(conn)
-		mr := replication.NewMetadata(mc, tm)
-		mr.Replicate()
-		defer mr.Close()
-
 		d := replication.NewManager(tm, nh, conn, replication.Config{
 			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
 			Workers: replication.WorkerConfig{
