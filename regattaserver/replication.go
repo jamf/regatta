@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"time"
 
@@ -199,23 +198,23 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 
 	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: req.LeaderIndex + DefaultMaxLogRecords}
 	for {
-		rng, err := l.readLog(t.ClusterID, logRange, server)
+		read, err := l.readLog(t.ClusterID, logRange, server)
 		if err != nil {
 			return err
 		}
-		if rng.LastIndex == rng.FirstIndex {
+		if read == 0 {
 			return nil
 		}
-		logRange.FirstIndex = rng.LastIndex
-		logRange.LastIndex = uint64(math.Min(float64(rng.LastIndex), float64(rng.LastIndex+DefaultMaxLogRecords)))
+		logRange.FirstIndex += read
+		logRange.LastIndex = logRange.FirstIndex + DefaultMaxLogRecords
 	}
 }
 
 // readLog and write it to the stream.
-func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, server proto.Log_ReplicateServer) (dragonboat.LogRange, error) {
+func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, server proto.Log_ReplicateServer) (uint64, error) {
 	rs, err := l.LogReaders.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, DefaultMaxGRPCSize)
 	if err != nil {
-		return dragonboat.LogRange{}, err
+		return 0, err
 	}
 	defer rs.Release()
 	select {
@@ -223,14 +222,11 @@ func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, serv
 		switch {
 		case result.Completed():
 			entries, _ := result.RaftLogs()
-			if len(entries) == 0 {
-				return dragonboat.LogRange{}, nil
-			}
 			commands := make([]*proto.ReplicateCommand, 0, len(entries))
 			for _, e := range entries {
 				cmd, err := entryToCommand(e)
 				if err != nil {
-					return dragonboat.LogRange{}, err
+					return 0, err
 				}
 				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
 			}
@@ -242,39 +238,39 @@ func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, serv
 				},
 			}
 			if err = server.Send(msg); err != nil {
-				return dragonboat.LogRange{}, err
+				return 0, err
 			}
-			return dragonboat.LogRange{FirstIndex: logRange.FirstIndex, LastIndex: entries[len(entries)-1].Index}, err
+			return uint64(len(entries)), nil
 		case result.RequestOutOfRange():
 			_, rng := result.RaftLogs()
 			// Follower is up-to-date with the leader, therefore there are no new data to be sent.
 			if rng.LastIndex == logRange.FirstIndex {
-				return dragonboat.LogRange{}, nil
+				return 0, nil
 			}
 			// Follower is ahead of the leader, has to be manually fixed.
 			if rng.LastIndex < logRange.FirstIndex {
-				return dragonboat.LogRange{}, server.Send(repErrLeaderBehind)
+				return 0, server.Send(repErrLeaderBehind)
 			}
 			// Follower's leaderIndex is in the leader's snapshot, not in the log.
 			if logRange.FirstIndex < rng.FirstIndex {
-				return dragonboat.LogRange{}, server.Send(repErrUseSnapshot)
+				return 0, server.Send(repErrUseSnapshot)
 			}
-			return dragonboat.LogRange{}, fmt.Errorf("request out of range")
+			return 0, fmt.Errorf("request out of range")
 		case result.Timeout():
-			return dragonboat.LogRange{}, fmt.Errorf("reading raft log timeouted")
+			return 0, fmt.Errorf("reading raft log timeouted")
 		case result.Rejected():
-			return dragonboat.LogRange{}, fmt.Errorf("reading raft log rejected")
+			return 0, fmt.Errorf("reading raft log rejected")
 		case result.Terminated():
-			return dragonboat.LogRange{}, fmt.Errorf("reading raft log terminated")
+			return 0, fmt.Errorf("reading raft log terminated")
 		case result.Dropped():
-			return dragonboat.LogRange{}, fmt.Errorf("raft log query dropped")
+			return 0, fmt.Errorf("raft log query dropped")
 		case result.Aborted():
-			return dragonboat.LogRange{}, fmt.Errorf("raft log query aborted")
+			return 0, fmt.Errorf("raft log query aborted")
 		}
 	case <-server.Context().Done():
-		return dragonboat.LogRange{}, server.Context().Err()
+		return 0, server.Context().Err()
 	}
-	return dragonboat.LogRange{}, nil
+	return 0, nil
 }
 
 // entryToCommand converts the raftpb.Entry to equivalent proto.ReplicateCommand.

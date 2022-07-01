@@ -153,7 +153,7 @@ func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 	return nh, nil
 }
 
-// TODO Remove after release
+// TODO Remove after release.
 func fixNHID(dir string) {
 	idPath := path.Join(dir, "NODEHOST.ID")
 	bytes, _ := os.ReadFile(idPath)
