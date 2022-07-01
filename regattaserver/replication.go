@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"time"
 
@@ -24,6 +25,8 @@ const (
 	DefaultMaxGRPCSize = 4 * 1024 * 1024
 	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
 	DefaultSnapshotChunkSize = 1024 * 1024
+	// DefaultMaxLogRecords is a maximum number of log records sent via a single RPC call.
+	DefaultMaxLogRecords = 10_000
 )
 
 // MetadataServer implements Metadata service from proto/replication.proto.
@@ -194,99 +197,84 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		return fmt.Errorf("invalid leaderIndex: leaderIndex must be greater than 0")
 	}
 
-	reader, err := l.LogReaders.GetLogReader(t.ClusterID)
-	if err != nil {
-		return err
+	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: req.LeaderIndex + DefaultMaxLogRecords}
+	for {
+		rng, err := l.readLog(t.ClusterID, logRange, server)
+		if err != nil {
+			return err
+		}
+		if rng.LastIndex == rng.FirstIndex {
+			return nil
+		}
+		logRange.FirstIndex = rng.LastIndex
+		logRange.LastIndex = uint64(math.Min(float64(rng.LastIndex), float64(rng.LastIndex+DefaultMaxLogRecords)))
 	}
-
-	firstIndex, lastIndex := reader.GetRange()
-	if err != nil {
-		return err
-	}
-
-	// Adjust of open interval
-	lastIndex = lastIndex + 1
-
-	if lastIndex < req.LeaderIndex {
-		return server.Send(repErrLeaderBehind)
-	}
-
-	// Follower is up-to-date with the leader, therefore there are no new data to be sent.
-	if lastIndex == req.LeaderIndex {
-		return nil
-	}
-
-	// Follower's leaderIndex is in the leader's snapshot, not in the log.
-	if req.LeaderIndex < firstIndex {
-		return server.Send(repErrUseSnapshot)
-	}
-
-	// Follower is behind and all entries can be sent from the leader's log.
-	ctx := server.Context()
-	if _, ok := ctx.Deadline(); !ok {
-		dctx, cancel := context.WithTimeout(server.Context(), 1*time.Minute)
-		defer cancel()
-		ctx = dctx
-	}
-	return l.readLog(ctx, server, reader, req.LeaderIndex, lastIndex)
 }
 
 // readLog and write it to the stream.
-func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServer, reader dragonboat.ReadonlyLogReader, firstIndex, lastIndex uint64) error {
-	var commands []*proto.ReplicateCommand
-	for lo, hi := firstIndex, lastIndex; lo < hi; {
-		select {
-		case <-ctx.Done():
-			l.Log.Info("ending replication stream, deadline reached")
-			return nil
-		default:
-		}
-
-		// TODO make interval configurable
-		if d, ok := ctx.Deadline(); ok && time.Until(d) < 1*time.Second {
-			l.Log.Info("ending replication stream, deadline soon to be reached")
-			return nil
-		}
-
-		entries, err := reader.Entries(lo, hi, l.maxMessageSize)
-		if err != nil {
-			return fmt.Errorf("could not iterate over entries: %v", err)
-		}
-
-		if len(entries) == 0 {
-			return nil
-		}
-
-		if cap(commands) < len(entries) {
-			commands = make([]*proto.ReplicateCommand, 0, len(entries))
-		} else {
-			commands = commands[:0]
-		}
-
-		for _, e := range entries {
-			cmd, err := entryToCommand(e)
-			if err != nil {
-				return err
-			}
-			commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
-		}
-
-		msg := &proto.ReplicateResponse{
-			Response: &proto.ReplicateResponse_CommandsResponse{
-				CommandsResponse: &proto.ReplicateCommandsResponse{
-					Commands: commands,
-				},
-			},
-		}
-
-		if err = server.Send(msg); err != nil {
-			return err
-		}
-
-		lo += uint64(len(entries))
+func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, server proto.Log_ReplicateServer) (dragonboat.LogRange, error) {
+	rs, err := l.LogReaders.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, DefaultMaxGRPCSize)
+	if err != nil {
+		return dragonboat.LogRange{}, err
 	}
-
-	return nil
+	defer rs.Release()
+	select {
+	case result := <-rs.AppliedC():
+		switch {
+		case result.Completed():
+			entries, _ := result.RaftLogs()
+			if len(entries) == 0 {
+				return dragonboat.LogRange{}, nil
+			}
+			commands := make([]*proto.ReplicateCommand, 0, len(entries))
+			for _, e := range entries {
+				cmd, err := entryToCommand(e)
+				if err != nil {
+					return dragonboat.LogRange{}, err
+				}
+				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
+			}
+			msg := &proto.ReplicateResponse{
+				Response: &proto.ReplicateResponse_CommandsResponse{
+					CommandsResponse: &proto.ReplicateCommandsResponse{
+						Commands: commands,
+					},
+				},
+			}
+			if err = server.Send(msg); err != nil {
+				return dragonboat.LogRange{}, err
+			}
+			return dragonboat.LogRange{FirstIndex: logRange.FirstIndex, LastIndex: entries[len(entries)-1].Index}, err
+		case result.RequestOutOfRange():
+			_, rng := result.RaftLogs()
+			// Follower is up-to-date with the leader, therefore there are no new data to be sent.
+			if rng.LastIndex == logRange.FirstIndex {
+				return dragonboat.LogRange{}, nil
+			}
+			// Follower is ahead of the leader, has to be manually fixed.
+			if rng.LastIndex < logRange.FirstIndex {
+				return dragonboat.LogRange{}, server.Send(repErrLeaderBehind)
+			}
+			// Follower's leaderIndex is in the leader's snapshot, not in the log.
+			if logRange.FirstIndex < rng.FirstIndex {
+				return dragonboat.LogRange{}, server.Send(repErrUseSnapshot)
+			}
+			return dragonboat.LogRange{}, fmt.Errorf("request out of range")
+		case result.Timeout():
+			return dragonboat.LogRange{}, fmt.Errorf("reading raft log timeouted")
+		case result.Rejected():
+			return dragonboat.LogRange{}, fmt.Errorf("reading raft log rejected")
+		case result.Terminated():
+			return dragonboat.LogRange{}, fmt.Errorf("reading raft log terminated")
+		case result.Dropped():
+			return dragonboat.LogRange{}, fmt.Errorf("raft log query dropped")
+		case result.Aborted():
+			return dragonboat.LogRange{}, fmt.Errorf("raft log query aborted")
+		}
+	case <-server.Context().Done():
+		return dragonboat.LogRange{}, server.Context().Err()
+	}
+	return dragonboat.LogRange{}, nil
 }
 
 // entryToCommand converts the raftpb.Entry to equivalent proto.ReplicateCommand.
