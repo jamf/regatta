@@ -18,6 +18,8 @@ charts:
         - "54.246.181.160/32" # VPN
         - "52.49.97.209/32" # Access project OSS
         - "52.30.177.178/32"  # jes-101-dev.eu-west-1a.ie.wandera.co.uk
+        - "3.248.238.76/32" # jes-201-dev.eu-west-1a.ie.wandera.co.uk
+        - "54.77.204.198/32" # jes-202-dev.eu-west-1a.ie.wandera.co.uk
       reflectionAPI:
         enabled: true
       affinity:
