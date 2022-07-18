@@ -77,7 +77,7 @@ func mapStoreFunc() store {
 }
 
 func raftStoreFunc() store {
-	return newRaftStore()
+	return newRaftStore(vfs.NewMem())
 }
 
 func TestStore_Exists(t *testing.T) {
@@ -665,14 +665,11 @@ func TestStore_Delete(t *testing.T) {
 			all, err := store.GetAllValues("/*/*/*")
 			r.NoError(err)
 			r.Len(all, len(testData)-1)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
 
-func newRaftStore() *RaftStore {
+func newRaftStore(ifs vfs.FS) *RaftStore {
 	getTestPort := func() int {
 		l, _ := net.Listen("tcp", ":0")
 		defer l.Close()
@@ -688,7 +685,7 @@ func newRaftStore() *RaftStore {
 			RaftAddress:    testNodeAddress,
 		}
 		_ = nhc.Prepare()
-		nhc.Expert.FS = vfs.NewMem()
+		nhc.Expert.FS = ifs
 		nhc.Expert.Engine.ExecShards = 1
 		nhc.Expert.LogDB.Shards = 1
 		nh, err := dragonboat.NewNodeHost(nhc)
@@ -715,7 +712,7 @@ func newRaftStore() *RaftStore {
 		go func() {
 			for {
 				i := nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
-				if i.ClusterInfoList[0].LeaderID == cc.NodeID {
+				if i.ClusterInfoList[0].IsLeader {
 					close(ready)
 					return
 				}
