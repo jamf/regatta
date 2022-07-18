@@ -24,8 +24,6 @@ const (
 	DefaultMaxGRPCSize = 4 * 1024 * 1024
 	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
 	DefaultSnapshotChunkSize = 1024 * 1024
-	// DefaultMaxLogRecords is a maximum number of log records sent via a single RPC call.
-	DefaultMaxLogRecords = 10_000
 )
 
 // MetadataServer implements Metadata service from proto/replication.proto.
@@ -196,81 +194,99 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		return fmt.Errorf("invalid leaderIndex: leaderIndex must be greater than 0")
 	}
 
-	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: req.LeaderIndex + DefaultMaxLogRecords}
-	for {
-		read, err := l.readLog(t.ClusterID, logRange, server)
-		if err != nil {
-			return err
-		}
-		if read == 0 {
-			return nil
-		}
-		logRange.FirstIndex += read
-		logRange.LastIndex = logRange.FirstIndex + DefaultMaxLogRecords
+	reader, err := l.LogReaders.GetLogReader(t.ClusterID)
+	if err != nil {
+		return err
 	}
+
+	firstIndex, lastIndex := reader.GetRange()
+	if err != nil {
+		return err
+	}
+
+	// Adjust of open interval
+	lastIndex = lastIndex + 1
+
+	if lastIndex < req.LeaderIndex {
+		return server.Send(repErrLeaderBehind)
+	}
+
+	// Follower is up-to-date with the leader, therefore there are no new data to be sent.
+	if lastIndex == req.LeaderIndex {
+		return nil
+	}
+
+	// Follower's leaderIndex is in the leader's snapshot, not in the log.
+	if req.LeaderIndex < firstIndex {
+		return server.Send(repErrUseSnapshot)
+	}
+
+	// Follower is behind and all entries can be sent from the leader's log.
+	ctx := server.Context()
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(server.Context(), 1*time.Minute)
+		defer cancel()
+		ctx = dctx
+	}
+	return l.readLog(ctx, server, reader, req.LeaderIndex, lastIndex)
 }
 
 // readLog and write it to the stream.
-func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, server proto.Log_ReplicateServer) (uint64, error) {
-	rs, err := l.LogReaders.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, DefaultMaxGRPCSize)
-	if err != nil {
-		return 0, err
-	}
-	defer rs.Release()
-	select {
-	case result := <-rs.AppliedC():
-		switch {
-		case result.Completed():
-			entries, _ := result.RaftLogs()
-			commands := make([]*proto.ReplicateCommand, 0, len(entries))
-			for _, e := range entries {
-				cmd, err := entryToCommand(e)
-				if err != nil {
-					return 0, err
-				}
-				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
-			}
-			msg := &proto.ReplicateResponse{
-				Response: &proto.ReplicateResponse_CommandsResponse{
-					CommandsResponse: &proto.ReplicateCommandsResponse{
-						Commands: commands,
-					},
-				},
-			}
-			if err = server.Send(msg); err != nil {
-				return 0, err
-			}
-			return uint64(len(entries)), nil
-		case result.RequestOutOfRange():
-			_, rng := result.RaftLogs()
-			// Follower is up-to-date with the leader, therefore there are no new data to be sent.
-			if rng.LastIndex == logRange.FirstIndex {
-				return 0, nil
-			}
-			// Follower is ahead of the leader, has to be manually fixed.
-			if rng.LastIndex < logRange.FirstIndex {
-				return 0, server.Send(repErrLeaderBehind)
-			}
-			// Follower's leaderIndex is in the leader's snapshot, not in the log.
-			if logRange.FirstIndex < rng.FirstIndex {
-				return 0, server.Send(repErrUseSnapshot)
-			}
-			return 0, fmt.Errorf("request out of range")
-		case result.Timeout():
-			return 0, fmt.Errorf("reading raft log timeouted")
-		case result.Rejected():
-			return 0, fmt.Errorf("reading raft log rejected")
-		case result.Terminated():
-			return 0, fmt.Errorf("reading raft log terminated")
-		case result.Dropped():
-			return 0, fmt.Errorf("raft log query dropped")
-		case result.Aborted():
-			return 0, fmt.Errorf("raft log query aborted")
+func (l *LogServer) readLog(ctx context.Context, server proto.Log_ReplicateServer, reader dragonboat.ReadonlyLogReader, firstIndex, lastIndex uint64) error {
+	var commands []*proto.ReplicateCommand
+	for lo, hi := firstIndex, lastIndex; lo < hi; {
+		select {
+		case <-ctx.Done():
+			l.Log.Info("ending replication stream, deadline reached")
+			return nil
+		default:
 		}
-	case <-server.Context().Done():
-		return 0, server.Context().Err()
+
+		// TODO make interval configurable
+		if d, ok := ctx.Deadline(); ok && time.Until(d) < 1*time.Second {
+			l.Log.Info("ending replication stream, deadline soon to be reached")
+			return nil
+		}
+
+		entries, err := reader.Entries(lo, hi, l.maxMessageSize)
+		if err != nil {
+			return fmt.Errorf("could not iterate over entries: %v", err)
+		}
+
+		if len(entries) == 0 {
+			return nil
+		}
+
+		if cap(commands) < len(entries) {
+			commands = make([]*proto.ReplicateCommand, 0, len(entries))
+		} else {
+			commands = commands[:0]
+		}
+
+		for _, e := range entries {
+			cmd, err := entryToCommand(e)
+			if err != nil {
+				return err
+			}
+			commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
+		}
+
+		msg := &proto.ReplicateResponse{
+			Response: &proto.ReplicateResponse_CommandsResponse{
+				CommandsResponse: &proto.ReplicateCommandsResponse{
+					Commands: commands,
+				},
+			},
+		}
+
+		if err = server.Send(msg); err != nil {
+			return err
+		}
+
+		lo += uint64(len(entries))
 	}
-	return 0, nil
+
+	return nil
 }
 
 // entryToCommand converts the raftpb.Entry to equivalent proto.ReplicateCommand.
