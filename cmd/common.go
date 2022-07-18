@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"os"
+	"path"
 	"strconv"
 	"time"
 
@@ -141,11 +143,23 @@ func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fixNHID(nhc.NodeHostDir)
+
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
 		return nil, err
 	}
 	return nh, nil
+}
+
+// TODO Remove after release.
+func fixNHID(dir string) {
+	idPath := path.Join(dir, "NODEHOST.ID")
+	bytes, _ := os.ReadFile(idPath)
+	if len(bytes) != 0 && len(bytes) < 24 {
+		_ = os.Remove(idPath)
+	}
 }
 
 func parseInitialMembers(members map[string]string) (map[uint64]string, error) {
