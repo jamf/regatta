@@ -27,5 +27,5 @@ type TableService interface {
 }
 
 type LogReaderService interface {
-	GetLogReader(clusterID uint64) (dragonboat.ReadonlyLogReader, error)
+	QueryRaftLog(clusterID uint64, firstIndex uint64, lastIndex uint64, maxSize uint64) (*dragonboat.RequestState, error)
 }
