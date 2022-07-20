@@ -99,3 +99,6 @@ noServiceMonitor: false
 
 tables:
   names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,activation-profile,device-identity,block-ca-cert-chains,customer-block-pages,carrier-predictor-v3,customer-settings
+
+alerts:
+  grpcFailedRequests: 0
