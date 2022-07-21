@@ -8,10 +8,6 @@ import (
 	"github.com/wandera/regatta/storage/table"
 )
 
-const (
-	managedTable = "managed-table"
-)
-
 // MockStorage implements trivial storage for testing purposes.
 type MockStorage struct {
 	rangeResponse       proto.RangeResponse
