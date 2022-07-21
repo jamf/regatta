@@ -47,53 +47,6 @@ func syncDir(fs vfs.FS, dir string) error {
 
 // functions below are used to manage the current data directory of Pebble DB.
 
-type Option interface {
-	apply(options *pebble.Options)
-}
-
-type funcOption struct {
-	f func(options *pebble.Options)
-}
-
-func (fdo *funcOption) apply(do *pebble.Options) {
-	fdo.f(do)
-}
-
-func WithFS(fs vfs.FS) Option {
-	return &funcOption{func(options *pebble.Options) {
-		options.FS = vfs.WithDiskHealthChecks(fs, 5*time.Second, func(path string, duration time.Duration) {
-			options.EventListener.DiskSlow(pebble.DiskSlowInfo{
-				Path:     path,
-				Duration: duration,
-			})
-		})
-	}}
-}
-
-func WithCache(cache *pebble.Cache) Option {
-	return &funcOption{func(options *pebble.Options) {
-		options.Cache = cache
-	}}
-}
-
-func WithWALDir(walDirName string) Option {
-	return &funcOption{func(options *pebble.Options) {
-		options.WALDir = walDirName
-	}}
-}
-
-func WithLogger(logger pebble.Logger) Option {
-	return &funcOption{func(options *pebble.Options) {
-		options.Logger = logger
-	}}
-}
-
-func WithEventListener(listener pebble.EventListener) Option {
-	return &funcOption{func(options *pebble.Options) {
-		options.EventListener = listener
-	}}
-}
-
 // OpenDB opens DB on paths given (using sane defaults).
 func OpenDB(dbdir string, options ...Option) (*pebble.DB, error) {
 	opts := DefaultOptions()
