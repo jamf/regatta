@@ -145,8 +145,6 @@ func follower(_ *cobra.Command, _ []string) {
 
 	// Create storage
 	st := &tables.QueryService{Manager: tm}
-	mTables := viper.GetStringSlice("kafka.topics")
-
 	// Start servers
 	{
 		{
@@ -165,9 +163,10 @@ func follower(_ *cobra.Command, _ []string) {
 			defer watcher.Stop()
 			// Create server
 			regatta := createAPIServer(watcher)
-			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
-				Storage:       st,
-				ManagedTables: mTables,
+			proto.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
+				KVServer: regattaserver.KVServer{
+					Storage: st,
+				},
 			})
 			// Start server
 			go func() {
