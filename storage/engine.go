@@ -1,16 +1,21 @@
 package storage
 
 import (
+	"context"
 	"os"
 	"path"
+	"time"
 
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	dbl "github.com/lni/dragonboat/v3/logger"
 	"github.com/lni/dragonboat/v3/plugin/tan"
 	rl "github.com/wandera/regatta/log"
+	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
 )
+
+const defaultQueryTimeout = 5 * time.Second
 
 func New(cfg Config) (*Engine, error) {
 	nh, err := createNodeHost(cfg)
@@ -40,6 +45,58 @@ func (e *Engine) Close() error {
 	e.Manager.Close()
 	e.NodeHost.Close()
 	return nil
+}
+
+func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+	table, err := e.Manager.GetTable(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
+		defer cancel()
+		ctx = dctx
+	}
+	return table.Range(ctx, req)
+}
+
+func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+	table, err := e.Manager.GetTable(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
+		defer cancel()
+		ctx = dctx
+	}
+	return table.Put(ctx, req)
+}
+
+func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+	table, err := e.Manager.GetTable(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
+		defer cancel()
+		ctx = dctx
+	}
+	return table.Delete(ctx, req)
+}
+
+func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+	table, err := e.Manager.GetTable(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
+		defer cancel()
+		ctx = dctx
+	}
+	return table.Txn(ctx, req)
 }
 
 func createTableManager(cfg Config, nh *dragonboat.NodeHost) (*tables.Manager, error) {
