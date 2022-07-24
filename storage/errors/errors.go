@@ -1,4 +1,4 @@
-package storage
+package errors
 
 import (
 	"errors"
@@ -27,4 +27,9 @@ var (
 	ErrNoResultFound = errors.New("FSM returned no results")
 	// ErrUnknownResultType FSM returned a result of the wrong type.
 	ErrUnknownResultType = errors.New("unknown result type")
+
+	ErrTableExists             = errors.New("table already exists")
+	ErrManagerClosed           = errors.New("manager closed")
+	ErrLeaseNotAcquired        = errors.New("lease not acquired")
+	ErrNodeHostInfoUnavailable = errors.New("nodehost info unavailable")
 )

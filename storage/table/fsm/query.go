@@ -8,7 +8,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/key"
 )
 
@@ -78,7 +78,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		p.log.Warnf("received unknown lookup request of type %T", req)
 	}
 
-	return nil, storage.ErrUnknownQueryType
+	return nil, errors.ErrUnknownQueryType
 }
 
 func commandSnapshot(reader pebble.Reader, tableName string, w io.Writer, stopc <-chan struct{}) (uint64, error) {

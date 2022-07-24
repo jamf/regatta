@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cockroachdb/pebble/vfs"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -23,7 +24,8 @@ import (
 	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
-	"github.com/wandera/regatta/storage/tables"
+	"github.com/wandera/regatta/storage"
+	serrors "github.com/wandera/regatta/storage/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -84,24 +86,61 @@ func leader(_ *cobra.Command, _ []string) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	nh, err := createNodeHost(logger)
+	engine, err := storage.New(storage.Config{
+		Logger: logger.Named("engine"),
+		NodeID: viper.GetUint64("raft.node-id"),
+		InitialMembers: func() map[uint64]string {
+			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
+			if err != nil {
+				log.Panic(err)
+			}
+			return initialMembers
+		}(),
+		WALDir:                        viper.GetString("raft.wal-dir"),
+		NodeHostDir:                   viper.GetString("raft.node-host-dir"),
+		RTTMillisecond:                uint64(viper.GetDuration("raft.rtt").Milliseconds()),
+		RaftAddress:                   viper.GetString("raft.address"),
+		ListenAddress:                 viper.GetString("raft.listen-address"),
+		EnableMetrics:                 true,
+		MaxSnapshotRecvBytesPerSecond: viper.GetUint64("raft.max-snapshot-recv-bytes-per-second"),
+		MaxSnapshotSendBytesPerSecond: viper.GetUint64("raft.max-snapshot-send-bytes-per-second"),
+		MaxReceiveQueueSize:           viper.GetUint64("raft.max-recv-queue-size"),
+		MaxSendQueueSize:              viper.GetUint64("raft.max-send-queue-size"),
+		Table: storage.TableConfig{
+			FS:                 vfs.Default,
+			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
+			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
+			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
+			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
+			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
+			WALDir:             viper.GetString("raft.state-machine-wal-dir"),
+			NodeHostDir:        viper.GetString("raft.state-machine-dir"),
+			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
+		},
+		Meta: storage.MetaConfig{
+			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
+			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
+			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
+			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
+			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
+		},
+		LogDBImplementation: func() storage.LogDBImplementation {
+			if viper.GetBool("experimental.tanlogdb") {
+				return storage.Tan
+			}
+			return storage.Default
+		}(),
+	})
 	if err != nil {
 		log.Panic(err)
 	}
-	defer nh.Close()
-
-	tm, err := createTableManager(nh)
-	if err != nil {
+	if err := engine.Start(); err != nil {
 		log.Panic(err)
 	}
-	err = tm.Start()
-	if err != nil {
-		log.Panic(err)
-	}
-	defer tm.Close()
+	defer engine.Close()
 
 	go func() {
-		if err := tm.WaitUntilReady(); err != nil {
+		if err := engine.WaitUntilReady(); err != nil {
 			log.Infof("table manager failed to start: %v", err)
 			return
 		}
@@ -109,9 +148,9 @@ func leader(_ *cobra.Command, _ []string) {
 		tNames := viper.GetStringSlice("tables.names")
 		for _, table := range tNames {
 			log.Debugf("creating table %s", table)
-			err := tm.CreateTable(table)
+			err := engine.CreateTable(table)
 			if err != nil {
-				if err == tables.ErrTableExists {
+				if err == serrors.ErrTableExists {
 					log.Infof("table %s already exist, skipping creation", table)
 				} else {
 					log.Errorf("failed to create table %s: %v", table, err)
@@ -121,15 +160,13 @@ func leader(_ *cobra.Command, _ []string) {
 		dNames := viper.GetStringSlice("tables.delete")
 		for _, table := range dNames {
 			log.Debugf("deleting table %s", table)
-			err := tm.DeleteTable(table)
+			err := engine.DeleteTable(table)
 			if err != nil {
 				log.Errorf("failed to delete table %s: %v", table, err)
 			}
 		}
 	}()
 
-	// Create storage
-	st := &tables.QueryService{Manager: tm}
 	// Start servers
 	{
 		grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
@@ -149,7 +186,7 @@ func leader(_ *cobra.Command, _ []string) {
 			// Create server
 			regatta := createAPIServer(watcher)
 			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
-				Storage: st,
+				Storage: engine,
 			})
 			// Start server
 			go func() {
@@ -179,9 +216,9 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 
 			replication := createReplicationServer(watcher, caBytes, logger.Named("server.replication"))
-			ls := regattaserver.NewLogServer(tm, nh, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
-			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: tm})
-			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: tm})
+			ls := regattaserver.NewLogServer(engine.Manager, engine.NodeHost, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
+			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine.Manager})
+			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine.Manager})
 			proto.RegisterLogServer(replication, ls)
 
 			prometheus.MustRegister(ls)
@@ -209,8 +246,8 @@ func leader(_ *cobra.Command, _ []string) {
 			defer watcher.Stop()
 
 			maintenance := createMaintenanceServer(watcher)
-			proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: tm})
-			proto.RegisterMaintenanceServer(maintenance, &regattaserver.BackupServer{Tables: tm})
+			proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: engine.Manager})
+			proto.RegisterMaintenanceServer(maintenance, &regattaserver.BackupServer{Tables: engine.Manager})
 			// Start server
 			go func() {
 				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
@@ -240,7 +277,7 @@ func leader(_ *cobra.Command, _ []string) {
 				Name:     topic,
 				GroupID:  viper.GetString("kafka.group-id"),
 				Table:    topic,
-				Listener: onMessage(st),
+				Listener: onMessage(engine),
 			})
 		}
 		kafkaCfg := kafka.Config{

@@ -13,6 +13,7 @@ import (
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
+	serrors "github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table"
 	"go.uber.org/zap"
 )
@@ -50,7 +51,7 @@ func TestManager_CreateTable(t *testing.T) {
 	r.Greater(tab.ClusterID, tableIDsRangeStart)
 
 	t.Log("create existing table")
-	r.ErrorIs(tm.CreateTable(testTableName), ErrTableExists)
+	r.ErrorIs(tm.CreateTable(testTableName), serrors.ErrTableExists)
 }
 
 func TestManager_DeleteTable(t *testing.T) {
@@ -80,11 +81,11 @@ func TestManager_DeleteTable(t *testing.T) {
 
 	t.Log("check table")
 	_, err = tm.GetTable(testTableName)
-	r.ErrorIs(err, ErrTableDoesNotExist)
+	r.ErrorIs(err, serrors.ErrTableNotFound)
 
 	t.Log("delete non-existent table")
 	_, err = tm.GetTable("foo")
-	r.ErrorIs(err, ErrTableDoesNotExist)
+	r.ErrorIs(err, serrors.ErrTableNotFound)
 	r.NoError(tm.cleanup())
 
 	// LogDB cleaned
@@ -117,7 +118,7 @@ func TestManager_GetTable(t *testing.T) {
 		{
 			name:    "Get unknown table",
 			args:    args{name: "unknown"},
-			wantErr: ErrTableDoesNotExist,
+			wantErr: serrors.ErrTableNotFound,
 		},
 	}
 
@@ -163,7 +164,7 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(tm.DeleteTable(testTableName))
 	time.Sleep(reconcileInterval * 3)
 	_, err = tm.GetTable(testTableName)
-	r.ErrorIs(err, ErrTableDoesNotExist)
+	r.ErrorIs(err, serrors.ErrTableNotFound)
 }
 
 func Test_diffTables(t *testing.T) {

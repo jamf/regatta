@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cockroachdb/pebble/vfs"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ import (
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/replication"
+	"github.com/wandera/regatta/storage"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -83,21 +85,58 @@ func follower(_ *cobra.Command, _ []string) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	nh, err := createNodeHost(logger)
+	engine, err := storage.New(storage.Config{
+		Logger: logger.Named("engine"),
+		NodeID: viper.GetUint64("raft.node-id"),
+		InitialMembers: func() map[uint64]string {
+			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
+			if err != nil {
+				log.Panic(err)
+			}
+			return initialMembers
+		}(),
+		WALDir:                        viper.GetString("raft.wal-dir"),
+		NodeHostDir:                   viper.GetString("raft.node-host-dir"),
+		RTTMillisecond:                uint64(viper.GetDuration("raft.rtt").Milliseconds()),
+		RaftAddress:                   viper.GetString("raft.address"),
+		ListenAddress:                 viper.GetString("raft.listen-address"),
+		EnableMetrics:                 true,
+		MaxSnapshotRecvBytesPerSecond: viper.GetUint64("raft.max-snapshot-recv-bytes-per-second"),
+		MaxSnapshotSendBytesPerSecond: viper.GetUint64("raft.max-snapshot-send-bytes-per-second"),
+		MaxReceiveQueueSize:           viper.GetUint64("raft.max-recv-queue-size"),
+		MaxSendQueueSize:              viper.GetUint64("raft.max-send-queue-size"),
+		Table: storage.TableConfig{
+			FS:                 vfs.Default,
+			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
+			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
+			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
+			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
+			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
+			WALDir:             viper.GetString("raft.state-machine-wal-dir"),
+			NodeHostDir:        viper.GetString("raft.state-machine-dir"),
+			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
+		},
+		Meta: storage.MetaConfig{
+			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
+			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
+			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
+			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
+			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
+		},
+		LogDBImplementation: func() storage.LogDBImplementation {
+			if viper.GetBool("experimental.tanlogdb") {
+				return storage.Tan
+			}
+			return storage.Default
+		}(),
+	})
 	if err != nil {
 		log.Panic(err)
 	}
-	defer nh.Close()
-
-	tm, err := createTableManager(nh)
-	if err != nil {
+	if err := engine.Start(); err != nil {
 		log.Panic(err)
 	}
-	err = tm.Start()
-	if err != nil {
-		log.Panic(err)
-	}
-	defer tm.Close()
+	defer engine.Close()
 
 	// Replication
 	{
@@ -127,7 +166,7 @@ func follower(_ *cobra.Command, _ []string) {
 			log.Panicf("cannot create replication conn: %v", err)
 		}
 
-		d := replication.NewManager(tm, nh, conn, replication.Config{
+		d := replication.NewManager(engine.Manager, engine.NodeHost, conn, replication.Config{
 			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
 			Workers: replication.WorkerConfig{
 				PollInterval:        viper.GetDuration("replication.poll-interval"),
@@ -144,7 +183,7 @@ func follower(_ *cobra.Command, _ []string) {
 	}
 
 	// Create storage
-	st := &tables.QueryService{Manager: tm}
+	st := &tables.QueryService{Manager: engine.Manager}
 	// Start servers
 	{
 		{
@@ -192,7 +231,7 @@ func follower(_ *cobra.Command, _ []string) {
 			defer watcher.Stop()
 
 			maintenance := createMaintenanceServer(watcher)
-			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: tm})
+			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine.Manager})
 			// Start server
 			go func() {
 				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
