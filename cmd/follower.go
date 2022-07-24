@@ -22,7 +22,6 @@ import (
 	"github.com/wandera/regatta/regattaserver"
 	"github.com/wandera/regatta/replication"
 	"github.com/wandera/regatta/storage"
-	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -182,8 +181,6 @@ func follower(_ *cobra.Command, _ []string) {
 		defer d.Close()
 	}
 
-	// Create storage
-	st := &tables.QueryService{Manager: engine.Manager}
 	// Start servers
 	{
 		{
@@ -204,7 +201,7 @@ func follower(_ *cobra.Command, _ []string) {
 			regatta := createAPIServer(watcher)
 			proto.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
 				KVServer: regattaserver.KVServer{
-					Storage: st,
+					Storage: engine,
 				},
 			})
 			// Start server
@@ -231,7 +228,7 @@ func follower(_ *cobra.Command, _ []string) {
 			defer watcher.Stop()
 
 			maintenance := createMaintenanceServer(watcher)
-			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine.Manager})
+			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
 			// Start server
 			go func() {
 				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
