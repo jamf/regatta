@@ -8,7 +8,7 @@ import (
 	"github.com/lni/dragonboat/v3/client"
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/fsm"
 	"github.com/wandera/regatta/storage/table/key"
 )
@@ -44,10 +44,10 @@ type ActiveTable struct {
 // Range performs a Range query in the Raft data, supplied context must have a deadline set.
 func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if len(req.Key) > key.LatestVersionLen {
-		return nil, storage.ErrKeyLengthExceeded
+		return nil, errors.ErrKeyLengthExceeded
 	}
 	if len(req.RangeEnd) > key.LatestVersionLen {
-		return nil, storage.ErrKeyLengthExceeded
+		return nil, errors.ErrKeyLengthExceeded
 	}
 	var (
 		err   error
@@ -69,7 +69,7 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 
 	if err != nil {
 		if err == pebble.ErrNotFound {
-			return nil, storage.ErrKeyNotFound
+			return nil, errors.ErrKeyNotFound
 		}
 		return nil, err
 	}
@@ -85,13 +85,13 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 // Put performs a Put proposal into the Raft, supplied context must have a deadline set.
 func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if len(req.Key) == 0 {
-		return nil, storage.ErrEmptyKey
+		return nil, errors.ErrEmptyKey
 	}
 	if len(req.Key) > key.LatestVersionLen {
-		return nil, storage.ErrKeyLengthExceeded
+		return nil, errors.ErrKeyLengthExceeded
 	}
 	if len(req.Value) > MaxValueLen {
-		return nil, storage.ErrValueLengthExceeded
+		return nil, errors.ErrValueLengthExceeded
 	}
 	cmd := &proto.Command{
 		Type:  proto.Command_PUT,
@@ -115,23 +115,23 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 		return nil, err
 	}
 	if len(pr.Responses) == 0 {
-		return nil, storage.ErrNoResultFound
+		return nil, errors.ErrNoResultFound
 	}
 	switch r := pr.Responses[0].Response.(type) {
 	case *proto.ResponseOp_ResponsePut:
 		return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv}, nil
 	default:
-		return nil, storage.ErrUnknownResultType
+		return nil, errors.ErrUnknownResultType
 	}
 }
 
 // Delete performs a DeleteRange proposal into the Raft, supplied context must have a deadline set.
 func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if len(req.Key) == 0 {
-		return nil, storage.ErrEmptyKey
+		return nil, errors.ErrEmptyKey
 	}
 	if len(req.Key) > key.LatestVersionLen {
-		return nil, storage.ErrKeyLengthExceeded
+		return nil, errors.ErrKeyLengthExceeded
 	}
 	cmd := &proto.Command{
 		Type:  proto.Command_DELETE,
@@ -156,13 +156,13 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 		return nil, err
 	}
 	if len(dr.Responses) == 0 {
-		return nil, storage.ErrNoResultFound
+		return nil, errors.ErrNoResultFound
 	}
 	switch r := dr.Responses[0].Response.(type) {
 	case *proto.ResponseOp_ResponseDeleteRange:
 		return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs}, nil
 	default:
-		return nil, storage.ErrUnknownResultType
+		return nil, errors.ErrUnknownResultType
 	}
 }
 

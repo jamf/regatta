@@ -3,7 +3,6 @@ package tables
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -16,7 +15,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/lni/dragonboat/v3/config"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
+	serrors "github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/kv"
 	"github.com/wandera/regatta/storage/table"
 	"github.com/wandera/regatta/storage/table/fsm"
@@ -36,14 +35,6 @@ const (
 	sequenceKey               = keyPrefix + "sys/idseq"
 	metaFSMClusterID          = 1000
 	tableIDsRangeStart uint64 = 10000
-)
-
-var (
-	ErrTableExists             = errors.New("table already exists")
-	ErrTableDoesNotExist       = storage.ErrTableNotFound
-	ErrManagerClosed           = errors.New("manager closed")
-	ErrLeaseNotAcquired        = errors.New("lease not acquired")
-	ErrNodeHostInfoUnavailable = errors.New("nodehost info unavailable")
 )
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
@@ -129,7 +120,7 @@ func (m *Manager) LeaseTable(name string, lease time.Duration) error {
 		return nil
 	}
 
-	return ErrLeaseNotAcquired
+	return serrors.ErrLeaseNotAcquired
 }
 
 // ReturnTable returns true if it was leased previously.
@@ -180,7 +171,7 @@ func (m *Manager) IsLeader() bool {
 func (m *Manager) createTable(name string) (table.Table, error) {
 	storeName := storedTableName(name)
 	if m.store.Exists(storeName) {
-		return table.Table{}, ErrTableExists
+		return table.Table{}, serrors.ErrTableExists
 	}
 	seq, err := m.incAndGetIDSeq()
 	if err != nil {
@@ -193,7 +184,7 @@ func (m *Manager) createTable(name string) (table.Table, error) {
 	err = m.setTableVersion(tab, 0)
 	if err != nil {
 		if err == kv.ErrVersionMismatch {
-			return table.Table{}, ErrTableExists
+			return table.Table{}, serrors.ErrTableExists
 		}
 		return table.Table{}, err
 	}
@@ -243,7 +234,7 @@ func (m *Manager) GetTableByID(id uint64) (table.ActiveTable, error) {
 			return t.AsActive(m.nh), nil
 		}
 	}
-	return table.ActiveTable{}, ErrTableDoesNotExist
+	return table.ActiveTable{}, serrors.ErrTableNotFound
 }
 
 func (m *Manager) GetTables() ([]table.Table, error) {
@@ -293,7 +284,7 @@ func (m *Manager) WaitUntilReady() error {
 		case <-m.readyChan:
 			return nil
 		case <-m.closed:
-			return ErrManagerClosed
+			return serrors.ErrManagerClosed
 		}
 	}
 }
@@ -334,7 +325,7 @@ func (m *Manager) reconcile() error {
 		}
 		nhi := m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
 		if nhi == nil {
-			return nil, nil, ErrNodeHostInfoUnavailable
+			return nil, nil, serrors.ErrNodeHostInfoUnavailable
 		}
 		return tabs, nhi, nil
 	}()
@@ -397,7 +388,7 @@ func (m *Manager) cleanup() error {
 		}
 		if c.Created.Before(time.Now().Add(-m.cleanupGracePeriod)) {
 			// Distributed data race guard
-			if _, err := m.GetTableByID(c.ClusterID); err != ErrTableDoesNotExist {
+			if _, err := m.GetTableByID(c.ClusterID); err != serrors.ErrTableNotFound {
 				m.log.Warnf("[%d:%d] cluster data cleanup skipped, table should not be deleted", c.ClusterID, m.cfg.NodeID)
 				return m.store.Delete(l.Key, l.Ver)
 			}
@@ -579,7 +570,7 @@ func (m *Manager) stopTable(clusterID uint64) error {
 
 func (m *Manager) Restore(name string, reader io.Reader) error {
 	tbl, version, err := m.getTableVersion(name)
-	if err != nil && err != ErrTableDoesNotExist {
+	if err != nil && err != serrors.ErrTableNotFound {
 		return err
 	}
 	recoveryID, err := m.incAndGetIDSeq()
@@ -629,7 +620,7 @@ func (m *Manager) getTableVersion(name string) (table.Table, uint64, error) {
 	v, err := m.store.Get(storedTableName(name))
 	if err != nil {
 		if err == kv.ErrNotExist {
-			return table.Table{}, 0, ErrTableDoesNotExist
+			return table.Table{}, 0, serrors.ErrTableNotFound
 		}
 		return table.Table{}, 0, err
 	}

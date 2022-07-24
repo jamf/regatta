@@ -18,7 +18,7 @@ import (
 	"github.com/oxtoacart/bpool"
 	"github.com/prometheus/client_golang/prometheus"
 	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
 )
@@ -102,10 +102,10 @@ type FSM struct {
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	if p.clusterID < 1 {
-		return 0, storage.ErrInvalidClusterID
+		return 0, errors.ErrInvalidClusterID
 	}
 	if p.nodeID < 1 {
-		return 0, storage.ErrInvalidNodeID
+		return 0, errors.ErrInvalidNodeID
 	}
 
 	if err := rp.CreateNodeDataDir(p.fs, p.dirname); err != nil {

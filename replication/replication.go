@@ -9,6 +9,7 @@ import (
 	"github.com/lni/dragonboat/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
+	serrors "github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -150,7 +151,7 @@ func (m *Manager) reconcileTables() error {
 		return err
 	}
 	for _, tabs := range response.GetTables() {
-		if err := m.tm.CreateTable(tabs.Name); err != nil && !errors.Is(err, tables.ErrTableExists) {
+		if err := m.tm.CreateTable(tabs.Name); err != nil && !errors.Is(err, serrors.ErrTableExists) {
 			return err
 		}
 	}
