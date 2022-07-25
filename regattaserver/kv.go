@@ -12,8 +12,7 @@ import (
 // KVServer implements KV service from proto/regatta.proto.
 type KVServer struct {
 	proto.UnimplementedKVServer
-	Storage       KVService
-	ManagedTables []string
+	Storage KVService
 }
 
 // Range implements proto/regatta.proto KV.Range method.
@@ -64,13 +63,6 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
 	}
 
-	tableString := string(req.GetTable())
-	for _, t := range s.ManagedTables {
-		if t == tableString {
-			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
-		}
-	}
-
 	r, err := s.Storage.Put(ctx, req)
 	if err != nil {
 		if err == storage.ErrTableNotFound {
@@ -89,13 +81,6 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 
 	if len(req.GetKey()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
-	}
-
-	tableString := string(req.GetTable())
-	for _, t := range s.ManagedTables {
-		if t == tableString {
-			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
-		}
 	}
 
 	r, err := s.Storage.Delete(ctx, req)
@@ -119,13 +104,6 @@ func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnRe
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
 
-	tableString := string(req.GetTable())
-	for _, t := range s.ManagedTables {
-		if t == tableString {
-			return nil, status.Errorf(codes.InvalidArgument, "table is read-only")
-		}
-	}
-
 	r, err := s.Storage.Txn(ctx, req)
 	if err != nil {
 		if err == storage.ErrTableNotFound {
@@ -136,4 +114,46 @@ func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnRe
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	return r, nil
+}
+
+// ReadonlyKVServer implements read part of KV service from proto/regatta.proto.
+type ReadonlyKVServer struct {
+	KVServer
+}
+
+// Put implements proto/regatta.proto KV.Put method.
+func (r *ReadonlyKVServer) Put(_ context.Context, _ *proto.PutRequest) (*proto.PutResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented for follower")
+}
+
+// DeleteRange implements proto/regatta.proto KV.DeleteRange method.
+func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRange not implemented for follower")
+}
+
+// Txn processes multiple requests in a single transaction.
+// A txn request increments the revision of the key-value store
+// and generates events with the same revision for every completed request.
+// It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
+// Readonly transactions allowed using follower API.
+func (r *ReadonlyKVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+	if isReadonlyTransaction(req) {
+		return r.KVServer.Txn(ctx, req)
+	}
+	return nil, status.Errorf(codes.Unimplemented, "writable Txn not implemented for follower")
+}
+
+func isReadonlyTransaction(req *proto.TxnRequest) bool {
+	for _, op := range req.Success {
+		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+			return false
+		}
+	}
+
+	for _, op := range req.Failure {
+		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+			return false
+		}
+	}
+	return true
 }

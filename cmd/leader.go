@@ -127,8 +127,6 @@ func leader(_ *cobra.Command, _ []string) {
 
 	// Create storage
 	st := &tables.QueryService{Manager: tm}
-	mTables := viper.GetStringSlice("kafka.topics")
-
 	// Start servers
 	{
 		grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
@@ -148,8 +146,7 @@ func leader(_ *cobra.Command, _ []string) {
 			// Create server
 			regatta := createAPIServer(watcher)
 			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
-				Storage:       st,
-				ManagedTables: mTables,
+				Storage: st,
 			})
 			// Start server
 			go func() {
@@ -233,8 +230,9 @@ func leader(_ *cobra.Command, _ []string) {
 
 	// Start Kafka
 	{
+		topics := viper.GetStringSlice("kafka.topics")
 		var tc []kafka.TopicConfig
-		for _, topic := range mTables {
+		for _, topic := range topics {
 			tc = append(tc, kafka.TopicConfig{
 				Name:     topic,
 				GroupID:  viper.GetString("kafka.group-id"),

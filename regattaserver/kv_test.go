@@ -24,7 +24,7 @@ var (
 	table2Value2 = []byte("table_2/value_2")
 )
 
-func TestRegatta_Get(t *testing.T) {
+func TestKVServer_Get(t *testing.T) {
 	tests := []struct {
 		name          string
 		rangeRequest  *proto.RangeRequest
@@ -237,7 +237,7 @@ func TestRegatta_Get(t *testing.T) {
 	}
 }
 
-func TestRegatta_Parallel(t *testing.T) {
+func TestKVServer_Parallel(t *testing.T) {
 	kv := KVServer{Storage: &MockStorage{}}
 	for i := 0; i < 100; i++ {
 		t.Run("Run parallel reads/writes", func(t *testing.T) {
@@ -264,7 +264,7 @@ func TestRegatta_Parallel(t *testing.T) {
 	}
 }
 
-func TestRegatta_RangeNotFound(t *testing.T) {
+func TestKVServer_RangeNotFound(t *testing.T) {
 	r := require.New(t)
 
 	putRequests := []*proto.PutRequest{
@@ -317,7 +317,7 @@ func TestRegatta_RangeNotFound(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
-func TestRegatta_RangeInvalidArgument(t *testing.T) {
+func TestKVServer_RangeInvalidArgument(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
 		Storage: &MockStorage{},
@@ -355,7 +355,7 @@ func TestRegatta_RangeInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time").Error())
 }
 
-func TestRegatta_RangeUnimplemented(t *testing.T) {
+func TestKVServer_RangeUnimplemented(t *testing.T) {
 	a := assert.New(t)
 	kv := KVServer{
 		Storage: &MockStorage{},
@@ -394,11 +394,10 @@ func TestRegatta_RangeUnimplemented(t *testing.T) {
 	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
 }
 
-func TestRegatta_PutInvalidArgument(t *testing.T) {
+func TestKVServer_PutInvalidArgument(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
-		Storage:       &MockStorage{},
-		ManagedTables: []string{managedTable},
+		Storage: &MockStorage{},
 	}
 
 	t.Log("Put with empty table name")
@@ -417,14 +416,6 @@ func TestRegatta_PutInvalidArgument(t *testing.T) {
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
 
-	t.Log("Put with managed table name")
-	_, err = kv.Put(context.Background(), &proto.PutRequest{
-		Table: []byte(managedTable),
-		Key:   key1Name,
-		Value: table1Value1,
-	})
-	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
-
 	t.Log("Put with non-existing table")
 	kv.Storage = &MockStorage{putError: storage.ErrTableNotFound}
 	_, err = kv.Put(context.Background(), &proto.PutRequest{
@@ -435,11 +426,10 @@ func TestRegatta_PutInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
-func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
+func TestKVServer_DeleteRangeInvalidArgument(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
-		Storage:       &MockStorage{},
-		ManagedTables: []string{managedTable},
+		Storage: &MockStorage{},
 	}
 
 	t.Log("Delete with empty table name")
@@ -456,13 +446,6 @@ func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
 
-	t.Log("Delete with managed table name")
-	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
-		Table: []byte(managedTable),
-		Key:   key1Name,
-	})
-	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table is read-only").Error())
-
 	t.Log("Delete with non-existing table")
 	kv.Storage = &MockStorage{deleteError: storage.ErrTableNotFound}
 	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
@@ -472,7 +455,7 @@ func TestRegatta_DeleteRangeInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
-func TestRegatta_DeleteRange(t *testing.T) {
+func TestKVServer_DeleteRange(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
 		Storage: &MockStorage{},
@@ -494,4 +477,70 @@ func TestRegatta_DeleteRange(t *testing.T) {
 		Key:   key1Name,
 	})
 	r.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
+}
+
+func TestReadonlyKVServer_Put(t *testing.T) {
+	r := require.New(t)
+	kv := ReadonlyKVServer{
+		KVServer: KVServer{
+			Storage: &MockStorage{},
+		},
+	}
+
+	t.Log("Put kv")
+	_, err := kv.Put(context.Background(), &proto.PutRequest{
+		Table: table1Name,
+		Key:   key1Name,
+	})
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "method Put not implemented for follower").Error())
+}
+
+func TestReadonlyKVServer_DeleteRange(t *testing.T) {
+	r := require.New(t)
+	kv := ReadonlyKVServer{
+		KVServer: KVServer{
+			Storage: &MockStorage{},
+		},
+	}
+
+	t.Log("Delete existing kv")
+	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+		Table: table1Name,
+		Key:   key1Name,
+	})
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "method DeleteRange not implemented for follower").Error())
+}
+
+func TestReadonlyKVServer_Txn(t *testing.T) {
+	r := require.New(t)
+	kv := ReadonlyKVServer{
+		KVServer: KVServer{
+			Storage: &MockStorage{},
+		},
+	}
+
+	t.Log("Writable Txn")
+	_, err := kv.Txn(context.Background(), &proto.TxnRequest{
+		Success: []*proto.RequestOp{
+			{
+				Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+					Key: key1Name,
+				}},
+			},
+		},
+	})
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "writable Txn not implemented for follower").Error())
+
+	t.Log("Readonly Txn")
+	_, err = kv.Txn(context.Background(), &proto.TxnRequest{
+		Table: table1Name,
+		Success: []*proto.RequestOp{
+			{
+				Request: &proto.RequestOp_RequestRange{RequestRange: &proto.RequestOp_Range{
+					Key: key1Name,
+				}},
+			},
+		},
+	})
+	r.NoError(err)
 }
