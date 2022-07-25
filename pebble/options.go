@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/sstable"
+	"github.com/cockroachdb/pebble/vfs"
 )
 
 const (
@@ -26,11 +27,9 @@ const (
 	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
 	l0FileNumCompactionTrigger = 8
 	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
-	l0StopWritesTrigger = 24
+	l0StopWritesTrigger = 256
 	// maxBytesForLevelBase base for amount of data stored in a single level.
-	maxBytesForLevelBase = 512 * 1024 * 1024
-	// maxLogFileSize maximum size of WAL files.
-	maxLogFileSize = 128 * 1024 * 1024
+	maxBytesForLevelBase = 64 * 1024 * 1024
 	// walMinSyncInterval minimum time between calls to WAL file Sync.
 	walMinSyncInterval = 500 * time.Microsecond
 )
@@ -48,6 +47,7 @@ func DefaultOptions() *pebble.Options {
 			TargetFileSize: int64(sz),
 		}
 		sz = sz * targetFileSizeGrowFactor
+		opt.EnsureDefaults()
 		lvlOpts[l] = opt
 	}
 	// Do not create bloom filters for the last level (i.e. the largest level
@@ -65,7 +65,6 @@ func DefaultOptions() *pebble.Options {
 		L0StopWritesThreshold:       l0StopWritesTrigger,
 		LBaseMaxBytes:               maxBytesForLevelBase,
 		Levels:                      lvlOpts,
-		MaxManifestFileSize:         maxLogFileSize,
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		WALMinSyncInterval: func() time.Duration {
@@ -81,4 +80,51 @@ func WriterOptions() sstable.WriterOptions {
 
 func ReaderOptions() sstable.ReaderOptions {
 	return DefaultOptions().MakeReaderOptions()
+}
+
+type Option interface {
+	apply(options *pebble.Options)
+}
+
+type funcOption struct {
+	f func(options *pebble.Options)
+}
+
+func (fdo *funcOption) apply(do *pebble.Options) {
+	fdo.f(do)
+}
+
+func WithFS(fs vfs.FS) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.FS = vfs.WithDiskHealthChecks(fs, 5*time.Second, func(path string, duration time.Duration) {
+			options.EventListener.DiskSlow(pebble.DiskSlowInfo{
+				Path:     path,
+				Duration: duration,
+			})
+		})
+	}}
+}
+
+func WithCache(cache *pebble.Cache) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.Cache = cache
+	}}
+}
+
+func WithWALDir(walDirName string) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.WALDir = walDirName
+	}}
+}
+
+func WithLogger(logger pebble.Logger) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.Logger = logger
+	}}
+}
+
+func WithEventListener(listener pebble.EventListener) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.EventListener = listener
+	}}
 }
