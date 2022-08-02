@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
@@ -25,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -175,7 +178,7 @@ func leader(_ *cobra.Command, _ []string) {
 				log.Panicf("cannot load clients CA: %v", err)
 			}
 
-			replication := createReplicationServer(watcher, caBytes)
+			replication := createReplicationServer(watcher, caBytes, logger.Named("server.replication"))
 			ls := regattaserver.NewLogServer(tm, nh, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
 			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: tm})
 			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: tm})
@@ -277,7 +280,7 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(watcher *cert.Watcher, ca []byte) *regattaserver.RegattaServer {
+func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) *regattaserver.RegattaServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
 
@@ -292,9 +295,20 @@ func createReplicationServer(watcher *cert.Watcher, ca []byte) *regattaserver.Re
 				return watcher.GetCertificate(), nil
 			},
 		})),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			grpc_prometheus.StreamServerInterceptor,
+			grpc_zap.StreamServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_prometheus.UnaryServerInterceptor,
+			grpc_zap.UnaryServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
+		)),
 	)
+}
+
+func logDeciderFunc(_ string, err error) bool {
+	st, _ := status.FromError(err)
+	return st != nil
 }
 
 // waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
