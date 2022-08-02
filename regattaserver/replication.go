@@ -119,9 +119,9 @@ type LogServer struct {
 	proto.UnimplementedLogServer
 }
 
-func NewLogServer(tm TableService, lr LogReaderService, logger *zap.Logger, maxMessageSize uint64) *LogServer {
+func NewLogServer(ts TableService, lr LogReaderService, logger *zap.Logger, maxMessageSize uint64) *LogServer {
 	ls := &LogServer{
-		Tables:         tm,
+		Tables:         ts,
 		Log:            logger.Sugar().Named("log-replication-server"),
 		LogReaders:     lr,
 		maxMessageSize: maxMessageSize,

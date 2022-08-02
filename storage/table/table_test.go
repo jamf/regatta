@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
-	errors2 "github.com/wandera/regatta/storage/errors"
+	serrors "github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/key"
 	"github.com/wandera/regatta/util"
 	"go.uber.org/zap"
@@ -77,7 +77,7 @@ func TestActiveTable_Range(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("missing")},
 			},
-			wantErr: errors2.ErrKeyNotFound,
+			wantErr: serrors.ErrKeyNotFound,
 		},
 		{
 			name: "Query key found",
@@ -143,7 +143,7 @@ func TestActiveTable_Range(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: longKey},
 			},
-			wantErr: errors2.ErrKeyLengthExceeded,
+			wantErr: serrors.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Query range end too long",
@@ -151,7 +151,7 @@ func TestActiveTable_Range(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("foo"), RangeEnd: longKey},
 			},
-			wantErr: errors2.ErrKeyLengthExceeded,
+			wantErr: serrors.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Query unknown error",
@@ -258,7 +258,7 @@ func TestActiveTable_Put(t *testing.T) {
 					Value: []byte("bar"),
 				},
 			},
-			wantErr: errors2.ErrEmptyKey,
+			wantErr: serrors.ErrEmptyKey,
 		},
 		{
 			name: "Put KV key too long",
@@ -269,7 +269,7 @@ func TestActiveTable_Put(t *testing.T) {
 					Value: []byte("bar"),
 				},
 			},
-			wantErr: errors2.ErrKeyLengthExceeded,
+			wantErr: serrors.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Put KV value too long",
@@ -280,7 +280,7 @@ func TestActiveTable_Put(t *testing.T) {
 					Value: longValue,
 				},
 			},
-			wantErr: errors2.ErrValueLengthExceeded,
+			wantErr: serrors.ErrValueLengthExceeded,
 		},
 		{
 			name: "Put KV unknown error",
@@ -343,7 +343,7 @@ func TestActiveTable_Delete(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{},
 			},
-			wantErr: errors2.ErrEmptyKey,
+			wantErr: serrors.ErrEmptyKey,
 		},
 		{
 			name: "Delete existing key",
@@ -428,7 +428,7 @@ func TestActiveTable_Delete(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{Key: longKey},
 			},
-			wantErr: errors2.ErrKeyLengthExceeded,
+			wantErr: serrors.ErrKeyLengthExceeded,
 		},
 		{
 			name: "Delete unknown error",
