@@ -21,19 +21,19 @@ type Config struct {
 	Logger *zap.Logger
 	// NodeID is a non-zero value used to identify a node within a Raft cluster.
 	NodeID uint64
-	// InitialMembers is a map o both meta and table clusters initial members.
+	// InitialMembers is a map of both meta and table clusters initial members.
 	InitialMembers map[uint64]string
 	// WALDir is the directory used for storing the WAL of Raft entries. It is
 	// recommended to use low latency storage such as NVME SSD with power loss
-	// protection to store such WAL data. Leave WALDir to have zero value will
-	// have everything stored in NodeHostDir.
+	// protection to store such WAL data. WAL will be stored in
+	// NodeHostDir if it is set to the zero value.
 	WALDir string
 	// NodeHostDir is where everything else is stored.
 	NodeHostDir string
-	// RTTMillisecond defines the average Rround Trip Time (RTT) in milliseconds
+	// RTTMillisecond defines the average Round Trip Time (RTT) in milliseconds
 	// between two NodeHost instances. Such a RTT interval is internally used as
-	// a logical clock tick, Raft heartbeat and election intervals are both
-	// defined in term of how many such logical clock ticks (RTT intervals).
+	// a logical clock tick. Raft heartbeat and election intervals are both
+	// defined in terms of such logical clock ticks (RTT intervals).
 	// Note that RTTMillisecond is the combined delays between two NodeHost
 	// instances including all delays caused by network transmission, delays
 	// caused by NodeHost queuing and processing. As an example, when fully
@@ -58,7 +58,7 @@ type Config struct {
 	RaftAddress string
 	// ListenAddress is an optional field in the hostname:port or IP:port address
 	// form used by the transport module to listen on for Raft message and
-	// snapshots. When the ListenAddress field is not set, The transport module
+	// snapshots. When the ListenAddress field is not set, the transport module
 	// listens on RaftAddress. If 0.0.0.0 is specified as the IP of the
 	// ListenAddress, Dragonboat listens to the specified port on all network
 	// interfaces. When hostname or domain name is used, it will be resolved to
