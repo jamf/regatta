@@ -40,7 +40,7 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 		}
 
 		creds := credentials.NewTLS(&tls.Config{RootCAs: cp})
-		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(token(viper.GetString("token"))))
+		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(tokenCredentials(viper.GetString("token"))))
 		if err != nil {
 			return err
 		}
