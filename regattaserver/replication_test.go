@@ -81,7 +81,7 @@ func TestMetadataServer_Get(t *testing.T) {
 					error: context.DeadlineExceeded,
 				},
 			},
-			wantErr: status.Errorf(codes.Internal, "unknown err %v", context.DeadlineExceeded),
+			wantErr: status.Errorf(codes.Unavailable, "unknown err %v", context.DeadlineExceeded),
 		},
 	}
 	for _, tt := range tests {
