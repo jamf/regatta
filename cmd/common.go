@@ -3,24 +3,14 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
-	"os"
-	"path"
 	"strconv"
 	"time"
 
-	"github.com/cockroachdb/pebble/vfs"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	dbl "github.com/lni/dragonboat/v3/logger"
-	"github.com/lni/dragonboat/v3/plugin/tan"
 	"github.com/spf13/viper"
 	"github.com/wandera/regatta/cert"
-	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/regattaserver"
-	"github.com/wandera/regatta/storage/tables"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -29,37 +19,6 @@ import (
 )
 
 var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
-
-func createTableManager(nh *dragonboat.NodeHost) (*tables.Manager, error) {
-	initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
-	if err != nil {
-		return nil, err
-	}
-
-	tm := tables.NewManager(nh, initialMembers,
-		tables.Config{
-			NodeID: viper.GetUint64("raft.node-id"),
-			Table: tables.TableConfig{
-				FS:                 vfs.Default,
-				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
-				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
-				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
-				CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
-				MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
-				WALDir:             viper.GetString("raft.state-machine-wal-dir"),
-				NodeHostDir:        viper.GetString("raft.state-machine-dir"),
-				BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
-			},
-			Meta: tables.MetaConfig{
-				ElectionRTT:        viper.GetUint64("raft.election-rtt"),
-				HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
-				SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
-				CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
-				MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
-			},
-		})
-	return tm, nil
-}
 
 func createAPIServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
 	return regattaserver.NewServer(
@@ -111,55 +70,17 @@ func authFunc(token string) func(ctx context.Context) (context.Context, error) {
 	}
 }
 
-func createNodeHost(logger *zap.Logger) (*dragonboat.NodeHost, error) {
-	dbl.SetLoggerFactory(rl.LoggerFactory(logger))
-	dbl.GetLogger("raft").SetLevel(dbl.DEBUG)
-	dbl.GetLogger("rsm").SetLevel(dbl.DEBUG)
-	dbl.GetLogger("transport").SetLevel(dbl.DEBUG)
-	dbl.GetLogger("dragonboat").SetLevel(dbl.DEBUG)
-	dbl.GetLogger("logdb").SetLevel(dbl.DEBUG)
-	dbl.GetLogger("settings").SetLevel(dbl.DEBUG)
+type tokenCredentials string
 
-	nhc := config.NodeHostConfig{
-		WALDir:                        viper.GetString("raft.wal-dir"),
-		NodeHostDir:                   viper.GetString("raft.node-host-dir"),
-		RTTMillisecond:                uint64(viper.GetDuration("raft.rtt").Milliseconds()),
-		RaftAddress:                   viper.GetString("raft.address"),
-		ListenAddress:                 viper.GetString("raft.listen-address"),
-		EnableMetrics:                 true,
-		MaxSnapshotRecvBytesPerSecond: viper.GetUint64("raft.max-snapshot-recv-bytes-per-second"),
-		MaxSnapshotSendBytesPerSecond: viper.GetUint64("raft.max-snapshot-send-bytes-per-second"),
-		MaxReceiveQueueSize:           viper.GetUint64("raft.max-recv-queue-size"),
-		MaxSendQueueSize:              viper.GetUint64("raft.max-send-queue-size"),
+func (t tokenCredentials) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	if t != "" {
+		return map[string]string{"authorization": "Bearer " + string(t)}, nil
 	}
-
-	if viper.GetBool("experimental.tanlogdb") {
-		nhc.Expert.LogDBFactory = tan.Factory
-	} else {
-		nhc.Expert.LogDB = buildLogDBConfig()
-	}
-
-	err := nhc.Prepare()
-	if err != nil {
-		return nil, err
-	}
-
-	fixNHID(nhc.NodeHostDir)
-
-	nh, err := dragonboat.NewNodeHost(nhc)
-	if err != nil {
-		return nil, err
-	}
-	return nh, nil
+	return nil, nil
 }
 
-// TODO Remove after release.
-func fixNHID(dir string) {
-	idPath := path.Join(dir, "NODEHOST.ID")
-	bytes, _ := os.ReadFile(idPath)
-	if len(bytes) != 0 && len(bytes) < 24 {
-		_ = os.Remove(idPath)
-	}
+func (tokenCredentials) RequireTransportSecurity() bool {
+	return true
 }
 
 func parseInitialMembers(members map[string]string) (map[uint64]string, error) {
@@ -172,24 +93,4 @@ func parseInitialMembers(members map[string]string) (map[uint64]string, error) {
 		initialMembers[kUint] = v
 	}
 	return initialMembers, nil
-}
-
-func buildLogDBConfig() config.LogDBConfig {
-	cfg := config.GetSmallMemLogDBConfig()
-	cfg.KVRecycleLogFileNum = 4
-	cfg.KVMaxBytesForLevelBase = 128 * 1024 * 1024
-	return cfg
-}
-
-type token string
-
-func (t token) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
-	if t != "" {
-		return map[string]string{"authorization": "Bearer " + string(t)}, nil
-	}
-	return nil, nil
-}
-
-func (token) RequireTransportSecurity() bool {
-	return true
 }

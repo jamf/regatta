@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -301,7 +301,7 @@ func TestKVServer_RangeNotFound(t *testing.T) {
 	}
 
 	t.Log("Get non-existing kv from existing table")
-	kv.Storage = &MockStorage{rangeError: storage.ErrKeyNotFound}
+	kv.Storage = &MockStorage{rangeError: errors.ErrKeyNotFound}
 	_, err := kv.Range(context.Background(), &proto.RangeRequest{
 		Table: table1Name,
 		Key:   []byte("non_existing_key"),
@@ -309,7 +309,7 @@ func TestKVServer_RangeNotFound(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
 
 	t.Log("Get kv from non-existing table")
-	kv.Storage = &MockStorage{rangeError: storage.ErrTableNotFound}
+	kv.Storage = &MockStorage{rangeError: errors.ErrTableNotFound}
 	_, err = kv.Range(context.Background(), &proto.RangeRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
@@ -417,7 +417,7 @@ func TestKVServer_PutInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
 
 	t.Log("Put with non-existing table")
-	kv.Storage = &MockStorage{putError: storage.ErrTableNotFound}
+	kv.Storage = &MockStorage{putError: errors.ErrTableNotFound}
 	_, err = kv.Put(context.Background(), &proto.PutRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
@@ -447,7 +447,7 @@ func TestKVServer_DeleteRangeInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
 
 	t.Log("Delete with non-existing table")
-	kv.Storage = &MockStorage{deleteError: storage.ErrTableNotFound}
+	kv.Storage = &MockStorage{deleteError: errors.ErrTableNotFound}
 	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
@@ -471,7 +471,7 @@ func TestKVServer_DeleteRange(t *testing.T) {
 	r.Equal(int64(1), drresp.GetDeleted())
 
 	t.Log("Delete non-existing kv")
-	kv.Storage = &MockStorage{deleteError: storage.ErrKeyNotFound}
+	kv.Storage = &MockStorage{deleteError: errors.ErrKeyNotFound}
 	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   key1Name,

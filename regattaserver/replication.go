@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/replication/snapshot"
-	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,7 +36,7 @@ type MetadataServer struct {
 func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.MetadataResponse, error) {
 	tabs, err := m.Tables.GetTables()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "unknown err %v", err)
+		return nil, status.Errorf(codes.Unavailable, "unknown err %v", err)
 	}
 	resp := &proto.MetadataResponse{}
 	for _, tab := range tabs {
@@ -58,7 +57,7 @@ type SnapshotServer struct {
 func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_StreamServer) error {
 	table, err := s.Tables.GetTable(string(req.Table))
 	if err != nil {
-		return err
+		return status.Errorf(codes.Unavailable, "unable to stream from table '%s': %v", req.GetTable(), err)
 	}
 
 	ctx := srv.Context()
@@ -111,7 +110,6 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 type LogServer struct {
 	Tables     TableService
 	LogReaders LogReaderService
-	NodeID     uint64
 	Log        *zap.SugaredLogger
 
 	maxMessageSize uint64
@@ -121,10 +119,9 @@ type LogServer struct {
 	proto.UnimplementedLogServer
 }
 
-func NewLogServer(tm *tables.Manager, lr LogReaderService, logger *zap.Logger, maxMessageSize uint64) *LogServer {
+func NewLogServer(ts TableService, lr LogReaderService, logger *zap.Logger, maxMessageSize uint64) *LogServer {
 	ls := &LogServer{
-		Tables:         tm,
-		NodeID:         tm.NodeID(),
+		Tables:         ts,
 		Log:            logger.Sugar().Named("log-replication-server"),
 		LogReaders:     lr,
 		maxMessageSize: maxMessageSize,
@@ -189,18 +186,18 @@ var (
 func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_ReplicateServer) error {
 	t, err := l.Tables.GetTable(string(req.GetTable()))
 	if err != nil {
-		return fmt.Errorf("no table '%s' found: %v", req.GetTable(), err)
+		return status.Errorf(codes.Unavailable, "unable to replicate table '%s': %v", req.GetTable(), err)
 	}
 
 	if req.LeaderIndex == 0 {
-		return fmt.Errorf("invalid leaderIndex: leaderIndex must be greater than 0")
+		return status.Error(codes.InvalidArgument, "invalid leaderIndex: leaderIndex must be greater than 0")
 	}
 
 	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: req.LeaderIndex + DefaultMaxLogRecords}
 	for {
 		read, err := l.readLog(t.ClusterID, logRange, server)
 		if err != nil {
-			return err
+			return status.FromContextError(err).Err()
 		}
 		if read == 0 {
 			return nil

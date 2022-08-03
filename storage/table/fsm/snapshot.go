@@ -15,7 +15,7 @@ import (
 	sm "github.com/lni/dragonboat/v3/statemachine"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/errors"
 )
 
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
@@ -79,13 +79,13 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) 
 // atomically swapped with the existing DB to complete the recovery.
 func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
 	if p.closed {
-		return storage.ErrStateMachineClosed
+		return errors.ErrStateMachineClosed
 	}
 	if p.clusterID < 1 {
-		return storage.ErrInvalidClusterID
+		return errors.ErrInvalidClusterID
 	}
 	if p.nodeID < 1 {
-		return storage.ErrInvalidNodeID
+		return errors.ErrInvalidNodeID
 	}
 
 	randomDirName := rp.GetNewRandomDBDirName()
