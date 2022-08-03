@@ -23,6 +23,7 @@ spec:
         app: {{ template "meta.name" . }}
         release: {{ .Release.Name }}
         version: {{ .Values.image.tag | quote }}
+        logging/cluster-flow: wandera-json
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: {{ .Values.safeToEvict | quote }}
     spec:
