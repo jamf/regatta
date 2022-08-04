@@ -14,6 +14,7 @@ regatta leader [flags]
       --api.key-filename string                        Path to the API server private key file. (default "hack/server.key")
       --api.reflection-api                             Whether reflection API is provided. Should not be turned on in production.
       --dev-mode                                       Dev mode enabled (verbose logging, human-friendly log format).
+      --experimental.automaxprocs                      Whether to attempt to autodetect GOMAXPROCS value from Cgroup settings.
       --experimental.tanlogdb                          Whether experimental LogDB implementation Tan is used in-place of Pebble based one.
   -h, --help                                           help for leader
       --kafka.brokers strings                          Address of the Kafka broker. (default [127.0.0.1:9092])
