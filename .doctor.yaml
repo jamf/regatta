@@ -4,3 +4,8 @@ tasks:
 - name: dismissStaleReviews
 # Check whether pull request contains fixup commits.
 - name: blockFixup
+# Check Jenkins job status
+- name: checkJobStatus
+  config:
+    jobs:
+    - name: master-acceptance-tests-regatta
