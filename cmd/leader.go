@@ -79,6 +79,9 @@ func leader(_ *cobra.Command, _ []string) {
 	}()
 	zap.ReplaceGlobals(logger)
 	log := logger.Sugar().Named("root")
+	if viper.GetBool("experimental.automaxprocs") {
+		autoSetMaxprocs(log)
+	}
 	// Check signals
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
