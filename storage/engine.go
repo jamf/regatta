@@ -6,10 +6,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	dbl "github.com/lni/dragonboat/v3/logger"
-	"github.com/lni/dragonboat/v3/plugin/tan"
+	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/config"
+	dbl "github.com/lni/dragonboat/v4/logger"
+	"github.com/lni/dragonboat/v4/plugin/tan"
 	rl "github.com/wandera/regatta/log"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/tables"
@@ -119,16 +119,14 @@ func createNodeHost(cfg Config) (*dragonboat.NodeHost, error) {
 	dbl.GetLogger("settings").SetLevel(dbl.INFO)
 
 	nhc := config.NodeHostConfig{
-		WALDir:                        cfg.WALDir,
-		NodeHostDir:                   cfg.NodeHostDir,
-		RTTMillisecond:                cfg.RTTMillisecond,
-		RaftAddress:                   cfg.RaftAddress,
-		ListenAddress:                 cfg.ListenAddress,
-		EnableMetrics:                 true,
-		MaxSnapshotRecvBytesPerSecond: cfg.MaxSnapshotRecvBytesPerSecond,
-		MaxSnapshotSendBytesPerSecond: cfg.MaxSnapshotSendBytesPerSecond,
-		MaxReceiveQueueSize:           cfg.MaxReceiveQueueSize,
-		MaxSendQueueSize:              cfg.MaxSendQueueSize,
+		WALDir:              cfg.WALDir,
+		NodeHostDir:         cfg.NodeHostDir,
+		RTTMillisecond:      cfg.RTTMillisecond,
+		RaftAddress:         cfg.RaftAddress,
+		ListenAddress:       cfg.ListenAddress,
+		EnableMetrics:       true,
+		MaxReceiveQueueSize: cfg.MaxReceiveQueueSize,
+		MaxSendQueueSize:    cfg.MaxSendQueueSize,
 	}
 
 	if cfg.LogDBImplementation == Tan {

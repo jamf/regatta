@@ -3,7 +3,7 @@ package log
 import (
 	"strings"
 
-	"github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v4/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

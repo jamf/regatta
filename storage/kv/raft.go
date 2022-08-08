@@ -5,14 +5,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/lni/dragonboat/v3"
+	"github.com/lni/dragonboat/v4"
 )
 
 import (
 	"encoding/json"
 	"fmt"
 
-	dbsm "github.com/lni/dragonboat/v3/statemachine"
+	dbsm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 const (

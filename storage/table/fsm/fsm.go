@@ -14,7 +14,7 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
-	sm "github.com/lni/dragonboat/v3/statemachine"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/oxtoacart/bpool"
 	"github.com/prometheus/client_golang/prometheus"
 	rp "github.com/wandera/regatta/pebble"

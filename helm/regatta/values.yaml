@@ -64,9 +64,6 @@ raft:
   rtt: 50ms
   snapshotEntries: 10000
   compactionOverhead: 5000
-  # 0 means unlimited
-  maxSnapshotRecvBytesPerSecond: 0
-  maxSnapshotSendBytesPerSecond: 0
   heartbeatRTT: 4
   electionRTT: 100
 

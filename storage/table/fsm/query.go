@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
-	sm "github.com/lni/dragonboat/v3/statemachine"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/key"

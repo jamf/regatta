@@ -7,9 +7,9 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	"github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/config"
+	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
@@ -170,7 +170,7 @@ func TestManager_reconcile(t *testing.T) {
 func Test_diffTables(t *testing.T) {
 	type args struct {
 		tables   map[string]table.Table
-		raftInfo []dragonboat.ClusterInfo
+		raftInfo []dragonboat.ShardInfo
 	}
 	tests := []struct {
 		name        string
@@ -187,7 +187,7 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10001,
 					},
 				},
-				raftInfo: []dragonboat.ClusterInfo{},
+				raftInfo: []dragonboat.ShardInfo{},
 			},
 			wantToStart: map[uint64]table.Table{
 				10001: {
@@ -206,7 +206,7 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10,
 					},
 				},
-				raftInfo: []dragonboat.ClusterInfo{},
+				raftInfo: []dragonboat.ShardInfo{},
 			},
 			wantToStart: nil,
 			wantToStop:  nil,
@@ -224,15 +224,15 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10002,
 					},
 				},
-				raftInfo: []dragonboat.ClusterInfo{
+				raftInfo: []dragonboat.ShardInfo{
 					{
-						ClusterID: 10001,
+						ShardID: 10001,
 					},
 					{
-						ClusterID: 10002,
+						ShardID: 10002,
 					},
 					{
-						ClusterID: 10003,
+						ShardID: 10003,
 					},
 				},
 			},
@@ -252,15 +252,15 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10002,
 					},
 				},
-				raftInfo: []dragonboat.ClusterInfo{
+				raftInfo: []dragonboat.ShardInfo{
 					{
-						ClusterID: 10001,
+						ShardID: 10001,
 					},
 					{
-						ClusterID: 10002,
+						ShardID: 10002,
 					},
 					{
-						ClusterID: 10,
+						ShardID: 10,
 					},
 				},
 			},
@@ -276,7 +276,7 @@ func Test_diffTables(t *testing.T) {
 						RecoverID: 10001,
 					},
 				},
-				raftInfo: []dragonboat.ClusterInfo{},
+				raftInfo: []dragonboat.ShardInfo{},
 			},
 			wantToStart: map[uint64]table.Table{
 				10001: {
@@ -296,7 +296,7 @@ func Test_diffTables(t *testing.T) {
 						RecoverID: 10002,
 					},
 				},
-				raftInfo: []dragonboat.ClusterInfo{},
+				raftInfo: []dragonboat.ShardInfo{},
 			},
 			wantToStart: map[uint64]table.Table{
 				10001: {

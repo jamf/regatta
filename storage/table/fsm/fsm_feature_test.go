@@ -11,7 +11,7 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
-	sm "github.com/lni/dragonboat/v3/statemachine"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
 	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
