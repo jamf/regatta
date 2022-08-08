@@ -554,9 +554,9 @@ func (m *Manager) stopTable(clusterID uint64) error {
 		return err
 	}
 
-	// Unregister metrics, check dragonboat/v3/event.go for metric names
+	// Unregister metrics, check dragonboat/v4/event.go for metric names
 	if m.nh.NodeHostConfig().EnableMetrics {
-		label := fmt.Sprintf(`{clusterid="%d",nodeid="%d"}`, clusterID, m.cfg.NodeID)
+		label := fmt.Sprintf(`{shardid="%d",replicaid="%d"}`, clusterID, m.cfg.NodeID)
 		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_campaign_launched_total%s`, label))
 		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_campaign_skipped_total%s`, label))
 		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_snapshot_rejected_total%s`, label))
