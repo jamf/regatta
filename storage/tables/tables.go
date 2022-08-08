@@ -12,8 +12,8 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
+	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/config"
 	"github.com/wandera/regatta/proto"
 	serrors "github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/kv"
@@ -164,7 +164,7 @@ func (m *Manager) CreateTable(name string) error {
 }
 
 func (m *Manager) IsLeader() bool {
-	id, b, _ := m.nh.GetLeaderID(metaFSMClusterID)
+	id, _, b, _ := m.nh.GetLeaderID(metaFSMClusterID)
 	return b && id == m.cfg.NodeID
 }
 
@@ -261,7 +261,7 @@ func (m *Manager) Start() error {
 			case <-m.closed:
 				return
 			case <-t.C:
-				_, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
+				_, _, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
 				if ok {
 					go m.reconcileLoop()
 					go m.cleanupLoop()
@@ -273,9 +273,9 @@ func (m *Manager) Start() error {
 	}()
 
 	if m.nh.HasNodeInfo(metaFSMClusterID, m.cfg.NodeID) {
-		return m.nh.StartConcurrentCluster(map[uint64]dragonboat.Target{}, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
+		return m.nh.StartConcurrentReplica(map[uint64]dragonboat.Target{}, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
 	}
-	return m.nh.StartConcurrentCluster(m.members, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
+	return m.nh.StartConcurrentReplica(m.members, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
 }
 
 func (m *Manager) WaitUntilReady() error {
@@ -337,7 +337,7 @@ func (m *Manager) reconcile() error {
 		m.cacheTable(t)
 	}
 
-	start, stop := diffTables(tabs, nhi.ClusterInfoList)
+	start, stop := diffTables(tabs, nhi.ShardInfoList)
 	for id, tbl := range start {
 		err = m.startTable(tbl.Name, id)
 		if err != nil {
@@ -452,7 +452,7 @@ func (m *Manager) getTables() (map[string]table.Table, error) {
 	return tables, nil
 }
 
-func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo) (toStart map[uint64]table.Table, toStop []uint64) {
+func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ShardInfo) (toStart map[uint64]table.Table, toStop []uint64) {
 	tableIDs := make(map[uint64]table.Table)
 	for _, t := range tables {
 		if t.ClusterID != 0 {
@@ -464,7 +464,7 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 	}
 	raftTableIDs := make(map[uint64]struct{})
 	for _, t := range raftInfo {
-		raftTableIDs[t.ClusterID] = struct{}{}
+		raftTableIDs[t.ShardID] = struct{}{}
 	}
 
 	for tID, tName := range tableIDs {
@@ -488,14 +488,14 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ClusterInfo
 
 func (m *Manager) startTable(name string, id uint64) error {
 	if m.nh.HasNodeInfo(id, m.cfg.NodeID) {
-		return m.nh.StartOnDiskCluster(
+		return m.nh.StartOnDiskReplica(
 			map[uint64]dragonboat.Target{},
 			false,
 			fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
 			tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 		)
 	}
-	return m.nh.StartOnDiskCluster(
+	return m.nh.StartOnDiskReplica(
 		m.members,
 		false,
 		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
@@ -550,7 +550,7 @@ func (m *Manager) stopTable(clusterID uint64) error {
 	if err != nil {
 		return err
 	}
-	if err := m.nh.StopCluster(clusterID); err != nil {
+	if err := m.nh.StopShard(clusterID); err != nil {
 		return err
 	}
 
@@ -694,7 +694,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			defer cancel()
 			_, err := m.nh.SyncPropose(ctx, session, bb)
 			if err != nil {
-				if err == dragonboat.ErrClusterNotFound {
+				if err == dragonboat.ErrShardNotFound {
 					m.log.Warn("cluster not found recovery probably started on a different node")
 					return backoff.Permanent(err)
 				}
@@ -729,7 +729,7 @@ func (m *Manager) waitForLeader(clusterID uint64) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-t.C:
-			_, ok, _ := m.nh.GetLeaderID(clusterID)
+			_, _, ok, _ := m.nh.GetLeaderID(clusterID)
 			if ok {
 				return nil
 			}
@@ -739,8 +739,8 @@ func (m *Manager) waitForLeader(clusterID uint64) error {
 
 func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
 	return config.Config{
-		NodeID:                  nodeID,
-		ClusterID:               clusterID,
+		ReplicaID:               nodeID,
+		ShardID:                 clusterID,
 		CheckQuorum:             true,
 		OrderedConfigChange:     true,
 		ElectionRTT:             cfg.ElectionRTT,
@@ -754,8 +754,8 @@ func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
 
 func metaRaftConfig(nodeID uint64, cfg MetaConfig) config.Config {
 	return config.Config{
-		NodeID:              nodeID,
-		ClusterID:           metaFSMClusterID,
+		ReplicaID:           nodeID,
+		ShardID:             metaFSMClusterID,
 		CheckQuorum:         true,
 		PreVote:             true,
 		ElectionRTT:         cfg.ElectionRTT,

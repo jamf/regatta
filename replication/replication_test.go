@@ -8,9 +8,9 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	"github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/config"
+	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"

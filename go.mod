@@ -12,8 +12,8 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/lni/dragonboat/v3 v3.1.1-0.20220531071603-855530305a40
-	github.com/lni/vfs v0.2.1-0.20220408085249-8be85be1c3c1
+	github.com/lni/dragonboat/v4 v4.0.0-20220803152440-a83f853de8b1
+	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/planetscale/vtprotobuf v0.3.0
 	github.com/prometheus/client_golang v1.12.2
@@ -65,7 +65,7 @@ require (
 	github.com/klauspost/compress v1.15.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lni/goutils v1.3.1-0.20220404072553-ddb2075d2587 // indirect
+	github.com/lni/goutils v1.3.1-0.20220604063047-388d67b4dbc4 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/miekg/dns v1.1.41 // indirect

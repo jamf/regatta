@@ -44,10 +44,6 @@ regatta follower [flags]
                                                               dropped to restrict memory usage. When set to 0, it means the queue size is unlimited.
       --raft.max-send-queue-size uint                         MaxSendQueueSize is the maximum size in bytes of each send queue. Once the maximum size is reached, further replication messages will be
                                                               dropped to restrict memory usage. When set to 0, it means the send queue size is unlimited.
-      --raft.max-snapshot-recv-bytes-per-second uint          MaxSnapshotRecvBytesPerSecond defines how much snapshot data can be received each second for all Raft clusters managed by the NodeHost instance.
-                                                              The default value 0 means there is no limit for receiving snapshot data.
-      --raft.max-snapshot-send-bytes-per-second uint          MaxSnapshotSendBytesPerSecond defines how much snapshot data can be sent every second for all Raft clusters managed by the NodeHost instance.
-                                                              The default value 0 means there is no limit set for snapshot streaming.
       --raft.node-host-dir string                             NodeHostDir raft internal storage (default "/tmp/regatta/raft")
       --raft.node-id uint                                     Raft Node ID is a non-zero value used to identify a node within a Raft cluster. (default 1)
       --raft.rtt duration                                     RTTMillisecond defines the average Round Trip Time (RTT) between two NodeHost instances.

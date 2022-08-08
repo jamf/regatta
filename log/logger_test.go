@@ -3,7 +3,7 @@ package log
 import (
 	"testing"
 
-	"github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v4/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
