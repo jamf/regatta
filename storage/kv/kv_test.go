@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lni/dragonboat/v3"
-	"github.com/lni/dragonboat/v3/config"
-	"github.com/lni/dragonboat/v3/logger"
+	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/config"
+	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"
@@ -697,8 +697,8 @@ func newRaftStore() *RaftStore {
 		}
 
 		cc := config.Config{
-			NodeID:             1,
-			ClusterID:          1,
+			ReplicaID:          1,
+			ShardID:            1,
 			ElectionRTT:        5,
 			HeartbeatRTT:       1,
 			CheckQuorum:        true,
@@ -706,7 +706,7 @@ func newRaftStore() *RaftStore {
 			CompactionOverhead: 5000,
 		}
 
-		err = nh.StartConcurrentCluster(map[uint64]string{1: testNodeAddress}, false, NewLFSM(), cc)
+		err = nh.StartConcurrentReplica(map[uint64]string{1: testNodeAddress}, false, NewLFSM(), cc)
 		if err != nil {
 			panic(err)
 		}
@@ -715,7 +715,7 @@ func newRaftStore() *RaftStore {
 		go func() {
 			for {
 				i := nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
-				if i.ClusterInfoList[0].LeaderID == cc.NodeID {
+				if i.ShardInfoList[0].LeaderID == cc.ReplicaID {
 					close(ready)
 					return
 				}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/lni/dragonboat/v3"
+	"github.com/lni/dragonboat/v4"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
 )

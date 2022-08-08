@@ -5,8 +5,8 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/lni/dragonboat/v3/client"
-	sm "github.com/lni/dragonboat/v3/statemachine"
+	"github.com/lni/dragonboat/v4/client"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/fsm"

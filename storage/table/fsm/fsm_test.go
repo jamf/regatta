@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble/vfs"
-	sm "github.com/lni/dragonboat/v3/statemachine"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/util"

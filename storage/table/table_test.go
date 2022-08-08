@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/lni/dragonboat/v3/client"
-	"github.com/lni/dragonboat/v3/logger"
-	sm "github.com/lni/dragonboat/v3/statemachine"
+	"github.com/lni/dragonboat/v4/client"
+	"github.com/lni/dragonboat/v4/logger"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/log"

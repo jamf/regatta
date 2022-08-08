@@ -18,7 +18,7 @@ type RESTServer struct {
 	log        *zap.SugaredLogger
 }
 
-// NewServer returns initialized REST server.
+// NewRESTServer returns initialized REST server.
 func NewRESTServer(addr string) *RESTServer {
 	mux := http.NewServeMux()
 	// expose the registered metrics at `/metrics` path.

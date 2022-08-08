@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/ratelimit"
-	"github.com/lni/dragonboat/v3"
+	"github.com/lni/dragonboat/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/replication/snapshot"
