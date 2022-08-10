@@ -107,7 +107,6 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
 
 	experimentalFlagSet.Bool("experimental.tanlogdb", false, "Whether experimental LogDB implementation Tan is used in-place of Pebble based one.")
-	experimentalFlagSet.Bool("experimental.automaxprocs", false, "Whether to attempt to autodetect GOMAXPROCS value from Cgroup settings.")
 }
 
 func initConfig(set *pflag.FlagSet) {
