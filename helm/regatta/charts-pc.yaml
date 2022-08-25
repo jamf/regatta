@@ -24,9 +24,9 @@ charts:
               storage: 200Gi
       resources:
         requests:
-          cpu: '1'
+          cpu: '2'
         limits:
-          cpu: '1'
+          cpu: '2'
       raft:
         initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
         compactionOverhead: 200000
