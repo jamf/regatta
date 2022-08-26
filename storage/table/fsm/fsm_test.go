@@ -229,6 +229,34 @@ func filledLargeValuesSM() *FSM {
 	return p
 }
 
+func filledIndexOnlySM() *FSM {
+	p := &FSM{
+		fs:         vfs.NewMem(),
+		clusterID:  1,
+		nodeID:     1,
+		dirname:    "/tmp/tst",
+		walDirname: "/tmp/tst",
+		log:        zap.S(),
+	}
+	_, err := p.Open(nil)
+	if err != nil {
+		zap.S().Panic(err)
+	}
+	_, err = p.Update([]sm.Entry{
+		{
+			Index: uint64(1),
+			Cmd: mustMarshallProto(&proto.Command{
+				Table: []byte(testTable),
+				Type:  proto.Command_DUMMY,
+			}),
+		},
+	})
+	if err != nil {
+		zap.S().Panic(err)
+	}
+	return p
+}
+
 var largeValues []string
 
 func init() {

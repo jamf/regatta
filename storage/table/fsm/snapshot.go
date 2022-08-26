@@ -196,8 +196,10 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return err
 	}
 
-	if err := db.Compact(first, last, false); err != nil {
-		return err
+	if pebble.DefaultComparer.Compare(first, last) < 0 {
+		if err := db.Compact(first, last, false); err != nil {
+			return err
+		}
 	}
 
 	if err := rp.SaveCurrentDBDirName(p.fs, p.dirname, randomDirName); err != nil {

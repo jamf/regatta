@@ -20,22 +20,29 @@ func TestSM_Snapshot(t *testing.T) {
 		args args
 	}{
 		{
-			"Pebble -> Pebble",
+			"small values",
 			args{
 				producingSMFactory: filledSM,
 				receivingSMFactory: emptySM,
 			},
 		},
 		{
-			"Pebble(large) -> Pebble",
+			"large values",
 			args{
 				producingSMFactory: filledLargeValuesSM,
 				receivingSMFactory: emptySM,
 			},
 		},
+		{
+			"index only",
+			args{
+				producingSMFactory: filledIndexOnlySM,
+				receivingSMFactory: emptySM,
+			},
+		},
 	}
 	for _, tt := range tests {
-		t.Log("Applying snapshot to the empty DB should produce the same hash")
+		t.Log("applying snapshot to the empty DB should produce the same hash")
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			p := tt.args.producingSMFactory()
@@ -56,18 +63,18 @@ func TestSM_Snapshot(t *testing.T) {
 			}
 			r.NoError(err)
 
-			t.Log("Save snapshot started")
+			t.Log("save snapshot started")
 			err = p.SaveSnapshot(snp, snapf, nil)
 			r.NoError(err)
 			_, err = snapf.Seek(0, 0)
 			r.NoError(err)
 
-			t.Log("Recover from snapshot started")
+			t.Log("recover from snapshot started")
 			stopc := make(chan struct{})
 			err = ep.RecoverFromSnapshot(snapf, stopc)
 			r.NoError(err)
 
-			t.Log("Recovery finished")
+			t.Log("recovery finished")
 
 			got, err := ep.GetHash()
 			r.NoError(err)
