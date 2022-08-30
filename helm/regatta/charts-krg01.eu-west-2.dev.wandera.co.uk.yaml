@@ -29,3 +29,6 @@ charts:
         leaderAddress: regatta.dev.wandera.co.uk:8444
       alerts:
         grpcFailedRequests: 5
+      resources:
+        requests:
+          cpu: 1
