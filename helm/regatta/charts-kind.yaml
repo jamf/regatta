@@ -28,6 +28,8 @@ charts:
           topologyKey: kubernetes.io/hostname
       kafka:
         enabled: false
+      storage:
+        blockCacheSize: 398458880
       persistence:
         storage:
           accessModes:

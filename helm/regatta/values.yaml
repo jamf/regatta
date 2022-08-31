@@ -21,10 +21,10 @@ branch: master
 resources:
   limits:
     cpu: 1
-    memory: 2Gi
+    memory: 3Gi
   requests:
     cpu: 500m
-    memory: 2Gi
+    memory: 3Gi
 
 internalPort: 8443
 metricsPort: 8079
@@ -73,8 +73,8 @@ reflectionAPI:
   enabled: false
 
 storage:
-  # 1520MB default (each table will use up to 64MB for writes, the extra is then used to serve reads)
-  blockCacheSize: 1593835520
+  # 760MB default (each table will use up to 64MB for writes, the extra is then used to serve reads)
+  blockCacheSize: 796917760
 
 persistence: {}
 

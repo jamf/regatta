@@ -33,6 +33,8 @@ charts:
           resources:
             requests:
               storage: 5Gi
+      storage:
+        blockCacheSize: 398458880
       resources:
         limits:
           cpu: 200m
