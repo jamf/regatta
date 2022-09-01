@@ -5,3 +5,5 @@
 /helm/regatta/charts-*-compiled.yaml
 /regatta
 /report
+.DS_Store
+.pre-commit-config.yaml

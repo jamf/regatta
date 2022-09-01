@@ -3,7 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,7 +31,7 @@ Backup consist of file per a table in binary compressed form + human-readable ma
 		var cp *x509.CertPool
 		ca := viper.GetString("ca")
 		if ca != "" {
-			caBytes, err := ioutil.ReadFile(ca)
+			caBytes, err := os.ReadFile(ca)
 			if err != nil {
 				return err
 			}

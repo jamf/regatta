@@ -67,7 +67,7 @@ func (s Reader) WriteTo(w io.Writer) (int64, error) {
 		if err != nil {
 			return n, err
 		}
-		n = n + int64(w)
+		n += int64(w)
 	}
 }
 

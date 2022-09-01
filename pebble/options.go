@@ -46,7 +46,7 @@ func DefaultOptions() *pebble.Options {
 			IndexBlockSize: indexBlockSize,
 			TargetFileSize: int64(sz),
 		}
-		sz = sz * targetFileSizeGrowFactor
+		sz *= targetFileSizeGrowFactor
 		opt.EnsureDefaults()
 		lvlOpts[l] = opt
 	}

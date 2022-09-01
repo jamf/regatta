@@ -22,13 +22,14 @@ func New(cfg Config) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	tm, err := createTableManager(cfg, nh)
-	if err != nil {
-		return nil, err
-	}
 	return &Engine{
 		NodeHost: nh,
-		Manager:  tm,
+		Manager: tables.NewManager(nh, cfg.InitialMembers,
+			tables.Config{
+				NodeID: cfg.NodeID,
+				Table:  tables.TableConfig(cfg.Table),
+				Meta:   tables.MetaConfig(cfg.Meta),
+			}),
 	}, nil
 }
 
@@ -97,16 +98,6 @@ func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResp
 		ctx = dctx
 	}
 	return table.Txn(ctx, req)
-}
-
-func createTableManager(cfg Config, nh *dragonboat.NodeHost) (*tables.Manager, error) {
-	tm := tables.NewManager(nh, cfg.InitialMembers,
-		tables.Config{
-			NodeID: cfg.NodeID,
-			Table:  tables.TableConfig(cfg.Table),
-			Meta:   tables.MetaConfig(cfg.Meta),
-		})
-	return tm, nil
 }
 
 func createNodeHost(cfg Config) (*dragonboat.NodeHost, error) {

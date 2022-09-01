@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -211,7 +210,7 @@ func leader(_ *cobra.Command, _ []string) {
 				log.Panicf("cannot watch replication certificate: %v", err)
 			}
 			defer watcher.Stop()
-			caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
+			caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
 			if err != nil {
 				log.Panicf("cannot load clients CA: %v", err)
 			}

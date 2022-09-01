@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -151,7 +150,7 @@ func follower(_ *cobra.Command, _ []string) {
 		}
 		defer watcher.Stop()
 
-		caBytes, err := ioutil.ReadFile(viper.GetString("replication.ca-filename"))
+		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
 		if err != nil {
 			log.Panicf("cannot load server CA: %v", err)
 		}
