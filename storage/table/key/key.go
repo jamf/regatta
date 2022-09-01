@@ -84,8 +84,7 @@ func (d Decoder) Decode(key *Key) error {
 		}
 	}
 
-	switch header[keyVersionHeaderPos] {
-	case V1:
+	if header[keyVersionHeaderPos] == V1 {
 		k := keyV1{}
 		err := k.Decode(d.r)
 		if err != nil {
@@ -120,8 +119,7 @@ func (e Encoder) Encode(key *Key) (int, error) {
 		return 0, err
 	}
 
-	switch key.version {
-	case V1:
+	if key.version == V1 {
 		k := keyV1{}
 		k.keyType = key.KeyType
 		k.key = key.Key

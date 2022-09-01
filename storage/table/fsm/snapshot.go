@@ -123,7 +123,7 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 			return nil, nil, err
 		}
 		files = append(files, name)
-		count = count + 1
+		count++
 		return sstable.NewWriter(f, rp.WriterOptions()), f, nil
 	}
 

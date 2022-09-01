@@ -48,7 +48,7 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 		}
 		return &proto.ResetResponse{}, nil
 	}
-	if len(req.Table) <= 0 {
+	if len(req.Table) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
 	err := reset(string(req.Table))
@@ -176,6 +176,6 @@ func (s backupReader) WriteTo(w io.Writer) (int64, error) {
 		if err != nil {
 			return n, err
 		}
-		n = n + int64(w)
+		n += int64(w)
 	}
 }

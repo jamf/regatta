@@ -3,7 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,7 +33,7 @@ It is almost certain that after restore the cold-start of all the followers watc
 		var cp *x509.CertPool
 		ca := viper.GetString("ca")
 		if ca != "" {
-			caBytes, err := ioutil.ReadFile(ca)
+			caBytes, err := os.ReadFile(ca)
 			if err != nil {
 				return err
 			}

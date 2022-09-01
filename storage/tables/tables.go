@@ -664,7 +664,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 				return err
 			}
 		}
-		estimatedSize = estimatedSize + n
+		estimatedSize += n
 
 		if !last {
 			cmd.Reset()

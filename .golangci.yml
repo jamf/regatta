@@ -3,19 +3,16 @@ run:
 linters:
   disable-all: true
   enable:
-  - deadcode
+  - gci
+  - godot
+  - gofumpt
   - gosimple
   - govet
   - ineffassign
   - staticcheck
-  - structcheck
   - typecheck
+  - unparam
   - unused
-  - varcheck
-  - gofmt
-  - gci
-  - godot
-  - gofumpt
   - whitespace
 
 issues:

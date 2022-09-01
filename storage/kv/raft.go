@@ -2,16 +2,12 @@ package kv
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/lni/dragonboat/v4"
-)
-
-import (
-	"encoding/json"
-	"fmt"
-
 	dbsm "github.com/lni/dragonboat/v4/statemachine"
 )
 
