@@ -156,11 +156,26 @@ func (w *worker) Start() {
 				}
 
 				if err := w.do(leaderIndex, clusterID); err != nil {
-					if err == ErrLeaderBehind {
-						w.log.Errorf("the leader log is behind the replication will stop")
-						return
+					switch err {
+					case ErrLeaderBehind:
+						w.log.Errorf("the leader log is behind ... backing off")
+					case ErrUseSnapshot:
+						if w.recoverySemaphore.TryAcquire(1) {
+							func() {
+								defer w.recoverySemaphore.Release(1)
+								if err := w.recover(); err != nil {
+									w.log.Warnf("error in recovering table %w", err)
+								}
+							}()
+						} else {
+							w.log.Info("maximum number of recoveries already running")
+							if _, err := w.tm.ReturnTable(w.Table); err != nil {
+								w.log.Warnf("error retruning table %w", err)
+							}
+						}
+					default:
+						w.log.Warnf("worker error %w", err)
 					}
-					w.log.Warnf("worker error %v", err)
 				}
 			case <-w.closer:
 				return
@@ -195,29 +210,35 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 		return fmt.Errorf("could not open log stream: %w", err)
 	}
 
-	if err = w.read(ctx, stream, clusterID); err != nil {
-		switch err {
-		case ErrUseSnapshot:
-			if w.recoverySemaphore.TryAcquire(1) {
-				defer w.recoverySemaphore.Release(1)
-				return w.recover()
-			}
-			w.log.Info("maximum number of recoveries already running")
-			ok, err := w.tm.ReturnTable(w.Table)
-			if err != nil {
-				return err
-			}
-			if ok {
-				w.log.Info("table returned")
-			}
+	for {
+		replicateRes, err := stream.Recv()
+		if err == io.EOF {
 			return nil
-		case ErrLeaderBehind:
-			return ErrLeaderBehind
-		default:
-			return fmt.Errorf("could not store the log stream: %w", err)
+		}
+		if err != nil {
+			return fmt.Errorf("error reading replication stream: %w", err)
+		}
+
+		switch res := replicateRes.Response.(type) {
+		case *proto.ReplicateResponse_CommandsResponse:
+			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
+				return fmt.Errorf("could not propose: %w", err)
+			}
+		case *proto.ReplicateResponse_ErrorResponse:
+			switch res.ErrorResponse.Error {
+			case proto.ReplicateError_LEADER_BEHIND:
+				return ErrLeaderBehind
+			case proto.ReplicateError_USE_SNAPSHOT:
+				return ErrUseSnapshot
+			default:
+				return fmt.Errorf(
+					"unknown replicate error response '%s' with id %d",
+					res.ErrorResponse.Error.String(),
+					res.ErrorResponse.Error,
+				)
+			}
 		}
 	}
-	return nil
 }
 
 func (w *worker) tableState() (uint64, uint64, error) {
@@ -233,40 +254,6 @@ func (w *worker) tableState() (uint64, uint64, error) {
 		return 0, 0, fmt.Errorf("could not get leader index key: %w", err)
 	}
 	return idxRes.Index, t.ClusterID, nil
-}
-
-// read commands from the stream and save them to the cluster.
-func (w *worker) read(ctx context.Context, stream proto.Log_ReplicateClient, clusterID uint64) error {
-	for {
-		replicateRes, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("could not read from the stream: %v", err)
-		}
-
-		switch res := replicateRes.Response.(type) {
-		case *proto.ReplicateResponse_CommandsResponse:
-			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
-				return fmt.Errorf("could not propose: %w", err)
-			}
-		case *proto.ReplicateResponse_ErrorResponse:
-			if res.ErrorResponse.Error == proto.ReplicateError_LEADER_BEHIND {
-				return ErrLeaderBehind
-			}
-
-			if res.ErrorResponse.Error == proto.ReplicateError_USE_SNAPSHOT {
-				return ErrUseSnapshot
-			}
-
-			return fmt.Errorf(
-				"unknown replicate error response '%s' with id %d",
-				res.ErrorResponse.Error.String(),
-				res.ErrorResponse.Error,
-			)
-		}
-	}
 }
 
 func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
