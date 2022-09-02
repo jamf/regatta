@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
+	"github.com/wandera/regatta/storage/table"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -28,35 +30,31 @@ func Test_worker_do(t *testing.T) {
 	t.Log("create tables")
 	r.NoError(leaderTM.CreateTable("test"))
 	r.NoError(followerTM.CreateTable("test"))
-	time.Sleep(5 * time.Second)
 
+	var at table.ActiveTable
+	var err error
 	t.Log("load some data")
-	at, err := leaderTM.GetTable("test")
-	r.NoError(err)
+	r.Eventually(func() bool {
+		at, err = leaderTM.GetTable("test")
+		return err == nil
+	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 
 	keyCount := 1000
-	func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		for i := 0; i < keyCount; i++ {
-			_, err = at.Put(ctx, &proto.PutRequest{
-				Key:   []byte(fmt.Sprintf("foo-%d", i)),
-				Value: []byte("bar"),
-			})
-			r.NoError(err)
-		}
-	}()
+	r.NoError(fillData(keyCount, at))
 
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
+	logger, obs := observer.New(zap.DebugLevel)
 	w := &worker{
-		Table:      "test",
-		logTimeout: time.Minute,
-		tm:         followerTM,
-		logClient:  proto.NewLogClient(conn),
-		nh:         followerNH,
-		log:        zaptest.NewLogger(t).Sugar(),
+		Table:         "test",
+		logTimeout:    time.Minute,
+		tm:            followerTM,
+		logClient:     proto.NewLogClient(conn),
+		nh:            followerNH,
+		log:           zap.New(logger).Sugar(),
+		pollInterval:  500 * time.Millisecond,
+		leaseInterval: 500 * time.Millisecond,
 		metrics: struct {
 			replicationIndex  prometheus.Gauge
 			replicationLeased prometheus.Gauge
@@ -114,6 +112,49 @@ func Test_worker_do(t *testing.T) {
 	idxAfter, _, err := w.tableState()
 	r.NoError(err)
 	r.Equal(idxBefore, idxAfter)
+
+	err = leaderTM.DeleteTable("test")
+	r.NoError(err)
+	t.Log("create empty table test")
+	r.NoError(leaderTM.CreateTable("test"))
+
+	t.Log("load some data")
+	r.Eventually(func() bool {
+		at, err = leaderTM.GetTable("test")
+		return err == nil
+	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
+	r.NoError(err)
+
+	keyCount = 90
+	r.NoError(fillData(keyCount, at))
+	w.Start()
+	idx, id, err = w.tableState()
+	r.NoError(err)
+	r.Eventually(func() bool {
+		return obs.FilterMessage("the leader log is behind ... backing off").Len() > 0
+	}, 5*time.Second, 500*time.Millisecond)
+
+	keyCount = 1000
+	r.NoError(fillData(keyCount, at))
+	r.Eventually(func() bool {
+		idx, id, err = w.tableState()
+		r.NoError(err)
+		return idx > uint64(200)
+	}, 5*time.Second, 500*time.Millisecond)
+}
+
+func fillData(keyCount int, at table.ActiveTable) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	for i := 0; i < keyCount; i++ {
+		if _, err := at.Put(ctx, &proto.PutRequest{
+			Key:   []byte(fmt.Sprintf("foo-%d", i)),
+			Value: []byte("bar"),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func Test_worker_recover(t *testing.T) {
@@ -126,14 +167,17 @@ func Test_worker_recover(t *testing.T) {
 	t.Log("create tables")
 	r.NoError(leaderTM.CreateTable("test"))
 	r.NoError(leaderTM.CreateTable("test2"))
-	time.Sleep(5 * time.Second)
 
+	var at table.ActiveTable
 	t.Log("load some data")
-	at, err := leaderTM.GetTable("test")
-	r.NoError(err)
+	r.Eventually(func() bool {
+		var err error
+		at, err = leaderTM.GetTable("test")
+		return err == nil
+	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, err = at.Put(ctx, &proto.PutRequest{
+	_, err := at.Put(ctx, &proto.PutRequest{
 		Key:   []byte("foo"),
 		Value: []byte("bar"),
 	})
