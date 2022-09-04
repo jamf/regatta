@@ -74,8 +74,8 @@ func DefaultOptions() *pebble.Options {
 	}
 }
 
-func WriterOptions() sstable.WriterOptions {
-	return DefaultOptions().MakeWriterOptions(0, sstable.TableFormatPebblev2)
+func WriterOptions(level int) sstable.WriterOptions {
+	return DefaultOptions().MakeWriterOptions(level, sstable.TableFormatPebblev2)
 }
 
 func ReaderOptions() sstable.ReaderOptions {
