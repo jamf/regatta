@@ -6,6 +6,8 @@ import (
 	"io"
 	"path"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
@@ -16,16 +18,28 @@ import (
 	"github.com/wandera/regatta/storage/errors"
 )
 
+type snapshotContext struct {
+	*pebble.Snapshot
+	once sync.Once
+}
+
+func (s *snapshotContext) Close() (err error) {
+	s.once.Do(func() { err = s.Snapshot.Close() })
+	return
+}
+
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *FSM) PrepareSnapshot() (interface{}, error) {
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-	return db.NewSnapshot(), nil
+	ctx := &snapshotContext{Snapshot: db.NewSnapshot()}
+	runtime.SetFinalizer(ctx, func(s *snapshotContext) { _ = s.Close() })
+	return ctx, nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
 func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
-	snapshot := ctx.(*pebble.Snapshot)
+	snapshot := ctx.(*snapshotContext)
 	iter := snapshot.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {

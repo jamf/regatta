@@ -44,10 +44,10 @@ var (
 	ErrMalformedKeyHeader = errors.New("malformed key header")
 )
 
-// Key generic internal Key (not that field support might be dependant on the stored key version).
+// Key generic internal Key (not that field support might be dependent on the stored key version).
 type Key struct {
 	version uint8
-	// KeyType type of a Key - supported since V1.
+	// KeyType type of Key - supported since V1.
 	KeyType Type
 	// Key data part of a Key - supported since V1.
 	Key []byte

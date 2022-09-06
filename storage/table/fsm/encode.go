@@ -27,7 +27,7 @@ func (f *memFile) Data() []byte {
 	return f.Bytes()
 }
 
-// Flush is implemented so it prevents buffering inside Writter.
+// Flush is implemented so it prevents buffering inside Writer.
 func (f *memFile) Flush() error {
 	return nil
 }
