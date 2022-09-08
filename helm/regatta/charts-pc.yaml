@@ -49,3 +49,5 @@ charts:
         backup:
           enabled: true
           bucket: "s3://wandera-w2-production-core-regatta-backup-eu-west-1"
+      alerts:
+        grpcFailedRequests: 5

@@ -6,28 +6,40 @@ import (
 	"io"
 	"path"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/sstable"
-	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/errors"
 )
+
+type snapshotContext struct {
+	*pebble.Snapshot
+	once sync.Once
+}
+
+func (s *snapshotContext) Close() (err error) {
+	s.once.Do(func() { err = s.Snapshot.Close() })
+	return
+}
 
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *FSM) PrepareSnapshot() (interface{}, error) {
 	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-	return db.NewSnapshot(), nil
+	ctx := &snapshotContext{Snapshot: db.NewSnapshot()}
+	runtime.SetFinalizer(ctx, func(s *snapshotContext) { _ = s.Close() })
+	return ctx, nil
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
 func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
-	snapshot := ctx.(*pebble.Snapshot)
+	snapshot := ctx.(*snapshotContext)
 	iter := snapshot.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {
@@ -38,40 +50,37 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) 
 		}
 	}()
 
-	// calculate the total snapshot size and send to writer
-	count := uint64(0)
-	for iter.First(); iter.Valid(); iter.Next() {
-		count++
-	}
-	err := binary.Write(w, binary.LittleEndian, count)
-	if err != nil {
-		return err
-	}
-
+	// write L6 SSTs as there is 0 overlap of keys
+	options := rp.WriterOptions(6)
+	memfile := &memFile{}
+	sstWriter := sstable.NewWriter(memfile, options)
 	// iterate through the whole kv space and send it to writer
 	for iter.First(); iter.Valid(); iter.Next() {
 		select {
 		case <-stopc:
 			return sm.ErrSnapshotStopped
 		default:
-			kv := &proto.KeyValue{
-				Key:   iter.Key(),
-				Value: iter.Value(),
-			}
-			entry, err := kv.MarshalVT()
-			if err != nil {
+			if err := sstWriter.Set(iter.Key(), iter.Value()); err != nil {
 				return err
 			}
-			err = binary.Write(w, binary.LittleEndian, uint64(kv.SizeVT()))
-			if err != nil {
-				return err
-			}
-			if _, err := w.Write(entry); err != nil {
-				return err
+			// write SST when maxBatchSize reached and create new writer
+			if sstWriter.EstimatedSize() >= maxBatchSize {
+				if err := sstWriter.Close(); err != nil {
+					return err
+				}
+				if err := writeLenDelimited(memfile, w); err != nil {
+					return err
+				}
+				memfile.Reset()
+				sstWriter = sstable.NewWriter(memfile, options)
 			}
 		}
 	}
-	return nil
+	// write the remaining KVs into last SST
+	if err := sstWriter.Close(); err != nil {
+		return err
+	}
+	return writeLenDelimited(memfile, w)
 }
 
 // RecoverFromSnapshot recovers the state machine state from snapshot specified by
@@ -105,42 +114,15 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 		return err
 	}
 
-	var total uint64
-	if err := binary.Read(r, binary.LittleEndian, &total); err != nil {
-		return err
-	}
+	var (
+		count int
+		size  uint64
+		buff  []byte
+		files []string
+	)
 
-	kv := &proto.KeyValue{}
-	buffer := make([]byte, 0, 128*1024)
-	p.log.Debugf("Starting snapshot recover to %s DB", dbdir)
-
-	count := 0
-	var files []string
-	rollSST := func() (*sstable.Writer, vfs.File, error) {
-		name := filepath.Join(p.dirname, fmt.Sprintf("ingest-%d.sst", count))
-		f, err := p.fs.Create(name)
-		if err != nil {
-			return nil, nil, err
-		}
-		files = append(files, name)
-		count++
-		return sstable.NewWriter(f, rp.WriterOptions()), f, nil
-	}
-
-	w, f, err := rollSST()
-	if err != nil {
-		return err
-	}
-	syncAndCloseSST := func() (err error) {
-		defer func() {
-			err = w.Close()
-		}()
-		return f.Sync()
-	}
-
-	var first, last []byte
-
-	for i := uint64(0); i < total; i++ {
+read:
+	for {
 		select {
 		case <-stopc:
 			_ = db.Close()
@@ -149,57 +131,36 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 			}
 			return sm.ErrSnapshotStopped
 		default:
-			p.log.Debugf("recover i %d", i)
-			var toRead uint64
-			if err := binary.Read(r, binary.LittleEndian, &toRead); err != nil {
-				return err
-			}
-
-			if cap(buffer) < int(toRead) {
-				buffer = make([]byte, toRead)
-			}
-
-			if _, err := io.ReadFull(r, buffer[:toRead]); err != nil {
-				return err
-			}
-			kv.Reset()
-			if err := kv.UnmarshalVT(buffer[:toRead]); err != nil {
-				return err
-			}
-
-			if first == nil {
-				first = kv.Key
-			}
-			last = kv.Key
-
-			if err := w.Set(kv.Key, kv.Value); err != nil {
-				return err
-			}
-
-			if w.EstimatedSize() >= maxBatchSize {
-				if err := syncAndCloseSST(); err != nil {
-					return err
+			if err := binary.Read(r, binary.LittleEndian, &size); err != nil {
+				if err == io.EOF {
+					// this was the last SST
+					break read
 				}
-				w, f, err = rollSST()
-				if err != nil {
-					return err
-				}
+				return err
+			}
+			if uint64(cap(buff)) < size {
+				buff = make([]byte, size)
+			}
+			name := filepath.Join(p.dirname, fmt.Sprintf("ingest-%d.sst", count))
+			f, err := p.fs.Create(name)
+			if err != nil {
+				return err
+			}
+			files = append(files, name)
+			count++
+			if _, err = io.CopyBuffer(f, io.LimitReader(r, int64(size)), buff); err != nil {
+				return err
+			}
+			if err := f.Sync(); err != nil {
+				return err
+			}
+			if err := f.Close(); err != nil {
+				return err
 			}
 		}
 	}
-
-	if err := syncAndCloseSST(); err != nil {
-		return err
-	}
-
 	if err := db.Ingest(files); err != nil {
 		return err
-	}
-
-	if pebble.DefaultComparer.Compare(first, last) < 0 {
-		if err := db.Compact(first, last, false); err != nil {
-			return err
-		}
 	}
 
 	if err := rp.SaveCurrentDBDirName(p.fs, p.dirname, randomDirName); err != nil {
