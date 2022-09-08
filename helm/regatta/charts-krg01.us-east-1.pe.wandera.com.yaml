@@ -28,5 +28,9 @@ charts:
       replication:
         leaderAddress: regatta.pc.wandera.com:8444
       resources:
+        limits:
+          cpu: 2
+          memory: 3Gi
         requests:
-          cpu: 1
+          cpu: 2
+          memory: 3Gi
