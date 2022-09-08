@@ -33,6 +33,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		}
 		updateResult := ResultSuccess
 		res := &proto.CommandResult{}
+
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:
 			rop, err := handlePut(ctx, &proto.RequestOp_Put{
@@ -174,7 +175,9 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 		var end []byte
 		if bytes.Equal(del.RangeEnd, wildcard) {
 			// In order to include the last key in the iterator as well we have to increment the rightmost byte of the maximum key.
-			end = incrementRightmostByte(maxUserKey)
+			end = make([]byte, len(maxUserKey))
+			copy(end, maxUserKey)
+			end = incrementRightmostByte(end)
 		} else {
 			upperBoundBuf := bufferPool.Get()
 			defer bufferPool.Put(upperBoundBuf)
