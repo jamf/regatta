@@ -1,4 +1,4 @@
-name: golangci-lint
+name: lint
 on:
   pull_request:
 jobs:
@@ -15,3 +15,15 @@ jobs:
         uses: wandera/golangci-lint-action@v3
         with:
           version: v1.49.0
+  gosec:
+    name: gosec
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3.0.2
+    - name: gosec
+      uses: wandera/gosec@master
+      env:
+        GOPROXY: proxy.golang.org,${{ secrets.GOMODS_URL }},direct
+        GONOSUMDB: github.com/wandera/*
+      with:
+        args: ./...
