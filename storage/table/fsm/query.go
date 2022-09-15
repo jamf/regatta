@@ -2,6 +2,7 @@ package fsm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"sync/atomic"
 
@@ -118,6 +119,22 @@ func commandSnapshot(reader pebble.Reader, tableName string, w io.Writer, stopc 
 	return idx, nil
 }
 
+func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
+	indexVal, closer, err := db.Get(indexKey)
+	if err != nil {
+		if err != pebble.ErrNotFound {
+			return 0, err
+		}
+		return 0, nil
+	}
+
+	defer func() {
+		err = closer.Close()
+	}()
+
+	return binary.LittleEndian.Uint64(indexVal), nil
+}
+
 func lookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.ResponseOp_Range, error) {
 	if req.RangeEnd != nil {
 		return rangeLookup(reader, req)
@@ -131,6 +148,9 @@ func rangeLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.Respo
 		return nil, err
 	}
 	iter := reader.NewIter(opts)
+	defer func() {
+		_ = iter.Close()
+	}()
 
 	fill := addKVPair
 	if req.KeysOnly {
@@ -138,10 +158,6 @@ func rangeLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.Respo
 	} else if req.CountOnly {
 		fill = addCountOnly
 	}
-
-	defer func() {
-		_ = iter.Close()
-	}()
 
 	response := &proto.ResponseOp_Range{}
 	if err = iterate(iter, int(req.Limit), fill, response); err != nil {

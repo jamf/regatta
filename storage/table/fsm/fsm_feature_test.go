@@ -406,6 +406,7 @@ func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
 
 	var outputs []outputRecord
 	iter := db.NewIter(nil)
+	defer iter.Close()
 	for iter.First(); iter.Valid(); iter.Next() {
 		record := outputRecord{
 			Key:   make([]byte, len(iter.Key())),
@@ -493,6 +494,7 @@ func testConsistency(t *testing.T, version int) {
 
 	i := 0
 	iter := db.NewIter(nil)
+	defer iter.Close()
 	for iter.First(); iter.Valid(); iter.Next() {
 		r.Equal(outputRecords[i].Key, iter.Key())
 		r.Equal(outputRecords[i].Value, iter.Value())
