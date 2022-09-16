@@ -1,7 +1,6 @@
 package key
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 )
@@ -40,14 +39,11 @@ type keyV1 struct {
 	key     []byte
 }
 
-func (k keyV1) Encode(writer io.Writer) (int, error) {
-	if err := binary.Write(writer, binary.BigEndian, k.keyType); err != nil {
-		return 0, err
-	}
-	if err := binary.Write(writer, binary.BigEndian, k.key); err != nil {
-		return 1, err
-	}
-	return 1 + len(k.key), nil
+func (k *keyV1) Encode(writer io.Writer) (int, error) {
+	bytes := make([]byte, 1+len(k.key))
+	bytes[0] = byte(k.keyType)
+	copy(bytes[1:], k.key)
+	return writer.Write(bytes[:])
 }
 
 func (k *keyV1) Decode(reader io.Reader) error {
