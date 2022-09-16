@@ -2,7 +2,6 @@ package fsm
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -161,22 +160,6 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	return readLocalIndex(db, sysLocalIndex)
 }
 
-func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
-	indexVal, closer, err := db.Get(indexKey)
-	if err != nil {
-		if err != pebble.ErrNotFound {
-			return 0, err
-		}
-		return 0, nil
-	}
-
-	defer func() {
-		err = closer.Close()
-	}()
-
-	return binary.LittleEndian.Uint64(indexVal), nil
-}
-
 // Sync synchronizes all in-core state of the state machine to permanent
 // storage so the state machine can continue from its latest state after
 // reboot.
@@ -205,11 +188,14 @@ func (p *FSM) GetHash() (uint64, error) {
 		if err := iter.Close(); err != nil {
 			p.log.Error(err)
 		}
+		if err := snap.Close(); err != nil {
+			p.log.Error(err)
+		}
 	}()
 
 	// Compute Hash
 	hash64 := fnv.New64()
-	// iterate through he whole kv space and send it to hash func
+	// iterate through the whole kv space and send it to hash func
 	for iter.First(); iter.Valid(); iter.Next() {
 		_, err := hash64.Write(iter.Key())
 		if err != nil {

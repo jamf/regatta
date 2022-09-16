@@ -12,22 +12,32 @@ func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	for _, cmp := range compare {
+		var (
+			res bool
+			err error
+		)
 		if cmp.RangeEnd != nil {
-			opts, err := iterOptionsForBounds(cmp.Key, cmp.RangeEnd)
-			if err != nil {
-				return false, err
-			}
-			iter := reader.NewIter(opts)
-			if !iter.First() {
-				return false, nil
-			}
-			for iter.First(); iter.Valid(); iter.Next() {
-				if !txnCompareSingle(cmp, iter.Value()) {
+			res, err = func() (bool, error) {
+				opts, err := iterOptionsForBounds(cmp.Key, cmp.RangeEnd)
+				if err != nil {
+					return false, err
+				}
+				iter := reader.NewIter(opts)
+				defer func() {
+					_ = iter.Close()
+				}()
+				if !iter.First() {
 					return false, nil
 				}
-			}
+				for iter.First(); iter.Valid(); iter.Next() {
+					if !txnCompareSingle(cmp, iter.Value()) {
+						return false, nil
+					}
+				}
+				return true, nil
+			}()
 		} else {
-			res, err := func() (bool, error) {
+			res, err = func() (bool, error) {
 				if err := encodeUserKey(keyBuf, cmp.Key); err != nil {
 					return false, err
 				}
@@ -52,12 +62,12 @@ func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 				keyBuf.Reset()
 				return true, nil
 			}()
-			if err != nil {
-				return false, err
-			}
-			if !res {
-				return false, nil
-			}
+		}
+		if err != nil {
+			return false, err
+		}
+		if !res {
+			return false, nil
 		}
 	}
 	return true, nil

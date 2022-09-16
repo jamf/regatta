@@ -164,17 +164,17 @@ func (w *worker) Start() {
 							func() {
 								defer w.recoverySemaphore.Release(1)
 								if err := w.recover(); err != nil {
-									w.log.Warnf("error in recovering table %w", err)
+									w.log.Warnf("error in recovering table: %v", err)
 								}
 							}()
 						} else {
 							w.log.Info("maximum number of recoveries already running")
 							if _, err := w.tm.ReturnTable(w.Table); err != nil {
-								w.log.Warnf("error retruning table %w", err)
+								w.log.Warnf("error retruning table: %v", err)
 							}
 						}
 					default:
-						w.log.Warnf("worker error %w", err)
+						w.log.Warnf("worker error: %v", err)
 					}
 				}
 			case <-w.closer:
