@@ -328,6 +328,7 @@ func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) 
 		grpc.Creds(credentials.NewTLS(&tls.Config{
 			ClientAuth: tls.RequireAndVerifyClientCert,
 			ClientCAs:  cp,
+			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				return watcher.GetCertificate(), nil
 			},

@@ -256,7 +256,8 @@ func follower(_ *cobra.Command, _ []string) {
 
 func createReplicationConn(cp *x509.CertPool, replicationWatcher *cert.Watcher) (*grpc.ClientConn, error) {
 	creds := credentials.NewTLS(&tls.Config{
-		RootCAs: cp,
+		RootCAs:    cp,
+		MinVersion: tls.VersionTLS12,
 		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			return replicationWatcher.GetCertificate(), nil
 		},
