@@ -33,6 +33,7 @@ func init() {
 
 	// REST API flags
 	restFlagSet.String("rest.address", ":8079", "Address the REST API server should listen on.")
+	restFlagSet.Duration("rest.read-timeout", time.Second*5, "Maximum duration for reading entire request")
 
 	// Raft flags
 	raftFlagSet.Duration("raft.rtt", 50*time.Millisecond,

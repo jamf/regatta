@@ -240,7 +240,7 @@ func follower(_ *cobra.Command, _ []string) {
 		}
 
 		// Create REST server
-		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))
+		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
 				log.Panicf("REST listenAndServe failed: %v", err)
