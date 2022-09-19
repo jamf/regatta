@@ -240,7 +240,7 @@ func follower(_ *cobra.Command, _ []string) {
 		}
 
 		// Create REST server
-		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"))
+		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
 				log.Panicf("REST listenAndServe failed: %v", err)
@@ -256,7 +256,8 @@ func follower(_ *cobra.Command, _ []string) {
 
 func createReplicationConn(cp *x509.CertPool, replicationWatcher *cert.Watcher) (*grpc.ClientConn, error) {
 	creds := credentials.NewTLS(&tls.Config{
-		RootCAs: cp,
+		RootCAs:    cp,
+		MinVersion: tls.VersionTLS12,
 		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			return replicationWatcher.GetCertificate(), nil
 		},

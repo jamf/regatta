@@ -25,6 +25,7 @@ func createAPIServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
 		viper.GetString("api.address"),
 		viper.GetBool("api.reflection-api"),
 		grpc.Creds(credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				return watcher.GetCertificate(), nil
 			},
@@ -43,6 +44,7 @@ func createMaintenanceServer(watcher *cert.Watcher) *regattaserver.RegattaServer
 		viper.GetString("maintenance.address"),
 		viper.GetBool("api.reflection-api"),
 		grpc.Creds(credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				return watcher.GetCertificate(), nil
 			},

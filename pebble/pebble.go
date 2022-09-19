@@ -72,6 +72,7 @@ func GetNodeDBDirName(baseDir string, hostname string, name string) string {
 
 // GetNewRandomDBDirName gets new random DB dir name.
 func GetNewRandomDBDirName() string {
+	// #nosec G404 -- Weak random number generator can be used because we do not care whether the result can be predicted.
 	return fmt.Sprintf("%d_%d", rand.Uint64(), time.Now().UnixNano())
 }
 

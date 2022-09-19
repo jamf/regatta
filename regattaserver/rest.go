@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
+	"time"
 
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,7 +20,7 @@ type RESTServer struct {
 }
 
 // NewRESTServer returns initialized REST server.
-func NewRESTServer(addr string) *RESTServer {
+func NewRESTServer(addr string, readTimeout time.Duration) *RESTServer {
 	mux := http.NewServeMux()
 	// expose the registered metrics at `/metrics` path.
 	mux.HandleFunc("/metrics", func(resp http.ResponseWriter, req *http.Request) {
@@ -61,9 +62,10 @@ func NewRESTServer(addr string) *RESTServer {
 	return &RESTServer{
 		addr: addr,
 		httpServer: &http.Server{
-			Addr:     addr,
-			Handler:  mux,
-			ErrorLog: zap.NewStdLog(l.Desugar()),
+			Addr:        addr,
+			Handler:     mux,
+			ErrorLog:    zap.NewStdLog(l.Desugar()),
+			ReadTimeout: readTimeout,
 		},
 		log: l,
 	}
