@@ -95,6 +95,7 @@ type worker struct {
 // Start launches the replication goroutine. To stop it, call worker.Close.
 func (w *worker) Start() {
 	// Sleep up to reconcile interval to prevent the thundering herd
+	// #nosec G404 -- Weak random number generator can be used because we do not care whether the result can be predicted.
 	time.Sleep(time.Duration(rand.Intn(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
 
 	w.wg.Add(1)

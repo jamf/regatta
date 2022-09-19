@@ -150,6 +150,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// #nosec G103
 	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
 	p.wo = &pebble.WriteOptions{Sync: false}
 

@@ -20,6 +20,7 @@ var docsCmd = &cobra.Command{
 	Hidden:             true,
 	DisableFlagParsing: false,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		// #nosec G301
 		err := os.MkdirAll(docsDest, 0o777)
 		if err != nil {
 			return err
