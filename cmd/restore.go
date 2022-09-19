@@ -41,7 +41,10 @@ It is almost certain that after restore the cold-start of all the followers watc
 			cp.AppendCertsFromPEM(caBytes)
 		}
 
-		creds := credentials.NewTLS(&tls.Config{RootCAs: cp})
+		creds := credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    cp,
+		})
 		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(tokenCredentials(viper.GetString("token"))))
 		if err != nil {
 			return err
