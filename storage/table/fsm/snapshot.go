@@ -169,6 +169,7 @@ read:
 	if err := rp.ReplaceCurrentDBFile(p.fs, p.dirname); err != nil {
 		return err
 	}
+	// #nosec G103
 	old := (*pebble.DB)(atomic.SwapPointer(&p.pebble, unsafe.Pointer(db)))
 	p.log.Debugf("Snapshot recovery finished")
 

@@ -54,10 +54,11 @@ func NewConsumer(config Config) (*Consumer, error) {
 		caCertPool = x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
+		// #nosec G402 -- Not actually skipping, the cert is checked using VerifyPeerCertificate
 		tlsConf = &tls.Config{
+			InsecureSkipVerify:    true,
 			Certificates:          []tls.Certificate{clCert},
 			RootCAs:               caCertPool,
-			InsecureSkipVerify:    true, // Not actually skipping, the cert is checked using VerifyPeerCertificate
 			VerifyPeerCertificate: verifyPeerCertificate(caCertPool),
 		}
 	}
