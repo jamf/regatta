@@ -2,8 +2,6 @@ package storage
 
 import (
 	"context"
-	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -278,22 +276,11 @@ func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaf
 		return nil, err
 	}
 
-	fixNHID(nhc.NodeHostDir)
-
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
 		return nil, err
 	}
 	return nh, nil
-}
-
-// TODO Remove after release.
-func fixNHID(dir string) {
-	idPath := path.Join(dir, "NODEHOST.ID")
-	bytes, _ := os.ReadFile(idPath)
-	if len(bytes) != 0 && len(bytes) < 24 {
-		_ = os.Remove(idPath)
-	}
 }
 
 func buildLogDBConfig() config.LogDBConfig {
