@@ -3,7 +3,7 @@ package regattaserver
 import (
 	"bufio"
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"time"
@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/replication/snapshot"
+	serrors "github.com/wandera/regatta/storage/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,6 +26,8 @@ const (
 	DefaultSnapshotChunkSize = 1024 * 1024
 	// DefaultMaxLogRecords is a maximum number of log records sent via a single RPC call.
 	DefaultMaxLogRecords = 10_000
+	// DefaultCacheSize is a size of the cache used during the replication routine.
+	DefaultCacheSize = 1024
 )
 
 // MetadataServer implements Metadata service from proto/replication.proto.
@@ -108,9 +111,9 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 
 // LogServer implements Log service from proto/replication.proto.
 type LogServer struct {
-	Tables     TableService
-	LogReaders LogReaderService
-	Log        *zap.SugaredLogger
+	Tables    TableService
+	LogReader LogReaderService
+	Log       *zap.SugaredLogger
 
 	maxMessageSize uint64
 	metrics        struct {
@@ -123,7 +126,7 @@ func NewLogServer(ts TableService, lr LogReaderService, logger *zap.Logger, maxM
 	ls := &LogServer{
 		Tables:         ts,
 		Log:            logger.Sugar().Named("log-replication-server"),
-		LogReaders:     lr,
+		LogReader:      lr,
 		maxMessageSize: maxMessageSize,
 		metrics: struct {
 			replicationIndex *prometheus.GaugeVec
@@ -195,79 +198,58 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 
 	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: req.LeaderIndex + DefaultMaxLogRecords}
 	for {
-		read, err := l.readLog(t.ClusterID, logRange, server)
+		entries, err := l.LogReader.QueryRaftLog(server.Context(), t.ClusterID, logRange, l.maxMessageSize)
+		if errors.Is(err, serrors.ErrLogBehind) {
+			err = server.Send(repErrLeaderBehind)
+		} else if errors.Is(err, serrors.ErrLogAhead) {
+			err = server.Send(repErrUseSnapshot)
+		}
+
 		if err != nil {
 			return status.FromContextError(err).Err()
 		}
+
+		read := uint64(len(entries))
 		if read == 0 {
 			return nil
 		}
+
+		// Transform entries into actual commands.
+		commands := make([]*proto.ReplicateCommand, 0, len(entries))
+		for _, e := range entries {
+			if cmd, err := entryToCommand(e); err != nil {
+				return err
+			} else {
+				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
+			}
+		}
+
+		msg := &proto.ReplicateResponse{
+			Response: &proto.ReplicateResponse_CommandsResponse{
+				CommandsResponse: &proto.ReplicateCommandsResponse{
+					Commands: commands,
+				},
+			},
+		}
+
+		if err := server.Send(msg); err != nil {
+			return status.FromContextError(err).Err()
+		}
+
 		logRange.FirstIndex += read
 		logRange.LastIndex = logRange.FirstIndex + DefaultMaxLogRecords
 	}
 }
 
-// readLog and write it to the stream.
-func (l *LogServer) readLog(clusterID uint64, logRange dragonboat.LogRange, server proto.Log_ReplicateServer) (uint64, error) {
-	rs, err := l.LogReaders.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, DefaultMaxGRPCSize)
-	if err != nil {
-		return 0, err
+// errorResponseFactory creates a ReplicateResponse error.
+func errorResponseFactory(err proto.ReplicateError) *proto.ReplicateResponse {
+	return &proto.ReplicateResponse{
+		Response: &proto.ReplicateResponse_ErrorResponse{
+			ErrorResponse: &proto.ReplicateErrResponse{
+				Error: err,
+			},
+		},
 	}
-	defer rs.Release()
-	select {
-	case result := <-rs.AppliedC():
-		switch {
-		case result.Completed():
-			entries, _ := result.RaftLogs()
-			commands := make([]*proto.ReplicateCommand, 0, len(entries))
-			for _, e := range entries {
-				cmd, err := entryToCommand(e)
-				if err != nil {
-					return 0, err
-				}
-				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
-			}
-			msg := &proto.ReplicateResponse{
-				Response: &proto.ReplicateResponse_CommandsResponse{
-					CommandsResponse: &proto.ReplicateCommandsResponse{
-						Commands: commands,
-					},
-				},
-			}
-			if err = server.Send(msg); err != nil {
-				return 0, err
-			}
-			return uint64(len(entries)), nil
-		case result.RequestOutOfRange():
-			_, rng := result.RaftLogs()
-			// Follower is up-to-date with the leader, therefore there are no new data to be sent.
-			if rng.LastIndex == logRange.FirstIndex {
-				return 0, nil
-			}
-			// Follower is ahead of the leader, has to be manually fixed.
-			if rng.LastIndex < logRange.FirstIndex {
-				return 0, server.Send(repErrLeaderBehind)
-			}
-			// Follower's leaderIndex is in the leader's snapshot, not in the log.
-			if logRange.FirstIndex < rng.FirstIndex {
-				return 0, server.Send(repErrUseSnapshot)
-			}
-			return 0, fmt.Errorf("request out of range")
-		case result.Timeout():
-			return 0, fmt.Errorf("reading raft log timeouted")
-		case result.Rejected():
-			return 0, fmt.Errorf("reading raft log rejected")
-		case result.Terminated():
-			return 0, fmt.Errorf("reading raft log terminated")
-		case result.Dropped():
-			return 0, fmt.Errorf("raft log query dropped")
-		case result.Aborted():
-			return 0, fmt.Errorf("raft log query aborted")
-		}
-	case <-server.Context().Done():
-		return 0, server.Context().Err()
-	}
-	return 0, nil
 }
 
 // entryToCommand converts the raftpb.Entry to equivalent proto.ReplicateCommand.
@@ -280,15 +262,4 @@ func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
 	}
 	cmd.LeaderIndex = &e.Index
 	return cmd, nil
-}
-
-// errorResponseFactory creates a ReplicateResponse error.
-func errorResponseFactory(err proto.ReplicateError) *proto.ReplicateResponse {
-	return &proto.ReplicateResponse{
-		Response: &proto.ReplicateResponse_ErrorResponse{
-			ErrorResponse: &proto.ReplicateErrResponse{
-				Error: err,
-			},
-		},
-	}
 }

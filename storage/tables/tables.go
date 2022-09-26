@@ -160,6 +160,7 @@ func (m *Manager) CreateTable(name string) error {
 	if err != nil {
 		return err
 	}
+
 	return m.startTable(created.Name, created.ClusterID)
 }
 
@@ -199,6 +200,7 @@ func (m *Manager) DeleteTable(name string) error {
 	if err != nil {
 		return err
 	}
+
 	return m.store.Delete(storeName, tab.Ver)
 }
 

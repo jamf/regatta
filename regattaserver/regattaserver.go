@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/table"
 )
@@ -27,5 +28,5 @@ type TableService interface {
 }
 
 type LogReaderService interface {
-	QueryRaftLog(clusterID uint64, firstIndex uint64, lastIndex uint64, maxSize uint64) (*dragonboat.RequestState, error)
+	QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error)
 }

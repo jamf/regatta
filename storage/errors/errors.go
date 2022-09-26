@@ -32,4 +32,9 @@ var (
 	ErrManagerClosed           = errors.New("manager closed")
 	ErrLeaseNotAcquired        = errors.New("lease not acquired")
 	ErrNodeHostInfoUnavailable = errors.New("nodehost info unavailable")
+
+	// ErrLogBehind the queried log is behind and contains only older indices.
+	ErrLogBehind = errors.New("queried log is behind")
+	// ErrLogAhead the queried log is ahead and contains only newer indices.
+	ErrLogAhead = errors.New("queried log is ahead")
 )

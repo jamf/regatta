@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
+	"github.com/wandera/regatta/storage"
+	"github.com/wandera/regatta/storage/logreader"
 	"github.com/wandera/regatta/storage/table"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
@@ -239,7 +241,23 @@ func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *r
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterLogServer(server, regattaserver.NewLogServer(manager, nh, zap.NewNop(), 1024))
+	e := &storage.Engine{
+		NodeHost: nh,
+		Manager:  manager,
+		LogReader: &logreader.LogReader{
+			ShardCacheSize: 1024,
+			NodeHost:       nh,
+		},
+	}
+	proto.RegisterLogServer(
+		server,
+		regattaserver.NewLogServer(
+			manager,
+			e.LogReader,
+			zap.NewNop(),
+			1024,
+		),
+	)
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
