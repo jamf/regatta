@@ -596,8 +596,8 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| cluster_id | [uint64](#uint64) |  | cluster_id is the ID of the cluster which sent the response. |
-| member_id | [uint64](#uint64) |  | member_id is the ID of the member which sent the response. |
+| shard_id | [uint64](#uint64) |  | shard_id is the ID of the shard which sent the response. |
+| replica_id | [uint64](#uint64) |  | replica_id is the ID of the member which sent the response. |
 | revision | [int64](#int64) |  | revision is the key-value store revision when the request was applied. |
 | raft_term | [uint64](#uint64) |  | raft_term is the raft term when the request was applied. |
 | raft_leader_id | [uint64](#uint64) |  | raft_leader_id is the ID of the actual raft quorum leader. |
