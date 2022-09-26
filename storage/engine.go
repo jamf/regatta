@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/lni/dragonboat/v4"
@@ -19,9 +20,74 @@ import (
 
 const defaultQueryTimeout = 5 * time.Second
 
+func newClusterView() *clusterView {
+	return &clusterView{
+		replicaMap: map[uint64]map[uint64]raftio.LeaderInfo{},
+		shardsMap:  map[uint64]uint64{},
+	}
+}
+
+type clusterView struct {
+	replicaMap map[uint64]map[uint64]raftio.LeaderInfo
+	shardsMap  map[uint64]uint64
+	lock       sync.RWMutex
+}
+
+func (v *clusterView) update(info raftio.LeaderInfo) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	if info.LeaderID == 0 {
+		previousLeader := v.shardsMap[info.ShardID]
+		delete(v.shardsMap, info.ShardID)
+		v.mutateNodeMap(previousLeader, func(m map[uint64]raftio.LeaderInfo) {
+			delete(m, info.ShardID)
+		})
+	} else {
+		v.shardsMap[info.ShardID] = info.LeaderID
+		v.mutateNodeMap(info.LeaderID, func(m map[uint64]raftio.LeaderInfo) {
+			m[info.ShardID] = info
+		})
+	}
+}
+
+type clusterViewSnapshot map[uint64]map[uint64]raftio.LeaderInfo
+
+func (v *clusterView) snapshot() clusterViewSnapshot {
+	v.lock.RLock()
+	defer v.lock.RUnlock()
+	snapshot := clusterViewSnapshot{}
+	for replicaID, m := range v.replicaMap {
+		if _, ok := snapshot[replicaID]; !ok {
+			snapshot[replicaID] = map[uint64]raftio.LeaderInfo{}
+		}
+		for shardID, info := range m {
+			snapshot[replicaID][shardID] = info
+		}
+	}
+	return snapshot
+}
+
+func (v *clusterView) mutateNodeMap(nodeID uint64, f func(m map[uint64]raftio.LeaderInfo)) {
+	m, ok := v.replicaMap[nodeID]
+	if !ok {
+		m = make(map[uint64]raftio.LeaderInfo, 0)
+	}
+
+	f(m)
+	v.replicaMap[nodeID] = m
+
+	if len(m) <= 0 {
+		delete(v.replicaMap, nodeID)
+	}
+}
+
 func New(cfg Config) (*Engine, error) {
-	e := &Engine{cfg: cfg}
-	nh, err := createNodeHost(cfg, e)
+	e := &Engine{
+		cfg:         cfg,
+		clusterView: newClusterView(),
+	}
+	nh, err := createNodeHost(cfg, e, e)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +115,9 @@ func New(cfg Config) (*Engine, error) {
 type Engine struct {
 	*dragonboat.NodeHost
 	*tables.Manager
-	cfg       Config
-	LogReader *logreader.LogReader
+	cfg         Config
+	LogReader   *logreader.LogReader
+	clusterView *clusterView
 }
 
 func (e *Engine) Start() error {
@@ -73,7 +140,12 @@ func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Ran
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Range(ctx, req)
+	rng, err := table.Range(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	rng.Header = e.getHeader(table.ClusterID)
+	return rng, nil
 }
 
 func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
@@ -86,7 +158,12 @@ func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResp
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Put(ctx, req)
+	put, err := table.Put(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	put.Header = e.getHeader(table.ClusterID)
+	return put, nil
 }
 
 func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
@@ -99,7 +176,12 @@ func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*pr
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Delete(ctx, req)
+	del, err := table.Delete(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	del.Header = e.getHeader(table.ClusterID)
+	return del, nil
 }
 
 func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
@@ -112,7 +194,24 @@ func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResp
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Txn(ctx, req)
+	tx, err := table.Txn(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	tx.Header = e.getHeader(table.ClusterID)
+	return tx, nil
+}
+
+func (e *Engine) getHeader(clusterID uint64) *proto.ResponseHeader {
+	snapshot := e.clusterView.snapshot()
+	info := snapshot[e.NodeID()][clusterID]
+	hh := &proto.ResponseHeader{
+		ShardId:      info.ShardID,
+		ReplicaId:    info.ReplicaID,
+		RaftTerm:     info.Term,
+		RaftLeaderId: info.LeaderID,
+	}
+	return hh
 }
 
 func (e *Engine) NodeDeleted(info raftio.NodeInfo) {
@@ -125,6 +224,10 @@ func (e *Engine) NodeReady(info raftio.NodeInfo) {
 	if info.ReplicaID == e.NodeID() {
 		e.LogReader.NodeReady(info)
 	}
+}
+
+func (e *Engine) LeaderUpdated(info raftio.LeaderInfo) {
+	e.clusterView.update(info)
 }
 
 func (e *Engine) NodeHostShuttingDown()                            {}
@@ -142,7 +245,7 @@ func (e *Engine) SnapshotCompacted(info raftio.SnapshotInfo)       {}
 func (e *Engine) LogCompacted(info raftio.EntryInfo)               {}
 func (e *Engine) LogDBCompacted(info raftio.EntryInfo)             {}
 
-func createNodeHost(cfg Config, sel raftio.ISystemEventListener) (*dragonboat.NodeHost, error) {
+func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {
 	dbl.SetLoggerFactory(rl.LoggerFactory(cfg.Logger))
 	dbl.GetLogger("raft").SetLevel(dbl.INFO)
 	dbl.GetLogger("rsm").SetLevel(dbl.WARNING)
@@ -161,6 +264,7 @@ func createNodeHost(cfg Config, sel raftio.ISystemEventListener) (*dragonboat.No
 		MaxReceiveQueueSize: cfg.MaxReceiveQueueSize,
 		MaxSendQueueSize:    cfg.MaxSendQueueSize,
 		SystemEventListener: sel,
+		RaftEventListener:   rel,
 	}
 
 	if cfg.LogDBImplementation == Tan {
