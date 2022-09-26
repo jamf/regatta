@@ -76,4 +76,5 @@ regatta follower [flags]
 
 ### SEE ALSO
 
-* [regatta](regatta.md)  - Regatta is read-optimized distributed key-value store.
+* [regatta](regatta.md)	 - Regatta is read-optimized distributed key-value store.
+

@@ -103,6 +103,9 @@ spec:
             --replication.cert-filename=/replication-cert/tls.crt \
             --replication.key-filename=/replication-cert/tls.key \
             --replication.ca-filename=/replication-cert/ca.crt
+          {{- if .Values.replication.logCacheSize }}
+            --replication.log-cache-size={{ .Values.replication.logCacheSize }}
+          {{- end }}
         ports:
         - name: https
           containerPort: {{ .Values.internalPort }}

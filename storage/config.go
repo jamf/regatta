@@ -88,4 +88,6 @@ type Config struct {
 	Meta MetaConfig
 	// LogDBImplementation underlying LogDB implementation Pebble (default) or Tan.
 	LogDBImplementation LogDBImplementation
+	// LogCacheSize specifies the size of the log cache.
+	LogCacheSize int
 }

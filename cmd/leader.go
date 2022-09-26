@@ -54,6 +54,7 @@ Still under some circumstances a larger message could be sent. So make sure the 
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
+	leaderCmd.PersistentFlags().Int("replication.log-cache-size", regattaserver.DefaultCacheSize, "Size of the replication cache.")
 }
 
 var leaderCmd = &cobra.Command{
@@ -106,6 +107,7 @@ func leader(_ *cobra.Command, _ []string) {
 		EnableMetrics:       true,
 		MaxReceiveQueueSize: viper.GetUint64("raft.max-recv-queue-size"),
 		MaxSendQueueSize:    viper.GetUint64("raft.max-send-queue-size"),
+		LogCacheSize:        viper.GetInt("replication.log-cache-size"),
 		Table: storage.TableConfig{
 			FS:                 vfs.Default,
 			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
@@ -130,7 +132,8 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 			return storage.Default
 		}(),
-	})
+	},
+	)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -216,7 +219,12 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 
 			replication := createReplicationServer(watcher, caBytes, logger.Named("server.replication"))
-			ls := regattaserver.NewLogServer(engine, engine, logger, viper.GetUint64("replication.max-send-message-size-bytes"))
+			ls := regattaserver.NewLogServer(
+				engine.Manager,
+				engine.LogReader,
+				logger,
+				viper.GetUint64("replication.max-send-message-size-bytes"),
+			)
 			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine})
 			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine})
 			proto.RegisterLogServer(replication, ls)

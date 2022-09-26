@@ -2,7 +2,6 @@ package replication
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -16,14 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/replication/snapshot"
+	serror "github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
-)
-
-var (
-	ErrLeaderBehind = errors.New("leader behind")
-	ErrUseSnapshot  = errors.New("use snapshot")
 )
 
 type workerFactory struct {
@@ -158,9 +153,9 @@ func (w *worker) Start() {
 
 				if err := w.do(leaderIndex, clusterID); err != nil {
 					switch err {
-					case ErrLeaderBehind:
+					case serror.ErrLogBehind:
 						w.log.Errorf("the leader log is behind ... backing off")
-					case ErrUseSnapshot:
+					case serror.ErrLogAhead:
 						if w.recoverySemaphore.TryAcquire(1) {
 							func() {
 								defer w.recoverySemaphore.Release(1)
@@ -228,9 +223,9 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 		case *proto.ReplicateResponse_ErrorResponse:
 			switch res.ErrorResponse.Error {
 			case proto.ReplicateError_LEADER_BEHIND:
-				return ErrLeaderBehind
+				return serror.ErrLogBehind
 			case proto.ReplicateError_USE_SNAPSHOT:
-				return ErrUseSnapshot
+				return serror.ErrLogAhead
 			default:
 				return fmt.Errorf(
 					"unknown replicate error response '%s' with id %d",

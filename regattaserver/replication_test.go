@@ -100,7 +100,7 @@ func TestMetadataServer_Get(t *testing.T) {
 	}
 }
 
-func TestLogServer_EntryToCommand(t *testing.T) {
+func TestEntryToCommand(t *testing.T) {
 	zero := uint64(0)
 	tests := []struct {
 		name    string
