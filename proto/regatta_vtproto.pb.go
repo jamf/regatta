@@ -978,7 +978,7 @@ func (m *ResponseHeader) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Revision |= int64(b&0x7F) << shift
+				m.Revision |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

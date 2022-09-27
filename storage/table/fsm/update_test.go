@@ -59,9 +59,12 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 			},
@@ -132,18 +135,24 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 				{
 					Index: 2,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 2,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+							},
+						}),
 					},
 				},
 			},
@@ -185,11 +194,14 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 			},
@@ -228,11 +240,14 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
-							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
-							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+							},
+						}),
 					},
 				},
 			},
@@ -286,27 +301,36 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 				{
 					Index: 2,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 2,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 				{
 					Index: 3,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 3,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+							},
+						}),
 					},
 				},
 			},
@@ -360,27 +384,36 @@ func TestSM_Update(t *testing.T) {
 					Index: 1,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 				{
 					Index: 2,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 2,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
 					},
 				},
 				{
 					Index: 3,
 					Result: sm.Result{
 						Value: 1,
-						Data: mustMarshallProto(&proto.CommandResult{Responses: []*proto.ResponseOp{
-							{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
-						}}),
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 3,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+							},
+						}),
 					},
 				},
 			},

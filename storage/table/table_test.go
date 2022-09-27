@@ -224,7 +224,7 @@ func TestActiveTable_Put(t *testing.T) {
 					Value: []byte("bar"),
 				},
 			},
-			want: &proto.PutResponse{},
+			want: &proto.PutResponse{Header: &proto.ResponseHeader{}},
 		},
 		{
 			name: "Put KV with prev",
@@ -247,7 +247,7 @@ func TestActiveTable_Put(t *testing.T) {
 					PrevKv: true,
 				},
 			},
-			want: &proto.PutResponse{PrevKv: &proto.KeyValue{Key: []byte("foo"), Value: []byte("val")}},
+			want: &proto.PutResponse{PrevKv: &proto.KeyValue{Key: []byte("foo"), Value: []byte("val")}, Header: &proto.ResponseHeader{}},
 		},
 		{
 			name: "Put KV empty key",
@@ -361,7 +361,7 @@ func TestActiveTable_Delete(t *testing.T) {
 				ctx: context.TODO(),
 				req: &proto.DeleteRangeRequest{Key: []byte("foo")},
 			},
-			want: &proto.DeleteRangeResponse{Deleted: 1},
+			want: &proto.DeleteRangeResponse{Deleted: 1, Header: &proto.ResponseHeader{}},
 		},
 		{
 			name: "Delete existing key with prev",
@@ -383,7 +383,7 @@ func TestActiveTable_Delete(t *testing.T) {
 					PrevKv: true,
 				},
 			},
-			want: &proto.DeleteRangeResponse{PrevKvs: []*proto.KeyValue{{Key: []byte("foo"), Value: []byte("val")}}},
+			want: &proto.DeleteRangeResponse{PrevKvs: []*proto.KeyValue{{Key: []byte("foo"), Value: []byte("val")}}, Header: &proto.ResponseHeader{}},
 		},
 		{
 			name: "Delete existing range",
@@ -405,7 +405,7 @@ func TestActiveTable_Delete(t *testing.T) {
 					RangeEnd: []byte("foo1"),
 				},
 			},
-			want: &proto.DeleteRangeResponse{},
+			want: &proto.DeleteRangeResponse{Header: &proto.ResponseHeader{}},
 		},
 		{
 			name: "Delete non-existent key",
@@ -420,7 +420,7 @@ func TestActiveTable_Delete(t *testing.T) {
 						Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}},
 					}}})}, nil)
 			},
-			want: &proto.DeleteRangeResponse{Deleted: 0},
+			want: &proto.DeleteRangeResponse{Deleted: 0, Header: &proto.ResponseHeader{}},
 		},
 		{
 			name: "Delete key too long",

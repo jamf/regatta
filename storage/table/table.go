@@ -119,7 +119,7 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 	}
 	switch r := pr.Responses[0].Response.(type) {
 	case *proto.ResponseOp_ResponsePut:
-		return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv}, nil
+		return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv, Header: &proto.ResponseHeader{Revision: pr.Revision}}, nil
 	default:
 		return nil, errors.ErrUnknownResultType
 	}
@@ -160,7 +160,7 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 	}
 	switch r := dr.Responses[0].Response.(type) {
 	case *proto.ResponseOp_ResponseDeleteRange:
-		return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs}, nil
+		return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs, Header: &proto.ResponseHeader{Revision: dr.Revision}}, nil
 	default:
 		return nil, errors.ErrUnknownResultType
 	}
@@ -201,6 +201,7 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 	return &proto.TxnResponse{
 		Succeeded: fsm.UpdateResult(res.Value) == fsm.ResultSuccess,
 		Responses: txr.Responses,
+		Header:    &proto.ResponseHeader{Revision: txr.Revision},
 	}, nil
 }
 
