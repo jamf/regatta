@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync/atomic"
 	"testing"
 
 	"github.com/cockroachdb/pebble"
@@ -29,7 +28,7 @@ func (e errorReader) Close() error {
 func Test_txnCompare(t *testing.T) {
 	sm := filledSM()
 	defer sm.Close()
-	loadedPebble := (*pebble.DB)(atomic.LoadPointer(&sm.pebble))
+	loadedPebble := sm.pebble.Load()
 
 	type args struct {
 		reader  pebble.Reader

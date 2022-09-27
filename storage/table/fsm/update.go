@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v4/statemachine"
@@ -14,7 +13,7 @@ import (
 
 // Update updates the object.
 func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	db := p.pebble.Load()
 
 	ctx := &updateContext{
 		batch: db.NewBatch(),

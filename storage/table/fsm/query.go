@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
 	sm "github.com/lni/dragonboat/v4/statemachine"
@@ -17,8 +16,7 @@ import (
 func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	switch req := l.(type) {
 	case *proto.TxnRequest:
-		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-		snapshot := db.NewSnapshot()
+		snapshot := p.pebble.Load().NewSnapshot()
 		defer snapshot.Close()
 
 		ok, err := txnCompare(snapshot, req.Compare)
@@ -47,11 +45,10 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		}
 		return resp, nil
 	case *proto.RequestOp_Range:
-		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+		db := p.pebble.Load()
 		return lookup(db, req)
 	case SnapshotRequest:
-		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-		snapshot := db.NewSnapshot()
+		snapshot := p.pebble.Load().NewSnapshot()
 		defer snapshot.Close()
 
 		idx, err := commandSnapshot(snapshot, p.tableName, req.Writer, req.Stopper)
@@ -60,15 +57,13 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		}
 		return &SnapshotResponse{Index: idx}, nil
 	case LocalIndexRequest:
-		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-		idx, err := readLocalIndex(db, sysLocalIndex)
+		idx, err := readLocalIndex(p.pebble.Load(), sysLocalIndex)
 		if err != nil {
 			return nil, err
 		}
 		return &IndexResponse{Index: idx}, nil
 	case LeaderIndexRequest:
-		db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-		idx, err := readLocalIndex(db, sysLeaderIndex)
+		idx, err := readLocalIndex(p.pebble.Load(), sysLeaderIndex)
 		if err != nil {
 			return nil, err
 		}
