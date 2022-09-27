@@ -9,7 +9,6 @@ import (
 	"path"
 	"path/filepath"
 	"sync/atomic"
-	"unsafe"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
@@ -69,7 +68,6 @@ func New(tableName, stateMachineDir, walDirname string, fs vfs.FS, blockCache *p
 		}
 
 		return &FSM{
-			pebble:     nil,
 			tableName:  tableName,
 			clusterID:  clusterID,
 			nodeID:     nodeID,
@@ -85,7 +83,7 @@ func New(tableName, stateMachineDir, walDirname string, fs vfs.FS, blockCache *p
 
 // FSM is a statemachine.IOnDiskStateMachine impl.
 type FSM struct {
-	pebble     unsafe.Pointer
+	pebble     atomic.Pointer[pebble.DB]
 	wo         *pebble.WriteOptions
 	fs         vfs.FS
 	clusterID  uint64
@@ -150,8 +148,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// #nosec G103
-	atomic.StorePointer(&p.pebble, unsafe.Pointer(db))
+	p.pebble.Store(db)
 	p.wo = &pebble.WriteOptions{Sync: false}
 
 	if err := prometheus.Register(p); err != nil {
@@ -165,15 +162,14 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 // storage so the state machine can continue from its latest state after
 // reboot.
 func (p *FSM) Sync() error {
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
-	return db.Flush()
+	return p.pebble.Load().Flush()
 }
 
 // Close closes the KVStateMachine IStateMachine.
 func (p *FSM) Close() error {
 	p.closed = true
 	prometheus.Unregister(p)
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	db := p.pebble.Load()
 	if db == nil {
 		return nil
 	}
@@ -182,7 +178,7 @@ func (p *FSM) Close() error {
 
 // GetHash gets the DB hash for test comparison.
 func (p *FSM) GetHash() (uint64, error) {
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	db := p.pebble.Load()
 	snap := db.NewSnapshot()
 	iter := snap.NewIter(nil)
 	defer func() {
@@ -215,7 +211,7 @@ func (p *FSM) Collect(ch chan<- prometheus.Metric) {
 	if p.metrics == nil {
 		return
 	}
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	db := p.pebble.Load()
 	if db == nil {
 		return
 	}
