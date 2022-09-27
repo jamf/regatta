@@ -32,7 +32,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			return nil, err
 		}
 		updateResult := ResultSuccess
-		res := &proto.CommandResult{}
+		res := &proto.CommandResult{Revision: ctx.index}
 
 		switch ctx.cmd.Type {
 		case proto.Command_PUT:

@@ -142,7 +142,7 @@ func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Ran
 	if err != nil {
 		return nil, err
 	}
-	rng.Header = e.getHeader(table.ClusterID)
+	rng.Header = e.getHeader(nil, table.ClusterID)
 	return rng, nil
 }
 
@@ -160,7 +160,7 @@ func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResp
 	if err != nil {
 		return nil, err
 	}
-	put.Header = e.getHeader(table.ClusterID)
+	put.Header = e.getHeader(put.Header, table.ClusterID)
 	return put, nil
 }
 
@@ -178,7 +178,7 @@ func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*pr
 	if err != nil {
 		return nil, err
 	}
-	del.Header = e.getHeader(table.ClusterID)
+	del.Header = e.getHeader(del.Header, table.ClusterID)
 	return del, nil
 }
 
@@ -196,20 +196,21 @@ func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResp
 	if err != nil {
 		return nil, err
 	}
-	tx.Header = e.getHeader(table.ClusterID)
+	tx.Header = e.getHeader(tx.Header, table.ClusterID)
 	return tx, nil
 }
 
-func (e *Engine) getHeader(clusterID uint64) *proto.ResponseHeader {
+func (e *Engine) getHeader(header *proto.ResponseHeader, clusterID uint64) *proto.ResponseHeader {
+	if header == nil {
+		header = &proto.ResponseHeader{}
+	}
 	snapshot := e.clusterView.snapshot()
 	info := snapshot[e.NodeID()][clusterID]
-	hh := &proto.ResponseHeader{
-		ShardId:      info.ShardID,
-		ReplicaId:    info.ReplicaID,
-		RaftTerm:     info.Term,
-		RaftLeaderId: info.LeaderID,
-	}
-	return hh
+	header.ShardId = info.ShardID
+	header.ReplicaId = info.ReplicaID
+	header.RaftTerm = info.Term
+	header.RaftLeaderId = info.LeaderID
+	return header
 }
 
 func (e *Engine) NodeDeleted(info raftio.NodeInfo) {

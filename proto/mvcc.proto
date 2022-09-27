@@ -56,7 +56,10 @@ message Command {
 }
 
 message CommandResult {
+  // responses are the responses (if any) in order of application.
   repeated ResponseOp responses = 1;
+  // revision is the key-value store revision when the request was applied.
+  uint64 revision = 2;
 }
 
 message Txn {

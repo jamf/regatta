@@ -215,7 +215,8 @@ Maintenance service provides methods for maintenance purposes.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| responses | [ResponseOp](#mvcc.v1.ResponseOp) | repeated |  |
+| responses | [ResponseOp](#mvcc.v1.ResponseOp) | repeated | responses are the responses (if any) in order of application. |
+| revision | [uint64](#uint64) |  | revision is the key-value store revision when the request was applied. |
 
 
 
@@ -598,7 +599,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 | ----- | ---- | ----- | ----------- |
 | shard_id | [uint64](#uint64) |  | shard_id is the ID of the shard which sent the response. |
 | replica_id | [uint64](#uint64) |  | replica_id is the ID of the member which sent the response. |
-| revision | [int64](#int64) |  | revision is the key-value store revision when the request was applied. |
+| revision | [uint64](#uint64) |  | revision is the key-value store revision when the request was applied. |
 | raft_term | [uint64](#uint64) |  | raft_term is the raft term when the request was applied. |
 | raft_leader_id | [uint64](#uint64) |  | raft_leader_id is the ID of the actual raft quorum leader. |
 
