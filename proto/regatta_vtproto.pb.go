@@ -62,13 +62,13 @@ func (m *ResponseHeader) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x18
 	}
-	if m.MemberId != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.MemberId))
+	if m.ReplicaId != 0 {
+		i = encodeVarint(dAtA, i, uint64(m.ReplicaId))
 		i--
 		dAtA[i] = 0x10
 	}
-	if m.ClusterId != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.ClusterId))
+	if m.ShardId != 0 {
+		i = encodeVarint(dAtA, i, uint64(m.ShardId))
 		i--
 		dAtA[i] = 0x8
 	}
@@ -642,11 +642,11 @@ func (m *ResponseHeader) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
-	if m.ClusterId != 0 {
-		n += 1 + sov(uint64(m.ClusterId))
+	if m.ShardId != 0 {
+		n += 1 + sov(uint64(m.ShardId))
 	}
-	if m.MemberId != 0 {
-		n += 1 + sov(uint64(m.MemberId))
+	if m.ReplicaId != 0 {
+		n += 1 + sov(uint64(m.ReplicaId))
 	}
 	if m.Revision != 0 {
 		n += 1 + sov(uint64(m.Revision))
@@ -928,9 +928,9 @@ func (m *ResponseHeader) UnmarshalVT(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ClusterId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ShardId", wireType)
 			}
-			m.ClusterId = 0
+			m.ShardId = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -940,16 +940,16 @@ func (m *ResponseHeader) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ClusterId |= uint64(b&0x7F) << shift
+				m.ShardId |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
 		case 2:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MemberId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ReplicaId", wireType)
 			}
-			m.MemberId = 0
+			m.ReplicaId = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -959,7 +959,7 @@ func (m *ResponseHeader) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.MemberId |= uint64(b&0x7F) << shift
+				m.ReplicaId |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -978,7 +978,7 @@ func (m *ResponseHeader) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Revision |= int64(b&0x7F) << shift
+				m.Revision |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

@@ -29,12 +29,12 @@ service KV {
 }
 
 message ResponseHeader {
-  // cluster_id is the ID of the cluster which sent the response.
-  uint64 cluster_id = 1;
-  // member_id is the ID of the member which sent the response.
-  uint64 member_id = 2;
+  // shard_id is the ID of the shard which sent the response.
+  uint64 shard_id = 1;
+  // replica_id is the ID of the member which sent the response.
+  uint64 replica_id = 2;
   // revision is the key-value store revision when the request was applied.
-  int64 revision = 3;
+  uint64 revision = 3;
   // raft_term is the raft term when the request was applied.
   uint64 raft_term = 4;
   // raft_leader_id is the ID of the actual raft quorum leader.

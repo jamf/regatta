@@ -2,8 +2,7 @@ package storage
 
 import (
 	"context"
-	"os"
-	"path"
+	"sync"
 	"time"
 
 	"github.com/lni/dragonboat/v4"
@@ -19,9 +18,91 @@ import (
 
 const defaultQueryTimeout = 5 * time.Second
 
+// nodeShardToInfoIndex indexes `replicaID` -> `shardID` -> `raftio.LeaderInfo`.
+type nodeShardToInfoIndex map[uint64]map[uint64]raftio.LeaderInfo
+
+func (i nodeShardToInfoIndex) clone() nodeShardToInfoIndex {
+	c := nodeShardToInfoIndex{}
+	for replicaID, m := range i {
+		c[replicaID] = map[uint64]raftio.LeaderInfo{}
+		for shardID, info := range m {
+			c[replicaID][shardID] = info
+		}
+	}
+	return c
+}
+
+// shardToLeaderIndex indexes `shardID` -> `replicaID` of a leader node.
+type shardToLeaderIndex map[uint64]uint64
+
+func newClusterView() *clusterView {
+	return &clusterView{
+		infoIndex:   nodeShardToInfoIndex{},
+		leaderIndex: shardToLeaderIndex{},
+	}
+}
+
+type clusterView struct {
+	infoIndex   nodeShardToInfoIndex
+	leaderIndex shardToLeaderIndex
+	lock        sync.RWMutex
+}
+
+func (v *clusterView) update(info raftio.LeaderInfo) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	if info.LeaderID == 0 {
+		previousLeader := v.leaderIndex[info.ShardID]
+		delete(v.leaderIndex, info.ShardID)
+		v.mutateNodeMap(previousLeader, func(m map[uint64]raftio.LeaderInfo) {
+			delete(m, info.ShardID)
+		})
+	} else {
+		v.leaderIndex[info.ShardID] = info.LeaderID
+		v.mutateNodeMap(info.LeaderID, func(m map[uint64]raftio.LeaderInfo) {
+			m[info.ShardID] = info
+		})
+	}
+}
+
+func (v *clusterView) snapshot() clusterViewSnapshot {
+	v.lock.RLock()
+	defer v.lock.RUnlock()
+	return clusterViewSnapshot(v.infoIndex.clone())
+}
+
+func (v *clusterView) mutateNodeMap(nodeID uint64, f func(m map[uint64]raftio.LeaderInfo)) {
+	m, ok := v.infoIndex[nodeID]
+	if !ok {
+		m = make(map[uint64]raftio.LeaderInfo, 0)
+	}
+
+	f(m)
+	v.infoIndex[nodeID] = m
+
+	if len(m) <= 0 {
+		delete(v.infoIndex, nodeID)
+	}
+}
+
+type clusterViewSnapshot map[uint64]map[uint64]raftio.LeaderInfo
+
+func (s clusterViewSnapshot) info(nodeID uint64, shardID uint64) raftio.LeaderInfo {
+	if shards, ok := s[nodeID]; ok {
+		if info, ok := shards[shardID]; ok {
+			return info
+		}
+	}
+	return raftio.LeaderInfo{}
+}
+
 func New(cfg Config) (*Engine, error) {
-	e := &Engine{cfg: cfg}
-	nh, err := createNodeHost(cfg, e)
+	e := &Engine{
+		cfg:         cfg,
+		clusterView: newClusterView(),
+	}
+	nh, err := createNodeHost(cfg, e, e)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +118,7 @@ func New(cfg Config) (*Engine, error) {
 	)
 	lr := &logreader.LogReader{
 		ShardCacheSize: cfg.LogCacheSize,
-		NodeHost:       nh,
+		LogQuerier:     nh,
 	}
 
 	e.NodeHost = nh
@@ -49,8 +130,9 @@ func New(cfg Config) (*Engine, error) {
 type Engine struct {
 	*dragonboat.NodeHost
 	*tables.Manager
-	cfg       Config
-	LogReader *logreader.LogReader
+	cfg         Config
+	LogReader   *logreader.LogReader
+	clusterView *clusterView
 }
 
 func (e *Engine) Start() error {
@@ -73,7 +155,12 @@ func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Ran
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Range(ctx, req)
+	rng, err := table.Range(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	rng.Header = e.getHeader(nil, table.ClusterID)
+	return rng, nil
 }
 
 func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
@@ -86,7 +173,12 @@ func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResp
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Put(ctx, req)
+	put, err := table.Put(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	put.Header = e.getHeader(put.Header, table.ClusterID)
+	return put, nil
 }
 
 func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
@@ -99,7 +191,12 @@ func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*pr
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Delete(ctx, req)
+	del, err := table.Delete(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	del.Header = e.getHeader(del.Header, table.ClusterID)
+	return del, nil
 }
 
 func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
@@ -112,7 +209,24 @@ func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResp
 		defer cancel()
 		ctx = dctx
 	}
-	return table.Txn(ctx, req)
+	tx, err := table.Txn(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	tx.Header = e.getHeader(tx.Header, table.ClusterID)
+	return tx, nil
+}
+
+func (e *Engine) getHeader(header *proto.ResponseHeader, shardID uint64) *proto.ResponseHeader {
+	if header == nil {
+		header = &proto.ResponseHeader{}
+	}
+	info := e.clusterView.snapshot().info(e.NodeID(), shardID)
+	header.ShardId = info.ShardID
+	header.ReplicaId = info.ReplicaID
+	header.RaftTerm = info.Term
+	header.RaftLeaderId = info.LeaderID
+	return header
 }
 
 func (e *Engine) NodeDeleted(info raftio.NodeInfo) {
@@ -125,6 +239,10 @@ func (e *Engine) NodeReady(info raftio.NodeInfo) {
 	if info.ReplicaID == e.NodeID() {
 		e.LogReader.NodeReady(info)
 	}
+}
+
+func (e *Engine) LeaderUpdated(info raftio.LeaderInfo) {
+	e.clusterView.update(info)
 }
 
 func (e *Engine) NodeHostShuttingDown()                            {}
@@ -142,7 +260,7 @@ func (e *Engine) SnapshotCompacted(info raftio.SnapshotInfo)       {}
 func (e *Engine) LogCompacted(info raftio.EntryInfo)               {}
 func (e *Engine) LogDBCompacted(info raftio.EntryInfo)             {}
 
-func createNodeHost(cfg Config, sel raftio.ISystemEventListener) (*dragonboat.NodeHost, error) {
+func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {
 	dbl.SetLoggerFactory(rl.LoggerFactory(cfg.Logger))
 	dbl.GetLogger("raft").SetLevel(dbl.INFO)
 	dbl.GetLogger("rsm").SetLevel(dbl.WARNING)
@@ -161,6 +279,7 @@ func createNodeHost(cfg Config, sel raftio.ISystemEventListener) (*dragonboat.No
 		MaxReceiveQueueSize: cfg.MaxReceiveQueueSize,
 		MaxSendQueueSize:    cfg.MaxSendQueueSize,
 		SystemEventListener: sel,
+		RaftEventListener:   rel,
 	}
 
 	if cfg.LogDBImplementation == Tan {
@@ -174,22 +293,11 @@ func createNodeHost(cfg Config, sel raftio.ISystemEventListener) (*dragonboat.No
 		return nil, err
 	}
 
-	fixNHID(nhc.NodeHostDir)
-
 	nh, err := dragonboat.NewNodeHost(nhc)
 	if err != nil {
 		return nil, err
 	}
 	return nh, nil
-}
-
-// TODO Remove after release.
-func fixNHID(dir string) {
-	idPath := path.Join(dir, "NODEHOST.ID")
-	bytes, _ := os.ReadFile(idPath)
-	if len(bytes) != 0 && len(bytes) < 24 {
-		_ = os.Remove(idPath)
-	}
 }
 
 func buildLogDBConfig() config.LogDBConfig {
