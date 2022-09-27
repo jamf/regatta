@@ -11,9 +11,13 @@ import (
 	serrors "github.com/wandera/regatta/storage/errors"
 )
 
+type logQuerier interface {
+	QueryRaftLog(shardID uint64, firstIndex uint64, lastIndex uint64, maxSize uint64) (*dragonboat.RequestState, error)
+}
+
 type LogReader struct {
 	ShardCacheSize int
-	NodeHost       *dragonboat.NodeHost
+	LogQuerier     logQuerier
 	shardCache     sync.Map
 }
 
@@ -69,7 +73,7 @@ func (l *LogReader) getCache(clusterID uint64) *Cache {
 }
 
 func (l *LogReader) readLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
-	rs, err := l.NodeHost.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, maxSize)
+	rs, err := l.LogQuerier.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, maxSize)
 	if err != nil {
 		return nil, err
 	}

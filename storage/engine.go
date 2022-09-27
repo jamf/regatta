@@ -101,7 +101,7 @@ func New(cfg Config) (*Engine, error) {
 	)
 	lr := &logreader.LogReader{
 		ShardCacheSize: cfg.LogCacheSize,
-		NodeHost:       nh,
+		LogQuerier:     nh,
 	}
 
 	e.NodeHost = nh

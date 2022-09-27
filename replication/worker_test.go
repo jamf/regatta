@@ -246,7 +246,7 @@ func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *r
 		Manager:  manager,
 		LogReader: &logreader.LogReader{
 			ShardCacheSize: 1024,
-			NodeHost:       nh,
+			LogQuerier:     nh,
 		},
 	}
 	proto.RegisterLogServer(
