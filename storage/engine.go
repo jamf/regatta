@@ -18,17 +18,34 @@ import (
 
 const defaultQueryTimeout = 5 * time.Second
 
+// nodeShardToInfoIndex indexes `replicaID` -> `shardID` -> `raftio.LeaderInfo`.
+type nodeShardToInfoIndex map[uint64]map[uint64]raftio.LeaderInfo
+
+func (i nodeShardToInfoIndex) clone() nodeShardToInfoIndex {
+	c := nodeShardToInfoIndex{}
+	for replicaID, m := range i {
+		c[replicaID] = map[uint64]raftio.LeaderInfo{}
+		for shardID, info := range m {
+			c[replicaID][shardID] = info
+		}
+	}
+	return c
+}
+
+// shardToLeaderIndex indexes `shardID` -> `replicaID` of a leader node.
+type shardToLeaderIndex map[uint64]uint64
+
 func newClusterView() *clusterView {
 	return &clusterView{
-		replicaMap: map[uint64]map[uint64]raftio.LeaderInfo{},
-		shardsMap:  map[uint64]uint64{},
+		infoIndex:   nodeShardToInfoIndex{},
+		leaderIndex: shardToLeaderIndex{},
 	}
 }
 
 type clusterView struct {
-	replicaMap map[uint64]map[uint64]raftio.LeaderInfo
-	shardsMap  map[uint64]uint64
-	lock       sync.RWMutex
+	infoIndex   nodeShardToInfoIndex
+	leaderIndex shardToLeaderIndex
+	lock        sync.RWMutex
 }
 
 func (v *clusterView) update(info raftio.LeaderInfo) {
@@ -36,48 +53,48 @@ func (v *clusterView) update(info raftio.LeaderInfo) {
 	defer v.lock.Unlock()
 
 	if info.LeaderID == 0 {
-		previousLeader := v.shardsMap[info.ShardID]
-		delete(v.shardsMap, info.ShardID)
+		previousLeader := v.leaderIndex[info.ShardID]
+		delete(v.leaderIndex, info.ShardID)
 		v.mutateNodeMap(previousLeader, func(m map[uint64]raftio.LeaderInfo) {
 			delete(m, info.ShardID)
 		})
 	} else {
-		v.shardsMap[info.ShardID] = info.LeaderID
+		v.leaderIndex[info.ShardID] = info.LeaderID
 		v.mutateNodeMap(info.LeaderID, func(m map[uint64]raftio.LeaderInfo) {
 			m[info.ShardID] = info
 		})
 	}
 }
 
-type clusterViewSnapshot map[uint64]map[uint64]raftio.LeaderInfo
-
 func (v *clusterView) snapshot() clusterViewSnapshot {
 	v.lock.RLock()
 	defer v.lock.RUnlock()
-	snapshot := clusterViewSnapshot{}
-	for replicaID, m := range v.replicaMap {
-		if _, ok := snapshot[replicaID]; !ok {
-			snapshot[replicaID] = map[uint64]raftio.LeaderInfo{}
-		}
-		for shardID, info := range m {
-			snapshot[replicaID][shardID] = info
-		}
-	}
-	return snapshot
+	return clusterViewSnapshot(v.infoIndex.clone())
 }
 
 func (v *clusterView) mutateNodeMap(nodeID uint64, f func(m map[uint64]raftio.LeaderInfo)) {
-	m, ok := v.replicaMap[nodeID]
+	m, ok := v.infoIndex[nodeID]
 	if !ok {
 		m = make(map[uint64]raftio.LeaderInfo, 0)
 	}
 
 	f(m)
-	v.replicaMap[nodeID] = m
+	v.infoIndex[nodeID] = m
 
 	if len(m) <= 0 {
-		delete(v.replicaMap, nodeID)
+		delete(v.infoIndex, nodeID)
 	}
+}
+
+type clusterViewSnapshot map[uint64]map[uint64]raftio.LeaderInfo
+
+func (s clusterViewSnapshot) info(nodeID uint64, shardID uint64) raftio.LeaderInfo {
+	if shards, ok := s[nodeID]; ok {
+		if info, ok := shards[shardID]; ok {
+			return info
+		}
+	}
+	return raftio.LeaderInfo{}
 }
 
 func New(cfg Config) (*Engine, error) {
@@ -200,12 +217,11 @@ func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResp
 	return tx, nil
 }
 
-func (e *Engine) getHeader(header *proto.ResponseHeader, clusterID uint64) *proto.ResponseHeader {
+func (e *Engine) getHeader(header *proto.ResponseHeader, shardID uint64) *proto.ResponseHeader {
 	if header == nil {
 		header = &proto.ResponseHeader{}
 	}
-	snapshot := e.clusterView.snapshot()
-	info := snapshot[e.NodeID()][clusterID]
+	info := e.clusterView.snapshot().info(e.NodeID(), shardID)
 	header.ShardId = info.ShardID
 	header.ReplicaId = info.ReplicaID
 	header.RaftTerm = info.Term
