@@ -64,3 +64,4 @@ charts:
         token: AgBM6c5Nry2LPC16li0NL1rJM9kCN5btm6IU/3jQqjpAEaQ4q2yfz9vK47Yrc/IGinhq1DoCsrfLOJ0gXEltZlAdBOY8BXScFQL0iVKkfSA9Dxwdh7TTveCB4CaRLDQVzuCXebdmUQ5nJZJFqKeY8y+w1oDIPSM71WArxR6X8vJaz80G3jrRT6xNAdOZeXTRIVgQ2v/lU2xLy/4HbVoqF8aST/AqR7/jc/xiBtFUo7fDdMU0y114roqsr3fgpkMJvu7pnV3TjwDeBQZXPFY0xDwIpkw5uNO1KPVq43JAhApAfcpWHnA41ksI1ag5HwUcE/rhue6vpwrb3vlc1lhV0gVhfIpt81/TiOj3uuOIL++jJXjLFuWJF8AXlaTn6YIvwb+pPsUgh3646lzqvaU2OXQBV77ekvSIfcwgdXrh6/B2gnNCCreE0atLJFsnymbpVmSVpcMj9dzBZlDRDaoXlO0+H5eMMi796SpwFuDUODQdGmY33cGZ3e1lLxYizQ6HLF46/wG0cQv4EQsZZADdWWbkAmNuy/x/PxwFRCMvuhHQsDAhXf9VYqUvAmiodgmRCLY0XMK8K6Nb4lVWkgrGIl4W9hSfkl7NPmWwNwtDCIyg4Uuxw8rOvm7cj5Xtj+u8rnYUWMFc+2aW4rwa1W0ONTnV1serl2Bmhfo8Njan92KBWXcMyBsF825iM/0MDPXu7+E0vE1gqdzDVA==
         backup:
           enabled: true
+      noServiceMonitor: true
