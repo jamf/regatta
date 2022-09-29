@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"sync/atomic"
 	"testing"
-	"unsafe"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
@@ -376,7 +374,7 @@ func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
 		t.Fatal(err)
 	}
 	defer fsm.Close()
-	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
+	db := fsm.pebble.Load()
 
 	var inputs []inputRecord
 	for i, cmd := range inputCommands {
@@ -426,7 +424,6 @@ func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
 
 func createTestFSM() (*FSM, error) {
 	fsm := &FSM{
-		pebble:     nil,
 		wo:         &pebble.WriteOptions{Sync: true},
 		fs:         vfs.NewMem(),
 		clusterID:  1,
@@ -443,7 +440,7 @@ func createTestFSM() (*FSM, error) {
 	if err != nil {
 		return nil, err
 	}
-	atomic.StorePointer(&fsm.pebble, unsafe.Pointer(db))
+	fsm.pebble.Store(db)
 	return fsm, err
 }
 
@@ -473,7 +470,7 @@ func testConsistency(t *testing.T, version int) {
 		r.NoError(err)
 	}
 	defer fsm.Close()
-	db := (*pebble.DB)(atomic.LoadPointer(&fsm.pebble))
+	db := fsm.pebble.Load()
 
 	var inputRecords []inputRecord
 	r.NoError(json.NewDecoder(inFile).Decode(&inputRecords))

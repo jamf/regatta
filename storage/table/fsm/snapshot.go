@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
-	"sync/atomic"
-	"unsafe"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/sstable"
@@ -31,7 +29,7 @@ func (s *snapshotContext) Close() (err error) {
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *FSM) PrepareSnapshot() (interface{}, error) {
-	db := (*pebble.DB)(atomic.LoadPointer(&p.pebble))
+	db := p.pebble.Load()
 	ctx := &snapshotContext{Snapshot: db.NewSnapshot()}
 	runtime.SetFinalizer(ctx, func(s *snapshotContext) { _ = s.Close() })
 	return ctx, nil
@@ -169,13 +167,12 @@ read:
 	if err := rp.ReplaceCurrentDBFile(p.fs, p.dirname); err != nil {
 		return err
 	}
-	// #nosec G103
-	old := (*pebble.DB)(atomic.SwapPointer(&p.pebble, unsafe.Pointer(db)))
-	p.log.Debugf("Snapshot recovery finished")
+	old := p.pebble.Swap(db)
+	p.log.Info("snapshot recovery finished")
 
 	if old != nil {
 		_ = old.Close()
 	}
-	p.log.Debugf("Snapshot recovery cleanup")
+	p.log.Debugf("snapshot recovery cleanup")
 	return rp.CleanupNodeDataDir(p.fs, p.dirname)
 }
