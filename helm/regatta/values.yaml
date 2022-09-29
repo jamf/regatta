@@ -18,6 +18,9 @@ image:
 
 branch: master
 
+experimental:
+  tanlogdb: false
+
 resources:
   limits:
     cpu: 1
