@@ -42,6 +42,8 @@ charts:
         requests:
           cpu: 100m
           memory: 200Mi
+      startupProbe:
+        initialDelaySeconds: 10
       kafka:
         brokers: "core-kafka-bootstrap:9092"
         groupID: "regatta-fi-0-tables"

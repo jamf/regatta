@@ -26,6 +26,20 @@ resources:
     cpu: 500m
     memory: 3Gi
 
+startupProbe:
+  initialDelaySeconds: 90
+  periodSeconds: 60
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
 internalPort: 8443
 metricsPort: 8079
 
