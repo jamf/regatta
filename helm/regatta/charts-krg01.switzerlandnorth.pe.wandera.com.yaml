@@ -23,7 +23,6 @@ charts:
               storage: 20Gi
       resources:
         limits:
-          cpu: 2
         requests:
           cpu: 1
       raft:

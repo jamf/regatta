@@ -37,7 +37,6 @@ charts:
         blockCacheSize: 398458880
       resources:
         limits:
-          cpu: 200m
           memory: 600Mi
         requests:
           cpu: 100m
