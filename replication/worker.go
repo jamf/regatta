@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/ratelimit"
 	"github.com/lni/dragonboat/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wandera/regatta/proto"
@@ -19,6 +18,7 @@ import (
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
 )
 
 type workerFactory struct {
@@ -139,19 +139,19 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
-				leaderIndex, clusterID, err := w.tableState()
+				idx, clusterID, err := w.tableState()
 				if err != nil {
 					w.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
-				w.metrics.replicationIndex.Set(float64(leaderIndex))
+				w.metrics.replicationIndex.Set(float64(idx))
 
 				if atomic.LoadUint32(&w.leased) != 1 {
 					w.log.Debug("skipping replication - table not leased")
 					continue
 				}
 
-				if err := w.do(leaderIndex, clusterID); err != nil {
+				if err := w.do(idx, clusterID); err != nil {
 					switch err {
 					case serror.ErrLogBehind:
 						w.log.Errorf("the leader log is behind ... backing off")
@@ -297,7 +297,7 @@ func (w *worker) recover() error {
 
 	r := &snapshot.Reader{Stream: stream}
 	if w.maxSnapshotRecv != 0 {
-		r.Bucket = ratelimit.NewBucketWithRate(float64(w.maxSnapshotRecv), int64(w.maxSnapshotRecv)*2)
+		r.Limiter = rate.NewLimiter(rate.Limit(w.maxSnapshotRecv), int(w.maxSnapshotRecv))
 	}
 
 	_, err = io.Copy(sf.File, r)
