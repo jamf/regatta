@@ -172,7 +172,9 @@ func (w *worker) Start() {
 					default:
 						w.log.Warnf("worker error: %v", err)
 					}
+					continue
 				}
+				t.Reset(w.pollInterval)
 			case <-w.closer:
 				return
 			}
