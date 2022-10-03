@@ -11,7 +11,6 @@ require (
 	github.com/golang/snappy v0.0.4
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/juju/ratelimit v1.0.2
 	github.com/lni/dragonboat/v4 v4.0.0-20220830122730-42573c0b37fc
 	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
@@ -27,6 +26,7 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.23.0
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
+	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
 	google.golang.org/grpc v1.49.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1
