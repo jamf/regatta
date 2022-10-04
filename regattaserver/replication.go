@@ -235,6 +235,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		}
 
 		msg := &proto.ReplicateResponse{
+			LeaderIndex: appliedIndex.Index,
 			Response: &proto.ReplicateResponse_CommandsResponse{
 				CommandsResponse: &proto.ReplicateCommandsResponse{
 					Commands: commands,
