@@ -318,6 +318,11 @@ func (m *ReplicateResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 			}
 		}
 	}
+	if m.LeaderIndex != 0 {
+		i = encodeVarint(dAtA, i, uint64(m.LeaderIndex))
+		i--
+		dAtA[i] = 0x40
+	}
 	return len(dAtA) - i, nil
 }
 
@@ -624,6 +629,9 @@ func (m *ReplicateResponse) SizeVT() (n int) {
 	_ = l
 	if vtmsg, ok := m.Response.(interface{ SizeVT() int }); ok {
 		n += vtmsg.SizeVT()
+	}
+	if m.LeaderIndex != 0 {
+		n += 1 + sov(uint64(m.LeaderIndex))
 	}
 	if m.unknownFields != nil {
 		n += len(m.unknownFields)
@@ -1368,6 +1376,25 @@ func (m *ReplicateResponse) UnmarshalVT(dAtA []byte) error {
 				m.Response = &ReplicateResponse_ErrorResponse{v}
 			}
 			iNdEx = postIndex
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LeaderIndex", wireType)
+			}
+			m.LeaderIndex = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.LeaderIndex |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])

@@ -70,6 +70,9 @@ message ReplicateResponse {
     ReplicateCommandsResponse commands_response = 1;
     ReplicateErrResponse error_response = 2;
   }
+
+  // leader_index is the largest applied leader index at the time of the client RPC.
+  uint64 leader_index = 8;
 }
 
 // ReplicateCommandsResponse sequence of replication commands
