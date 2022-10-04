@@ -14,7 +14,7 @@ safeToEvict: false
 
 image:
   repository: 371487436103.dkr.ecr.eu-west-1.amazonaws.com/regatta
-  imagePullPolicy: Always
+  imagePullPolicy: IfNotPresent
 
 branch: master
 
