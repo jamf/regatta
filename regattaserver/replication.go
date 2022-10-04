@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"time"
 
@@ -25,7 +26,7 @@ const (
 	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
 	DefaultSnapshotChunkSize = 1024 * 1024
 	// DefaultMaxLogRecords is a maximum number of log records sent via a single RPC call.
-	DefaultMaxLogRecords = 10_000
+	DefaultMaxLogRecords = 1_000
 	// DefaultCacheSize is a size of the cache used during the replication routine.
 	DefaultCacheSize = 1024
 )
@@ -187,26 +188,35 @@ var (
 
 // Replicate entries from the leader's log.
 func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_ReplicateServer) error {
+	if req.LeaderIndex == 0 {
+		return status.Error(codes.InvalidArgument, "invalid leaderIndex: leaderIndex must be greater than 0")
+	}
+
 	t, err := l.Tables.GetTable(string(req.GetTable()))
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "unable to replicate table '%s': %v", req.GetTable(), err)
 	}
 
-	if req.LeaderIndex == 0 {
-		return status.Error(codes.InvalidArgument, "invalid leaderIndex: leaderIndex must be greater than 0")
+	appliedIndex, err := t.LocalIndex(server.Context())
+	if err != nil {
+		return status.FromContextError(err).Err()
 	}
 
-	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: req.LeaderIndex + DefaultMaxLogRecords}
+	if appliedIndex.Index+1 < req.LeaderIndex {
+		return status.FromContextError(server.Send(repErrLeaderBehind)).Err()
+	}
+
+	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
 	for {
 		entries, err := l.LogReader.QueryRaftLog(server.Context(), t.ClusterID, logRange, l.maxMessageSize)
-		if errors.Is(err, serrors.ErrLogBehind) {
-			err = server.Send(repErrLeaderBehind)
-		} else if errors.Is(err, serrors.ErrLogAhead) {
-			err = server.Send(repErrUseSnapshot)
-		}
-
-		if err != nil {
+		switch {
+		case errors.Is(err, serrors.ErrLogBehind):
+			return status.FromContextError(server.Send(repErrLeaderBehind)).Err()
+		case errors.Is(err, serrors.ErrLogAhead):
+			return status.FromContextError(server.Send(repErrUseSnapshot)).Err()
+		case err != nil:
 			return status.FromContextError(err).Err()
+		default:
 		}
 
 		read := uint64(len(entries))
@@ -236,8 +246,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 			return status.FromContextError(err).Err()
 		}
 
-		logRange.FirstIndex += read
-		logRange.LastIndex = logRange.FirstIndex + DefaultMaxLogRecords
+		logRange.FirstIndex = uint64(math.Min(float64(logRange.FirstIndex+read), float64(logRange.LastIndex)))
 	}
 }
 

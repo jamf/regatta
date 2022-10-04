@@ -25,6 +25,10 @@ type LogReader struct {
 // defined by dragonboat.LogRange. MaxSize denotes the maximum cumulative size of the entries,
 // but this serves only as a hint and the actual size of returned entries may be larger than maxSize.
 func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+	// Empty log range should return immediately.
+	if logRange.FirstIndex == logRange.LastIndex {
+		return nil, nil
+	}
 	// Try to read the commands from the cache first.
 	cache := l.getCache(clusterID)
 	size, entries, prependIndices, appendIndices := cache.Get(logRange, int(maxSize))
