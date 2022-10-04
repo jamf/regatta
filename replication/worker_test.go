@@ -58,10 +58,17 @@ func Test_worker_do(t *testing.T) {
 		pollInterval:  500 * time.Millisecond,
 		leaseInterval: 500 * time.Millisecond,
 		metrics: struct {
-			replicationIndex  prometheus.Gauge
-			replicationLeased prometheus.Gauge
+			replicationLeaderIndex   prometheus.Gauge
+			replicationFollowerIndex prometheus.Gauge
+			replicationLeased        prometheus.Gauge
 		}{
-			replicationIndex: prometheus.NewGaugeVec(
+			replicationLeaderIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
+			).WithLabelValues("leader", "test"),
+			replicationFollowerIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
