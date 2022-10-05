@@ -9,13 +9,14 @@ import (
 
 type commandPut struct {
 	*updateContext
+	command *proto.Command
 }
 
 func (c commandPut) handle() (UpdateResult, *proto.CommandResult, error) {
 	resp, err := handlePut(c.updateContext, &proto.RequestOp_Put{
-		Key:    c.cmd.Kv.Key,
-		Value:  c.cmd.Kv.Value,
-		PrevKv: c.cmd.PrevKvs,
+		Key:    c.command.Kv.Key,
+		Value:  c.command.Kv.Value,
+		PrevKv: c.command.PrevKvs,
 	})
 	if err != nil {
 		return ResultFailure, nil, err
@@ -53,11 +54,12 @@ func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_
 
 type commandPutBatch struct {
 	*updateContext
+	command *proto.Command
 }
 
 func (c commandPutBatch) handle() (UpdateResult, *proto.CommandResult, error) {
-	req := make([]*proto.RequestOp_Put, len(c.cmd.Batch))
-	for i, kv := range c.cmd.Batch {
+	req := make([]*proto.RequestOp_Put, len(c.command.Batch))
+	for i, kv := range c.command.Batch {
 		req[i] = &proto.RequestOp_Put{
 			Key:   kv.Key,
 			Value: kv.Value,
@@ -67,7 +69,7 @@ func (c commandPutBatch) handle() (UpdateResult, *proto.CommandResult, error) {
 	if err != nil {
 		return ResultFailure, nil, err
 	}
-	res := make([]*proto.ResponseOp, 0, len(c.cmd.Batch))
+	res := make([]*proto.ResponseOp, 0, len(c.command.Batch))
 	for _, put := range rop {
 		res = append(res, wrapResponseOp(put))
 	}

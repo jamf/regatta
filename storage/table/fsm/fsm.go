@@ -16,7 +16,6 @@ import (
 	"github.com/oxtoacart/bpool"
 	"github.com/prometheus/client_golang/prometheus"
 	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/storage/errors"
 	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
@@ -167,7 +166,6 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		batch: db.NewBatch(),
 		db:    db,
 		wo:    p.wo,
-		cmd:   proto.CommandFromVTPool(),
 	}
 
 	defer func() {

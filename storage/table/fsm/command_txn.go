@@ -10,10 +10,11 @@ import (
 
 type commandTxn struct {
 	*updateContext
+	command *proto.Command
 }
 
 func (c commandTxn) handle() (UpdateResult, *proto.CommandResult, error) {
-	succ, rop, err := handleTxn(c.updateContext, c.cmd.Txn.Compare, c.cmd.Txn.Success, c.cmd.Txn.Failure)
+	succ, rop, err := handleTxn(c.updateContext, c.command.Txn.Compare, c.command.Txn.Success, c.command.Txn.Failure)
 	if err != nil {
 		return ResultFailure, nil, err
 	}

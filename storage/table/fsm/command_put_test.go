@@ -21,11 +21,6 @@ func Test_handlePut(t *testing.T) {
 	c := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		cmd: &proto.Command{
-			Table:       []byte("test"),
-			Type:        proto.Command_PUT,
-			LeaderIndex: &one,
-		},
 		index: 1,
 	}
 	defer func() { _ = c.Close() }()
@@ -68,10 +63,6 @@ func Test_handlePut(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(c.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
 func Test_handlePutBatch(t *testing.T) {
@@ -85,9 +76,6 @@ func Test_handlePutBatch(t *testing.T) {
 	c := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		cmd: &proto.Command{
-			LeaderIndex: &one,
-		},
 		index: 1,
 	}
 	defer func() { _ = c.Close() }()
@@ -125,8 +113,4 @@ func Test_handlePutBatch(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(c.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*c.cmd.LeaderIndex, index)
 }

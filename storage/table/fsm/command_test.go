@@ -18,9 +18,8 @@ func TestUpdateContext_Parse(t *testing.T) {
 		entry sm.Entry
 	}
 	type want struct {
-		index  uint64
-		parsed *proto.Command
-		cmd    command
+		index uint64
+		cmd   command
 	}
 	tests := []struct {
 		name    string
@@ -31,25 +30,23 @@ func TestUpdateContext_Parse(t *testing.T) {
 		{
 			name: "empty command",
 			args: args{entry: sm.Entry{Cmd: nil}},
-			want: want{index: 0, parsed: &proto.Command{}, cmd: commandPut{}},
+			want: want{index: 0, cmd: commandPut{}},
 		},
 		{
 			name: "empty command with index",
 			args: args{entry: sm.Entry{Index: 200}},
-			want: want{index: 200, parsed: &proto.Command{}, cmd: commandPut{}},
+			want: want{index: 200, cmd: commandPut{}},
 		},
 		{
 			name: "put command with index",
 			args: args{entry: sm.Entry{Index: 200, Cmd: mustMarshallProto(&proto.Command{Type: proto.Command_PUT, Table: []byte("test"), Kv: &proto.KeyValue{Key: []byte("key")}})}},
-			want: want{index: 200, parsed: &proto.Command{Type: proto.Command_PUT, Table: []byte("test"), Kv: &proto.KeyValue{Key: []byte("key"), Value: nil}}, cmd: commandPut{}},
+			want: want{index: 200, cmd: commandPut{}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			uc := updateContext{
-				cmd: &proto.Command{},
-			}
+			uc := updateContext{}
 			cmd, err := uc.Parse(tt.args.entry)
 			if tt.wantErr {
 				r.Error(err)
@@ -57,11 +54,6 @@ func TestUpdateContext_Parse(t *testing.T) {
 			r.NoError(err)
 			r.IsType(tt.want.cmd, cmd)
 			r.Equal(tt.want.index, uc.index)
-			r.Equal(tt.want.parsed.Table, uc.cmd.Table)
-			r.Equal(tt.want.parsed.Type, uc.cmd.Type)
-			r.Equal(tt.want.parsed.LeaderIndex, uc.cmd.LeaderIndex)
-			r.Equal(tt.want.parsed.Txn, uc.cmd.Txn)
-			r.Equal(tt.want.parsed.Kv, uc.cmd.Kv)
 		})
 	}
 }
@@ -73,7 +65,6 @@ func TestUpdateContext_EnsureIndexed(t *testing.T) {
 	uc := updateContext{
 		db:    db,
 		batch: db.NewBatch(),
-		cmd:   proto.CommandFromVTPool(),
 	}
 	tk := []byte("key")
 	tv := []byte("value")
@@ -95,15 +86,9 @@ func TestUpdateContext_Commit(t *testing.T) {
 	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
 	r.NoError(err)
 
-	li := uint64(100)
 	uc := updateContext{
 		db:    db,
 		batch: db.NewBatch(),
-		cmd: &proto.Command{
-			Type:        proto.Command_DUMMY,
-			Table:       []byte("test"),
-			LeaderIndex: &li,
-		},
 		index: 150,
 	}
 	r.NoError(uc.Commit())
@@ -111,10 +96,6 @@ func TestUpdateContext_Commit(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(uc.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*uc.cmd.LeaderIndex, index)
 }
 
 // allKeysOpts returns *pebble.IterOptions for iterating over
