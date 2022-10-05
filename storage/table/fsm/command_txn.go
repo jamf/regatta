@@ -8,6 +8,70 @@ import (
 	"github.com/wandera/regatta/proto"
 )
 
+type commandTxn struct {
+	*updateContext
+}
+
+func (c commandTxn) handle() (UpdateResult, *proto.CommandResult, error) {
+	succ, rop, err := handleTxn(c.updateContext, c.cmd.Txn.Compare, c.cmd.Txn.Success, c.cmd.Txn.Failure)
+	if err != nil {
+		return ResultFailure, nil, err
+	}
+	result := ResultSuccess
+	if !succ {
+		result = ResultFailure
+	}
+	return result, &proto.CommandResult{Revision: c.index, Responses: rop}, nil
+}
+
+// handleTxn handle transaction operation, returns if the operation succeeded (if success, or fail was applied) list or respective results and error.
+func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*proto.RequestOp) (bool, []*proto.ResponseOp, error) {
+	if err := ctx.EnsureIndexed(); err != nil {
+		return false, nil, err
+	}
+	ok, err := txnCompare(ctx.batch, compare)
+	if err != nil {
+		return false, nil, err
+	}
+	if ok {
+		res, err := handleTxnOps(ctx, success)
+		return true, res, err
+	}
+	res, err := handleTxnOps(ctx, fail)
+	return false, res, err
+}
+
+func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.ResponseOp, error) {
+	var results []*proto.ResponseOp
+	for _, op := range req {
+		switch o := op.Request.(type) {
+		case *proto.RequestOp_RequestRange:
+			response, err := lookup(ctx.batch, o.RequestRange)
+			if err != nil {
+				if !errors.Is(err, pebble.ErrNotFound) {
+					return nil, err
+				}
+				response = &proto.ResponseOp_Range{}
+			}
+			results = append(results, wrapResponseOp(response))
+		case *proto.RequestOp_RequestPut:
+			response, err := handlePut(ctx, o.RequestPut)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, wrapResponseOp(response))
+		case *proto.RequestOp_RequestDeleteRange:
+			response, err := handleDelete(ctx, o.RequestDeleteRange)
+			if err != nil {
+				return nil, err
+			}
+
+			results = append(results, wrapResponseOp(response))
+		}
+	}
+	return results, nil
+}
+
 func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
