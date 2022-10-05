@@ -221,6 +221,9 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 
 		read := uint64(len(entries))
 		if read == 0 {
+			if err := server.Send(&proto.ReplicateResponse{LeaderIndex: appliedIndex.Index}); err != nil {
+				return status.FromContextError(err).Err()
+			}
 			return nil
 		}
 
@@ -235,6 +238,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		}
 
 		msg := &proto.ReplicateResponse{
+			LeaderIndex: appliedIndex.Index,
 			Response: &proto.ReplicateResponse_CommandsResponse{
 				CommandsResponse: &proto.ReplicateCommandsResponse{
 					Commands: commands,

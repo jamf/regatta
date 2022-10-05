@@ -55,11 +55,13 @@ func (f *workerFactory) create(table string) *worker {
 		closer:            make(chan struct{}),
 		log:               f.log.Named(table),
 		metrics: struct {
-			replicationIndex  prometheus.Gauge
-			replicationLeased prometheus.Gauge
+			replicationLeaderIndex   prometheus.Gauge
+			replicationFollowerIndex prometheus.Gauge
+			replicationLeased        prometheus.Gauge
 		}{
-			replicationIndex:  f.metrics.replicationIndex.WithLabelValues("follower", table),
-			replicationLeased: f.metrics.replicationLeased.WithLabelValues(table),
+			replicationLeaderIndex:   f.metrics.replicationIndex.WithLabelValues("leader", table),
+			replicationFollowerIndex: f.metrics.replicationIndex.WithLabelValues("follower", table),
+			replicationLeased:        f.metrics.replicationLeased.WithLabelValues(table),
 		},
 	}
 }
@@ -81,8 +83,9 @@ type worker struct {
 	recoverySemaphore *semaphore.Weighted
 	maxSnapshotRecv   uint64
 	metrics           struct {
-		replicationIndex  prometheus.Gauge
-		replicationLeased prometheus.Gauge
+		replicationLeaderIndex   prometheus.Gauge
+		replicationFollowerIndex prometheus.Gauge
+		replicationLeased        prometheus.Gauge
 	}
 	wg sync.WaitGroup
 }
@@ -144,8 +147,7 @@ func (w *worker) Start() {
 					w.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
-				w.metrics.replicationIndex.Set(float64(idx))
-
+				w.metrics.replicationFollowerIndex.Set(float64(idx))
 				if atomic.LoadUint32(&w.leased) != 1 {
 					w.log.Debug("skipping replication - table not leased")
 					continue
@@ -217,6 +219,10 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 			return fmt.Errorf("error reading replication stream: %w", err)
 		}
 
+		if replicateRes.LeaderIndex != 0 {
+			w.metrics.replicationLeaderIndex.Set(float64(replicateRes.LeaderIndex))
+		}
+
 		switch res := replicateRes.Response.(type) {
 		case *proto.ReplicateResponse_CommandsResponse:
 			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
@@ -269,6 +275,9 @@ func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCo
 
 		if _, err := w.nh.SyncPropose(ctx, w.nh.GetNoOPSession(clusterID), buff[:n]); err != nil {
 			return fmt.Errorf("could not SyncPropose: %w", err)
+		}
+		if c.Command.LeaderIndex != nil {
+			w.metrics.replicationFollowerIndex.Set(float64(*c.Command.LeaderIndex))
 		}
 	}
 	return nil

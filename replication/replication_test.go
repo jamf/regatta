@@ -74,10 +74,17 @@ func TestManager_reconcile(t *testing.T) {
 		tm:            m.tm,
 		closer:        make(chan struct{}),
 		metrics: struct {
-			replicationIndex  prometheus.Gauge
-			replicationLeased prometheus.Gauge
+			replicationLeaderIndex   prometheus.Gauge
+			replicationFollowerIndex prometheus.Gauge
+			replicationLeased        prometheus.Gauge
 		}{
-			replicationIndex: prometheus.NewGaugeVec(
+			replicationLeaderIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
+			).WithLabelValues("leader", "test"),
+			replicationFollowerIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
@@ -101,10 +108,17 @@ func TestManager_reconcile(t *testing.T) {
 		tm:            m.tm,
 		closer:        make(chan struct{}),
 		metrics: struct {
-			replicationIndex  prometheus.Gauge
-			replicationLeased prometheus.Gauge
+			replicationLeaderIndex   prometheus.Gauge
+			replicationFollowerIndex prometheus.Gauge
+			replicationLeased        prometheus.Gauge
 		}{
-			replicationIndex: prometheus.NewGaugeVec(
+			replicationLeaderIndex: prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "regatta_replication_index",
+					Help: "Regatta replication index",
+				}, []string{"role", "table"},
+			).WithLabelValues("leader", "test2"),
+			replicationFollowerIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
