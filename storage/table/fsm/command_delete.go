@@ -10,13 +10,14 @@ import (
 
 type commandDelete struct {
 	*updateContext
+	command *proto.Command
 }
 
 func (c commandDelete) handle() (UpdateResult, *proto.CommandResult, error) {
 	resp, err := handleDelete(c.updateContext, &proto.RequestOp_DeleteRange{
-		Key:      c.cmd.Kv.Key,
-		RangeEnd: c.cmd.RangeEnd,
-		PrevKv:   c.cmd.PrevKvs,
+		Key:      c.command.Kv.Key,
+		RangeEnd: c.command.RangeEnd,
+		PrevKv:   c.command.PrevKvs,
 	})
 	if err != nil {
 		return ResultFailure, nil, err
@@ -90,11 +91,12 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 
 type commandDeleteBatch struct {
 	*updateContext
+	command *proto.Command
 }
 
 func (c commandDeleteBatch) handle() (UpdateResult, *proto.CommandResult, error) {
-	req := make([]*proto.RequestOp_DeleteRange, len(c.cmd.Batch))
-	for i, kv := range c.cmd.Batch {
+	req := make([]*proto.RequestOp_DeleteRange, len(c.command.Batch))
+	for i, kv := range c.command.Batch {
 		req[i] = &proto.RequestOp_DeleteRange{
 			Key: kv.Key,
 		}
@@ -103,7 +105,7 @@ func (c commandDeleteBatch) handle() (UpdateResult, *proto.CommandResult, error)
 	if err != nil {
 		return ResultFailure, nil, err
 	}
-	res := make([]*proto.ResponseOp, 0, len(c.cmd.Batch))
+	res := make([]*proto.ResponseOp, 0, len(c.command.Batch))
 	for _, put := range rop {
 		res = append(res, wrapResponseOp(put))
 	}

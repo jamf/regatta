@@ -214,9 +214,6 @@ func Test_handleTxn(t *testing.T) {
 	c := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		cmd: &proto.Command{
-			LeaderIndex: &one,
-		},
 		index: 1,
 	}
 	defer func() { _ = c.Close() }()
@@ -281,10 +278,6 @@ func Test_handleTxn(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(c.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
 func Test_txnCompareSingle(t *testing.T) {

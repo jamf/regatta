@@ -10,11 +10,11 @@ import (
 )
 
 type updateContext struct {
-	batch *pebble.Batch
-	wo    *pebble.WriteOptions
-	db    *pebble.DB
-	cmd   *proto.Command
-	index uint64
+	batch       *pebble.Batch
+	wo          *pebble.WriteOptions
+	db          *pebble.DB
+	index       uint64
+	leaderIndex *uint64
 }
 
 func (c *updateContext) EnsureIndexed() error {
@@ -35,21 +35,22 @@ func (c *updateContext) EnsureIndexed() error {
 
 func (c *updateContext) Parse(entry sm.Entry) (command, error) {
 	c.index = entry.Index
-	c.cmd.ResetVT()
-	if err := c.cmd.UnmarshalVT(entry.Cmd); err != nil {
+	cmd := &proto.Command{}
+	if err := cmd.UnmarshalVT(entry.Cmd); err != nil {
 		return commandDummy{c}, err
 	}
-	switch c.cmd.Type {
+	c.leaderIndex = cmd.LeaderIndex
+	switch cmd.Type {
 	case proto.Command_PUT:
-		return commandPut{c}, nil
+		return commandPut{c, cmd}, nil
 	case proto.Command_DELETE:
-		return commandDelete{c}, nil
+		return commandDelete{c, cmd}, nil
 	case proto.Command_PUT_BATCH:
-		return commandPutBatch{c}, nil
+		return commandPutBatch{c, cmd}, nil
 	case proto.Command_DELETE_BATCH:
-		return commandDeleteBatch{c}, nil
+		return commandDeleteBatch{c, cmd}, nil
 	case proto.Command_TXN:
-		return commandTxn{c}, nil
+		return commandTxn{c, cmd}, nil
 	case proto.Command_DUMMY:
 		return commandDummy{c}, nil
 	}
@@ -58,9 +59,9 @@ func (c *updateContext) Parse(entry sm.Entry) (command, error) {
 
 func (c *updateContext) Commit() error {
 	// Set leader index if present in the proposal
-	if c.cmd.LeaderIndex != nil {
+	if c.leaderIndex != nil {
 		leaderIdx := make([]byte, 8)
-		binary.LittleEndian.PutUint64(leaderIdx, *c.cmd.LeaderIndex)
+		binary.LittleEndian.PutUint64(leaderIdx, *c.leaderIndex)
 		if err := c.batch.Set(sysLeaderIndex, leaderIdx, nil); err != nil {
 			return err
 		}
@@ -78,7 +79,6 @@ func (c *updateContext) Close() error {
 	if err := c.batch.Close(); err != nil {
 		return err
 	}
-	c.cmd.ReturnToVTPool()
 	return nil
 }
 

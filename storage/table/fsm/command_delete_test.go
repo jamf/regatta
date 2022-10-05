@@ -21,10 +21,6 @@ func Test_handleDelete(t *testing.T) {
 	c := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		cmd: &proto.Command{
-			Table:       []byte("test"),
-			LeaderIndex: &one,
-		},
 		index: 1,
 	}
 	defer func() { _ = c.Close() }()
@@ -58,10 +54,6 @@ func Test_handleDelete(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(c.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
 func Test_handleDeleteBatch(t *testing.T) {
@@ -75,9 +67,6 @@ func Test_handleDeleteBatch(t *testing.T) {
 	c := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		cmd: &proto.Command{
-			LeaderIndex: &one,
-		},
 		index: 1,
 	}
 	defer func() { _ = c.Close() }()
@@ -93,9 +82,6 @@ func Test_handleDeleteBatch(t *testing.T) {
 	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
-	for i := range c.cmd.Batch {
-		c.cmd.Batch[i].Value = nil
-	}
 
 	// Make the DELETE_BATCH.
 	_, err = handleDeleteBatch(c, []*proto.RequestOp_DeleteRange{
@@ -118,10 +104,6 @@ func Test_handleDeleteBatch(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(c.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*c.cmd.LeaderIndex, index)
 }
 
 func Test_handleDeleteRange(t *testing.T) {
@@ -135,9 +117,6 @@ func Test_handleDeleteRange(t *testing.T) {
 	c := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		cmd: &proto.Command{
-			LeaderIndex: &one,
-		},
 		index: 1,
 	}
 	defer func() { _ = c.Close() }()
@@ -191,9 +170,4 @@ func Test_handleDeleteRange(t *testing.T) {
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)
 	r.Equal(c.index, index)
-
-	index, err = readLocalIndex(db, sysLeaderIndex)
-	r.NoError(err)
-	r.Equal(*c.cmd.LeaderIndex, index)
-	r.NoError(iter.Close())
 }
