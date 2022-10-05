@@ -13,13 +13,14 @@ import (
 	"github.com/wandera/regatta/storage/table/key"
 )
 
-func TestUpdateContext_Init(t *testing.T) {
+func TestUpdateContext_Parse(t *testing.T) {
 	type args struct {
 		entry sm.Entry
 	}
 	type want struct {
-		index uint64
-		cmd   *proto.Command
+		index  uint64
+		parsed *proto.Command
+		cmd    command
 	}
 	tests := []struct {
 		name    string
@@ -30,17 +31,17 @@ func TestUpdateContext_Init(t *testing.T) {
 		{
 			name: "empty command",
 			args: args{entry: sm.Entry{Cmd: nil}},
-			want: want{index: 0, cmd: &proto.Command{}},
+			want: want{index: 0, parsed: &proto.Command{}, cmd: commandPut{}},
 		},
 		{
 			name: "empty command with index",
 			args: args{entry: sm.Entry{Index: 200}},
-			want: want{index: 200, cmd: &proto.Command{}},
+			want: want{index: 200, parsed: &proto.Command{}, cmd: commandPut{}},
 		},
 		{
 			name: "put command with index",
 			args: args{entry: sm.Entry{Index: 200, Cmd: mustMarshallProto(&proto.Command{Type: proto.Command_PUT, Table: []byte("test"), Kv: &proto.KeyValue{Key: []byte("key")}})}},
-			want: want{index: 200, cmd: &proto.Command{Type: proto.Command_PUT, Table: []byte("test"), Kv: &proto.KeyValue{Key: []byte("key"), Value: nil}}},
+			want: want{index: 200, parsed: &proto.Command{Type: proto.Command_PUT, Table: []byte("test"), Kv: &proto.KeyValue{Key: []byte("key"), Value: nil}}, cmd: commandPut{}},
 		},
 	}
 	for _, tt := range tests {
@@ -49,17 +50,18 @@ func TestUpdateContext_Init(t *testing.T) {
 			uc := updateContext{
 				cmd: &proto.Command{},
 			}
-			err := uc.Init(tt.args.entry)
+			cmd, err := uc.Parse(tt.args.entry)
 			if tt.wantErr {
 				r.Error(err)
 			}
 			r.NoError(err)
+			r.IsType(tt.want.cmd, cmd)
 			r.Equal(tt.want.index, uc.index)
-			r.Equal(tt.want.cmd.Table, uc.cmd.Table)
-			r.Equal(tt.want.cmd.Type, uc.cmd.Type)
-			r.Equal(tt.want.cmd.LeaderIndex, uc.cmd.LeaderIndex)
-			r.Equal(tt.want.cmd.Txn, uc.cmd.Txn)
-			r.Equal(tt.want.cmd.Kv, uc.cmd.Kv)
+			r.Equal(tt.want.parsed.Table, uc.cmd.Table)
+			r.Equal(tt.want.parsed.Type, uc.cmd.Type)
+			r.Equal(tt.want.parsed.LeaderIndex, uc.cmd.LeaderIndex)
+			r.Equal(tt.want.parsed.Txn, uc.cmd.Txn)
+			r.Equal(tt.want.parsed.Kv, uc.cmd.Kv)
 		})
 	}
 }

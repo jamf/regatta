@@ -175,24 +175,9 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}()
 
 	for i := 0; i < len(updates); i++ {
-		if err := ctx.Init(updates[i]); err != nil {
+		cmd, err := ctx.Parse(updates[i])
+		if err != nil {
 			return nil, err
-		}
-
-		var cmd command
-		switch ctx.cmd.Type {
-		case proto.Command_PUT:
-			cmd = commandPut{ctx}
-		case proto.Command_DELETE:
-			cmd = commandDelete{ctx}
-		case proto.Command_PUT_BATCH:
-			cmd = commandPutBatch{ctx}
-		case proto.Command_DELETE_BATCH:
-			cmd = commandDeleteBatch{ctx}
-		case proto.Command_TXN:
-			cmd = commandTxn{ctx}
-		case proto.Command_DUMMY:
-			cmd = commandDummy{ctx}
 		}
 
 		updateResult, res, err := cmd.handle()

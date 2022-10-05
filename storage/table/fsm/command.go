@@ -33,13 +33,27 @@ func (c *updateContext) EnsureIndexed() error {
 	return nil
 }
 
-func (c *updateContext) Init(entry sm.Entry) error {
+func (c *updateContext) Parse(entry sm.Entry) (command, error) {
 	c.index = entry.Index
 	c.cmd.ResetVT()
 	if err := c.cmd.UnmarshalVT(entry.Cmd); err != nil {
-		return err
+		return commandDummy{c}, err
 	}
-	return nil
+	switch c.cmd.Type {
+	case proto.Command_PUT:
+		return commandPut{c}, nil
+	case proto.Command_DELETE:
+		return commandDelete{c}, nil
+	case proto.Command_PUT_BATCH:
+		return commandPutBatch{c}, nil
+	case proto.Command_DELETE_BATCH:
+		return commandDeleteBatch{c}, nil
+	case proto.Command_TXN:
+		return commandTxn{c}, nil
+	case proto.Command_DUMMY:
+		return commandDummy{c}, nil
+	}
+	return commandDummy{c}, nil
 }
 
 func (c *updateContext) Commit() error {
