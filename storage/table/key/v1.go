@@ -58,3 +58,12 @@ func (k *keyV1) Decode(reader io.Reader) error {
 	k.key = bytes[1:]
 	return nil
 }
+
+func v1DecodeRaw(raw []byte) keyV1 {
+	k := keyV1{}
+	if len(raw) > 1 {
+		k.keyType = Type(raw[0])
+		k.key = raw[1:]
+	}
+	return k
+}
