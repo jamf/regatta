@@ -186,3 +186,58 @@ func TestKey_reset(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeRaw(t *testing.T) {
+	type args struct {
+		raw []byte
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    Key
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name: "v1 system key",
+			args: args{raw: append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeSystem)}, []byte("test")...)},
+			want: Key{
+				version: V1,
+				KeyType: TypeSystem,
+				Key:     []byte("test"),
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "v1 User key",
+			args: args{raw: append([]byte{V1, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...)},
+			want: Key{
+				version: V1,
+				KeyType: TypeUser,
+				Key:     []byte("test"),
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name:    "malformed header",
+			args:    args{raw: append([]byte{0x0, 0x0, byte(TypeUser)}, []byte("test")...)},
+			wantErr: require.Error,
+		},
+		{
+			name:    "missing header",
+			args:    args{raw: []byte{0x0, 0x0}},
+			wantErr: require.Error,
+		},
+		{
+			name:    "unknown Key Version",
+			args:    args{raw: append([]byte{UnknownVersion, 0x0, 0x0, 0x0, byte(TypeUser)}, []byte("test")...)},
+			wantErr: require.Error,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := DecodeBytes(tt.args.raw)
+			tt.wantErr(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

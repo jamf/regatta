@@ -131,3 +131,19 @@ func (e Encoder) Encode(key *Key) (int, error) {
 	}
 	return 0, ErrUnknownKeyVersion
 }
+
+// DecodeBytes transforms raw bytes into a Key, input bytes are not copied.
+func DecodeBytes(raw []byte) (Key, error) {
+	if len(raw) < keyHeaderLen {
+		return Key{}, ErrMissingKeyHeader
+	}
+	if raw[keyVersionHeaderPos] == V1 {
+		k := v1DecodeRaw(raw[keyHeaderLen:])
+		return Key{
+			version: V1,
+			KeyType: k.keyType,
+			Key:     k.key,
+		}, nil
+	}
+	return Key{}, ErrUnknownKeyVersion
+}
