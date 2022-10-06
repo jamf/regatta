@@ -31,3 +31,5 @@ charts:
         leaderAddress: regatta.dev.wandera.co.uk:8444
       alerts:
         grpcFailedRequests: 5
+      experimental:
+        tanlogdb: true
