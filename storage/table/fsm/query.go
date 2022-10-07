@@ -1,7 +1,6 @@
 package fsm
 
 import (
-	"bytes"
 	"encoding/binary"
 	"io"
 
@@ -86,32 +85,49 @@ func commandSnapshot(reader pebble.Reader, tableName string, w io.Writer, stopc 
 		return 0, err
 	}
 
-	var k key.Key
+	var buffer []byte
 	for iter.First(); iter.Valid(); iter.Next() {
 		select {
 		case <-stopc:
 			return 0, sm.ErrSnapshotStopped
 		default:
-			dec := key.NewDecoder(bytes.NewReader(iter.Key()))
-			err := dec.Decode(&k)
+			k, err := key.DecodeBytes(iter.Key())
 			if err != nil {
 				return 0, err
 			}
 			if k.KeyType == key.TypeUser {
-				if err := writeCommand(w, &proto.Command{
-					Table: []byte(tableName),
-					Type:  proto.Command_PUT,
-					Kv: &proto.KeyValue{
-						Key:   k.Key,
-						Value: iter.Value(),
-					},
-				}); err != nil {
+				buffer, err = writeCommand(tableName, k.Key, iter.Value(), buffer)
+				if err != nil {
+					return 0, err
+				}
+				if _, err := w.Write(buffer); err != nil {
 					return 0, err
 				}
 			}
 		}
 	}
 	return idx, nil
+}
+
+// writeCommand writes KV pair as PUT proto.Command into (optionally provided) buffer.
+func writeCommand(tableName string, key []byte, val []byte, buffer []byte) ([]byte, error) {
+	cmd := proto.CommandFromVTPool()
+	defer cmd.ReturnToVTPool()
+	cmd.Table = []byte(tableName)
+	cmd.Type = proto.Command_PUT
+	cmd.Kv = &proto.KeyValue{
+		Key:   key,
+		Value: val,
+	}
+	size := cmd.SizeVT()
+	if cap(buffer) < size {
+		buffer = make([]byte, size*2)
+	}
+	n, err := cmd.MarshalToSizedBufferVT(buffer[:size])
+	if err != nil {
+		return buffer, err
+	}
+	return buffer[:n], err
 }
 
 func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
@@ -206,10 +222,8 @@ type fillEntriesFunc func(key, value []byte, response *proto.ResponseOp_Range) e
 func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *proto.ResponseOp_Range) error {
 	i := 0
 	for iter.First(); iter.Valid(); iter.Next() {
-		k := key.Key{}
-		r := bytes.NewReader(iter.Key())
-		decoder := key.NewDecoder(r)
-		if err := decoder.Decode(&k); err != nil {
+		k, err := key.DecodeBytes(iter.Key())
+		if err != nil {
 			return err
 		}
 
@@ -248,18 +262,6 @@ func addKeyOnly(key, _ []byte, response *proto.ResponseOp_Range) error {
 // addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
 func addCountOnly(_, _ []byte, response *proto.ResponseOp_Range) error {
 	response.Count++
-	return nil
-}
-
-func writeCommand(w io.Writer, command *proto.Command) error {
-	bts, err := command.MarshalVT()
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(bts)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
