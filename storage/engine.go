@@ -284,9 +284,8 @@ func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaf
 
 	if cfg.LogDBImplementation == Tan {
 		nhc.Expert.LogDBFactory = tan.Factory
-	} else {
-		nhc.Expert.LogDB = buildLogDBConfig()
 	}
+	nhc.Expert.LogDB = buildLogDBConfig()
 
 	err := nhc.Prepare()
 	if err != nil {
