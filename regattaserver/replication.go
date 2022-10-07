@@ -1,7 +1,6 @@
 package regattaserver
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"io"
@@ -23,8 +22,6 @@ import (
 const (
 	// DefaultMaxGRPCSize is the default maximum size of body of gRPC message to be loaded from dragonboat.
 	DefaultMaxGRPCSize = 4 * 1024 * 1024
-	// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
-	DefaultSnapshotChunkSize = 1024 * 1024
 	// DefaultMaxLogRecords is a maximum number of log records sent via a single RPC call.
 	DefaultMaxLogRecords = 1_000
 	// DefaultCacheSize is a size of the cache used during the replication routine.
@@ -106,7 +103,7 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 		return err
 	}
 
-	_, err = io.Copy(&snapshot.Writer{Sender: srv}, bufio.NewReaderSize(sf.File, DefaultSnapshotChunkSize))
+	_, err = io.Copy(&snapshot.Writer{Sender: srv}, sf.File)
 	return err
 }
 
