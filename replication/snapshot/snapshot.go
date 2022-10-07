@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"os"
 
@@ -10,10 +11,41 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// DefaultSnapshotChunkSize default chunk size of gRPC snapshot stream.
+const DefaultSnapshotChunkSize = 1024 * 1024
+
 const snapshotFilenamePattern = "snapshot-*.bin"
 
 type Writer struct {
 	Sender proto.Snapshot_StreamServer
+}
+
+func (g *Writer) ReadFrom(r io.Reader) (int64, error) {
+	count := int64(0)
+	for {
+		err := func() error {
+			chunk := proto.SnapshotChunkFromVTPool()
+			defer chunk.ReturnToVTPool()
+			if cap(chunk.Data) < DefaultSnapshotChunkSize {
+				chunk.Data = make([]byte, DefaultSnapshotChunkSize)
+			}
+			n, err := r.Read(chunk.Data)
+			if n > 0 {
+				chunk.Data = chunk.Data[:n]
+				chunk.Len = uint64(n)
+				count += int64(n)
+				return g.Sender.Send(chunk)
+			}
+			return err
+		}()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return count, err
+		}
+	}
+	return count, nil
 }
 
 func (g *Writer) Write(p []byte) (int, error) {

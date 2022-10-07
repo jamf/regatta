@@ -1,7 +1,6 @@
 package regattaserver
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -99,7 +98,7 @@ func (m *BackupServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_Ba
 		return err
 	}
 
-	_, err = io.Copy(&snapshot.Writer{Sender: srv}, bufio.NewReaderSize(sf.File, DefaultSnapshotChunkSize))
+	_, err = io.Copy(&snapshot.Writer{Sender: srv}, sf.File)
 	return err
 }
 
