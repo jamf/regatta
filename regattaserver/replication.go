@@ -1,6 +1,7 @@
 package regattaserver
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"io"
@@ -103,7 +104,7 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 		return err
 	}
 
-	_, err = io.Copy(&snapshot.Writer{Sender: srv}, sf.File)
+	_, err = io.Copy(&snapshot.Writer{Sender: srv}, bufio.NewReaderSize(sf.File, snapshot.DefaultSnapshotChunkSize))
 	return err
 }
 

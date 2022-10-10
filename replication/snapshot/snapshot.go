@@ -22,22 +22,18 @@ type Writer struct {
 
 func (g *Writer) ReadFrom(r io.Reader) (int64, error) {
 	count := int64(0)
+	chunk := make([]byte, DefaultSnapshotChunkSize)
 	for {
-		err := func() error {
-			chunk := proto.SnapshotChunkFromVTPool()
-			defer chunk.ReturnToVTPool()
-			if cap(chunk.Data) < DefaultSnapshotChunkSize {
-				chunk.Data = make([]byte, DefaultSnapshotChunkSize)
+		n, err := r.Read(chunk)
+		if n > 0 {
+			count += int64(n)
+			if err := g.Sender.Send(&proto.SnapshotChunk{
+				Data: chunk[:n],
+				Len:  uint64(n),
+			}); err != nil {
+				return count, err
 			}
-			n, err := r.Read(chunk.Data)
-			if n > 0 {
-				chunk.Data = chunk.Data[:n]
-				chunk.Len = uint64(n)
-				count += int64(n)
-				return g.Sender.Send(chunk)
-			}
-			return err
-		}()
+		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
