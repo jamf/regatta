@@ -91,7 +91,7 @@ func TestUpdateContext_Commit(t *testing.T) {
 		batch: db.NewBatch(),
 		index: 150,
 	}
-	r.NoError(uc.Commit())
+	r.NoError(uc.Commit(&pebble.WriteOptions{}))
 
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)

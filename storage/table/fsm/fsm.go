@@ -165,7 +165,6 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	ctx := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		wo:    p.wo,
 	}
 
 	defer func() {
@@ -193,7 +192,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		updates[i].Result.Value = uint64(updateResult)
 	}
 
-	if err := ctx.Commit(); err != nil {
+	if err := ctx.Commit(p.wo); err != nil {
 		return nil, err
 	}
 

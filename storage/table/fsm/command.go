@@ -11,7 +11,6 @@ import (
 
 type updateContext struct {
 	batch       *pebble.Batch
-	wo          *pebble.WriteOptions
 	db          *pebble.DB
 	index       uint64
 	leaderIndex *uint64
@@ -33,7 +32,7 @@ func (c *updateContext) EnsureIndexed() error {
 	return nil
 }
 
-func (c *updateContext) Commit() error {
+func (c *updateContext) Commit(wo *pebble.WriteOptions) error {
 	// Set leader index if present in the proposal
 	if c.leaderIndex != nil {
 		leaderIdx := make([]byte, 8)
@@ -48,7 +47,7 @@ func (c *updateContext) Commit() error {
 	if err := c.batch.Set(sysLocalIndex, idx, nil); err != nil {
 		return err
 	}
-	return c.batch.Commit(c.wo)
+	return c.batch.Commit(wo)
 }
 
 func (c *updateContext) Close() error {
@@ -65,27 +64,27 @@ func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
 		return commandDummy{}, err
 	}
 	c.leaderIndex = cmd.LeaderIndex
-	return wrapCommand(cmd)
+	return wrapCommand(cmd), nil
 }
 
-func wrapCommand(cmd *proto.Command) (command, error) {
+func wrapCommand(cmd *proto.Command) command {
 	switch cmd.Type {
 	case proto.Command_PUT:
-		return commandPut{cmd}, nil
+		return commandPut{cmd}
 	case proto.Command_DELETE:
-		return commandDelete{cmd}, nil
+		return commandDelete{cmd}
 	case proto.Command_PUT_BATCH:
-		return commandPutBatch{cmd}, nil
+		return commandPutBatch{cmd}
 	case proto.Command_DELETE_BATCH:
-		return commandDeleteBatch{cmd}, nil
+		return commandDeleteBatch{cmd}
 	case proto.Command_TXN:
-		return commandTxn{cmd}, nil
+		return commandTxn{cmd}
 	case proto.Command_SEQUENCE:
-		return commandSequence{cmd}, nil
+		return commandSequence{cmd}
 	case proto.Command_DUMMY:
-		return commandDummy{}, nil
+		return commandDummy{}
 	}
-	return commandDummy{}, nil
+	return commandDummy{}
 }
 
 type command interface {
