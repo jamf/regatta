@@ -345,6 +345,71 @@ var input = map[int][]*proto.Command{
 			},
 		},
 	},
+	3: {
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_SEQUENCE,
+			Sequence: []*proto.Command{
+				{
+					Table: []byte("test"),
+					Type:  proto.Command_TXN,
+					Txn: &proto.Txn{
+						Success: []*proto.RequestOp{
+							{
+								Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+									Key:   []byte("key_1"),
+									Value: []byte("value"),
+								}},
+							},
+							{
+								Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+									Key:   []byte("key_2"),
+									Value: []byte("value"),
+								}},
+							},
+							{
+								Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+									Key:   []byte("key_3"),
+									Value: []byte("value"),
+								}},
+							},
+						},
+					},
+				},
+				{
+					Table: []byte("test"),
+					Type:  proto.Command_DELETE,
+					Kv:    &proto.KeyValue{Key: []byte("key_2")},
+				},
+				{
+					Table: []byte("test"),
+					Type:  proto.Command_DELETE,
+					Kv:    &proto.KeyValue{Key: []byte("key_3")},
+				},
+				{
+					Table: []byte("test"),
+					Type:  proto.Command_PUT,
+					Kv:    &proto.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")},
+				},
+			},
+		},
+		{
+			Table: []byte("test"),
+			Type:  proto.Command_SEQUENCE,
+			Sequence: []*proto.Command{
+				{
+					Table: []byte("test"),
+					Type:  proto.Command_PUT,
+					Kv:    &proto.KeyValue{Key: []byte("key_2"), Value: []byte("value_2")},
+				},
+				{
+					Table: []byte("test"),
+					Type:  proto.Command_PUT,
+					Kv:    &proto.KeyValue{Key: []byte("key_3"), Value: []byte("value_3")},
+				},
+			},
+		},
+	},
 }
 
 // TestGenerateData is useful for generating test data for new features.
