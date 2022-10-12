@@ -16,6 +16,7 @@ message Command {
     PUT_BATCH = 3;
     DELETE_BATCH = 4;
     TXN = 5;
+    SEQUENCE = 6;
   }
 
   // table name of the table
@@ -53,6 +54,9 @@ message Command {
 
   // prev_kvs if to fetch previous KVs.
   bool prev_kvs = 9;
+
+  // sequence is the sequence of commands to be applied as a single FSM step.
+  repeated Command sequence = 10;
 }
 
 message CommandResult {

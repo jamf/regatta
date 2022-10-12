@@ -201,6 +201,7 @@ Maintenance service provides methods for maintenance purposes.
 | txn | [Txn](#mvcc-v1-Txn) | optional | txn is an atomic transaction (slow, supports reads and conditions). |
 | range_end | [bytes](#bytes) | optional | range_end is the key following the last key to affect for the range [kv.key, range_end). If range_end is not given, the range is defined to contain only the kv.key argument. If range_end is one bit larger than the given kv.key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
 | prev_kvs | [bool](#bool) |  | prev_kvs if to fetch previous KVs. |
+| sequence | [Command](#mvcc-v1-Command) | repeated | sequence is the sequence of commands to be applied as a single FSM step. |
 
 
 
@@ -435,6 +436,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 | PUT_BATCH | 3 |  |
 | DELETE_BATCH | 4 |  |
 | TXN | 5 |  |
+| SEQUENCE | 6 |  |
 
 
 

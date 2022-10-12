@@ -65,6 +65,10 @@ func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
 		return commandDummy{}, err
 	}
 	c.leaderIndex = cmd.LeaderIndex
+	return wrapCommand(cmd)
+}
+
+func wrapCommand(cmd *proto.Command) (command, error) {
 	switch cmd.Type {
 	case proto.Command_PUT:
 		return commandPut{cmd}, nil
@@ -76,6 +80,8 @@ func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
 		return commandDeleteBatch{cmd}, nil
 	case proto.Command_TXN:
 		return commandTxn{cmd}, nil
+	case proto.Command_SEQUENCE:
+		return commandSequence{cmd}, nil
 	case proto.Command_DUMMY:
 		return commandDummy{}, nil
 	}
