@@ -5,9 +5,8 @@ import (
 )
 
 type commandDummy struct {
-	*updateContext
 }
 
-func (c commandDummy) handle() (UpdateResult, *proto.CommandResult, error) {
-	return ResultSuccess, &proto.CommandResult{Revision: c.index}, nil
+func (c commandDummy) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
+	return ResultSuccess, &proto.CommandResult{Revision: ctx.index}, nil
 }
