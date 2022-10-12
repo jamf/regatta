@@ -158,6 +158,48 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	return readLocalIndex(db, sysLocalIndex)
 }
 
+// Update advances the FSM.
+func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
+	db := p.pebble.Load()
+
+	ctx := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		wo:    p.wo,
+	}
+
+	defer func() {
+		_ = ctx.Close()
+	}()
+
+	for i := 0; i < len(updates); i++ {
+		cmd, err := ctx.Parse(updates[i])
+		if err != nil {
+			return nil, err
+		}
+
+		updateResult, res, err := cmd.handle()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(res.Responses) > 0 {
+			bts, err := res.MarshalVT()
+			if err != nil {
+				return nil, err
+			}
+			updates[i].Result.Data = bts
+		}
+		updates[i].Result.Value = uint64(updateResult)
+	}
+
+	if err := ctx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return updates, nil
+}
+
 // Sync synchronizes all in-core state of the state machine to permanent
 // storage so the state machine can continue from its latest state after
 // reboot.

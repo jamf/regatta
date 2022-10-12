@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/require"
+	rp "github.com/wandera/regatta/pebble"
 	"github.com/wandera/regatta/proto"
 )
 
@@ -199,6 +201,83 @@ func Test_txnCompare(t *testing.T) {
 			r.Equal(tt.want, got)
 		})
 	}
+}
+
+func Test_handleTxn(t *testing.T) {
+	r := require.New(t)
+
+	db, err := rp.OpenDB("/", rp.WithFS(vfs.NewMem()))
+	if err != nil {
+		t.Fatalf("could not open pebble db: %v", err)
+	}
+
+	c := &updateContext{
+		batch: db.NewBatch(),
+		db:    db,
+		index: 1,
+	}
+	defer func() { _ = c.Close() }()
+
+	// Make the PUT_BATCH.
+	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+		{Key: []byte("key_1"), Value: []byte("value")},
+		{Key: []byte("key_2"), Value: []byte("value")},
+		{Key: []byte("key_3"), Value: []byte("value")},
+		{Key: []byte("key_4"), Value: []byte("value")},
+	})
+	r.NoError(err)
+	r.NoError(c.Commit())
+
+	c.batch = db.NewBatch()
+
+	// empty transaction
+	succ, res, err := handleTxn(c, []*proto.Compare{{Key: []byte("key_1")}}, nil, nil)
+	r.True(succ)
+	r.NoError(err)
+	r.Empty(res)
+
+	// insert key_5 with nil value
+	succ, res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_1")}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: nil}}}}, nil)
+	r.True(succ)
+	r.NoError(err)
+	r.Equal(1, len(res))
+	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{}), res[0])
+
+	// compare key_5 nil value and associate the key with "value"
+	succ, res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: nil}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{Key: []byte("key_5"), Value: []byte("value"), PrevKv: true}}}}, nil)
+	r.True(succ)
+	r.NoError(err)
+	r.Equal(1, len(res))
+	r.Equal(wrapResponseOp(&proto.ResponseOp_Put{PrevKv: &proto.KeyValue{Key: []byte("key_5"), Value: nil}}), res[0])
+
+	// compare key_5 value with "value" and delete keys up to key_4 (non-inclusive)
+	succ, res, err = handleTxn(c, []*proto.Compare{{Key: []byte("key_5"), TargetUnion: &proto.Compare_Value{Value: []byte("value")}}}, []*proto.RequestOp{{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_4"), PrevKv: true}}}}, nil)
+	r.True(succ)
+	r.NoError(err)
+	r.Equal(1, len(res))
+	r.Equal(wrapResponseOp(&proto.ResponseOp_DeleteRange{
+		PrevKvs: []*proto.KeyValue{
+			{Key: []byte("key_1"), Value: []byte("value")},
+			{Key: []byte("key_2"), Value: []byte("value")},
+			{Key: []byte("key_3"), Value: []byte("value")},
+		},
+	}), res[0])
+
+	r.NoError(c.Commit())
+
+	iter := db.NewIter(allUserKeysOpts())
+	count := 0
+	for iter.First(); iter.Valid(); iter.Next() {
+		count++
+		r.Equal("value", string(iter.Value()))
+	}
+	// just keys key_4 and key_5 should remain
+	r.Equal(2, count)
+
+	// Check the system keys.
+	index, err := readLocalIndex(db, sysLocalIndex)
+	r.NoError(err)
+	r.Equal(c.index, index)
 }
 
 func Test_txnCompareSingle(t *testing.T) {
