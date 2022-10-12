@@ -49,6 +49,18 @@ func (m *Command) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.Sequence) > 0 {
+		for iNdEx := len(m.Sequence) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.Sequence[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x52
+		}
+	}
 	if m.PrevKvs {
 		i--
 		if m.PrevKvs {
@@ -945,6 +957,9 @@ var vtprotoPool_Command = sync.Pool{
 func (m *Command) ResetVT() {
 	f0 := m.Table[:0]
 	f1 := m.RangeEnd[:0]
+	for _, mm := range m.Sequence {
+		mm.ResetVT()
+	}
 	m.Reset()
 	m.Table = f0
 	m.RangeEnd = f1
@@ -996,6 +1011,12 @@ func (m *Command) SizeVT() (n int) {
 	}
 	if m.PrevKvs {
 		n += 2
+	}
+	if len(m.Sequence) > 0 {
+		for _, e := range m.Sequence {
+			l = e.SizeVT()
+			n += 1 + l + sov(uint64(l))
+		}
 	}
 	if m.unknownFields != nil {
 		n += len(m.unknownFields)
@@ -1632,6 +1653,47 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 				}
 			}
 			m.PrevKvs = bool(v != 0)
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sequence", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if len(m.Sequence) == cap(m.Sequence) {
+				m.Sequence = append(m.Sequence, &Command{})
+			} else {
+				m.Sequence = m.Sequence[:len(m.Sequence)+1]
+				if m.Sequence[len(m.Sequence)-1] == nil {
+					m.Sequence[len(m.Sequence)-1] = &Command{}
+				}
+			}
+			if err := m.Sequence[len(m.Sequence)-1].UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
