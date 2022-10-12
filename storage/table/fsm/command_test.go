@@ -47,7 +47,7 @@ func TestUpdateContext_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			uc := updateContext{}
-			cmd, err := uc.Parse(tt.args.entry)
+			cmd, err := parseCommand(&uc, tt.args.entry)
 			if tt.wantErr {
 				r.Error(err)
 			}

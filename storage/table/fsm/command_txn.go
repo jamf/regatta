@@ -9,12 +9,11 @@ import (
 )
 
 type commandTxn struct {
-	*updateContext
-	command *proto.Command
+	*proto.Command
 }
 
-func (c commandTxn) handle() (UpdateResult, *proto.CommandResult, error) {
-	succ, rop, err := handleTxn(c.updateContext, c.command.Txn.Compare, c.command.Txn.Success, c.command.Txn.Failure)
+func (c commandTxn) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
+	succ, rop, err := handleTxn(ctx, c.Txn.Compare, c.Txn.Success, c.Txn.Failure)
 	if err != nil {
 		return ResultFailure, nil, err
 	}
@@ -22,7 +21,7 @@ func (c commandTxn) handle() (UpdateResult, *proto.CommandResult, error) {
 	if !succ {
 		result = ResultFailure
 	}
-	return result, &proto.CommandResult{Revision: c.index, Responses: rop}, nil
+	return result, &proto.CommandResult{Revision: ctx.index, Responses: rop}, nil
 }
 
 // handleTxn handle transaction operation, returns if the operation succeeded (if success, or fail was applied) list or respective results and error.

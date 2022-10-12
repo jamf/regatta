@@ -173,12 +173,12 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}()
 
 	for i := 0; i < len(updates); i++ {
-		cmd, err := ctx.Parse(updates[i])
+		cmd, err := parseCommand(ctx, updates[i])
 		if err != nil {
 			return nil, err
 		}
 
-		updateResult, res, err := cmd.handle()
+		updateResult, res, err := cmd.handle(ctx)
 		if err != nil {
 			return nil, err
 		}
