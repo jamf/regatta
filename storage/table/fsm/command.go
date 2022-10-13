@@ -84,7 +84,7 @@ func wrapCommand(cmd *proto.Command) command {
 	case proto.Command_DUMMY:
 		return commandDummy{}
 	}
-	return commandDummy{}
+	panic("unknown command type")
 }
 
 type command interface {

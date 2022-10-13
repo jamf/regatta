@@ -11,12 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/replication/snapshot"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -122,51 +120,37 @@ func (b *Backup) Backup() (Manifest, error) {
 		return manifest, err
 	}
 
-	var wg errgroup.Group
-	var mtx sync.Mutex
 	b.Log.Infof("going to backup %v", meta.Tables)
-	for _, table := range meta.Tables {
-		t := table
-		wg.Go(func() error {
-			b.Log.Infof("backing up table '%s'", t.Name)
-			stream, err := sc.Backup(ctx, &proto.BackupRequest{Table: []byte(t.Name)})
-			if err != nil {
-				return err
-			}
-			fName := fmt.Sprintf("%s.bak", t.Name)
-			sf, err := os.Create(filepath.Join(b.Dir, fName))
-			if err != nil {
-				return err
-			}
+	for _, t := range meta.Tables {
+		b.Log.Infof("backing up table '%s'", t.Name)
+		stream, err := sc.Backup(ctx, &proto.BackupRequest{Table: []byte(t.Name)})
+		if err != nil {
+			return manifest, err
+		}
+		fName := fmt.Sprintf("%s.bak", t.Name)
+		sf, err := os.Create(filepath.Join(b.Dir, fName))
+		if err != nil {
+			return manifest, err
+		}
 
-			hash := md5.New()
-			w := io.MultiWriter(hash, sf)
-			_, err = io.Copy(w, snapshot.Reader{Stream: stream})
-			if err != nil {
-				return err
-			}
-			err = sf.Sync()
-			if err != nil {
-				return err
-			}
+		hash := md5.New()
+		w := io.MultiWriter(hash, sf)
+		_, err = io.Copy(w, snapshot.Reader{Stream: stream})
+		if err != nil {
+			return manifest, err
+		}
+		err = sf.Sync()
+		if err != nil {
+			return manifest, err
+		}
 
-			func() {
-				mtx.Lock()
-				defer mtx.Unlock()
-				manifest.Tables = append(manifest.Tables, ManifestTable{
-					Name:     t.Name,
-					Type:     t.Type.String(),
-					FileName: fName,
-					MD5:      hex.EncodeToString(hash.Sum(nil)),
-				})
-			}()
-			b.Log.Infof("backed up table '%s'", t.Name)
-			return nil
+		manifest.Tables = append(manifest.Tables, ManifestTable{
+			Name:     t.Name,
+			Type:     t.Type.String(),
+			FileName: fName,
+			MD5:      hex.EncodeToString(hash.Sum(nil)),
 		})
-	}
-	err = wg.Wait()
-	if err != nil {
-		return manifest, err
+		b.Log.Infof("backed up table '%s'", t.Name)
 	}
 	sort.Sort(manifestTables(manifest.Tables))
 	manifest.Finished = b.clock.Now()
