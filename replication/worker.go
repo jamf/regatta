@@ -21,6 +21,9 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// TODO make configurable.
+const desiredProposalSize = 256 * 1024
+
 type workerFactory struct {
 	pollInterval      time.Duration
 	leaseInterval     time.Duration
@@ -261,25 +264,41 @@ func (w *worker) tableState() (uint64, uint64, error) {
 }
 
 func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
+	seq := proto.CommandFromVTPool()
+	defer seq.ReturnToVTPool()
+	session := w.nh.GetNoOPSession(clusterID)
+
 	var buff []byte
-	for _, c := range commands {
-		size := c.Command.SizeVT()
+	propose := func() error {
+		size := seq.SizeVT()
 		if cap(buff) < size {
 			buff = make([]byte, 0, size)
 		}
 		buff = buff[:size]
-		n, err := c.Command.MarshalToSizedBufferVT(buff)
+		n, err := seq.MarshalToSizedBufferVT(buff)
 		if err != nil {
 			return fmt.Errorf("could not marshal command: %w", err)
 		}
 
-		if _, err := w.nh.SyncPropose(ctx, w.nh.GetNoOPSession(clusterID), buff[:n]); err != nil {
+		if _, err := w.nh.SyncPropose(ctx, session, buff[:n]); err != nil {
 			return fmt.Errorf("could not SyncPropose: %w", err)
 		}
-		if c.Command.LeaderIndex != nil {
-			w.metrics.replicationFollowerIndex.Set(float64(*c.Command.LeaderIndex))
+		w.metrics.replicationFollowerIndex.Set(float64(*seq.LeaderIndex))
+		return nil
+	}
+
+	seq.Type = proto.Command_SEQUENCE
+	for i, c := range commands {
+		seq.Sequence = append(seq.Sequence, c.Command)
+		seq.LeaderIndex = &c.LeaderIndex
+		if seq.SizeVT() >= desiredProposalSize || i == len(commands)-1 {
+			err := propose()
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
