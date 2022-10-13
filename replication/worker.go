@@ -270,6 +270,7 @@ func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCo
 
 	var buff []byte
 	propose := func() error {
+		defer seq.ResetVT()
 		size := seq.SizeVT()
 		if cap(buff) < size {
 			buff = make([]byte, 0, size)
