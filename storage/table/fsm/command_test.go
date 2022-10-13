@@ -47,7 +47,7 @@ func TestUpdateContext_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			uc := updateContext{}
-			cmd, err := uc.Parse(tt.args.entry)
+			cmd, err := parseCommand(&uc, tt.args.entry)
 			if tt.wantErr {
 				r.Error(err)
 			}
@@ -91,7 +91,7 @@ func TestUpdateContext_Commit(t *testing.T) {
 		batch: db.NewBatch(),
 		index: 150,
 	}
-	r.NoError(uc.Commit())
+	r.NoError(uc.Commit(&pebble.WriteOptions{}))
 
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)

@@ -165,7 +165,6 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	ctx := &updateContext{
 		batch: db.NewBatch(),
 		db:    db,
-		wo:    p.wo,
 	}
 
 	defer func() {
@@ -173,12 +172,12 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}()
 
 	for i := 0; i < len(updates); i++ {
-		cmd, err := ctx.Parse(updates[i])
+		cmd, err := parseCommand(ctx, updates[i])
 		if err != nil {
 			return nil, err
 		}
 
-		updateResult, res, err := cmd.handle()
+		updateResult, res, err := cmd.handle(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +192,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		updates[i].Result.Value = uint64(updateResult)
 	}
 
-	if err := ctx.Commit(); err != nil {
+	if err := ctx.Commit(p.wo); err != nil {
 		return nil, err
 	}
 

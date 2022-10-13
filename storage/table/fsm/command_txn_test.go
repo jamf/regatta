@@ -226,7 +226,7 @@ func Test_handleTxn(t *testing.T) {
 		{Key: []byte("key_4"), Value: []byte("value")},
 	})
 	r.NoError(err)
-	r.NoError(c.Commit())
+	r.NoError(c.Commit(&pebble.WriteOptions{}))
 
 	c.batch = db.NewBatch()
 
@@ -263,7 +263,7 @@ func Test_handleTxn(t *testing.T) {
 		},
 	}), res[0])
 
-	r.NoError(c.Commit())
+	r.NoError(c.Commit(&pebble.WriteOptions{}))
 
 	iter := db.NewIter(allUserKeysOpts())
 	count := 0

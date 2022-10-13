@@ -11,7 +11,6 @@ import (
 
 type updateContext struct {
 	batch       *pebble.Batch
-	wo          *pebble.WriteOptions
 	db          *pebble.DB
 	index       uint64
 	leaderIndex *uint64
@@ -33,31 +32,7 @@ func (c *updateContext) EnsureIndexed() error {
 	return nil
 }
 
-func (c *updateContext) Parse(entry sm.Entry) (command, error) {
-	c.index = entry.Index
-	cmd := &proto.Command{}
-	if err := cmd.UnmarshalVT(entry.Cmd); err != nil {
-		return commandDummy{c}, err
-	}
-	c.leaderIndex = cmd.LeaderIndex
-	switch cmd.Type {
-	case proto.Command_PUT:
-		return commandPut{c, cmd}, nil
-	case proto.Command_DELETE:
-		return commandDelete{c, cmd}, nil
-	case proto.Command_PUT_BATCH:
-		return commandPutBatch{c, cmd}, nil
-	case proto.Command_DELETE_BATCH:
-		return commandDeleteBatch{c, cmd}, nil
-	case proto.Command_TXN:
-		return commandTxn{c, cmd}, nil
-	case proto.Command_DUMMY:
-		return commandDummy{c}, nil
-	}
-	return commandDummy{c}, nil
-}
-
-func (c *updateContext) Commit() error {
+func (c *updateContext) Commit(wo *pebble.WriteOptions) error {
 	// Set leader index if present in the proposal
 	if c.leaderIndex != nil {
 		leaderIdx := make([]byte, 8)
@@ -72,7 +47,7 @@ func (c *updateContext) Commit() error {
 	if err := c.batch.Set(sysLocalIndex, idx, nil); err != nil {
 		return err
 	}
-	return c.batch.Commit(c.wo)
+	return c.batch.Commit(wo)
 }
 
 func (c *updateContext) Close() error {
@@ -82,8 +57,38 @@ func (c *updateContext) Close() error {
 	return nil
 }
 
+func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
+	c.index = entry.Index
+	cmd := &proto.Command{}
+	if err := cmd.UnmarshalVT(entry.Cmd); err != nil {
+		return commandDummy{}, err
+	}
+	c.leaderIndex = cmd.LeaderIndex
+	return wrapCommand(cmd), nil
+}
+
+func wrapCommand(cmd *proto.Command) command {
+	switch cmd.Type {
+	case proto.Command_PUT:
+		return commandPut{cmd}
+	case proto.Command_DELETE:
+		return commandDelete{cmd}
+	case proto.Command_PUT_BATCH:
+		return commandPutBatch{cmd}
+	case proto.Command_DELETE_BATCH:
+		return commandDeleteBatch{cmd}
+	case proto.Command_TXN:
+		return commandTxn{cmd}
+	case proto.Command_SEQUENCE:
+		return commandSequence{cmd}
+	case proto.Command_DUMMY:
+		return commandDummy{}
+	}
+	return commandDummy{}
+}
+
 type command interface {
-	handle() (UpdateResult, *proto.CommandResult, error)
+	handle(*updateContext) (UpdateResult, *proto.CommandResult, error)
 }
 
 func wrapRequestOp(req pb.Message) *proto.RequestOp {
