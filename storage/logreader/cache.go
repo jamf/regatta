@@ -2,34 +2,33 @@ package logreader
 
 import (
 	"sort"
-	"sync"
 
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftpb"
 )
 
-type Cache struct {
+type cache struct {
 	// buffer contains at most `size` raftpb.Entries all sorted
 	// in ascending order by the raftpb.Entry.Index.
 	buffer []raftpb.Entry
 	size   int
-	mtx    sync.RWMutex
 }
 
-func newCache(size int) *Cache {
-	return &Cache{
+func newCache(size int) *cache {
+	return &cache{
 		buffer: make([]raftpb.Entry, 0, size),
 		size:   size,
 	}
 }
 
+func (c *cache) len() int {
+	return len(c.buffer)
+}
+
 // Put entries to the cache. Caller must make sure that the commands are sorted by
 // raftpb.Entry.Index in ascending order when calling this function.
 // When the cache is full, entries with the smallest index are evicted.
-func (c *Cache) Put(entries []raftpb.Entry) {
-	c.mtx.Lock()
-	defer c.mtx.Unlock()
-
+func (c *cache) put(entries []raftpb.Entry) {
 	if len(entries) > c.size {
 		// Consider only the commands with the highest leader index,
 		// which are the ones at the back of the slice.
@@ -55,48 +54,34 @@ func (c *Cache) Put(entries []raftpb.Entry) {
 }
 
 // Get all the entries with the index within the supplied right half-open range dragonboat.LogRange
-// [firstIndex, lastIndex). Approximate size of all the entries and entries sorted in ascending order are returned.
-func (c *Cache) Get(logRange dragonboat.LogRange, maxSize int) (uint64, []raftpb.Entry, dragonboat.LogRange, dragonboat.LogRange) {
-	c.mtx.RLock()
-	defer c.mtx.RUnlock()
-
+// [firstIndex, lastIndex).
+func (c *cache) get(logRange dragonboat.LogRange) ([]raftpb.Entry, dragonboat.LogRange, dragonboat.LogRange) {
 	var (
 		prependIndices = dragonboat.LogRange{}
 		appendIndices  = dragonboat.LogRange{}
-		totalSize      = 0
 	)
 
 	if len(c.buffer) == 0 {
 		// There is nothing in the cache.
-		return 0, nil, logRange, appendIndices
+		return nil, logRange, appendIndices
 	}
 
 	smallestIndex := c.smallestIndex()
 	if smallestIndex > logRange.LastIndex {
 		// No queried entries are in the cache.
-		return 0, nil, logRange, appendIndices
+		return nil, logRange, appendIndices
 	}
 
 	largestIndex := c.largestIndex()
 	if largestIndex < logRange.FirstIndex {
 		// No queried entries are in the cache.
-		return 0, nil, prependIndices, logRange
+		return nil, prependIndices, logRange
 	}
 
-	entries := make([]raftpb.Entry, 0, logRange.LastIndex-logRange.FirstIndex)
-	i := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.FirstIndex })
-	for _, entry := range c.buffer[i:] {
-		if entry.Index < logRange.FirstIndex {
-			continue
-		}
+	start := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.FirstIndex })
+	end := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.LastIndex })
 
-		if entry.Index >= logRange.LastIndex || totalSize > maxSize {
-			break
-		}
-
-		totalSize += entry.SizeUpperLimit()
-		entries = append(entries, entry)
-	}
+	entries := c.buffer[start:end]
 
 	if len(entries) != 0 {
 		if logRange.FirstIndex < smallestIndex {
@@ -110,11 +95,11 @@ func (c *Cache) Get(logRange dragonboat.LogRange, maxSize int) (uint64, []raftpb
 		}
 	}
 
-	return uint64(totalSize), entries, prependIndices, appendIndices
+	return entries, prependIndices, appendIndices
 }
 
 // smallestIndex returns the smallest index in the cache if the cache is not empty.
-func (c *Cache) smallestIndex() uint64 {
+func (c *cache) smallestIndex() uint64 {
 	if len(c.buffer) == 0 {
 		return 0
 	}
@@ -122,7 +107,7 @@ func (c *Cache) smallestIndex() uint64 {
 }
 
 // largestIndex returns the largest index in the cache if the cache is not empty.
-func (c *Cache) largestIndex() uint64 {
+func (c *cache) largestIndex() uint64 {
 	if len(c.buffer) == 0 {
 		return 0
 	}
@@ -131,7 +116,7 @@ func (c *Cache) largestIndex() uint64 {
 }
 
 // Resize the cache to the maximum possible size.
-func (c *Cache) resize() {
+func (c *cache) resize() {
 	if len(c.buffer) > c.size {
 		c.buffer = c.buffer[len(c.buffer)-c.size:]
 	}
