@@ -15,6 +15,11 @@ type logQuerier interface {
 	QueryRaftLog(shardID uint64, firstIndex uint64, lastIndex uint64, maxSize uint64) (*dragonboat.RequestState, error)
 }
 
+type shard struct {
+	*cache
+	mtx sync.Mutex
+}
+
 type LogReader struct {
 	ShardCacheSize int
 	LogQuerier     logQuerier
@@ -29,34 +34,57 @@ func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange
 	if logRange.FirstIndex == logRange.LastIndex {
 		return nil, nil
 	}
+
 	// Try to read the commands from the cache first.
-	cache := l.getCache(clusterID)
-	size, entries, prependIndices, appendIndices := cache.Get(logRange, int(maxSize))
+	sh := l.getCache(clusterID)
+	// Lock this shard.
+	sh.mtx.Lock()
+	defer sh.mtx.Unlock()
+
+	cachedEntries, prependIndices, appendIndices := sh.get(logRange)
 
 	if prependIndices.FirstIndex != 0 && prependIndices.LastIndex != 0 {
 		// We have to query the log for the beginning of the range and prepend the cached entries.
-		le, err := l.readLog(ctx, clusterID, prependIndices, maxSize-size)
+		le, err := l.readLog(ctx, clusterID, prependIndices, maxSize)
 		if err != nil {
 			return nil, err
 		}
-		entries = append(le, entries...)
+
+		// Only if cached and queried entries form a sequence append and cache them, otherwise return the prependIndices without caching.
+		if len(le) == 0 {
+			return fixSize(cachedEntries, maxSize), nil
+		} else if len(cachedEntries) > 0 && le[len(le)-1].Index == cachedEntries[0].Index-1 {
+			entries := append(le, cachedEntries...)
+			return fixSize(entries, maxSize), nil
+		} else {
+			if sh.len() == 0 {
+				sh.put(le)
+			}
+			return le, nil
+		}
 	}
 
 	if appendIndices.FirstIndex != 0 && appendIndices.LastIndex != 0 {
 		// We have to query the log for the end of the range and append the cached entries.
-		le, err := l.readLog(ctx, clusterID, appendIndices, maxSize-size)
+		le, err := l.readLog(ctx, clusterID, appendIndices, maxSize)
 		if err != nil {
 			return nil, err
 		}
-		entries = append(entries, le...)
+		if len(le) == 0 {
+			return fixSize(cachedEntries, maxSize), nil
+		} else if len(cachedEntries) > 0 {
+			sh.put(le)
+			return fixSize(append(cachedEntries, le...), maxSize), nil
+		} else {
+			// Is consecutive to the cache if so cache the range.
+			if le[0].Index-1 == sh.largestIndex() {
+				sh.put(le)
+			}
+			return le, nil
+		}
 	}
 
-	// Update the cache.
-	if len(entries) != 0 {
-		cache.Put(entries)
-	}
-
-	return entries, nil
+	return fixSize(cachedEntries, maxSize), nil
 }
 
 func (l *LogReader) NodeDeleted(info raftio.NodeInfo) {
@@ -64,16 +92,16 @@ func (l *LogReader) NodeDeleted(info raftio.NodeInfo) {
 }
 
 func (l *LogReader) NodeReady(info raftio.NodeInfo) {
-	l.shardCache.Store(info.ShardID, newCache(l.ShardCacheSize))
+	l.shardCache.Store(info.ShardID, &shard{cache: newCache(l.ShardCacheSize)})
 }
 
-func (l *LogReader) getCache(clusterID uint64) *Cache {
+func (l *LogReader) getCache(clusterID uint64) *shard {
 	if entry, ok := l.shardCache.Load(clusterID); ok {
-		return entry.(*Cache)
+		return entry.(*shard)
 	}
 
-	entry, _ := l.shardCache.LoadOrStore(clusterID, newCache(l.ShardCacheSize))
-	return entry.(*Cache)
+	entry, _ := l.shardCache.LoadOrStore(clusterID, &shard{cache: newCache(l.ShardCacheSize)})
+	return entry.(*shard)
 }
 
 func (l *LogReader) readLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
@@ -118,4 +146,15 @@ func (l *LogReader) readLog(ctx context.Context, clusterID uint64, logRange drag
 		return nil, ctx.Err()
 	}
 	return nil, nil
+}
+
+func fixSize(entries []raftpb.Entry, maxSize uint64) []raftpb.Entry {
+	size := 0
+	for i := 0; i < len(entries); i++ {
+		size += entries[i].SizeUpperLimit()
+		if uint64(size) >= maxSize {
+			return entries[:i]
+		}
+	}
+	return entries
 }
