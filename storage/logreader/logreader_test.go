@@ -238,7 +238,7 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 				LogQuerier:     querier,
 			}
 			if len(tt.cacheContent) > 0 {
-				l.getCache(tt.args.clusterID).Put(tt.cacheContent)
+				l.getCache(tt.args.clusterID).put(tt.cacheContent)
 			}
 			ctx, cancel := context.WithTimeout(context.TODO(), tt.args.timeout)
 			got, err := l.QueryRaftLog(ctx, tt.args.clusterID, tt.args.logRange, tt.args.maxSize)

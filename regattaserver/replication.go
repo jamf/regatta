@@ -245,8 +245,8 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		if err := server.Send(msg); err != nil {
 			return status.FromContextError(err).Err()
 		}
-
-		logRange.FirstIndex = uint64(math.Min(float64(logRange.FirstIndex+read), float64(logRange.LastIndex)))
+		next := entries[len(entries)-1].Index + 1
+		logRange.FirstIndex = uint64(math.Min(float64(next), float64(logRange.LastIndex)))
 	}
 }
 
