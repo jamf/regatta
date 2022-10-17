@@ -257,8 +257,12 @@ func (e *Engine) SnapshotReceived(info raftio.SnapshotInfo)        {}
 func (e *Engine) SnapshotRecovered(info raftio.SnapshotInfo)       {}
 func (e *Engine) SnapshotCreated(info raftio.SnapshotInfo)         {}
 func (e *Engine) SnapshotCompacted(info raftio.SnapshotInfo)       {}
-func (e *Engine) LogCompacted(info raftio.EntryInfo)               {}
-func (e *Engine) LogDBCompacted(info raftio.EntryInfo)             {}
+func (e *Engine) LogCompacted(info raftio.EntryInfo) {
+	if info.ReplicaID == e.NodeID() {
+		e.LogReader.LogCompacted(info)
+	}
+}
+func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
 
 func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {
 	dbl.SetLoggerFactory(rl.LoggerFactory(cfg.Logger))
