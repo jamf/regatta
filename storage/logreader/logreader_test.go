@@ -217,7 +217,7 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 			on: func(querier *mockLogQuerier) {
 				results := make(chan dragonboat.RequestResult, 1)
 				results <- dragonboat.RequestResult{}
-				querier.On("QueryRaftLog", uint64(1), uint64(601), uint64(1000), mock.Anything).
+				querier.On("QueryRaftLog", uint64(1), uint64(100), uint64(500), mock.Anything).
 					Return(&dragonboat.RequestState{CompletedC: results}, nil)
 			},
 			wantErr: require.Error,
