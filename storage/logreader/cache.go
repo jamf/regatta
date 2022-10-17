@@ -29,6 +29,9 @@ func (c *cache) len() int {
 // raftpb.Entry.Index in ascending order when calling this function.
 // When the cache is full, entries with the smallest index are evicted.
 func (c *cache) put(entries []raftpb.Entry) {
+	if len(entries) == 0 {
+		return
+	}
 	if len(entries) > c.size {
 		// Consider only the commands with the highest leader index,
 		// which are the ones at the back of the slice.
@@ -43,14 +46,26 @@ func (c *cache) put(entries []raftpb.Entry) {
 		return
 	}
 
-	// Find the first entry with index greater than the largest index in the cache.
-	i := sort.Search(len(entries), func(i int) bool { return entries[i].Index > maxIndex })
+	i := findIndex(entries, maxIndex)
 	if i == len(entries) {
 		return
 	}
 
 	c.buffer = append(c.buffer, entries[i:]...)
 	c.resize()
+}
+
+// findIndex finds the first entry in entries with index greater than the supplied maxIndex.
+func findIndex(entries []raftpb.Entry, maxIndex uint64) int {
+	// Short circuit if first entry has higher index, avoids binary search.
+	if entries[0].Index > maxIndex {
+		return 0
+	}
+	// Short circuit if last entry does not have a higher index, avoids binary search.
+	if entries[len(entries)-1].Index <= maxIndex {
+		return len(entries)
+	}
+	return sort.Search(len(entries), func(i int) bool { return entries[i].Index > maxIndex })
 }
 
 // Get all the entries with the index within the supplied right half-open range dragonboat.LogRange
