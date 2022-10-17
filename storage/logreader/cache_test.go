@@ -112,7 +112,7 @@ func TestCache(t *testing.T) {
 }
 
 func createEntries(begin, end uint64) []raftpb.Entry {
-	entries := make([]raftpb.Entry, end-begin)
+	entries := make([]raftpb.Entry, 0, end-begin)
 	for i := begin; i <= end; i++ {
 		entries = append(entries, raftpb.Entry{
 			Index: i,

@@ -46,7 +46,7 @@ func (c *cache) put(entries []raftpb.Entry) {
 		return
 	}
 
-	i := findIndex(entries, maxIndex)
+	i := findIndex(entries, func(index uint64) bool { return index > maxIndex })
 	if i == len(entries) {
 		return
 	}
@@ -55,17 +55,18 @@ func (c *cache) put(entries []raftpb.Entry) {
 	c.resize()
 }
 
-// findIndex finds the first entry in entries with index greater than the supplied maxIndex.
-func findIndex(entries []raftpb.Entry, maxIndex uint64) int {
-	// Short circuit if first entry has higher index, avoids binary search.
-	if entries[0].Index > maxIndex {
+// findIndex finds the first entry in entries with index matching the supplied func.
+// The supplied func can use only comparison operators and must be called over sorted entries list.
+func findIndex(entries []raftpb.Entry, f func(index uint64) bool) int {
+	// Short circuit if first entry is not matching func, avoids binary search.
+	if f(entries[0].Index) {
 		return 0
 	}
-	// Short circuit if last entry does not have a higher index, avoids binary search.
-	if entries[len(entries)-1].Index <= maxIndex {
+	// Short circuit if last entry does not match func, avoids binary search.
+	if !f(entries[len(entries)-1].Index) {
 		return len(entries)
 	}
-	return sort.Search(len(entries), func(i int) bool { return entries[i].Index > maxIndex })
+	return sort.Search(len(entries), func(i int) bool { return f(entries[i].Index) })
 }
 
 // Get all the entries with the index within the supplied right half-open range dragonboat.LogRange
@@ -93,8 +94,8 @@ func (c *cache) get(logRange dragonboat.LogRange) ([]raftpb.Entry, dragonboat.Lo
 		return nil, prependIndices, logRange
 	}
 
-	start := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.FirstIndex })
-	end := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.LastIndex })
+	start := findIndex(c.buffer, func(index uint64) bool { return index >= logRange.FirstIndex })
+	end := findIndex(c.buffer, func(index uint64) bool { return index >= logRange.LastIndex })
 
 	entries := c.buffer[start:end]
 
