@@ -9,6 +9,7 @@ import (
 	"github.com/lni/dragonboat/v4/raftio"
 	"github.com/lni/dragonboat/v4/raftpb"
 	serrors "github.com/wandera/regatta/storage/errors"
+	"github.com/wandera/regatta/util"
 )
 
 type logQuerier interface {
@@ -23,7 +24,7 @@ type shard struct {
 type LogReader struct {
 	ShardCacheSize int
 	LogQuerier     logQuerier
-	shardCache     sync.Map
+	shardCache     util.SyncMap[uint64, *shard]
 }
 
 // QueryRaftLog for all the entries in a given cluster within the right half-open range
@@ -36,7 +37,7 @@ func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange
 	}
 
 	// Try to read the commands from the cache first.
-	sh := l.getCache(clusterID)
+	sh := l.getShard(clusterID)
 	// Lock this shard.
 	sh.mtx.Lock()
 	defer sh.mtx.Unlock()
@@ -92,16 +93,20 @@ func (l *LogReader) NodeDeleted(info raftio.NodeInfo) {
 }
 
 func (l *LogReader) NodeReady(info raftio.NodeInfo) {
-	l.shardCache.Store(info.ShardID, &shard{cache: newCache(l.ShardCacheSize)})
+	_ = l.getShard(info.ShardID)
 }
 
-func (l *LogReader) getCache(clusterID uint64) *shard {
+func (l *LogReader) LogCompacted(info raftio.EntryInfo) {
+	l.shardCache.Delete(info.ShardID)
+}
+
+func (l *LogReader) getShard(clusterID uint64) *shard {
 	if entry, ok := l.shardCache.Load(clusterID); ok {
-		return entry.(*shard)
+		return entry
 	}
 
 	entry, _ := l.shardCache.LoadOrStore(clusterID, &shard{cache: newCache(l.ShardCacheSize)})
-	return entry.(*shard)
+	return entry
 }
 
 func (l *LogReader) readLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {

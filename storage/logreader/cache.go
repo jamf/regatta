@@ -29,6 +29,9 @@ func (c *cache) len() int {
 // raftpb.Entry.Index in ascending order when calling this function.
 // When the cache is full, entries with the smallest index are evicted.
 func (c *cache) put(entries []raftpb.Entry) {
+	if len(entries) == 0 {
+		return
+	}
 	if len(entries) > c.size {
 		// Consider only the commands with the highest leader index,
 		// which are the ones at the back of the slice.
@@ -43,14 +46,27 @@ func (c *cache) put(entries []raftpb.Entry) {
 		return
 	}
 
-	// Find the first entry with index greater than the largest index in the cache.
-	i := sort.Search(len(entries), func(i int) bool { return entries[i].Index > maxIndex })
+	i := findIndex(entries, func(index uint64) bool { return index > maxIndex })
 	if i == len(entries) {
 		return
 	}
 
 	c.buffer = append(c.buffer, entries[i:]...)
 	c.resize()
+}
+
+// findIndex finds the first entry in entries with index matching the supplied func.
+// The supplied func can use only comparison operators and must be called over sorted entries list.
+func findIndex(entries []raftpb.Entry, f func(index uint64) bool) int {
+	// Short circuit if first entry is not matching func, avoids binary search.
+	if f(entries[0].Index) {
+		return 0
+	}
+	// Short circuit if last entry does not match func, avoids binary search.
+	if !f(entries[len(entries)-1].Index) {
+		return len(entries)
+	}
+	return sort.Search(len(entries), func(i int) bool { return f(entries[i].Index) })
 }
 
 // Get all the entries with the index within the supplied right half-open range dragonboat.LogRange
@@ -78,8 +94,8 @@ func (c *cache) get(logRange dragonboat.LogRange) ([]raftpb.Entry, dragonboat.Lo
 		return nil, prependIndices, logRange
 	}
 
-	start := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.FirstIndex })
-	end := sort.Search(len(c.buffer), func(i int) bool { return c.buffer[i].Index >= logRange.LastIndex })
+	start := findIndex(c.buffer, func(index uint64) bool { return index >= logRange.FirstIndex })
+	end := findIndex(c.buffer, func(index uint64) bool { return index >= logRange.LastIndex })
 
 	entries := c.buffer[start:end]
 

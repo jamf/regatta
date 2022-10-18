@@ -2,7 +2,6 @@ package logreader
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/wandera/regatta/util"
 )
 
 type mockLogQuerier struct {
@@ -30,7 +30,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 		name          string
 		initialShards []uint64
 		args          args
-		assert        func(*testing.T, *sync.Map)
+		assert        func(*testing.T, *util.SyncMap[uint64, *shard])
 	}{
 		{
 			name:          "remove existing cache shard",
@@ -39,7 +39,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 				ShardID:   1,
 				ReplicaID: 1,
 			}},
-			assert: func(t *testing.T, s *sync.Map) {
+			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(1))
 				require.False(t, ok, "unexpected cache shard")
 			},
@@ -50,7 +50,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 				ShardID:   1,
 				ReplicaID: 1,
 			}},
-			assert: func(t *testing.T, s *sync.Map) {
+			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(1))
 				require.False(t, ok, "unexpected cache shard")
 			},
@@ -62,7 +62,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 				ShardID:   2,
 				ReplicaID: 1,
 			}},
-			assert: func(t *testing.T, s *sync.Map) {
+			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(2))
 				require.False(t, ok, "unexpected cache shard")
 			},
@@ -72,7 +72,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &LogReader{}
 			for _, shard := range tt.initialShards {
-				l.getCache(shard)
+				l.getShard(shard)
 			}
 			l.NodeDeleted(tt.args.info)
 			tt.assert(t, &l.shardCache)
@@ -88,7 +88,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 		name          string
 		args          args
 		initialShards []uint64
-		assert        func(*testing.T, *sync.Map)
+		assert        func(*testing.T, *util.SyncMap[uint64, *shard])
 	}{
 		{
 			name: "add ready node",
@@ -96,7 +96,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 				ShardID:   1,
 				ReplicaID: 1,
 			}},
-			assert: func(t *testing.T, s *sync.Map) {
+			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(1))
 				require.True(t, ok, "missing cache shard")
 			},
@@ -108,7 +108,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 				ReplicaID: 1,
 			}},
 			initialShards: []uint64{1},
-			assert: func(t *testing.T, s *sync.Map) {
+			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(1))
 				require.True(t, ok, "missing cache shard")
 			},
@@ -120,7 +120,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 				ShardID:   2,
 				ReplicaID: 1,
 			}},
-			assert: func(t *testing.T, s *sync.Map) {
+			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(2))
 				require.True(t, ok, "missing cache shard")
 			},
@@ -130,7 +130,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &LogReader{}
 			for _, shard := range tt.initialShards {
-				l.getCache(shard)
+				l.getShard(shard)
 			}
 			l.NodeReady(tt.args.info)
 			tt.assert(t, &l.shardCache)
@@ -217,7 +217,7 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 			on: func(querier *mockLogQuerier) {
 				results := make(chan dragonboat.RequestResult, 1)
 				results <- dragonboat.RequestResult{}
-				querier.On("QueryRaftLog", uint64(1), uint64(601), uint64(1000), mock.Anything).
+				querier.On("QueryRaftLog", uint64(1), uint64(100), uint64(500), mock.Anything).
 					Return(&dragonboat.RequestState{CompletedC: results}, nil)
 			},
 			wantErr: require.Error,
@@ -238,7 +238,7 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 				LogQuerier:     querier,
 			}
 			if len(tt.cacheContent) > 0 {
-				l.getCache(tt.args.clusterID).put(tt.cacheContent)
+				l.getShard(tt.args.clusterID).put(tt.cacheContent)
 			}
 			ctx, cancel := context.WithTimeout(context.TODO(), tt.args.timeout)
 			got, err := l.QueryRaftLog(ctx, tt.args.clusterID, tt.args.logRange, tt.args.maxSize)

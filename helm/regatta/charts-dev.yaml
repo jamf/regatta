@@ -56,7 +56,6 @@ charts:
       tables:
         names: applicable-cellular-data-policy,applicable-wifi-data-policy,applicable-secure-policy,applicable-device-secure-policy,dns-search-domain,activation-profile,device-identity,regatta-test,performance_test_ghz_table_1,performance_test_ghz_table_2,performance_test_ghz_table_3,performance_test_ghz_table_4,performance_test_ghz_table_5,block-ca-cert-chains,customer-block-pages,carrier-predictor-v3,customer-settings,applicable-gateway-rules,customer-data-policy
       replication:
-        logCacheSize: 50000
         server:
           hostname: regatta.dev.wandera.co.uk
       maintenance:
