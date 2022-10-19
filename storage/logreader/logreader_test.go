@@ -71,8 +71,8 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &LogReader{}
-			for _, shard := range tt.initialShards {
-				l.getShard(shard)
+			for _, shardID := range tt.initialShards {
+				l.shardCache.Store(shardID, &shard{})
 			}
 			l.NodeDeleted(tt.args.info)
 			tt.assert(t, &l.shardCache)
@@ -129,8 +129,8 @@ func TestLogReader_NodeReady(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &LogReader{}
-			for _, shard := range tt.initialShards {
-				l.getShard(shard)
+			for _, shardID := range tt.initialShards {
+				l.shardCache.Store(shardID, &shard{})
 			}
 			l.NodeReady(tt.args.info)
 			tt.assert(t, &l.shardCache)
@@ -238,8 +238,11 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 				LogQuerier:     querier,
 			}
 			if len(tt.cacheContent) > 0 {
-				l.getShard(tt.args.clusterID).put(tt.cacheContent)
+				l.shardCache.
+					ComputeIfAbsent(tt.args.clusterID, func(uint642 uint64) *shard { return &shard{cache: newCache(tt.fields.ShardCacheSize)} }).
+					put(tt.cacheContent)
 			}
+			l.shardCache.ComputeIfAbsent(tt.args.clusterID, func(uint642 uint64) *shard { return &shard{cache: newCache(tt.fields.ShardCacheSize)} })
 			ctx, cancel := context.WithTimeout(context.TODO(), tt.args.timeout)
 			got, err := l.QueryRaftLog(ctx, tt.args.clusterID, tt.args.logRange, tt.args.maxSize)
 			cancel()
