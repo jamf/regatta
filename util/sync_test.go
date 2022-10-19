@@ -188,6 +188,7 @@ func TestSyncMap_Store(t *testing.T) {
 				m: tt.fields.m,
 			}
 			s.Store(tt.args.key, tt.args.val)
+			tt.assert(t, s)
 		})
 	}
 }

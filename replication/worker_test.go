@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"github.com/wandera/regatta/proto"
 	"github.com/wandera/regatta/regattaserver"
-	"github.com/wandera/regatta/storage"
-	"github.com/wandera/regatta/storage/logreader"
 	"github.com/wandera/regatta/storage/table"
 	"github.com/wandera/regatta/storage/tables"
 	"go.uber.org/zap"
@@ -248,19 +247,11 @@ func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *r
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
-	e := &storage.Engine{
-		NodeHost: nh,
-		Manager:  manager,
-		LogReader: &logreader.LogReader{
-			ShardCacheSize: 1024,
-			LogQuerier:     nh,
-		},
-	}
 	proto.RegisterLogServer(
 		server,
 		regattaserver.NewLogServer(
 			manager,
-			e.LogReader,
+			&testLogReader{nh: nh},
 			zap.NewNop(),
 			1024,
 		),
@@ -274,4 +265,23 @@ func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *r
 	// Let the server start.
 	time.Sleep(100 * time.Millisecond)
 	return server
+}
+
+type testLogReader struct {
+	nh *dragonboat.NodeHost
+}
+
+func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+	// Empty log range should return immediately.
+	if logRange.FirstIndex == logRange.LastIndex {
+		return nil, nil
+	}
+	rs, err := t.nh.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, maxSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rs.Release()
+	result := <-rs.ResultC()
+	ent, _ := result.RaftLogs()
+	return ent, nil
 }
