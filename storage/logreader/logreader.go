@@ -37,7 +37,10 @@ func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange
 	}
 
 	// Try to read the commands from the cache first.
-	sh := l.getShard(clusterID)
+	sh, ok := l.shardCache.Load(clusterID)
+	if !ok {
+		return nil, dragonboat.ErrShardNotReady
+	}
 	// Lock this shard.
 	sh.mtx.Lock()
 	defer sh.mtx.Unlock()
@@ -93,20 +96,11 @@ func (l *LogReader) NodeDeleted(info raftio.NodeInfo) {
 }
 
 func (l *LogReader) NodeReady(info raftio.NodeInfo) {
-	_ = l.getShard(info.ShardID)
+	l.shardCache.ComputeIfAbsent(info.ShardID, func(shardId uint64) *shard { return &shard{cache: newCache(l.ShardCacheSize)} })
 }
 
 func (l *LogReader) LogCompacted(info raftio.EntryInfo) {
-	l.shardCache.Delete(info.ShardID)
-}
-
-func (l *LogReader) getShard(clusterID uint64) *shard {
-	if entry, ok := l.shardCache.Load(clusterID); ok {
-		return entry
-	}
-
-	entry, _ := l.shardCache.LoadOrStore(clusterID, &shard{cache: newCache(l.ShardCacheSize)})
-	return entry
+	l.shardCache.Store(info.ShardID, &shard{cache: newCache(l.ShardCacheSize)})
 }
 
 func (l *LogReader) readLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
