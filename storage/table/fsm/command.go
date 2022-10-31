@@ -32,7 +32,7 @@ func (c *updateContext) EnsureIndexed() error {
 	return nil
 }
 
-func (c *updateContext) Commit(wo *pebble.WriteOptions) error {
+func (c *updateContext) Commit() error {
 	// Set leader index if present in the proposal
 	if c.leaderIndex != nil {
 		leaderIdx := make([]byte, 8)
@@ -47,7 +47,7 @@ func (c *updateContext) Commit(wo *pebble.WriteOptions) error {
 	if err := c.batch.Set(sysLocalIndex, idx, nil); err != nil {
 		return err
 	}
-	return c.batch.Commit(wo)
+	return c.batch.Commit(pebble.NoSync)
 }
 
 func (c *updateContext) Close() error {
