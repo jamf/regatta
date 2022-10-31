@@ -6,7 +6,6 @@ import (
 	"hash/fnv"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"sync/atomic"
 
@@ -54,25 +53,19 @@ const (
 	ResultSuccess
 )
 
-func New(tableName, stateMachineDir, walDirname string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
+func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
 	return func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
 		hostname, _ := os.Hostname()
 		dbDirName := rp.GetNodeDBDirName(stateMachineDir, hostname, fmt.Sprintf("%s-%d", tableName, clusterID))
-		if walDirname != "" {
-			walDirname = rp.GetNodeDBDirName(walDirname, hostname, fmt.Sprintf("%s-%d", tableName, clusterID))
-		} else {
-			walDirname = dbDirName
-		}
 
 		return &FSM{
 			tableName:  tableName,
 			clusterID:  clusterID,
 			nodeID:     nodeID,
 			dirname:    dbDirName,
-			walDirname: walDirname,
 			fs:         fs,
 			blockCache: blockCache,
 			log:        zap.S().Named("table").Named(tableName),
@@ -84,13 +77,11 @@ func New(tableName, stateMachineDir, walDirname string, fs vfs.FS, blockCache *p
 // FSM is a statemachine.IOnDiskStateMachine impl.
 type FSM struct {
 	pebble     atomic.Pointer[pebble.DB]
-	wo         *pebble.WriteOptions
 	fs         vfs.FS
 	clusterID  uint64
 	nodeID     uint64
 	tableName  string
 	dirname    string
-	walDirname string
 	closed     bool
 	log        *zap.SugaredLogger
 	blockCache *pebble.Cache
@@ -134,13 +125,10 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 		}
 	}
 
-	walDirPath := path.Join(p.walDirname, randomDir)
-
-	p.log.Infof("opening pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
+	p.log.Infof("opening pebble state machine with dirname: '%s'", dbdir)
 	db, err := rp.OpenDB(
 		dbdir,
 		rp.WithFS(p.fs),
-		rp.WithWALDir(walDirPath),
 		rp.WithCache(p.blockCache),
 		rp.WithLogger(p.log),
 		rp.WithEventListener(makeLoggingEventListener(p.log)),
@@ -149,7 +137,6 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.pebble.Store(db)
-	p.wo = &pebble.WriteOptions{Sync: false}
 
 	if err := prometheus.Register(p); err != nil {
 		p.log.Errorf("unable to register metrics for FSM: %s", err)
@@ -192,7 +179,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		updates[i].Result.Value = uint64(updateResult)
 	}
 
-	if err := ctx.Commit(p.wo); err != nil {
+	if err := ctx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -213,6 +200,9 @@ func (p *FSM) Close() error {
 	db := p.pebble.Load()
 	if db == nil {
 		return nil
+	}
+	if err := db.Flush(); err != nil {
+		return err
 	}
 	return db.Close()
 }

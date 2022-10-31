@@ -7,7 +7,6 @@ import (
 	"path"
 	"testing"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
@@ -489,16 +488,14 @@ func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
 
 func createTestFSM() (*FSM, error) {
 	fsm := &FSM{
-		wo:         &pebble.WriteOptions{Sync: true},
-		fs:         vfs.NewMem(),
-		clusterID:  1,
-		nodeID:     1,
-		tableName:  "test",
-		dirname:    "/tmp",
-		walDirname: "/tmp",
-		closed:     false,
-		log:        zap.NewNop().Sugar(),
-		metrics:    newMetrics("test", 1),
+		fs:        vfs.NewMem(),
+		clusterID: 1,
+		nodeID:    1,
+		tableName: "test",
+		dirname:   "/tmp",
+		closed:    false,
+		log:       zap.NewNop().Sugar(),
+		metrics:   newMetrics("test", 1),
 	}
 
 	db, err := rp.OpenDB(fsm.dirname, rp.WithFS(fsm.fs))

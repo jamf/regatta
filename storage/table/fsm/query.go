@@ -68,7 +68,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		}
 		return &IndexResponse{Index: idx}, nil
 	case PathRequest:
-		return &PathResponse{Path: p.dirname, WALPath: p.walDirname}, nil
+		return &PathResponse{Path: p.dirname}, nil
 	default:
 		p.log.Warnf("received unknown lookup request of type %T", req)
 	}
@@ -292,6 +292,5 @@ type PathRequest struct{}
 
 // PathResponse returns SM data paths.
 type PathResponse struct {
-	Path    string
-	WALPath string
+	Path string
 }

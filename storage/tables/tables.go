@@ -401,9 +401,6 @@ func (m *Manager) cleanup() error {
 			if err := m.cfg.Table.FS.RemoveAll(c.SMDataPath); err != nil {
 				return err
 			}
-			if err := m.cfg.Table.FS.RemoveAll(c.SMWALPath); err != nil {
-				return err
-			}
 			if err := m.store.Delete(l.Key, l.Ver); err != nil {
 				return err
 			}
@@ -493,14 +490,14 @@ func (m *Manager) startTable(name string, id uint64) error {
 		return m.nh.StartOnDiskReplica(
 			map[uint64]dragonboat.Target{},
 			false,
-			fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
+			fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.FS, m.blockCache),
 			tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 		)
 	}
 	return m.nh.StartOnDiskReplica(
 		m.members,
 		false,
-		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.WALDir, m.cfg.Table.FS, m.blockCache),
+		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.FS, m.blockCache),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }
@@ -525,7 +522,6 @@ type Cleanup struct {
 	Created    time.Time `json:"created"`
 	ClusterID  uint64    `json:"cluster_id"`
 	SMDataPath string    `json:"sm_data_path"`
-	SMWALPath  string    `json:"sm_wal_path"`
 }
 
 func (m *Manager) stopTable(clusterID uint64) error {
@@ -538,7 +534,6 @@ func (m *Manager) stopTable(clusterID uint64) error {
 		Created:    time.Now(),
 		ClusterID:  clusterID,
 		SMDataPath: pr.Path,
-		SMWALPath:  pr.WALPath,
 	})
 	if err != nil {
 		return err
