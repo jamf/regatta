@@ -30,8 +30,6 @@ const (
 	l0StopWritesTrigger = 256
 	// maxBytesForLevelBase base for amount of data stored in a single level.
 	maxBytesForLevelBase = 64 * 1024 * 1024
-	// walMinSyncInterval minimum time between calls to WAL file Sync.
-	walMinSyncInterval = 500 * time.Microsecond
 )
 
 func DefaultOptions() *pebble.Options {
@@ -67,10 +65,7 @@ func DefaultOptions() *pebble.Options {
 		Levels:                      lvlOpts,
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
-		WALMinSyncInterval: func() time.Duration {
-			// TODO make interval dynamic based on the load
-			return walMinSyncInterval
-		},
+		DisableWAL:                  true,
 	}
 }
 
@@ -108,12 +103,6 @@ func WithFS(fs vfs.FS) Option {
 func WithCache(cache *pebble.Cache) Option {
 	return &funcOption{func(options *pebble.Options) {
 		options.Cache = cache
-	}}
-}
-
-func WithWALDir(walDirName string) Option {
-	return &funcOption{func(options *pebble.Options) {
-		options.WALDir = walDirName
 	}}
 }
 

@@ -30,10 +30,9 @@ var (
 
 func TestSM_Open(t *testing.T) {
 	type fields struct {
-		clusterID  uint64
-		nodeID     uint64
-		dirname    string
-		walDirname string
+		clusterID uint64
+		nodeID    uint64
+		dirname   string
 	}
 	tests := []struct {
 		name    string
@@ -69,10 +68,9 @@ func TestSM_Open(t *testing.T) {
 		{
 			name: "Successfully open DB with WAL",
 			fields: fields{
-				clusterID:  1,
-				nodeID:     1,
-				dirname:    "/tmp/dir",
-				walDirname: "/tmp/waldir",
+				clusterID: 1,
+				nodeID:    1,
+				dirname:   "/tmp/dir",
 			},
 		},
 	}
@@ -80,12 +78,11 @@ func TestSM_Open(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			p := &FSM{
-				fs:         vfs.NewMem(),
-				clusterID:  tt.fields.clusterID,
-				nodeID:     tt.fields.nodeID,
-				dirname:    tt.fields.dirname,
-				walDirname: tt.fields.walDirname,
-				log:        zap.S(),
+				fs:        vfs.NewMem(),
+				clusterID: tt.fields.clusterID,
+				nodeID:    tt.fields.nodeID,
+				dirname:   tt.fields.dirname,
+				log:       zap.NewNop().Sugar(),
 			}
 			_, err := p.Open(nil)
 			if tt.wantErr {
@@ -103,12 +100,11 @@ func TestSMReOpen(t *testing.T) {
 	fs := vfs.NewMem()
 	const testIndex uint64 = 10
 	p := &FSM{
-		fs:         fs,
-		clusterID:  1,
-		nodeID:     1,
-		dirname:    "/tmp/dir",
-		walDirname: "/tmp/dir",
-		log:        zap.S(),
+		fs:        fs,
+		clusterID: 1,
+		nodeID:    1,
+		dirname:   "/tmp/dir",
+		log:       zap.NewNop().Sugar(),
 	}
 
 	t.Log("open FSM")
@@ -582,16 +578,15 @@ func TestSM_Update(t *testing.T) {
 
 func emptySM() *FSM {
 	p := &FSM{
-		fs:         vfs.NewMem(),
-		clusterID:  1,
-		nodeID:     1,
-		dirname:    "/tmp/tst",
-		walDirname: "/tmp/tst",
-		log:        zap.S(),
+		fs:        vfs.NewMem(),
+		clusterID: 1,
+		nodeID:    1,
+		dirname:   "/tmp/tst",
+		log:       zap.NewNop().Sugar(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	return p
 }
@@ -625,20 +620,19 @@ func filledSM() *FSM {
 		})
 	}
 	p := &FSM{
-		fs:         vfs.NewMem(),
-		clusterID:  1,
-		nodeID:     1,
-		dirname:    "/tmp/tst",
-		walDirname: "/tmp/tst",
-		log:        zap.S(),
+		fs:        vfs.NewMem(),
+		clusterID: 1,
+		nodeID:    1,
+		dirname:   "/tmp/tst",
+		log:       zap.NewNop().Sugar(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	_, err = p.Update(entries)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	return p
 }
@@ -659,36 +653,34 @@ func filledLargeValuesSM() *FSM {
 		}
 	}
 	p := &FSM{
-		fs:         vfs.NewMem(),
-		clusterID:  1,
-		nodeID:     1,
-		dirname:    "/tmp/tst",
-		walDirname: "/tmp/tst",
-		log:        zap.S(),
+		fs:        vfs.NewMem(),
+		clusterID: 1,
+		nodeID:    1,
+		dirname:   "/tmp/tst",
+		log:       zap.NewNop().Sugar(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	_, err = p.Update(entries)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	return p
 }
 
 func filledIndexOnlySM() *FSM {
 	p := &FSM{
-		fs:         vfs.NewMem(),
-		clusterID:  1,
-		nodeID:     1,
-		dirname:    "/tmp/tst",
-		walDirname: "/tmp/tst",
-		log:        zap.S(),
+		fs:        vfs.NewMem(),
+		clusterID: 1,
+		nodeID:    1,
+		dirname:   "/tmp/tst",
+		log:       zap.NewNop().Sugar(),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	_, err = p.Update([]sm.Entry{
 		{
@@ -700,7 +692,7 @@ func filledIndexOnlySM() *FSM {
 		},
 	})
 	if err != nil {
-		zap.S().Panic(err)
+		panic(err)
 	}
 	return p
 }

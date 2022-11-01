@@ -54,5 +54,3 @@ kind-cluster:
 clean:
 	rm -f regatta
 
-gosec:
-	gosec -conf=.gosec-conf.json ./...

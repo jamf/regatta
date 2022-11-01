@@ -3,7 +3,6 @@ package fsm
 import (
 	"testing"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/require"
 	rp "github.com/wandera/regatta/pebble"
@@ -33,7 +32,7 @@ func Test_handlePut(t *testing.T) {
 	}
 	_, err = handlePut(c, req)
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	// Make the PUT update.
 	req = &proto.RequestOp_Put{
@@ -44,7 +43,7 @@ func Test_handlePut(t *testing.T) {
 	res, err := handlePut(c, req)
 	r.NoError(err)
 	r.Equal(&proto.ResponseOp_Put{PrevKv: &proto.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")}}, res)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
 	iter.First()
@@ -90,7 +89,7 @@ func Test_handlePutBatch(t *testing.T) {
 	}
 	_, err = handlePutBatch(c, ops)
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	var (
 		i int

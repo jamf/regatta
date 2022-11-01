@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -97,13 +96,11 @@ func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error)
 
 	randomDirName := rp.GetNewRandomDBDirName()
 	dbdir := filepath.Join(p.dirname, randomDirName)
-	walDirPath := path.Join(p.walDirname, randomDirName)
 
-	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir, walDirPath)
+	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir)
 	db, err := rp.OpenDB(
 		dbdir,
 		rp.WithFS(p.fs),
-		rp.WithWALDir(walDirPath),
 		rp.WithCache(p.blockCache),
 		rp.WithLogger(p.log),
 		rp.WithEventListener(makeLoggingEventListener(p.log)),

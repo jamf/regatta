@@ -3,7 +3,6 @@ package fsm
 import (
 	"testing"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/require"
 	rp "github.com/wandera/regatta/pebble"
@@ -32,7 +31,7 @@ func Test_handleDelete(t *testing.T) {
 		Value: []byte("value_1"),
 	})
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
 
@@ -43,7 +42,7 @@ func Test_handleDelete(t *testing.T) {
 	})
 	r.NoError(err)
 	r.Equal(&proto.ResponseOp_DeleteRange{PrevKvs: []*proto.KeyValue{{Key: []byte("key_1"), Value: []byte("value_1")}}}, res)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.
 	iter := db.NewIter(allUserKeysOpts())
@@ -80,7 +79,7 @@ func Test_handleDeleteBatch(t *testing.T) {
 		{Key: []byte("key_4"), Value: []byte("value")},
 	})
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
 
@@ -92,7 +91,7 @@ func Test_handleDeleteBatch(t *testing.T) {
 		{Key: []byte("key_4")},
 	})
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
 
@@ -130,14 +129,14 @@ func Test_handleDeleteRange(t *testing.T) {
 		{Key: []byte("key_4"), Value: []byte("value")},
 	})
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	c.batch = db.NewBatch()
 
 	// Make the DELETE RANGE - delete first two user keys.
 	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_3")})
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	// Assert that there left expected user keys.
 	iter := db.NewIter(allUserKeysOpts())
@@ -159,7 +158,7 @@ func Test_handleDeleteRange(t *testing.T) {
 	// Make the DELETE RANGE - delete the rest of the user keys.
 	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: wildcard})
 	r.NoError(err)
-	r.NoError(c.Commit(&pebble.WriteOptions{}))
+	r.NoError(c.Commit())
 
 	// Skip the local index first and assert that there are no more keys in state machine.
 	iter = db.NewIter(allUserKeysOpts())
