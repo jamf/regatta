@@ -1,15 +1,19 @@
 # Image URL to use all building/pushing image targets
 IMG ?= regatta:latest
 
+.PHONY: all
 all: proto check test build
 
+.PHONY: run
 run: build
 	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
 
+.PHONY: run-follower
 run-follower: build
 	./regatta follower --dev-mode --api.reflection-api --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --api.address=:9443 --maintenance.address=:9445 --rest.address=:8080 --replication.leader-address=127.0.0.1:8444 --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
 
 # Run golangci-lint on the code
+.PHONY: check
 check: proto
 	@echo "Running check"
 ifeq (, $(shell which golangci-lint))
@@ -17,9 +21,11 @@ ifeq (, $(shell which golangci-lint))
 endif
 	golangci-lint run
 
+.PHONY: test
 test:
 	go test ./... -cover -race -v
 
+.PHONY: build
 build: regatta docs
 
 docs: regatta
@@ -39,18 +45,22 @@ $(PROTO_GO_OUTS): proto/*.proto
 	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=markdown,api.md
 
 # Build the docker image
+.PHONY: docker-build
 docker-build: proto
 	docker build . -t ${IMG}
 
+.PHONY: kind
 kind: docker-build kind-cluster
 	kubectl --context kind-regatta create namespace regatta || true
 	cd helm/regatta && kubecrt charts-kind.yaml | kubectl --context kind-regatta apply -f -
 	kubectl -n regatta rollout restart statefulset/regatta
 
+.PHONY: kind-cluster
 kind-cluster:
 	kind create cluster --config hack/kind-cluster-config.yaml || true
 	kind load docker-image --name regatta regatta:latest
 
+.PHONY: clean
 clean:
 	rm -f regatta
 
