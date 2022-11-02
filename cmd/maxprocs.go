@@ -1,3 +1,5 @@
+// Copyright JAMF Software, LLC
+
 //go:build !linux
 
 package cmd
