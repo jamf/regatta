@@ -1,3 +1,5 @@
+// Copyright JAMF Software, LLC
+
 package tables
 
 import "github.com/cockroachdb/pebble/vfs"

@@ -1,3 +1,5 @@
+// Copyright JAMF Software, LLC
+
 package util
 
 import (
