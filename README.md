@@ -1,9 +1,5 @@
 # Regatta
 
-![logo](logo.jpg)
-
----
-
 ## What is Regatta?
 
 Regatta is a distributed key-value store. Regatta is designed as easy to deploy, kubernetes friendly with emphasis on
