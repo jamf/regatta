@@ -22,6 +22,7 @@ func init() {
 	rootCmd.AddCommand(generatorCmd)
 	rootCmd.AddCommand(backupCmd)
 	rootCmd.AddCommand(restoreCmd)
+	rootCmd.AddCommand(versionCmd)
 }
 
 var rootCmd = &cobra.Command{

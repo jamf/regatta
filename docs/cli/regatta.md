@@ -21,4 +21,5 @@ Follower one is connected to.
 * [regatta follower](regatta_follower.md)	 - Start Regatta in follower mode
 * [regatta leader](regatta_leader.md)	 - Start Regatta in leader mode
 * [regatta restore](regatta_restore.md)	 - Restore regatta from local files
+* [regatta version](regatta_version.md)	 - Print current version.
 
