@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= regatta:latest
+LDFLAGS = -X github.com/jamf/regatta/cmd.Version=$(VERSION)
 
 .PHONY: all
 all: proto check test build
@@ -25,14 +26,20 @@ endif
 test:
 	go test ./... -cover -race -v
 
+.PHONY: build-release
+build-release: VERSION = $(shell git ls-remote --tags origin | tail -n 1 | cut -d '/' -f3 | cut -d 'v' -f2)
+build-release: regatta
+
 .PHONY: build
+build: VERSION ?= $(shell git rev-parse --short HEAD)
 build: regatta docs
 
 docs: regatta
 	./regatta docs --destination=docs/cli
 
 regatta: proto *.go **/*.go
-	CGO_ENABLED=1 go build -o regatta
+	test $(VERSION) || (echo "version not set"; exit 1)
+	CGO_ENABLED=1 go build -ldflags="$(LDFLAGS)" -o regatta
 
 PROTO_GO_OUTS=proto/mvcc.pb.go proto/mvcc_vtproto.pb.go \
  proto/regatta.pb.go proto/regatta_grpc.pb.go proto/regatta_vtproto.pb.go \
