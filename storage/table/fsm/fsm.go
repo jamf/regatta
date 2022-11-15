@@ -13,12 +13,12 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
+	rp "github.com/jamf/regatta/pebble"
+	"github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/oxtoacart/bpool"
 	"github.com/prometheus/client_golang/prometheus"
-	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/storage/errors"
-	"github.com/wandera/regatta/storage/table/key"
 	"go.uber.org/zap"
 )
 

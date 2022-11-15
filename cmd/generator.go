@@ -8,9 +8,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/jamf/regatta/proto"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wandera/regatta/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

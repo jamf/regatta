@@ -3,7 +3,7 @@
 package fsm
 
 import (
-	"github.com/wandera/regatta/proto"
+	"github.com/jamf/regatta/proto"
 )
 
 type commandSequence struct {

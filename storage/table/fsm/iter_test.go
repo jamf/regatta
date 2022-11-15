@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/jamf/regatta/storage/table/key"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/storage/table/key"
 )
 
 func Test_iterOptionsForBounds(t *testing.T) {

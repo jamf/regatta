@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/wandera/regatta/proto"
+	"github.com/jamf/regatta/proto"
 )
 
 type commandPut struct {

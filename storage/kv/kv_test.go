@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jamf/regatta/log"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/log"
 	"go.uber.org/zap"
 )
 

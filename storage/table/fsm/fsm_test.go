@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/util"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/util"
 	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
 )

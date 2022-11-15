@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/wandera/regatta/cmd"
+	"github.com/jamf/regatta/cmd"
 )
 
 func main() {

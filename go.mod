@@ -1,4 +1,4 @@
-module github.com/wandera/regatta
+module github.com/jamf/regatta
 
 go 1.19
 

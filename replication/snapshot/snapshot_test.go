@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jamf/regatta/proto"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
 	pb "google.golang.org/protobuf/proto"
 )
 

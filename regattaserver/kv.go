@@ -5,8 +5,8 @@ package regattaserver
 import (
 	"context"
 
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/errors"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/golang/snappy"
-	"github.com/wandera/regatta/proto"
+	"github.com/jamf/regatta/proto"
 	"golang.org/x/time/rate"
 )
 

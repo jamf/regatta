@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jamf/regatta/regattaserver"
 	"github.com/spf13/cobra"
-	"github.com/wandera/regatta/regattaserver"
 	"google.golang.org/grpc/encoding"
 	_ "google.golang.org/grpc/encoding/proto"
 )

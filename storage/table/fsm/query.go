@@ -7,10 +7,10 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/errors"
-	"github.com/wandera/regatta/storage/table/key"
 )
 
 // Lookup locally looks up the data.

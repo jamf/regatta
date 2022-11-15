@@ -8,11 +8,11 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
+	rp "github.com/jamf/regatta/pebble"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
-	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/table/key"
 )
 
 func TestUpdateContext_Parse(t *testing.T) {

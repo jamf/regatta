@@ -2,7 +2,7 @@
 # Build the regatta binary
 FROM golang:1.19-alpine3.15 as builder
 RUN apk add --update --no-cache build-base
-WORKDIR /github.com/wandera/regatta
+WORKDIR /github.com/jamf/regatta
 # Copy the source
 COPY . ./
 # Build
@@ -16,5 +16,5 @@ CGO_ENABLED=1 go build -o regatta
 FROM alpine:3.15 as runtime
 RUN apk add --update --no-cache bash ca-certificates
 WORKDIR /
-COPY --from=builder /github.com/wandera/regatta/regatta /bin/regatta
+COPY --from=builder /github.com/jamf/regatta/regatta /bin/regatta
 ENTRYPOINT ["regatta"]

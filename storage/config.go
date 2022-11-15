@@ -3,7 +3,7 @@
 package storage
 
 import (
-	"github.com/wandera/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/tables"
 	"go.uber.org/zap"
 )
 
