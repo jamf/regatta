@@ -9,8 +9,8 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/util"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/util"
 	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
 )

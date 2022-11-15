@@ -16,11 +16,11 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
-	"github.com/wandera/regatta/proto"
-	serrors "github.com/wandera/regatta/storage/errors"
-	"github.com/wandera/regatta/storage/kv"
-	"github.com/wandera/regatta/storage/table"
-	"github.com/wandera/regatta/storage/table/fsm"
+	"github.com/jamf/regatta/proto"
+	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/kv"
+	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/storage/table/fsm"
 	"go.uber.org/zap"
 )
 

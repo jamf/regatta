@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
+	"github.com/jamf/regatta/proto"
 )
 
 func TestFSM_Lookup(t *testing.T) {

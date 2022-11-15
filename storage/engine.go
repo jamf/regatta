@@ -12,10 +12,10 @@ import (
 	dbl "github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/dragonboat/v4/plugin/tan"
 	"github.com/lni/dragonboat/v4/raftio"
-	rl "github.com/wandera/regatta/log"
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/logreader"
-	"github.com/wandera/regatta/storage/tables"
+	rl "github.com/jamf/regatta/log"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/logreader"
+	"github.com/jamf/regatta/storage/tables"
 )
 
 const defaultQueryTimeout = 5 * time.Second

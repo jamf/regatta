@@ -12,7 +12,7 @@ import (
 	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/util"
+	"github.com/jamf/regatta/util"
 )
 
 type mockLogQuerier struct {

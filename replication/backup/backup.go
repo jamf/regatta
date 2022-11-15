@@ -15,8 +15,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/replication/snapshot"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/replication/snapshot"
 	"google.golang.org/grpc"
 )
 

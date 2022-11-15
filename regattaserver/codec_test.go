@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
+	"github.com/jamf/regatta/proto"
 	"google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	pb "google.golang.org/protobuf/proto"
 )

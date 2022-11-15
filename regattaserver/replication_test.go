@@ -8,8 +8,8 @@ import (
 
 	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/table"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/table"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

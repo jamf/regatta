@@ -11,8 +11,8 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/require"
-	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/proto"
+	rp "github.com/jamf/regatta/pebble"
+	"github.com/jamf/regatta/proto"
 )
 
 type errorReader struct{}

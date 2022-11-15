@@ -6,8 +6,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/wandera/regatta/proto"
-	"github.com/wandera/regatta/storage/table"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/table"
 )
 
 // MockStorage implements trivial storage for testing purposes.

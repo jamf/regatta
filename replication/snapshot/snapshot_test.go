@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/proto"
+	"github.com/jamf/regatta/proto"
 	pb "google.golang.org/protobuf/proto"
 )
 

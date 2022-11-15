@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	rl "github.com/wandera/regatta/log"
-	"github.com/wandera/regatta/replication/backup"
+	rl "github.com/jamf/regatta/log"
+	"github.com/jamf/regatta/replication/backup"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

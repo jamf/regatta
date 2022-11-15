@@ -13,8 +13,8 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/sstable"
 	sm "github.com/lni/dragonboat/v4/statemachine"
-	rp "github.com/wandera/regatta/pebble"
-	"github.com/wandera/regatta/storage/errors"
+	rp "github.com/jamf/regatta/pebble"
+	"github.com/jamf/regatta/storage/errors"
 )
 
 type snapshotContext struct {

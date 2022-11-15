@@ -10,9 +10,9 @@ import (
 
 	"github.com/lni/dragonboat/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/wandera/regatta/proto"
-	serrors "github.com/wandera/regatta/storage/errors"
-	"github.com/wandera/regatta/storage/tables"
+	"github.com/jamf/regatta/proto"
+	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/tables"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"

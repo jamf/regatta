@@ -14,7 +14,7 @@ import (
 	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/log"
+	"github.com/jamf/regatta/log"
 	"go.uber.org/zap"
 )
 

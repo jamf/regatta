@@ -14,9 +14,9 @@ import (
 	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"github.com/wandera/regatta/log"
-	serrors "github.com/wandera/regatta/storage/errors"
-	"github.com/wandera/regatta/storage/table"
+	"github.com/jamf/regatta/log"
+	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/table"
 	"go.uber.org/zap"
 )
 
