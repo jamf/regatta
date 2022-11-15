@@ -1,6 +1,6 @@
-# Image URL to use all building/pushing image targets
-IMG ?= regatta:latest
 LDFLAGS = -X github.com/jamf/regatta/cmd.Version=$(VERSION)
+VERSION ?= $(shell git describe --tags --always --dirty)
+REPOSITORY = regatta
 
 .PHONY: all
 all: proto check test build
@@ -26,12 +26,7 @@ endif
 test:
 	go test ./... -cover -race -v
 
-.PHONY: build-release
-build-release: VERSION = $(shell git ls-remote --tags origin | tail -n 1 | cut -d '/' -f3 | cut -d 'v' -f2)
-build-release: regatta
-
 .PHONY: build
-build: VERSION ?= $(shell git rev-parse --short HEAD)
 build: regatta docs
 
 docs: regatta
@@ -54,7 +49,7 @@ $(PROTO_GO_OUTS): proto/*.proto
 # Build the docker image
 .PHONY: docker-build
 docker-build: proto
-	docker build . -t ${IMG}
+	docker build --build-arg="VERSION=$(VERSION)" . -t $(REPOSITORY):latest -t $(REPOSITORY):$(VERSION)
 
 .PHONY: kind
 kind: docker-build kind-cluster

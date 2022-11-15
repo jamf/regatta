@@ -8,6 +8,5 @@ hack
 report
 .gitignore
 /Dockerfile
-/Makefile
 /README.md
 /regatta
