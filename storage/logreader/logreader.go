@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"sync"
 
+	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/util"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftio"
 	"github.com/lni/dragonboat/v4/raftpb"
-	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/jamf/regatta/util"
 )
 
 type logQuerier interface {

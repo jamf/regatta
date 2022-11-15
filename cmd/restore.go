@@ -7,10 +7,10 @@ import (
 	"crypto/x509"
 	"os"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/replication/backup"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

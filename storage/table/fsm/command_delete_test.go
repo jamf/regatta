@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble/vfs"
-	"github.com/stretchr/testify/require"
 	rp "github.com/jamf/regatta/pebble"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/table/key"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_handleDelete(t *testing.T) {

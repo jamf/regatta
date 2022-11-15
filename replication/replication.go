@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/tables"
+	"github.com/lni/dragonboat/v4"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"

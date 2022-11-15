@@ -7,12 +7,12 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/lni/dragonboat/v4/client"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/fsm"
 	"github.com/jamf/regatta/storage/table/key"
+	"github.com/lni/dragonboat/v4/client"
+	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 type raftHandler interface {

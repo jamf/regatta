@@ -9,14 +9,14 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/log"
+	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"github.com/jamf/regatta/log"
-	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/jamf/regatta/storage/table"
 	"go.uber.org/zap"
 )
 

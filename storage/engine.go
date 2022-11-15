@@ -7,15 +7,15 @@ import (
 	"sync"
 	"time"
 
+	rl "github.com/jamf/regatta/log"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/logreader"
+	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	dbl "github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/dragonboat/v4/plugin/tan"
 	"github.com/lni/dragonboat/v4/raftio"
-	rl "github.com/jamf/regatta/log"
-	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/storage/logreader"
-	"github.com/jamf/regatta/storage/tables"
 )
 
 const defaultQueryTimeout = 5 * time.Second
