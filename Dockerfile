@@ -2,7 +2,7 @@
 # Build the regatta binary
 FROM golang:1.19-alpine3.15 as builder
 
-ARG VERSION=UNKNOWN
+ARG VERSION
 
 RUN apk add --update --no-cache build-base
 WORKDIR /github.com/jamf/regatta
@@ -10,12 +10,7 @@ WORKDIR /github.com/jamf/regatta
 COPY . ./
 # Build
 RUN ls -la
-RUN --mount=type=cache,target=/go/pkg/mod           \
-    --mount=type=cache,target=/root/.cache/go-build \
-    GOMODCACHE=/go/pkg/mod                          \
-    GOCACHE=/root/.cache/go-build                   \
-    VERSION=${VERSION}                              \
-    make regatta
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build GOMODCACHE=/go/pkg/mod GOCACHE=/root/.cache/go-build VERSION=${VERSION} make regatta
 
 # Runtime
 FROM alpine:3.15 as runtime
