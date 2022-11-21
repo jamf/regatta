@@ -40,7 +40,7 @@ jobs:
         GOARCH: ${{ matrix.goarch }}
       shell: bash
       run: |
-        make build-release            \
+        make regatta                  \
           && mkdir dist               \
           && mv regatta dist/regatta  \
           && tar -czvf regatta-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz -C dist/ .
