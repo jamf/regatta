@@ -3,7 +3,7 @@ VERSION ?= $(shell git describe --tags --always --dirty)
 REPOSITORY = regatta
 
 .PHONY: all
-all: proto check test build
+all: check test build
 
 .PHONY: run
 run: build
@@ -27,14 +27,12 @@ test:
 	go test ./... -cover -race -v
 
 .PHONY: build
-build: regatta-build docs
+build: proto docs regatta
 
-docs: regatta-build
+docs: regatta
 	./regatta docs --destination=docs/cli
 
-regatta-build: proto *.go **/*.go regatta
-
-regatta:
+regatta: *.go **/*.go
 	test $(VERSION) || (echo "version not set"; exit 1)
 	CGO_ENABLED=1 go build -ldflags="$(LDFLAGS)" -o regatta
 
