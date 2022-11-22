@@ -1,5 +1,6 @@
 LDFLAGS = -X github.com/jamf/regatta/cmd.Version=$(VERSION)
 VERSION ?= $(shell git describe --tags --always --dirty)
+CGO_ENABLED ?= 1
 REPOSITORY = regatta
 
 .PHONY: all
@@ -34,7 +35,7 @@ docs: regatta
 
 regatta:
 	test $(VERSION) || (echo "version not set"; exit 1)
-	CGO_ENABLED=1 go build -ldflags="$(LDFLAGS)" -o regatta
+	CGO_ENABLED=$(CGO_ENABLED) go build -ldflags="$(LDFLAGS)" -o regatta
 
 PROTO_GO_OUTS=proto/mvcc.pb.go proto/mvcc_vtproto.pb.go \
  proto/regatta.pb.go proto/regatta_grpc.pb.go proto/regatta_vtproto.pb.go \
