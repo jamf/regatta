@@ -17,6 +17,11 @@ jobs:
       matrix:
         goos: [ linux, darwin ]
         goarch: [ arm64, amd64 ]
+        include:
+        - cgo: 0
+        - goos: linux
+          goarch: amd64
+          cgo: 1
     steps:
     - name: Install Go
       uses: actions/setup-go@v2
@@ -38,6 +43,7 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: ${{ matrix.cgo }}
       shell: bash
       run: |
         make regatta                  \
