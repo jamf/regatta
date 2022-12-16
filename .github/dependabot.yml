@@ -1,5 +1,19 @@
 version: 2
 updates:
+- package-ecosystem: "docker"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  reviewers:
+  - "jamf/opensource-regatta-write"
+
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  reviewers:
+  - "jamf/opensource-regatta-write"
+
 - package-ecosystem: "gomod"
   directory: "/"
   schedule:
