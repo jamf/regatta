@@ -19,7 +19,7 @@ require (
 	github.com/prometheus/common v0.37.0
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/segmentio/kafka-go v0.4.34
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
