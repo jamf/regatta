@@ -21,11 +21,11 @@ require (
 	github.com/segmentio/kafka-go v0.4.34
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.13.0
-	github.com/stretchr/testify v1.8.0
+	github.com/spf13/viper v1.14.0
+	github.com/stretchr/testify v1.8.1
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.23.0
-	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
+	golang.org/x/sync v0.1.0
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
 	google.golang.org/grpc v1.50.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
@@ -88,7 +88,7 @@ require (
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
@@ -97,11 +97,11 @@ require (
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
 	golang.org/x/exp v0.0.0-20220907003533-145caa8ea1d0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7 // indirect
+	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b // indirect
 	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
-	google.golang.org/genproto v0.0.0-20220902135211-223410557253 // indirect
+	google.golang.org/genproto v0.0.0-20221024183307-1bc688fe9f3e // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
