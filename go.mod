@@ -3,7 +3,7 @@ module github.com/jamf/regatta
 go 1.19
 
 require (
-	github.com/VictoriaMetrics/metrics v1.22.2
+	github.com/VictoriaMetrics/metrics v1.23.0
 	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cockroachdb/pebble v0.0.0-20220907220441-20a40b515be9
