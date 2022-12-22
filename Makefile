@@ -43,9 +43,12 @@ PROTO_GO_OUTS=proto/mvcc.pb.go proto/mvcc_vtproto.pb.go \
  proto/maintenance.pb.go proto/maintenance_grpc.pb.go proto/maintenance_vtproto.pb.go
 
 proto: $(PROTO_GO_OUTS)
+	@echo "---\ntitle: API\nlayout: default\n---" > ./docs/api.md
+	cat ./docs/api_content.md >> ./docs/api.md
+	rm ./docs/api_content.md
 
 $(PROTO_GO_OUTS): proto/*.proto
-	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=markdown,api.md
+	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=markdown,api_content.md
 
 # Build the docker image
 .PHONY: docker-build
