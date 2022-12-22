@@ -1,0 +1,38 @@
+title: Regatta Docs
+description: Documentation for the distributed key-value store Regatta
+theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs@v0.3.3
+
+permalink: pretty
+
+aux_links:
+  GitHub: https://github.com/jamf/regatta
+
+nav_external_links:
+  - title: Regatta on GitHub
+    url: https://github.com/jamf/regatta
+
+callouts_level: quiet
+callouts:
+  highlight:
+    color: yellow
+  important:
+    title: Important
+    color: blue
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red
+
+compress_html:
+  clippings: all
+  comments: all
+  endings: all
+  startings: []
+  blanklines: false
+  profile: false

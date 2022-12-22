@@ -67,3 +67,7 @@ kind-cluster:
 clean:
 	rm -f regatta
 
+.PHONY: serve-docs
+serve-docs:
+	BUNDLE_GEMFILE='./docs/Gemfile' bundle exec jekyll serve --source './docs' --config './docs/_config.yml'
+

@@ -7,3 +7,7 @@
 /report
 .DS_Store
 .pre-commit-config.yaml
+
+# Jekyll documentation
+_site
+.jekyll-cache
