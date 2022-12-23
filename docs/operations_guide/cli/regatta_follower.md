@@ -82,5 +82,5 @@ regatta follower [flags]
 
 ### SEE ALSO
 
-* [regatta](/operations/cli/regatta)	 - Regatta is read-optimized distributed key-value store.
+* [regatta](/operations_guide/cli/regatta)	 - Regatta is read-optimized distributed key-value store.
 

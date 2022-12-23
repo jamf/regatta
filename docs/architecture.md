@@ -4,7 +4,7 @@ layout: default
 nav_order: 4
 ---
 
-Regatta is designed as "geographically distributed ETCD", providing ETCD-like gRPC API in every location
+Regatta is designed as a "geographically distributed etcd", providing etcd-like gRPC API in every location
 while maintaining consistent data set. See [API](/api) for the complete documentation of the gRPC API.
 
 ## Topology
