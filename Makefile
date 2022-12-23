@@ -31,7 +31,7 @@ test:
 build: *.go **/*.go proto docs regatta
 
 docs: regatta
-	./regatta docs --destination=docs/cli
+	./regatta docs --destination=docs/operations/cli
 
 regatta:
 	test $(VERSION) || (echo "version not set"; exit 1)
