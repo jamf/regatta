@@ -23,9 +23,9 @@ Follower one is connected to.
 
 ### SEE ALSO
 
-* [regatta backup](/operations/cli/regatta_backup)	 - Backup regatta to local files
-* [regatta follower](/operations/cli/regatta_follower)	 - Start Regatta in follower mode
-* [regatta leader](/operations/cli/regatta_leader)	 - Start Regatta in leader mode
-* [regatta restore](/operations/cli/regatta_restore)	 - Restore regatta from local files
-* [regatta version](/operations/cli/regatta_version)	 - Print current version.
+* [regatta backup](/operations_guide/cli/regatta_backup)	 - Backup regatta to local files
+* [regatta follower](/operations_guide/cli/regatta_follower)	 - Start Regatta in follower mode
+* [regatta leader](/operations_guide/cli/regatta_leader)	 - Start Regatta in leader mode
+* [regatta restore](/operations_guide/cli/regatta_restore)	 - Restore regatta from local files
+* [regatta version](/operations_guide/cli/regatta_version)	 - Print current version.
 
