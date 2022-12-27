@@ -23,7 +23,7 @@ pull-based replication across locations. There are two types of clusters within 
 
 Thanks to this topology, the user is able to dynamically add additional follower clusters.
 
-> TODO: Image.
+![Regatta hub-and-spoke topology](/static/topology.png "Regatta hub-and-spoke topology")
 
 ## Raft
 
@@ -34,7 +34,7 @@ leader cluster without adding cross-location latency to each request.
 The consensus algorithm provides fault-tolerance by allowing the system to operate as long as the majority of members
 are available. This is not only useful for disaster scenarios but also enables the easy rolling update of the cluster.
 
-> TODO: Image.
+![Regatta Raft](/static/raft.png "Regatta Raft")
 
 ## Tables
 
