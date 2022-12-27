@@ -27,8 +27,9 @@ Thanks to this topology, the user is able to dynamically add additional follower
 
 ## Raft
 
-Regatta uses Raft protocol to ensure consistent data within the boundaries of a single cluster. Raft is not used
-across the locations due to its synchronous nature. That way Regatta can grant high write throughput within the
+Regatta uses Raft protocol to ensure consistent data within the boundaries of a single cluster. Raft is
+used only for data replication within a cluster. Data replication from leader to follower clusters is
+done via asynchronous polling. That way Regatta can grant high write throughput within the
 leader cluster without adding cross-location latency to each request.
 
 The consensus algorithm provides fault-tolerance by allowing the system to operate as long as the majority of members
