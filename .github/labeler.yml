@@ -1,0 +1,7 @@
+code:
+- "**/**.go"
+docs:
+- "docs/**"
+- "README.md"
+proto:
+- "proto/**"
