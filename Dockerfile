@@ -14,6 +14,10 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Runtime
 FROM alpine:3.17 as runtime
+
+LABEL maintainer="Regatta Developers regatta@jamf.com"
+LABEL desc="Regatta is a distributed key-value store"
+
 RUN apk add --update --no-cache bash ca-certificates
 WORKDIR /
 COPY --from=builder /github.com/jamf/regatta/regatta /bin/regatta
