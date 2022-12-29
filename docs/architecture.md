@@ -43,3 +43,15 @@ Regatta supports the notion of tables throughout its API. The tables could be im
 Each table is its own Raft group replicating within a single location, while also being a single replication unit for
 cross-location replication. That said, all the API guarantees regarding consistency are always scoped to a single table.
 There is no guarantee of data consistency within multiple tables.
+
+## APIs
+
+Regatta exposes several gRPC APIs and a REST API.
+
+[Regatta gRPC API](/api/#regatta-proto) is the user-facing API handling all read and write requests.
+[Replication gRPC API](/api/#replication-proto) is enabled only in the leader cluster and is
+responsible for responding to the asynchronous replication requests from follower clusters,
+replicating the Raft log.
+[Maintenance gRPC API](/api/#maintenance-proto) creates backups and restores from them.
+Lastly, REST API exposes the `/healthz` endpoint for Kubernetes, a `pprof` endpoint at `/debug`
+and `/metrics`.

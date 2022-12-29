@@ -12,7 +12,7 @@ the official Regatta Docker image.
 
 ### Build binary from source
 
-To build and run Regatta locally, see the [Contribution page](/contribution) for all
+To build and run Regatta locally, see the [Contribution page](/contributing) for all
 the required dependencies. Then just run
 
 ```bash
@@ -36,6 +36,11 @@ docker run \
     --raft.initial-members='1=127.0.0.1:5012' \
     --tables.names=regatta-test
 ```
+
+{: .note }
+In order to run Regatta, TLS certificates and keys must be provided. For testing purposes,
+[certificate and key present in the repository](https://github.com/jamf/regatta/tree/cfc58f0205484b0c8a24c7cbcc0be8563b7cf6a5/hack)
+can be used.
 
 ## Interacting with Regatta
 
