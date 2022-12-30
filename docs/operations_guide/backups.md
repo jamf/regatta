@@ -60,6 +60,6 @@ regatta restore \
 
 ## Resetting a follower cluster
 
-Data in follower cluster can also be wiped completely, forcing the follower to reload
-all the data directly from leader.
+Data in follower cluster can also be wiped completely, forcing the follower to reload all the data directly from leader.
+See the [Reset method in the Maintenance gRPC API documentation](/api/#maintenance) for more information.
 
