@@ -4,13 +4,13 @@ layout: default
 nav_order: 2
 ---
 
-## Running Regatta
+# Running Regatta
 
 There are multiple possibilities how to run Regatta -- building Regatta from source and executing the binary,
 using the official Regatta Docker image, or deploying Regatta to Kubernetes via Helm Charts, which is the
 recommended way.
 
-### Build binary from source
+## Build binary from source
 
 To build and run Regatta locally, see the [Contribution page](/contributing) for all
 the required dependencies. Then just run
@@ -20,7 +20,7 @@ git clone git@github.com:jamf/regatta.git && cd regatta
 make run
 ```
 
-### Pull and run official Docker image
+## Pull and run official Docker image
 
 Official Regatta images are present in
 [`jamf/regatta` GitHub Container Registry](https://github.com/jamf/regatta/pkgs/container/regatta).
@@ -42,7 +42,7 @@ In order to run Regatta, TLS certificates and keys must be provided. For testing
 [certificate and key present in the repository](https://github.com/jamf/regatta/tree/cfc58f0205484b0c8a24c7cbcc0be8563b7cf6a5/hack)
 can be used.
 
-### Deploying to Kubernetes from Helm Chart
+## Deploying to Kubernetes from Helm Chart
 
 To easily deploy Regatta to Kubernetes, official [Regatta Helm Chart](https://github.com/jamf/regatta-helm) can be used.
 

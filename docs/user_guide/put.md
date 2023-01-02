@@ -5,10 +5,10 @@ parent: User Guide
 nav_order: 2
 ---
 
+# Updating Records
+
 See [Put Request API](/api/#regatta-v1-PutRequest) and [Put Response API](/api#regatta-v1-PutResponse)
 for the complete gRPC API documentation for inserting and updating records from Regatta.
-
-## Put API
 
 Put API serves for inserting and modifying records in Regatta.
 

@@ -5,10 +5,10 @@ parent: User Guide
 nav_order: 4
 ---
 
+# Transactions
+
 See [Txn Request API](/api/#regatta-v1-TxnRequest) and [Txn Response API](/api#regatta-v1-TxnResponse)
 for the complete gRPC API documentation for retrieving records from Regatta.
-
-## Transaction API
 
 A Regatta transaction is an atomic *if/then/else* construct over the key-value store.
 It provides primitive grouping of requests whose execution is guarded,

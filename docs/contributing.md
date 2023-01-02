@@ -6,6 +6,11 @@ nav_order: 9
 
 # Contributing
 
+Regatta is still rough around the edges and there are A LOT of things left to be implemented.
+If you like this project and would like to contribute, ask questions, or just reach out, we encourage you to do so!
+**Feel free to reach out in [GitHub discussions](https://github.com/jamf/regatta/discussions),
+raise an issue, or open a pull request**.
+
 ## Development prerequisites
 
 * [Go](https://golang.org/) >= 1.19
