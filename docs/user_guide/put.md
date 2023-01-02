@@ -12,7 +12,7 @@ for the complete gRPC API documentation for inserting and updating records from 
 
 Put API serves for inserting and modifying records in Regatta.
 
-To insert a record into a table, `key`, `value`, and the `table` fields must be set.
+To insert a record into a table, a `key`, a `value`, and a `table` fields must be set.
 
 ```bash
 grpcurl -insecure "-d={

@@ -7,12 +7,12 @@ nav_order: 1
 # Regatta
 
 **Regatta** is a distributed, eventually consistent key-value store built for Kubernetes.
-It is designed to distribute data globally in a *hub-and-spoke model* with emphasis on *high read throughput*.
-It is *fault-tolerant*, able to handle network partitions and node outages gracefully.
+It is designed to distribute data globally in a *hub-and-spoke model* with an emphasis on *high read throughput*.
+It is *fault-tolerant* and able to handle network partitions and node outages gracefully.
 
 ## Built for Kubernetes
 
-Regatta is completely Kubernetes native. You can manage and monitor Regatta as any
+Regatta is Kubernetes native. You can manage and monitor Regatta as any
 other Kubernetes deployment. Check out the
 [official Regatta Helm Chart](https://github.com/jamf/regatta-helm) for more information.
 
@@ -28,7 +28,7 @@ Regatta is built to handle read-heavy workloads and to serve sub-millisecond rea
 
 ## Fault-tolerance and data availability
 
-Thanks to the Raft algorithm and data redundancy, Regatta is able to serve reads even in the event of
+Thanks to the Raft algorithm and data redundancy, Regatta can serve reads even in the event of
 network partition or node outage.
 
 ## Data persistance
@@ -45,13 +45,13 @@ no other clusters are affected and the data is automatically replicated from the
 
 ### You need a distributed key-value store to allow local and quick access to data in edge locations
 
-Regatta will provide read-only copy of the data in edge locations. Regatta will take care of the data replication,
-data availability and resilience in case of failure of the core cluster.
+Regatta will provide a read-only copy of the data in edge locations. Regatta will take care of the data replication,
+data availability, and resilience in case of failure of the core cluster.
 
 ### You need a local, persistent, cache within a data center and reads heavily outnumber writes
 
 Regatta writes are expensive in comparison with Redis for example.
-Reads are usually served from memory serving sub-millisecond reads.
+Reads are usually served from memory, resulting in sub-millisecond reads.
 
 ### You need a pseudo-document store
 
@@ -60,6 +60,6 @@ The data consistency is granted within a single table.
 There are compare-and-switch and multi-key atomic operations available.
 
 {: .important }
-Regatta is under heavy development. This means that the API may change
+Regatta is under heavy development. This means the API may change
 and there are a lot of things to be implemented. If you would like to
 help, do not hesitate and check the [Contributing](contributing) page!

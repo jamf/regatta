@@ -11,7 +11,7 @@ See [Delete Range Request API](/api/#regatta-v1-DeleteRangeRequest) and [Delete 
 for the complete gRPC API documentation for deleting records in Regatta.
 
 Delete Range API serves for deleting records in Regatta, offering exact key-value pair deletion,
-deleting pairs with shared prefix and range deletion.
+deleting pairs with shared prefix, and range deletion.
 
 ## Delete single key
 
