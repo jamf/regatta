@@ -15,6 +15,10 @@ and built-in [`backup`](/operations_guide/cli/regatta_backup) and
 {: .important }
 Backing up and restoring can be done only in a leader cluster.
 
+To interact with Regatta's Maintenance API, use the `regatta` binary, which can be
+downloaded from the [Releases GitHub page](https://github.com/jamf/regatta/releases)
+or use the [Docker Image](https://github.com/orgs/jamf/packages?repo_name=regatta).
+
 ## Create backup
 
 To create backups, Maintenance API must be enabled during Regatta startup.
@@ -33,7 +37,8 @@ regatta backup \
       --json=true
 ```
 
-The command then creates binary file for each table and a human-readable JSON manifest.
+The command then creates binary file for each table and a human-readable JSON manifest
+from Regatta leader cluster running on `127.0.0.1:8445`.
 
 ### Periodically backing up to S3 Bucket
 
@@ -54,9 +59,12 @@ regatta restore \
       --address=127.0.0.1:8445 \
       --token=$(BACKUP_TOKEN) \
       --ca=ca.crt \
-      --dir=/backup \
+      --dir=./backup \
       --json=true
 ```
+
+This command overwrites all the tables specified in the `backup` directory in a Regatta leader cluster
+runnin on `127.0.0.1:8445`.
 
 ## Resetting a follower cluster
 
