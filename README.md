@@ -1,43 +1,23 @@
 # Regatta
 
-## What is Regatta?
+**Regatta** is a distributed, eventually consistent key-value store built for Kubernetes.
+It is designed to distribute data globally in a *hub-and-spoke model* with emphasis on *high read throughput*.
+It is *fault-tolerant*, able to handle network partitions and node outages gracefully.
 
-Regatta is a distributed key-value store. Regatta is designed as easy to deploy, kubernetes friendly with emphasis on
-high read throughput and low operational cost.
+## Why Regatta?
+
+* You need to distribute data from a single cluster to multiple follower clusters in edge locations.
+* You need a local, persistent, cache within a data center and reads heavily outnumber writes.
+* You need a pseudo-document store.
 
 ## Documentation
 
-> For guidance on installation, development, deployment, and administration, see our [docs](docs/index.md) folder.
+For guidance on installation, deployment, and administration,
+see the [documentation page](https://shiny-invention-a2acc4a1.pages.github.io).
 
----
+## Contributing
 
-## What is it good for?
+Regatta is in active development and contributors are welcome! For guidance on development, see the page
+[Contributing](https://shiny-invention-a2acc4a1.pages.github.io/contributing).
+Feel free to ask questions and engage in [GitHub Discussions](https://github.com/jamf/regatta/discussions)!
 
-Regatta is not a general purpose database and as such not be used like that. Regatta should be used in a case of need to
-distribute larger-than-memory dataset across distances to ensure data co-location to support services running there.
-
-### Some example uses cases
-
-* You need a distributed KV database to allow local, quick access to the data in Edge locations.
-    * Regatta will provide read-only copy of the data in Edge location.
-    * Regatta will take care of the data-replication, data availability and resilience in case of Core/leader
-      failure.
-* You need a persistent cache locally within a data center, in the case when reads heavily outnumber writes.
-    * Regatta writes are expensive in comparison with e.g. Redis.
-    * Regatta usually reads most of the dataset in-use from memory serving sub-ms reads.
-* You need a pseudo Document store
-    * You can define secondary indexes or additional columns/tables within a single regatta Table.
-    * The data consistency is granted within a single table.
-    * There are compare-and-switch and multi-key atomic operations available.
-
----
-
-## Development
-
-> For guidance on development, see our [development](docs/development.md) document.
-
----
-
-## Client usage
-
-> For guidance on use of Regatta from client perspective, see our [usage](docs/usage.md) document.
