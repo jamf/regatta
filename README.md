@@ -1,8 +1,8 @@
 # Regatta
 
 **Regatta** is a distributed, eventually consistent key-value store built for Kubernetes.
-It is designed to distribute data globally in a *hub-and-spoke model* with emphasis on *high read throughput*.
-It is *fault-tolerant*, able to handle network partitions and node outages gracefully.
+It is designed to distribute data globally in a *hub-and-spoke model* with an emphasis on *high read throughput*.
+It is *fault-tolerant* and able to handle network partitions and node outages gracefully.
 
 ## Why Regatta?
 

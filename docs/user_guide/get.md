@@ -11,7 +11,7 @@ See [Range Request API](/api/#regatta-v1-RangeRequest) and [Range Response API](
 for the complete gRPC API documentation for retrieving records from Regatta.
 
 Range API serves for the retrieval of data, offering exact key-value pair lookups,
-prefix searches and range searches.
+prefix searches, and range searches.
 
 ## Exact key-value pair lookup
 

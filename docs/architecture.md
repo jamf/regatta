@@ -7,23 +7,23 @@ nav_order: 4
 # Architecture
 
 Regatta is designed as a "geographically distributed etcd", providing etcd-like gRPC API in every location
-while maintaining consistent data set. See [API](/api) for the complete documentation of the gRPC API.
+while maintaining a consistent data set. See [API](/api) for the complete documentation of the gRPC API.
 
 ## Topology
 
-The Regatta is designed as hub-and-spoke or consistent-core system. There is always a single statically
-defined leader cluster in the topology. Having a statically defined leader cluster reduces the operational
-costs and greatly simplifies the system due to less moving parts.
+The Regatta is designed as a hub-and-spoke or consistent-core system. There is always a single statically
+defined leader cluster in the topology. Having a statically defined leader cluster reduces operational
+costs and greatly simplifies the system due to fewer moving parts.
 
 Regatta topology is designed as a multi-group Raft cluster within each data center with asynchronous
 pull-based replication across locations. There are two types of clusters within Regatta multi-location deployment:
 **Regatta leader cluster** and **Regatta follower cluster**.
 
-* Regatta leader refers to cluster accepting and confirming write proposals, sometimes referred to as a core cluster.
+* Regatta leader refers to a cluster accepting and confirming write proposals, sometimes referred to as a core cluster.
 * Regatta follower refers to a cluster connected to the leader cluster asynchronously replicating its state locally,
   sometimes referred to as an edge cluster.
 
-Thanks to this topology, the user is able to dynamically add additional follower clusters.
+Thanks to this topology, the user can dynamically add additional follower clusters.
 
 ![Regatta hub-and-spoke topology](/static/topology.png "Regatta hub-and-spoke topology")
 

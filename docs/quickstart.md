@@ -6,7 +6,7 @@ nav_order: 2
 
 # Running Regatta
 
-There are multiple possibilities how to run Regatta -- building Regatta from source and executing the binary,
+There are multiple possibilities for how to run Regatta -- building Regatta from source and executing the binary,
 using the official Regatta Docker image, or deploying Regatta to Kubernetes via Helm Charts, which is the
 recommended way.
 
@@ -73,7 +73,7 @@ helm install my-regatta regatta/regatta -f values.yaml
 ```
 
 This will deploy Regatta leader cluster with one replica. See page
-[Deploying to Kubernets](/operations_guide/deploying_to_kubernetes/) for more advanced deployment
+[Deploying to Kubernets](/operations_guide/deploying_to_kubernetes/) for the more advanced deployment
 of Regatta and how to connect follower clusters to the leader cluster.
 
 ## Interacting with Regatta

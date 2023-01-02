@@ -8,7 +8,7 @@ nav_order: 4
 ## Metrics
 
 Metrics are available via the `/metrics` endpoint in the REST API (default port 8079),
-exposing Go runtime statistics, gRPC statistics and [Dragonboat](https://github.com/lni/dragonboat) statistics,
+exposing Go runtime statistics, gRPC statistics, and [Dragonboat](https://github.com/lni/dragonboat) statistics,
 which is the underlying framework used for Raft clusters.
 
 ## Alerts

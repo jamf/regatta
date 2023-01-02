@@ -11,14 +11,14 @@ See [Txn Request API](/api/#regatta-v1-TxnRequest) and [Txn Response API](/api#r
 for the complete gRPC API documentation for retrieving records from Regatta.
 
 A Regatta transaction is an atomic *if/then/else* construct over the key-value store.
-It provides primitive grouping of requests whose execution is guarded,
+It provides a primitive grouping of requests whose execution is guarded,
 **supporting the protection of data from concurrent modification**.
 
 Transactions consist of two parts - `RequestOp` operations and `Compare`
 predicates. Conditional execution of transactions is
 also supported.
 
-To gain better understanding of how to use the transaction API, see [examples](#examples).
+To gain a better understanding of how to use the transaction API, see [examples](#examples).
 
 ## Retrieving or Modifying Data With Transactions
 
@@ -58,7 +58,7 @@ See the [API documentation](/api/#mvcc-v1-ResponseOp) for more details.
 Operations in transactions can be executed conditionally, after supplying a list of
 predicates representing a logical conjunction of terms to be evaluated on the data
 in Regatta. This is the repeated `compare` field in the `Txn` protobuf message.
-Depending on the result of the conjuction of the terms, either `success`
+Depending on the result of the conjunction of the terms, either `success`
 or `failure` operations are executed. If all of the `compare` terms evaluate
 to true, then the `success` operations are executed. Otherwise, `failure`
 operations are executed.
@@ -111,14 +111,14 @@ message Compare {
 
 ### Testing Existence of Key
 
-A predicate testing for existence of a given key can also be created.
-To do so, supply only the `key` in the `Compare` message. Example of such
+A predicate testing for the existence of a given key can also be created.
+To do so, supply only the `key` in the `Compare` message. An example of a such
 predicate can be found [here](#predicate-testing-existence-of-key).
 
 ### Testing Existence of Key Within Range
 
 To test the existence of some keys within a given range, supply only the
-`key` and `range_end` in the `Compare` message. Example of such predicate
+`key` and `range_end` in the `Compare` message. An example of a such predicate
 can be found [here](#predicate-testing-existence-of-key-within-range).
 Note that the predicate evaluates to false if and only if no key exists
 in the provided range. Also, `key` and `range_end` form a right-open interval `[key, range_end)`.
@@ -129,7 +129,7 @@ Transactions are executed via the `regatta.v1.KV/Txn` remote procedure call.
 
 ### Transaction With No Predicates
 
-Let's suppose we wish to atomically insert multiple records into table `regatta-test`,
+Suppose we wish to atomically insert multiple records into table `regatta-test`,
 and list them back. We could achieve this by defining multiple `PUT` operations,
 one for each record, and a `RANGE` operation, listing the inserted records,
 all in the `success` branch.
@@ -202,7 +202,7 @@ This would be the expected response:
 ### Transaction With Predicates
 
 The following transaction checks whether there's a key-value pair
-`john:doe` in table `regatta-test`. If such key-value pair
+`john:doe` in table `regatta-test`. If such a key-value pair
 exists, a new record `jane:doe` is upserted in a compare-swap fashion,
 as defined in the `success` branch. We also wish to retrieve the previous
 key-value of the newly upserted record, as stated in `success[0].request_put.prev_kv = true`.
