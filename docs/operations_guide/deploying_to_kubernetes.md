@@ -16,7 +16,7 @@ See
 definitions in the Helm Chart or [`regatta leader`](/operations_guid/cli/regatta_leader)
 and [`regatta follower`](/operations_guid/cli/regatta_follower) commands for reference.
 
-## Deploying Regatta cluster
+## Deploying Regatta leader cluster
 
 To deploy Regatta leader cluster, let's specify the following values:
 
@@ -28,6 +28,9 @@ mode: leader
 replicas: 3
 raft:
   initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
+
+# Specify the tables.
+tables: testing-table1,testing-table2
 
 replication:
   # Regatta leader cluster's replication gRPC API for the follower clusters to connect to.
@@ -79,6 +82,9 @@ mode: follower
 replicas: 3
 raft:
   initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
+
+# Specify the tables.
+tables: testing-table1,testing-table2
 
 replication:
   # Disable the Replication gRPC API for follower clusters.
