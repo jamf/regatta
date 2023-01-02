@@ -16,8 +16,8 @@ other Kubernetes deployment. Check out the
 
 ### Distribute data globally in a hub-and-spoke model
 
-Regatta is designed to efficiently distribute data from a single core clusters
-to multiple edge cluster around the world. See the [Architecture](/architecture#Topology)
+Regatta is designed to efficiently distribute data from a single core cluster
+to multiple edge clusters around the world. See the [Architecture](/architecture#Topology)
 page for more information.
 
 ### Emphasis on high read throughput
@@ -33,6 +33,11 @@ network partition or node outage.
 
 Regatta is more than just an in-memory cache -- data persistence is built-in. Regatta
 can be backed up and restored from backups.
+
+### Dynamic scaling of edge clusters
+
+Regatta makes it really easy to add new edge clusters. When adding a new edge cluster,
+no other clusters are affected and the data is automatically replicated from the core cluster to the edge cluster.
 
 ## What is Regatta good for?
 
