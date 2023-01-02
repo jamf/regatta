@@ -5,15 +5,15 @@ parent: User Guide
 nav_order: 3
 ---
 
+# Deleting Records
+
 See [Delete Range Request API](/api/#regatta-v1-DeleteRangeRequest) and [Delete Range Response API](/api#regatta-v1-DeleteRangeResponse)
 for the complete gRPC API documentation for deleting records in Regatta.
-
-## Delete Range API
 
 Delete Range API serves for deleting records in Regatta, offering exact key-value pair deletion,
 deleting pairs with shared prefix and range deletion.
 
-### Delete single key
+## Delete single key
 
 To delete a single key-value pair in a table, set the fields `key` and `table`.
 
@@ -24,7 +24,7 @@ grpcurl -insecure "-d={
     }" 127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-### Delete keys by prefix
+## Delete keys by prefix
 
 To delete key-value pairs with a shared prefix, supply the `key` and `range_end` fields, where `key` is the prefix
 and `range_end = key + 1`. For example, to delete all key-value pairs prefixed with the timestamp `1626783802`,
@@ -38,7 +38,7 @@ grpcurl -insecure "-d={
     }" 127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-### Delete keys range
+## Delete keys range
 
 To delete key-value pairs in a given range, supply the `key` and `range_end` fields. All pairs whose keys belong to the
 right-open interval `[key, range_end)` will be deleted.
@@ -71,7 +71,7 @@ grpcurl -insecure "-d={
     }" 127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-### Delete all keys
+## Delete all keys
 
 When `key` and `range_end` are both set to `\0`, then all key-value pairs are deleted.
 

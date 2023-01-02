@@ -5,6 +5,8 @@ nav_order: 5
 has_children: true
 ---
 
+# User Guide
+
 Throughout this documentation, we are using [gRPCurl](https://github.com/fullstorydev/grpcurl)
 to interact with Regatta's gRPC API.
 

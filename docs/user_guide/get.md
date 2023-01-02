@@ -5,15 +5,15 @@ parent: User Guide
 nav_order: 1
 ---
 
+# Retrieving Records
+
 See [Range Request API](/api/#regatta-v1-RangeRequest) and [Range Response API](/api#regatta-v1-RangeResponse)
 for the complete gRPC API documentation for retrieving records from Regatta.
-
-## Range API
 
 Range API serves for the retrieval of data, offering exact key-value pair lookups,
 prefix searches and range searches.
 
-### Exact key-value pair lookup
+## Exact key-value pair lookup
 
 To query a single key-value pair, just set the `table` and `key` fields in the payload.
 
@@ -24,7 +24,7 @@ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Prefix search
+## Prefix search
 
 To query key-value pairs with a shared prefix, supply the `key` and `range_end` fields,
 where `key` is the prefix and `range_end = key + 1`.
@@ -39,7 +39,7 @@ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Range search
+## Range search
 
 To query key-value pairs in a given range, supply the `key` and `range_end` fields.
 All pairs whose keys belong to the right-open interval `[key, range_end)` will be returned.
@@ -72,7 +72,7 @@ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### List all key-value pairs
+## List all key-value pairs
 
 When `key` and `range_end` are both set to `\0`, then all key-value pairs are returned.
 
@@ -84,7 +84,7 @@ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Get keys only
+## Get keys only
 
 List keys in the range `[key, range_end)` with the `keys_only` option.
 
@@ -97,7 +97,7 @@ grpcurl -insecure "-d={
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
 
-### Get key count only
+## Get key count only
 
 Get only the number of keys in the range `[key, range_end)` with the `count_only` option.
 This can also be used without the `range_end` field to test the existence of `key`.
