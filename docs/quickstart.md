@@ -39,12 +39,23 @@ tar -xf regatta-darwin-amd64.tar
 ./regatta leader \
     --dev-mode \
     --api.reflection-api \
+    --api.cert-filename=/path/to/server.crt \
+    --api.key-filename=/path/to/server.key \
+    --maintenance.cert-filename=/path/to/server.crt \
+    --maintenance.key-filename=/path/to/server.key \
+    --replication.ca-filename=/path/to/server.crt \
+    --replication.cert-filename=/path/to/server.crt \
     --raft.address=127.0.0.1:5012 \
     --raft.initial-members='1=127.0.0.1:5012' \
     --tables.names=regatta-test
 ```
 
 This command will start a Regatta leader cluster with a single instance locally.
+
+{: .note }
+Mind the flags providing certificates and keys for the APIs. For testing purposes,
+[certificate and key present in the repository](https://github.com/jamf/regatta/tree/cfc58f0205484b0c8a24c7cbcc0be8563b7cf6a5/hack)
+can be used.
 
 ## Pull and run official Docker image
 
@@ -66,8 +77,10 @@ docker run \
 This command will start a Regatta leader cluster with a single instance in a Docker container.
 
 {: .note }
-Mind the `--mount` argument: testing certificates present in `/hack` in the Regatta repository are mounted
-to the container.
+Mind the `--mount` argument mounting the `/hack` directory to the container. This is the default location
+where Regatta looks for certificates and keys for APIs. For testing purposes,
+[certificate and key present in the repository](https://github.com/jamf/regatta/tree/cfc58f0205484b0c8a24c7cbcc0be8563b7cf6a5/hack)
+can be used.
 
 ## Deploy to Kubernetes from Helm Chart
 

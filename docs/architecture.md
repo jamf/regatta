@@ -50,12 +50,11 @@ There is no guarantee of data consistency within multiple tables.
 
 ## APIs
 
-Regatta exposes several gRPC APIs and a REST API.
+Regatta exposes several gRPC APIs and a REST API:
 
-[Regatta gRPC API](/api/#regatta-proto) is the user-facing API handling all read and write requests.
-[Replication gRPC API](/api/#replication-proto) is enabled only in the leader cluster and is
-responsible for responding to the asynchronous replication requests from follower clusters,
-replicating the Raft log.
-[Maintenance gRPC API](/api/#maintenance-proto) creates backups and restores from them.
-Lastly, REST API exposes the `/healthz` endpoint for Kubernetes, a `pprof` endpoint at `/debug`
-and `/metrics`.
+* [Regatta gRPC API](/api/#regatta-proto) is the user-facing API handling all read and write requests.
+* [Replication gRPC API](/api/#replication-proto) is enabled only in the leader cluster and is
+  responsible for responding to the asynchronous replication requests from follower clusters. Raft log
+  is replicated via this API from the leader cluster to follower clusters.
+* [Maintenance gRPC API](/api/#maintenance-proto) creates backups and restores from them.
+* REST API exposes endpoints for [metrics and observability](/operations_guide/metrics_and_observability).
