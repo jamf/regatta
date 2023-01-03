@@ -6,7 +6,7 @@ grand_parent: Operations Guide
 ---
 ## regatta leader
 
-Start Regatta in leader mode
+Start Regatta in leader mode.
 
 ```
 regatta leader [flags]
@@ -15,11 +15,11 @@ regatta leader [flags]
 ### Options
 
 ```
-      --api.address string                             Address the API server should listen on. (default ":8443")
+      --api.address string                             API server address. (default ":8443")
       --api.cert-filename string                       Path to the API server certificate. (default "hack/server.crt")
       --api.key-filename string                        Path to the API server private key file. (default "hack/server.key")
-      --api.reflection-api                             Whether reflection API is provided. Should not be turned on in production.
-      --dev-mode                                       Dev mode enabled (verbose logging, human-friendly log format).
+      --api.reflection-api                             Whether reflection API is enabled. Should be disabled in production.
+      --dev-mode                                       Development mode enabled (verbose logging, human-friendly log format).
       --experimental.tanlogdb                          Whether experimental LogDB implementation Tan is used in-place of Pebble based one.
   -h, --help                                           help for leader
       --kafka.brokers strings                          Address of the Kafka broker. (default [127.0.0.1:9092])
@@ -33,9 +33,9 @@ regatta leader [flags]
       --kafka.tls                                      Enables Kafka broker TLS connection.
       --kafka.topics strings                           Kafka topics to read from.
       --log-level string                               Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
-      --maintenance.address string                     Address the replication API server should listen on. (default ":8445")
+      --maintenance.address string                     Replication API server address. (default ":8445")
       --maintenance.cert-filename string               Path to the API server certificate. (default "hack/replication/server.crt")
-      --maintenance.enabled                            Maintenance API enabled (default true)
+      --maintenance.enabled                            Whether maintenance API is enabled. (default true)
       --maintenance.key-filename string                Path to the API server private key file. (default "hack/replication/server.key")
       --maintenance.token string                       Token to check for maintenance API access, if left empty (default) no token is checked.
       --raft.address string                            RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
@@ -73,22 +73,22 @@ regatta leader [flags]
       --raft.wal-dir string                            WALDir is the directory used for storing the WAL of Raft entries. 
                                                        It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
                                                        Leave WALDir to have zero value will have everything stored in NodeHostDir.
-      --replication.address string                     Address the replication API server should listen on. (default ":8444")
+      --replication.address string                     Replication API server address. (default ":8444")
       --replication.ca-filename string                 Path to the API server CA cert file. (default "hack/replication/ca.crt")
       --replication.cert-filename string               Path to the API server certificate. (default "hack/replication/server.crt")
-      --replication.enabled                            Replication API enabled (default true)
+      --replication.enabled                            Whether replication API is enabled. (default true)
       --replication.key-filename string                Path to the API server private key file. (default "hack/replication/server.key")
       --replication.log-cache-size int                 Size of the replication cache. (default 1024)
       --replication.max-send-message-size-bytes uint   The target maximum size of single replication message allowed to send.
-                                                       Still under some circumstances a larger message could be sent. So make sure the followers are able to accept slightly larger messages. (default 4194304)
-      --rest.address string                            Address the REST API server should listen on. (default ":8079")
-      --rest.read-timeout duration                     Maximum duration for reading entire request (default 5s)
+                                                       Under some circumstances, a larger message could be sent. Followers should be able to accept slightly larger messages. (default 4194304)
+      --rest.address string                            REST API server address. (default ":8079")
+      --rest.read-timeout duration                     Maximum duration for reading the entire request. (default 5s)
       --storage.block-cache-size int                   Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
-      --tables.delete strings                          Delete Regatta tables with given names
-      --tables.names strings                           Create Regatta tables with given names
+      --tables.delete strings                          Delete Regatta tables with given names.
+      --tables.names strings                           Create Regatta tables with given names.
 ```
 
 ### SEE ALSO
 
-* [regatta](/operations_guide/cli/regatta)	 - Regatta is read-optimized distributed key-value store.
+* [regatta](/operations_guide/cli/regatta)	 - Regatta is a read-optimized distributed key-value store.
 

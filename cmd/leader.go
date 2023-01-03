@@ -45,14 +45,14 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Tables flags
-	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
-	leaderCmd.PersistentFlags().StringSlice("tables.delete", nil, "Delete Regatta tables with given names")
+	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names.")
+	leaderCmd.PersistentFlags().StringSlice("tables.delete", nil, "Delete Regatta tables with given names.")
 
 	// Replication flags
-	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Replication API enabled")
+	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Whether replication API is enabled.")
 	leaderCmd.PersistentFlags().Uint64("replication.max-send-message-size-bytes", regattaserver.DefaultMaxGRPCSize, `The target maximum size of single replication message allowed to send.
-Still under some circumstances a larger message could be sent. So make sure the followers are able to accept slightly larger messages.`)
-	leaderCmd.PersistentFlags().String("replication.address", ":8444", "Address the replication API server should listen on.")
+Under some circumstances, a larger message could be sent. Followers should be able to accept slightly larger messages.`)
+	leaderCmd.PersistentFlags().String("replication.address", ":8444", "Replication API server address.")
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
@@ -61,7 +61,7 @@ Still under some circumstances a larger message could be sent. So make sure the 
 
 var leaderCmd = &cobra.Command{
 	Use:   "leader",
-	Short: "Start Regatta in leader mode",
+	Short: "Start Regatta in leader mode.",
 	Run:   leader,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		initConfig(cmd.PersistentFlags())

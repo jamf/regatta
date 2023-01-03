@@ -17,18 +17,18 @@ import (
 )
 
 func init() {
-	backupCmd.PersistentFlags().String("address", "127.0.0.1:8445", "Regatta maintenance API address")
-	backupCmd.PersistentFlags().String("dir", "", "Target dir (current directory if empty)")
-	backupCmd.PersistentFlags().String("ca", "", "Path to the client CA cert file.")
+	backupCmd.PersistentFlags().String("address", "127.0.0.1:8445", "Regatta maintenance API address.")
+	backupCmd.PersistentFlags().String("dir", "", "Target directory (current directory if empty).")
+	backupCmd.PersistentFlags().String("ca", "", "Path to the client CA certificate.")
 	backupCmd.PersistentFlags().String("token", "", "The access token to use for the authentication.")
 	backupCmd.PersistentFlags().Bool("json", false, "Enables JSON logging.")
 }
 
 var backupCmd = &cobra.Command{
 	Use:   "backup",
-	Short: "Backup regatta to local files",
-	Long: `Command backs up regatta into a directory of choice, it currently backs up all the tables present in the target server.
-Backup consist of file per a table in binary compressed form + human-readable manifest file. Use restore command to load backup into the server.`,
+	Short: "Backup Regatta to local files.",
+	Long: `Command backs up Regatta into a directory of choice. All tables present in the target server are backed up.
+Backup consists of file per a table in a binary compressed form and a human-readable manifest file. Use restore command to load backup into the server.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var cp *x509.CertPool
 		ca := viper.GetString("ca")

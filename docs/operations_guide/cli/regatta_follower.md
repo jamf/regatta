@@ -6,7 +6,7 @@ grand_parent: Operations Guide
 ---
 ## regatta follower
 
-Start Regatta in follower mode
+Start Regatta in follower mode.
 
 ```
 regatta follower [flags]
@@ -15,17 +15,17 @@ regatta follower [flags]
 ### Options
 
 ```
-      --api.address string                                    Address the API server should listen on. (default ":8443")
+      --api.address string                                    API server address. (default ":8443")
       --api.cert-filename string                              Path to the API server certificate. (default "hack/server.crt")
       --api.key-filename string                               Path to the API server private key file. (default "hack/server.key")
-      --api.reflection-api                                    Whether reflection API is provided. Should not be turned on in production.
-      --dev-mode                                              Dev mode enabled (verbose logging, human-friendly log format).
+      --api.reflection-api                                    Whether reflection API is enabled. Should be disabled in production.
+      --dev-mode                                              Development mode enabled (verbose logging, human-friendly log format).
       --experimental.tanlogdb                                 Whether experimental LogDB implementation Tan is used in-place of Pebble based one.
   -h, --help                                                  help for follower
       --log-level string                                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
-      --maintenance.address string                            Address the replication API server should listen on. (default ":8445")
+      --maintenance.address string                            Replication API server address. (default ":8445")
       --maintenance.cert-filename string                      Path to the API server certificate. (default "hack/replication/server.crt")
-      --maintenance.enabled                                   Maintenance API enabled (default true)
+      --maintenance.enabled                                   Whether maintenance API is enabled. (default true)
       --maintenance.key-filename string                       Path to the API server private key file. (default "hack/replication/server.key")
       --maintenance.token string                              Token to check for maintenance API access, if left empty (default) no token is checked.
       --raft.address string                                   RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
@@ -71,16 +71,16 @@ regatta follower [flags]
       --replication.log-rpc-timeout duration                  The log RPC timeout. (default 1m0s)
       --replication.max-recovery-in-flight uint               The maximum number of recovery goroutines allowed to run in this instance. (default 1)
       --replication.max-recv-message-size-bytes uint          The maximum size of single replication message allowed to receive. (default 8388608)
-      --replication.max-snapshot-recv-bytes-per-second uint   Max bytes per second received by the snapshot API client, default value 0 means unlimited.
+      --replication.max-snapshot-recv-bytes-per-second uint   Maximum bytes per second received by the snapshot API client, default value 0 means unlimited.
       --replication.poll-interval duration                    Replication interval in seconds, the leader poll time. (default 10s)
       --replication.reconcile-interval duration               Replication interval of tables reconciliation (workers startup/shutdown). (default 30s)
       --replication.snapshot-rpc-timeout duration             The snapshot RPC timeout. (default 1h0m0s)
-      --rest.address string                                   Address the REST API server should listen on. (default ":8079")
-      --rest.read-timeout duration                            Maximum duration for reading entire request (default 5s)
+      --rest.address string                                   REST API server address. (default ":8079")
+      --rest.read-timeout duration                            Maximum duration for reading the entire request. (default 5s)
       --storage.block-cache-size int                          Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
 ```
 
 ### SEE ALSO
 
-* [regatta](/operations_guide/cli/regatta)	 - Regatta is read-optimized distributed key-value store.
+* [regatta](/operations_guide/cli/regatta)	 - Regatta is a read-optimized distributed key-value store.
 
