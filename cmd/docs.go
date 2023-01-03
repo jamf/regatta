@@ -42,7 +42,7 @@ func frontMatter(filename string) string {
 
 var docsCmd = &cobra.Command{
 	Use:                "docs",
-	Short:              "Generate docs",
+	Short:              "Generate Regatta CLI documentation.",
 	Hidden:             true,
 	DisableFlagParsing: false,
 	RunE: func(cmd *cobra.Command, _ []string) error {

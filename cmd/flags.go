@@ -1,4 +1,4 @@
-// Copyright JAMF Software, LLC
+// Comode pyright JAMF Software, LLC
 
 package cmd
 
@@ -24,18 +24,18 @@ var (
 
 func init() {
 	// Root flags
-	rootFlagSet.Bool("dev-mode", false, "Dev mode enabled (verbose logging, human-friendly log format).")
+	rootFlagSet.Bool("dev-mode", false, "Development mode enabled (verbose logging, human-friendly log format).")
 	rootFlagSet.String("log-level", "INFO", "Log level: DEBUG/INFO/WARN/ERROR.")
 
 	// API flags
-	apiFlagSet.String("api.address", ":8443", "Address the API server should listen on.")
+	apiFlagSet.String("api.address", ":8443", "API server address.")
 	apiFlagSet.String("api.cert-filename", "hack/server.crt", "Path to the API server certificate.")
 	apiFlagSet.String("api.key-filename", "hack/server.key", "Path to the API server private key file.")
-	apiFlagSet.Bool("api.reflection-api", false, "Whether reflection API is provided. Should not be turned on in production.")
+	apiFlagSet.Bool("api.reflection-api", false, "Whether reflection API is enabled. Should be disabled in production.")
 
 	// REST API flags
-	restFlagSet.String("rest.address", ":8079", "Address the REST API server should listen on.")
-	restFlagSet.Duration("rest.read-timeout", time.Second*5, "Maximum duration for reading entire request")
+	restFlagSet.String("rest.address", ":8079", "REST API server address.")
+	restFlagSet.Duration("rest.read-timeout", time.Second*5, "Maximum duration for reading the entire request.")
 
 	// Raft flags
 	raftFlagSet.Duration("raft.rtt", 50*time.Millisecond,
@@ -103,8 +103,8 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 	kafkaFlagSet.Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
 
 	// Maintenance flags
-	maintenanceFlagSet.Bool("maintenance.enabled", true, "Maintenance API enabled")
-	maintenanceFlagSet.String("maintenance.address", ":8445", "Address the replication API server should listen on.")
+	maintenanceFlagSet.Bool("maintenance.enabled", true, "Whether maintenance API is enabled.")
+	maintenanceFlagSet.String("maintenance.address", ":8445", "Replication API server address.")
 	maintenanceFlagSet.String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	maintenanceFlagSet.String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
