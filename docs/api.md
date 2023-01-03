@@ -2,7 +2,7 @@
 title: API
 layout: default
 ---
-# Protocol Documentation
+# gRPC API Documentation
 <a name="top"></a>
 
 ## Table of Contents
