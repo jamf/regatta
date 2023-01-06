@@ -43,7 +43,7 @@ func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.Me
 	resp := &proto.MetadataResponse{}
 	for _, tab := range tabs {
 		resp.Tables = append(resp.Tables, &proto.Table{
-			Type: proto.Table_REPLICATED,
+			Type: proto.TableType_REPLICATED,
 			Name: tab.Name,
 		})
 	}

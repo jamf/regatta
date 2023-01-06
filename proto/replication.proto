@@ -9,6 +9,7 @@ option go_package = "./proto";
 package replication.v1;
 
 import "mvcc.proto";
+import "tables.proto";
 
 // Metadata service provides method to get Regatta metadata, e.g. tables.
 service Metadata {
@@ -23,12 +24,8 @@ message MetadataResponse {
 }
 
 message Table {
-  enum Type {
-    REPLICATED = 0;
-    LOCAL = 1;
-  }
   string name = 1;
-  Type type = 2;
+  tables.v1.TableType type = 2;
 }
 
 service Snapshot {

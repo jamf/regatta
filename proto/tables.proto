@@ -1,0 +1,96 @@
+//
+// Tables protobuffer specification
+//
+
+syntax = "proto3";
+
+option go_package = "./proto";
+
+package tables.v1;
+
+// API for managing tables in the leader cluster.
+service LeaderTables {
+    // Create a table in the leader cluster. To replicate this table to follower clusters,
+    // see the FollowerTables::CreateTable remote procedure call.
+    rpc CreateTable(CreateTableRequest) returns (CreateTableResponse);
+
+    // Delete a table in the leader cluster.
+    rpc DeleteTable(DeleteTableRequest) returns (DeleteTableResponse);
+
+    // Get names of all the tables present in the leader cluster.
+    rpc GetTables(GetTableRequest) returns (GetTablesResponse);
+}
+
+// CreateTableRequest describes the table to be created in the leader cluster.
+message CreateTableRequest {
+    // Name of the table to be created in the leader cluster.
+    bytes table = 1;
+}
+
+// CreateTableResponse describes the newly created table.
+message CreateTableResponse {
+    // Shard ID the created table.
+    uint64 shard_id = 1;
+}
+
+// DeleteTableRequest describes the table to be deleted in the leader cluster.
+message DeleteTableRequest {
+    // Name of the table to be deleted.
+    bytes table = 1;
+}
+
+message DeleteTableResponse {}
+
+message GetTableRequest {}
+
+// TableInfo describes a single table.
+message TableInfo {
+    // Name of the table.
+    bytes table = 1;
+
+    // Shard ID of the table.
+    uint64 shard_id = 2;
+}
+
+// FollowerGetTablesResponse contains information about tables stored in the follower cluster.
+message GetTablesResponse {
+    repeated TableInfo tables = 1;
+}
+
+// API for managing tables in the follower cluster.
+service FollowerTables {
+
+    // Create a local table in the follower cluster. Local table can be written to
+    // and the data within this table do not leave the follower cluster.
+    rpc CreateTable(CreateTableRequest) returns (CreateTableResponse);
+
+    // Delete a local table in the follower cluster.
+    rpc DeleteTable(DeleteTableRequest) returns (DeleteTableResponse);
+
+    // Get names of all the tables present in the follower cluster.
+    rpc GetTables(GetTableRequest) returns (FollowerGetTablesResponse);
+}
+
+// TableType denotes the type of the table.
+enum TableType {
+    // The table is asynchronously replicated from the leader cluster to the follower cluster.
+    REPLICATED = 0;
+
+    // TODO: Implement local tables.
+    // The table is local to the follower and can be directly manipulated with in the follower cluster.
+    // LOCAL = 1;
+}
+
+// TableInfo describes a table in the follower cluster.
+message FollowerTableInfo {
+    TableInfo table = 1;
+
+    // Type of the table.
+    TableType type = 2;
+
+}
+
+// FollowerGetTablesResponse contains information about tables stored in the follower cluster.
+message FollowerGetTablesResponse {
+    repeated FollowerTableInfo tables = 1;
+}
