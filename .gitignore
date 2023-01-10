@@ -11,3 +11,5 @@
 # Jekyll documentation
 _site
 .jekyll-cache
+docs/vendor
+docs/.bundle

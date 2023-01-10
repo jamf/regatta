@@ -26,8 +26,6 @@ To deploy Regatta leader cluster, let's specify the following values:
 # Create Regatta leader cluster with 3 instances.
 mode: leader
 replicas: 3
-raft:
-  initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
 
 # Specify the tables.
 tables: testing-table1,testing-table2
@@ -80,8 +78,6 @@ To deploy Regatta follower cluster and connect it to the leader cluster, let's s
 # Create Regatta follower cluster with 3 instances.
 mode: follower
 replicas: 3
-raft:
-  initialMembers: "1=regatta-0.regatta.regatta.svc.cluster.local:5012,2=regatta-1.regatta.regatta.svc.cluster.local:5012,3=regatta-2.regatta.regatta.svc.cluster.local:5012"
 
 # Specify the tables.
 tables: testing-table1,testing-table2

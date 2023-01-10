@@ -30,6 +30,28 @@ raise an issue, or open a pull request**.
 * [kind](https://kind.sigs.k8s.io/)
 * [gRPC curl](https://github.com/fullstorydev/grpcurl)
 
+## Running Documentation Site Locally
+
+This documentation site is powered by [Jekyll](https://jekyllrb.com).
+First, install Jekyll and [bundler](https://bundler.io):
+
+```bash
+gem install bundler jekyll
+```
+
+Then, install the necessary gems:
+
+```bash
+cd ./docs
+bundle install
+```
+
+Last, run Jekyll in the root of the repository:
+
+```bash
+make serve-docs
+```
+
 ## Useful links
 
 * [gRPC in Golang](https://grpc.io/docs/languages/go/)
@@ -37,5 +59,4 @@ raise an issue, or open a pull request**.
 * [Dragonboat](https://github.com/lni/dragonboat)
 * [Raft algorithm](https://raft.github.io)
 * [Pebble](https://github.com/cockroachdb/pebble)
-
 
