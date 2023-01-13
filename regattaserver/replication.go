@@ -191,7 +191,9 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 	}
 
 	t, err := l.Tables.GetTable(string(req.GetTable()))
-	if err != nil {
+	if errors.Is(err, serrors.ErrTableNotFound) {
+		return status.Errorf(codes.NotFound, "table %s does not exist", req.GetTable())
+	} else if err != nil {
 		return status.Errorf(codes.Unavailable, "unable to replicate table '%s': %v", req.GetTable(), err)
 	}
 

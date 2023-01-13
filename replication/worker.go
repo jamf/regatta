@@ -21,6 +21,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TODO make configurable.
@@ -176,6 +178,13 @@ func (w *worker) Start() {
 								w.log.Warnf("error retruning table: %v", err)
 							}
 						}
+					case serror.ErrTableNotFound:
+						if err := w.tm.DeleteTable(w.Table); err != nil {
+							w.log.Errorf("could not delete table %s: %v", w.Table, err)
+						} else {
+							w.log.Infof("deleted table %s", w.Table)
+							return
+						}
 					default:
 						w.log.Warnf("worker error: %v", err)
 					}
@@ -220,7 +229,10 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 		if err == io.EOF {
 			return nil
 		}
-		if err != nil {
+
+		if e, ok := status.FromError(err); ok && e.Code() == codes.NotFound {
+			return serror.ErrTableNotFound
+		} else if err != nil {
 			return fmt.Errorf("error reading replication stream: %w", err)
 		}
 
