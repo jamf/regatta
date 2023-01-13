@@ -19,6 +19,7 @@ var (
 	kafkaFlagSet        = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
 	storageFlagSet      = pflag.NewFlagSet("storage", pflag.ContinueOnError)
 	maintenanceFlagSet  = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
+	tablesFlagSet       = pflag.NewFlagSet("tables", pflag.ContinueOnError)
 	experimentalFlagSet = pflag.NewFlagSet("experimental", pflag.ContinueOnError)
 )
 
@@ -46,17 +47,17 @@ Note that RTTMillisecond is the combined delays between two NodeHost instances i
 		`HeartbeatRTT is the number of message RTT between heartbeats. Message RTT is defined by NodeHostConfig.RTTMillisecond. The Raft paper suggest the heartbeat interval to be close to the average RTT between nodes.
 As an example, assuming NodeHostConfig.RTTMillisecond is 100 millisecond, to set the heartbeat interval to be every 200 milliseconds, then HeartbeatRTT should be set to 2.`)
 	raftFlagSet.Int("raft.election-rtt", 20,
-		`ElectionRTT is the minimum number of message RTT between elections. Message RTT is defined by NodeHostConfig.RTTMillisecond. 
+		`ElectionRTT is the minimum number of message RTT between elections. Message RTT is defined by NodeHostConfig.RTTMillisecond.
 The Raft paper suggests it to be a magnitude greater than HeartbeatRTT, which is the interval between two heartbeats. In Raft, the actual interval between elections is randomized to be between ElectionRTT and 2 * ElectionRTT.
 As an example, assuming NodeHostConfig.RTTMillisecond is 100 millisecond, to set the election interval to be 1 second, then ElectionRTT should be set to 10.
 When CheckQuorum is enabled, ElectionRTT also defines the interval for checking leader quorum.`)
 	raftFlagSet.String("raft.wal-dir", "",
-		`WALDir is the directory used for storing the WAL of Raft entries. 
-It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
+		`WALDir is the directory used for storing the WAL of Raft entries.
+It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data.
 Leave WALDir to have zero value will have everything stored in NodeHostDir.`)
 	raftFlagSet.String("raft.node-host-dir", "/tmp/regatta/raft", "NodeHostDir raft internal storage")
 	raftFlagSet.String("raft.state-machine-wal-dir", "",
-		`StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
+		`StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir.
 Applicable only when in-memory-state-machine=false.`)
 	raftFlagSet.String("raft.state-machine-dir", "/tmp/regatta/state-machine",
 		"StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false.")
@@ -108,6 +109,12 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 	maintenanceFlagSet.String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	maintenanceFlagSet.String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
+
+	// Table API server flags
+	tablesFlagSet.String("tables.address", ":8446", "Address of the Tables API server.")
+	tablesFlagSet.String("tables.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
+	tablesFlagSet.String("tables.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
+	tablesFlagSet.String("tables.token", "", "Token to check for the Table API accesss. No token is checked when left empty (default)")
 
 	experimentalFlagSet.Bool("experimental.tanlogdb", false, "Whether experimental LogDB implementation Tan is used in-place of Pebble based one.")
 }

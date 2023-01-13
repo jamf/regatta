@@ -26,7 +26,7 @@ regatta follower [flags]
                                                               This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.
       --raft.compaction-overhead uint                         CompactionOverhead defines the number of most recent entries to keep after each Raft log compaction.
                                                               Raft log compaction is performed automatically every time when a snapshot is created. (default 5000)
-      --raft.election-rtt int                                 ElectionRTT is the minimum number of message RTT between elections. Message RTT is defined by NodeHostConfig.RTTMillisecond. 
+      --raft.election-rtt int                                 ElectionRTT is the minimum number of message RTT between elections. Message RTT is defined by NodeHostConfig.RTTMillisecond.
                                                               The Raft paper suggests it to be a magnitude greater than HeartbeatRTT, which is the interval between two heartbeats. In Raft, the actual interval between elections is randomized to be between ElectionRTT and 2 * ElectionRTT.
                                                               As an example, assuming NodeHostConfig.RTTMillisecond is 100 millisecond, to set the election interval to be 1 second, then ElectionRTT should be set to 10.
                                                               When CheckQuorum is enabled, ElectionRTT also defines the interval for checking leader quorum. (default 20)
@@ -52,10 +52,10 @@ regatta follower [flags]
                                                               It is defined in terms of the number of applied Raft log entries.
                                                               SnapshotEntries can be set to 0 to disable such automatic snapshotting. (default 10000)
       --raft.state-machine-dir string                         StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false. (default "/tmp/regatta/state-machine")
-      --raft.state-machine-wal-dir string                     StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
+      --raft.state-machine-wal-dir string                     StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir.
                                                               Applicable only when in-memory-state-machine=false.
-      --raft.wal-dir string                                   WALDir is the directory used for storing the WAL of Raft entries. 
-                                                              It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
+      --raft.wal-dir string                                   WALDir is the directory used for storing the WAL of Raft entries.
+                                                              It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data.
                                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
       --replication.ca-filename string                        Path to the client CA cert file. (default "hack/replication/ca.crt")
       --replication.cert-filename string                      Path to the client certificate. (default "hack/replication/client.crt")
@@ -72,6 +72,10 @@ regatta follower [flags]
       --rest.address string                                   Address the REST API server should listen on. (default ":8079")
       --rest.read-timeout duration                            Maximum duration for reading entire request (default 5s)
       --storage.block-cache-size int                          Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
+      --tables.address string                                 Address of the Tables API server. (default ":8446")
+      --tables.cert-filename string                           Path to the API server certificate. (default "hack/replication/server.crt")
+      --tables.key-filename string                            Path to the API server private key file. (default "hack/replication/server.key")
+      --tables.token string                                   Token to check for the Table API accesss. No token is checked when left empty (default)
 ```
 
 ### SEE ALSO

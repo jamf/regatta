@@ -42,6 +42,7 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
+	leaderCmd.PersistentFlags().AddFlagSet(tablesFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Tables flags
@@ -320,6 +321,31 @@ func leader(_ *cobra.Command, _ []string) {
 		if err := consumer.Start(context.Background()); err != nil {
 			log.Panicf("failed to start consumer: %v", err)
 		}
+	}
+
+	// Start leader cluster table management service.
+	{
+		watcher := &cert.Watcher{
+			CertFile: viper.GetString("tables.cert-filename"),
+			KeyFile:  viper.GetString("tables.key-filename"),
+			Log:      logger.Named("tables-cert").Sugar(),
+		}
+
+		if err := watcher.Watch(); err != nil {
+			log.Panicf("cannot watch table server certificate: %v", err)
+		}
+		defer watcher.Stop()
+
+		ts := createTableServer(watcher)
+		proto.RegisterLeaderTablesServer(ts, regattaserver.NewLeaderTableServer(engine.Manager))
+
+		go func() {
+			log.Infof("regatta table server listening at %s", ts.Addr)
+			if err := ts.ListenAndServe(); err != nil {
+				log.Panicf("grpc listenAndServe for table server failed: %v", err)
+			}
+		}()
+		defer ts.Shutdown()
 	}
 
 	// Cleanup

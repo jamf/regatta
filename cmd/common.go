@@ -22,6 +22,27 @@ import (
 
 var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
 
+func createTableServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
+	return regattaserver.NewServer(
+		viper.GetString("tables.address"),
+		viper.GetBool("api.reflection-api"),
+		grpc.Creds(credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
+			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return watcher.GetCertificate(), nil
+			},
+		})),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionAge: 60 * time.Second,
+		}),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		// TODO(jsfpdn): Use token instead.
+		// grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("tables.token")))),
+		// grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("tables.token")))),
+	)
+}
+
 func createAPIServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
 	return regattaserver.NewServer(
 		viper.GetString("api.address"),

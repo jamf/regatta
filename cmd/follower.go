@@ -36,6 +36,7 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(raftFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(tablesFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Replication flags
@@ -249,6 +250,32 @@ func follower(_ *cobra.Command, _ []string) {
 			}
 		}()
 		defer hs.Shutdown()
+	}
+
+	// Start follower cluster table management service.
+	{
+		watcher := &cert.Watcher{
+			CertFile: viper.GetString("tables.cert-filename"),
+			KeyFile:  viper.GetString("tables.key-filename"),
+			Log:      logger.Named("cert").Sugar(),
+		}
+
+		err = watcher.Watch()
+		if err != nil {
+			log.Panicf("cannot watch table server certificate: %v", err)
+		}
+		defer watcher.Stop()
+
+		ts := createTableServer(watcher)
+		proto.RegisterFollowerTablesServer(ts, regattaserver.NewFollowerTableServer(engine.Manager))
+
+		go func() {
+			log.Infof("regatta table server listening at %s", ts.Addr)
+			if err := ts.ListenAndServe(); err != nil {
+				log.Panicf("grpc listenAndServe for table server failed: %v", err)
+			}
+		}()
+		defer ts.Shutdown()
 	}
 
 	// Cleanup
