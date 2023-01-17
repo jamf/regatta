@@ -58,6 +58,7 @@
     - [Table](#replication-v1-Table)
   
     - [ReplicateError](#replication-v1-ReplicateError)
+    - [Table.Type](#replication-v1-Table-Type)
   
     - [Log](#replication-v1-Log)
     - [Metadata](#replication-v1-Metadata)
@@ -68,16 +69,11 @@
     - [CreateTableResponse](#tables-v1-CreateTableResponse)
     - [DeleteTableRequest](#tables-v1-DeleteTableRequest)
     - [DeleteTableResponse](#tables-v1-DeleteTableResponse)
-    - [FollowerGetTablesResponse](#tables-v1-FollowerGetTablesResponse)
-    - [FollowerTableInfo](#tables-v1-FollowerTableInfo)
     - [GetTableRequest](#tables-v1-GetTableRequest)
     - [GetTablesResponse](#tables-v1-GetTablesResponse)
     - [TableInfo](#tables-v1-TableInfo)
   
-    - [TableType](#tables-v1-TableType)
-  
-    - [FollowerTables](#tables-v1-FollowerTables)
-    - [LeaderTables](#tables-v1-LeaderTables)
+    - [Tables](#tables-v1-Tables)
   
 - [Scalar Value Types](#scalar-value-types)
 
@@ -847,7 +843,7 @@ ReplicateResponse response to the ReplicateRequest
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
-| type | [tables.v1.TableType](#tables-v1-TableType) |  |  |
+| type | [Table.Type](#replication-v1-Table-Type) |  |  |
 
 
 
@@ -865,6 +861,18 @@ ReplicateResponse response to the ReplicateRequest
 | ---- | ------ | ----------- |
 | USE_SNAPSHOT | 0 | USE_SNAPSHOT occurs when leader has no longer the specified `leader_index` in the log. Follower must use `GetSnapshot` to catch up. |
 | LEADER_BEHIND | 1 | LEADER_BEHIND occurs when the index of the leader is smaller than requested `leader_index`. This should never happen. Manual intervention needed. |
+
+
+
+<a name="replication-v1-Table-Type"></a>
+
+### Table.Type
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| REPLICATED | 0 |  |
+| LOCAL | 1 |  |
 
 
  
@@ -915,12 +923,12 @@ Metadata service provides method to get Regatta metadata, e.g. tables.
 <a name="tables-v1-CreateTableRequest"></a>
 
 ### CreateTableRequest
-CreateTableRequest describes the table to be created in the leader cluster.
+CreateTableRequest describes the table to be created.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| table | [bytes](#bytes) |  | Name of the table to be created in the leader cluster. |
+| table | [bytes](#bytes) |  | Name of the table to be created. |
 
 
 
@@ -945,7 +953,7 @@ CreateTableResponse describes the newly created table.
 <a name="tables-v1-DeleteTableRequest"></a>
 
 ### DeleteTableRequest
-DeleteTableRequest describes the table to be deleted in the leader cluster.
+DeleteTableRequest describes the table to be deleted.
 
 
 | Field | Type | Label | Description |
@@ -967,37 +975,6 @@ DeleteTableRequest describes the table to be deleted in the leader cluster.
 
 
 
-<a name="tables-v1-FollowerGetTablesResponse"></a>
-
-### FollowerGetTablesResponse
-FollowerGetTablesResponse contains information about tables stored in the follower cluster.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| tables | [FollowerTableInfo](#tables-v1-FollowerTableInfo) | repeated |  |
-
-
-
-
-
-
-<a name="tables-v1-FollowerTableInfo"></a>
-
-### FollowerTableInfo
-TableInfo describes a table in the follower cluster.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| table | [TableInfo](#tables-v1-TableInfo) |  |  |
-| type | [TableType](#tables-v1-TableType) |  | Type of the table. |
-
-
-
-
-
-
 <a name="tables-v1-GetTableRequest"></a>
 
 ### GetTableRequest
@@ -1011,7 +988,7 @@ TableInfo describes a table in the follower cluster.
 <a name="tables-v1-GetTablesResponse"></a>
 
 ### GetTablesResponse
-FollowerGetTablesResponse contains information about tables stored in the follower cluster.
+FollowerGetTablesResponse contains information about tables stored in the cluster.
 
 
 | Field | Type | Label | Description |
@@ -1040,44 +1017,21 @@ TableInfo describes a single table.
 
  
 
-
-<a name="tables-v1-TableType"></a>
-
-### TableType
-TableType denotes the type of the table.
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| REPLICATED | 0 | The table is asynchronously replicated from the leader cluster to the follower cluster. |
-
-
  
 
  
 
 
-<a name="tables-v1-FollowerTables"></a>
+<a name="tables-v1-Tables"></a>
 
-### FollowerTables
-API for managing tables in the follower cluster.
-
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| CreateTable | [CreateTableRequest](#tables-v1-CreateTableRequest) | [CreateTableResponse](#tables-v1-CreateTableResponse) | Create a local table in the follower cluster. Local table can be written to and the data within this table do not leave the follower cluster. |
-| DeleteTable | [DeleteTableRequest](#tables-v1-DeleteTableRequest) | [DeleteTableResponse](#tables-v1-DeleteTableResponse) | Delete a local table in the follower cluster. |
-| GetTables | [GetTableRequest](#tables-v1-GetTableRequest) | [FollowerGetTablesResponse](#tables-v1-FollowerGetTablesResponse) | Get names of all the tables present in the follower cluster. |
-
-
-<a name="tables-v1-LeaderTables"></a>
-
-### LeaderTables
-API for managing tables in the leader cluster.
+### Tables
+API for managing tables.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| CreateTable | [CreateTableRequest](#tables-v1-CreateTableRequest) | [CreateTableResponse](#tables-v1-CreateTableResponse) | Create a table in the leader cluster. To replicate this table to follower clusters, see the FollowerTables::CreateTable remote procedure call. |
-| DeleteTable | [DeleteTableRequest](#tables-v1-DeleteTableRequest) | [DeleteTableResponse](#tables-v1-DeleteTableResponse) | Delete a table in the leader cluster. |
-| GetTables | [GetTableRequest](#tables-v1-GetTableRequest) | [GetTablesResponse](#tables-v1-GetTablesResponse) | Get names of all the tables present in the leader cluster. |
+| CreateTable | [CreateTableRequest](#tables-v1-CreateTableRequest) | [CreateTableResponse](#tables-v1-CreateTableResponse) | Create a table. All followers will automatically replicate the table. This procedure is available only in the leader cluster. |
+| DeleteTable | [DeleteTableRequest](#tables-v1-DeleteTableRequest) | [DeleteTableResponse](#tables-v1-DeleteTableResponse) | Delete a table. All followers will automatically delete the table. This procedure is available only in the leader cluster. |
+| GetTables | [GetTableRequest](#tables-v1-GetTableRequest) | [GetTablesResponse](#tables-v1-GetTablesResponse) | Get names of all the tables present in the cluster. This procedure is available in both leader and follower clusters. |
 
  
 

@@ -14,332 +14,170 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// LeaderTablesClient is the client API for LeaderTables service.
+// TablesClient is the client API for Tables service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type LeaderTablesClient interface {
-	// Create a table in the leader cluster. To replicate this table to follower clusters,
-	// see the FollowerTables::CreateTable remote procedure call.
+type TablesClient interface {
+	// Create a table. All followers will automatically replicate the table.
+	// This procedure is available only in the leader cluster.
 	CreateTable(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error)
-	// Delete a table in the leader cluster.
+	// Delete a table. All followers will automatically delete the table.
+	// This procedure is available only in the leader cluster.
 	DeleteTable(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error)
-	// Get names of all the tables present in the leader cluster.
+	// Get names of all the tables present in the cluster.
+	// This procedure is available in both leader and follower clusters.
 	GetTables(ctx context.Context, in *GetTableRequest, opts ...grpc.CallOption) (*GetTablesResponse, error)
 }
 
-type leaderTablesClient struct {
+type tablesClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewLeaderTablesClient(cc grpc.ClientConnInterface) LeaderTablesClient {
-	return &leaderTablesClient{cc}
+func NewTablesClient(cc grpc.ClientConnInterface) TablesClient {
+	return &tablesClient{cc}
 }
 
-func (c *leaderTablesClient) CreateTable(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error) {
+func (c *tablesClient) CreateTable(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error) {
 	out := new(CreateTableResponse)
-	err := c.cc.Invoke(ctx, "/tables.v1.LeaderTables/CreateTable", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/tables.v1.Tables/CreateTable", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *leaderTablesClient) DeleteTable(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error) {
+func (c *tablesClient) DeleteTable(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error) {
 	out := new(DeleteTableResponse)
-	err := c.cc.Invoke(ctx, "/tables.v1.LeaderTables/DeleteTable", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/tables.v1.Tables/DeleteTable", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *leaderTablesClient) GetTables(ctx context.Context, in *GetTableRequest, opts ...grpc.CallOption) (*GetTablesResponse, error) {
+func (c *tablesClient) GetTables(ctx context.Context, in *GetTableRequest, opts ...grpc.CallOption) (*GetTablesResponse, error) {
 	out := new(GetTablesResponse)
-	err := c.cc.Invoke(ctx, "/tables.v1.LeaderTables/GetTables", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/tables.v1.Tables/GetTables", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// LeaderTablesServer is the server API for LeaderTables service.
-// All implementations must embed UnimplementedLeaderTablesServer
+// TablesServer is the server API for Tables service.
+// All implementations must embed UnimplementedTablesServer
 // for forward compatibility
-type LeaderTablesServer interface {
-	// Create a table in the leader cluster. To replicate this table to follower clusters,
-	// see the FollowerTables::CreateTable remote procedure call.
+type TablesServer interface {
+	// Create a table. All followers will automatically replicate the table.
+	// This procedure is available only in the leader cluster.
 	CreateTable(context.Context, *CreateTableRequest) (*CreateTableResponse, error)
-	// Delete a table in the leader cluster.
+	// Delete a table. All followers will automatically delete the table.
+	// This procedure is available only in the leader cluster.
 	DeleteTable(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error)
-	// Get names of all the tables present in the leader cluster.
+	// Get names of all the tables present in the cluster.
+	// This procedure is available in both leader and follower clusters.
 	GetTables(context.Context, *GetTableRequest) (*GetTablesResponse, error)
-	mustEmbedUnimplementedLeaderTablesServer()
+	mustEmbedUnimplementedTablesServer()
 }
 
-// UnimplementedLeaderTablesServer must be embedded to have forward compatible implementations.
-type UnimplementedLeaderTablesServer struct {
+// UnimplementedTablesServer must be embedded to have forward compatible implementations.
+type UnimplementedTablesServer struct {
 }
 
-func (UnimplementedLeaderTablesServer) CreateTable(context.Context, *CreateTableRequest) (*CreateTableResponse, error) {
+func (UnimplementedTablesServer) CreateTable(context.Context, *CreateTableRequest) (*CreateTableResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTable not implemented")
 }
-func (UnimplementedLeaderTablesServer) DeleteTable(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error) {
+func (UnimplementedTablesServer) DeleteTable(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTable not implemented")
 }
-func (UnimplementedLeaderTablesServer) GetTables(context.Context, *GetTableRequest) (*GetTablesResponse, error) {
+func (UnimplementedTablesServer) GetTables(context.Context, *GetTableRequest) (*GetTablesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTables not implemented")
 }
-func (UnimplementedLeaderTablesServer) mustEmbedUnimplementedLeaderTablesServer() {}
+func (UnimplementedTablesServer) mustEmbedUnimplementedTablesServer() {}
 
-// UnsafeLeaderTablesServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to LeaderTablesServer will
+// UnsafeTablesServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to TablesServer will
 // result in compilation errors.
-type UnsafeLeaderTablesServer interface {
-	mustEmbedUnimplementedLeaderTablesServer()
+type UnsafeTablesServer interface {
+	mustEmbedUnimplementedTablesServer()
 }
 
-func RegisterLeaderTablesServer(s grpc.ServiceRegistrar, srv LeaderTablesServer) {
-	s.RegisterService(&LeaderTables_ServiceDesc, srv)
+func RegisterTablesServer(s grpc.ServiceRegistrar, srv TablesServer) {
+	s.RegisterService(&Tables_ServiceDesc, srv)
 }
 
-func _LeaderTables_CreateTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Tables_CreateTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateTableRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LeaderTablesServer).CreateTable(ctx, in)
+		return srv.(TablesServer).CreateTable(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/tables.v1.LeaderTables/CreateTable",
+		FullMethod: "/tables.v1.Tables/CreateTable",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderTablesServer).CreateTable(ctx, req.(*CreateTableRequest))
+		return srv.(TablesServer).CreateTable(ctx, req.(*CreateTableRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LeaderTables_DeleteTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Tables_DeleteTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteTableRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LeaderTablesServer).DeleteTable(ctx, in)
+		return srv.(TablesServer).DeleteTable(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/tables.v1.LeaderTables/DeleteTable",
+		FullMethod: "/tables.v1.Tables/DeleteTable",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderTablesServer).DeleteTable(ctx, req.(*DeleteTableRequest))
+		return srv.(TablesServer).DeleteTable(ctx, req.(*DeleteTableRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LeaderTables_GetTables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Tables_GetTables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTableRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LeaderTablesServer).GetTables(ctx, in)
+		return srv.(TablesServer).GetTables(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/tables.v1.LeaderTables/GetTables",
+		FullMethod: "/tables.v1.Tables/GetTables",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderTablesServer).GetTables(ctx, req.(*GetTableRequest))
+		return srv.(TablesServer).GetTables(ctx, req.(*GetTableRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// LeaderTables_ServiceDesc is the grpc.ServiceDesc for LeaderTables service.
+// Tables_ServiceDesc is the grpc.ServiceDesc for Tables service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var LeaderTables_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tables.v1.LeaderTables",
-	HandlerType: (*LeaderTablesServer)(nil),
+var Tables_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "tables.v1.Tables",
+	HandlerType: (*TablesServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CreateTable",
-			Handler:    _LeaderTables_CreateTable_Handler,
+			Handler:    _Tables_CreateTable_Handler,
 		},
 		{
 			MethodName: "DeleteTable",
-			Handler:    _LeaderTables_DeleteTable_Handler,
+			Handler:    _Tables_DeleteTable_Handler,
 		},
 		{
 			MethodName: "GetTables",
-			Handler:    _LeaderTables_GetTables_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "tables.proto",
-}
-
-// FollowerTablesClient is the client API for FollowerTables service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type FollowerTablesClient interface {
-	// Create a local table in the follower cluster. Local table can be written to
-	// and the data within this table do not leave the follower cluster.
-	CreateTable(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error)
-	// Delete a local table in the follower cluster.
-	DeleteTable(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error)
-	// Get names of all the tables present in the follower cluster.
-	GetTables(ctx context.Context, in *GetTableRequest, opts ...grpc.CallOption) (*FollowerGetTablesResponse, error)
-}
-
-type followerTablesClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewFollowerTablesClient(cc grpc.ClientConnInterface) FollowerTablesClient {
-	return &followerTablesClient{cc}
-}
-
-func (c *followerTablesClient) CreateTable(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error) {
-	out := new(CreateTableResponse)
-	err := c.cc.Invoke(ctx, "/tables.v1.FollowerTables/CreateTable", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *followerTablesClient) DeleteTable(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error) {
-	out := new(DeleteTableResponse)
-	err := c.cc.Invoke(ctx, "/tables.v1.FollowerTables/DeleteTable", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *followerTablesClient) GetTables(ctx context.Context, in *GetTableRequest, opts ...grpc.CallOption) (*FollowerGetTablesResponse, error) {
-	out := new(FollowerGetTablesResponse)
-	err := c.cc.Invoke(ctx, "/tables.v1.FollowerTables/GetTables", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// FollowerTablesServer is the server API for FollowerTables service.
-// All implementations must embed UnimplementedFollowerTablesServer
-// for forward compatibility
-type FollowerTablesServer interface {
-	// Create a local table in the follower cluster. Local table can be written to
-	// and the data within this table do not leave the follower cluster.
-	CreateTable(context.Context, *CreateTableRequest) (*CreateTableResponse, error)
-	// Delete a local table in the follower cluster.
-	DeleteTable(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error)
-	// Get names of all the tables present in the follower cluster.
-	GetTables(context.Context, *GetTableRequest) (*FollowerGetTablesResponse, error)
-	mustEmbedUnimplementedFollowerTablesServer()
-}
-
-// UnimplementedFollowerTablesServer must be embedded to have forward compatible implementations.
-type UnimplementedFollowerTablesServer struct {
-}
-
-func (UnimplementedFollowerTablesServer) CreateTable(context.Context, *CreateTableRequest) (*CreateTableResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateTable not implemented")
-}
-func (UnimplementedFollowerTablesServer) DeleteTable(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteTable not implemented")
-}
-func (UnimplementedFollowerTablesServer) GetTables(context.Context, *GetTableRequest) (*FollowerGetTablesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetTables not implemented")
-}
-func (UnimplementedFollowerTablesServer) mustEmbedUnimplementedFollowerTablesServer() {}
-
-// UnsafeFollowerTablesServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to FollowerTablesServer will
-// result in compilation errors.
-type UnsafeFollowerTablesServer interface {
-	mustEmbedUnimplementedFollowerTablesServer()
-}
-
-func RegisterFollowerTablesServer(s grpc.ServiceRegistrar, srv FollowerTablesServer) {
-	s.RegisterService(&FollowerTables_ServiceDesc, srv)
-}
-
-func _FollowerTables_CreateTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateTableRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FollowerTablesServer).CreateTable(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/tables.v1.FollowerTables/CreateTable",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FollowerTablesServer).CreateTable(ctx, req.(*CreateTableRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FollowerTables_DeleteTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteTableRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FollowerTablesServer).DeleteTable(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/tables.v1.FollowerTables/DeleteTable",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FollowerTablesServer).DeleteTable(ctx, req.(*DeleteTableRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FollowerTables_GetTables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetTableRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FollowerTablesServer).GetTables(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/tables.v1.FollowerTables/GetTables",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FollowerTablesServer).GetTables(ctx, req.(*GetTableRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// FollowerTables_ServiceDesc is the grpc.ServiceDesc for FollowerTables service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var FollowerTables_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "tables.v1.FollowerTables",
-	HandlerType: (*FollowerTablesServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "CreateTable",
-			Handler:    _FollowerTables_CreateTable_Handler,
-		},
-		{
-			MethodName: "DeleteTable",
-			Handler:    _FollowerTables_DeleteTable_Handler,
-		},
-		{
-			MethodName: "GetTables",
-			Handler:    _FollowerTables_GetTables_Handler,
+			Handler:    _Tables_GetTables_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
