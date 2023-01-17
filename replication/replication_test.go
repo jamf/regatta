@@ -6,12 +6,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"testing"
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
@@ -170,7 +172,7 @@ func TestManager_reconcileTables(t *testing.T) {
 
 	t.Log("create table")
 	r.NoError(leaderTM.CreateTable("test"))
-	r.NoError(m.reconcileTables())
+	m.createNewTables([]string{"test"})
 	r.Eventually(func() bool {
 		_, err := followerTM.GetTable("test")
 		return err == nil
@@ -178,7 +180,7 @@ func TestManager_reconcileTables(t *testing.T) {
 
 	t.Log("create another table")
 	r.NoError(leaderTM.CreateTable("test2"))
-	r.NoError(m.reconcileTables())
+	m.createNewTables([]string{"test2"})
 	r.Eventually(func() bool {
 		_, err := followerTM.GetTable("test2")
 		return err == nil
@@ -190,6 +192,104 @@ func TestManager_reconcileTables(t *testing.T) {
 	tabs, err := followerTM.GetTables()
 	r.NoError(err)
 	r.Len(tabs, 2)
+}
+
+func TestDiff(t *testing.T) {
+	type expected struct {
+		toDelete []string
+		toCreate []string
+	}
+
+	tt := []struct {
+		name     string
+		ft       []table.Table
+		lt       []*proto.Table
+		expected expected
+	}{
+		{
+			name:     "no tables provided",
+			expected: expected{},
+		}, {
+			name: "should create tables",
+			lt: []*proto.Table{
+				{Name: "table1"},
+				{Name: "table2"},
+			},
+			expected: expected{
+				toCreate: []string{"table1", "table2"},
+			},
+		}, {
+			name: "should delete tables",
+			ft: []table.Table{
+				{Name: "table1"},
+				{Name: "table2"},
+			},
+			expected: expected{
+				toDelete: []string{"table1", "table2"},
+			},
+		}, {
+			name: "should delete and create tables",
+			ft: []table.Table{
+				{Name: "table1"},
+				{Name: "table2"},
+			},
+			lt: []*proto.Table{
+				{Name: "table2"},
+				{Name: "table3"},
+			},
+			expected: expected{
+				toCreate: []string{"table3"},
+				toDelete: []string{"table1"},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			r := require.New(t)
+			toDelete, toCreate := diff(tc.ft, tc.lt)
+			sort.Strings(toDelete)
+			sort.Strings(toCreate)
+
+			r.Equal(tc.expected.toDelete, toDelete, "tables to delete do not match")
+			r.Equal(tc.expected.toCreate, toCreate, "tables to create do not match")
+		})
+	}
+}
+
+func TestFilterUnsuccessful(t *testing.T) {
+	tt := []struct {
+		name         string
+		tables       []string
+		unsuccessful []string
+		expected     []string
+	}{
+		{
+			name:     "no unsuccessful tables",
+			tables:   []string{"table1", "table2"},
+			expected: []string{"table1", "table2"},
+		}, {
+			name:         "all tables unsuccessful",
+			tables:       []string{"table1", "table2"},
+			unsuccessful: []string{"table1", "table2"},
+			expected:     []string{},
+		}, {
+			name:         "some tables unsuccessful",
+			tables:       []string{"table1", "table2", "table3", "table4"},
+			unsuccessful: []string{"table1", "table2"},
+			expected:     []string{"table3", "table4"},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			r := require.New(t)
+			successful := filterUnsuccessful(tc.tables, tc.unsuccessful)
+			sort.Strings(successful)
+
+			r.Equal(tc.expected, successful)
+		})
+	}
 }
 
 func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {

@@ -178,13 +178,8 @@ func (w *worker) Start() {
 								w.log.Warnf("error retruning table: %v", err)
 							}
 						}
-					case serror.ErrTableNotFound:
-						if err := w.tm.DeleteTable(w.Table); err != nil {
-							w.log.Errorf("could not delete table %s: %v", w.Table, err)
-						} else {
-							w.log.Infof("deleted table %s", w.Table)
-							return
-						}
+					// case serror.ErrTableNotFound:
+					//    return
 					default:
 						w.log.Warnf("worker error: %v", err)
 					}
@@ -209,6 +204,8 @@ func (w *worker) Close() {
 	}
 	if ok {
 		w.log.Info("table returned")
+	} else {
+		w.log.Error("table was not returned")
 	}
 }
 

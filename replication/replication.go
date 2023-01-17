@@ -5,11 +5,13 @@ package replication
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/prometheus/client_golang/prometheus"
@@ -128,12 +130,22 @@ func (m *Manager) Start() {
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
-			if err := m.reconcileTables(); err != nil {
-				m.log.Errorf("failed to reconcile tables: %v", err)
+			if toDelete, toCreate, err := m.tablesDiff(); err != nil {
+				m.log.Errorf("could not compute table diff: %v", err)
+			} else {
+				if len(toCreate) > 0 {
+					m.log.Infof("reconciling tables - will replicate tables %v", toCreate)
+					toStart := m.createNewTables(toCreate)
+					m.startWorkers(toStart)
+				}
+
+				if len(toDelete) > 0 {
+					m.log.Infof("reconciling tables - will stop replicating tables %v", toDelete)
+					m.stopWorkers(toDelete)
+					m.deleteTables(toDelete)
+				}
 			}
-			if err := m.reconcileWorkers(); err != nil {
-				m.log.Errorf("failed to reconcile replication workers: %v", err)
-			}
+
 			select {
 			case <-t.C:
 				continue
@@ -145,57 +157,141 @@ func (m *Manager) Start() {
 	}()
 }
 
-func (m *Manager) reconcileTables() error {
+// createNewTables to be replicated from the leader cluster. Returns names of tables that
+// were created successfully and the replication routine can be started.
+func (m *Manager) createNewTables(tables []string) (toStart []string) {
+	unsuccessful := []string{}
+
+	for _, table := range tables {
+		if err := m.tm.CreateTable(table); err != nil && !errors.Is(err, serrors.ErrTableExists) {
+			// Error is logged instead of returned to not halt replication of other tables from
+			// leader to follower cluster. We will try to create the table during the next tick.
+			m.log.Errorf("could not create new table %s: %v", table, err)
+			unsuccessful = append(unsuccessful, table)
+		}
+	}
+
+	// Return only those tables that were created and their replication routines should be started.
+	return filterUnsuccessful(tables, unsuccessful)
+}
+
+func (m *Manager) deleteTables(tables []string) {
+	for _, table := range tables {
+		if err := m.tm.DeleteTable(table); err != nil {
+			// Error is logged instead of returned to not halt deletion of other tables
+			// in the follower cluster. We will try to delete the table during the next tick.
+			m.log.Errorf("could not delete table %s: %v", table, err)
+		}
+	}
+}
+
+// startWorkers responsible for replicating the supplied tables.
+func (m *Manager) startWorkers(tables []string) {
+	for _, table := range tables {
+		if !m.hasWorker(table) {
+			m.startWorker(m.factory.create(table))
+		} else {
+			m.log.Warnf("newly created table %s already had a worker!", table)
+		}
+	}
+}
+
+// stopWorkers responsible for replicating the supplied tables.
+func (m *Manager) stopWorkers(tables []string) {
+	for _, table := range tables {
+		if worker, ok := m.workers.registry[table]; ok {
+			m.stopWorker(worker)
+		} else {
+			m.log.Warnf("tried to stop worker for table %s which does not exist")
+		}
+	}
+}
+
+// tablesDiff computes what tables to delete and to create.
+func (m *Manager) tablesDiff() (toDelete, toCreate []string, err error) {
+	ft, err := m.tm.GetTables()
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get follower's tables: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	response, err := m.metadataClient.Get(ctx, &proto.MetadataRequest{})
 	if err != nil {
-		return err
+		return nil, nil, fmt.Errorf("could not get leader's tables: %v", err)
 	}
-	for _, tabs := range response.GetTables() {
-		if err := m.tm.CreateTable(tabs.Name); err != nil && !errors.Is(err, serrors.ErrTableExists) {
-			return err
-		}
-	}
-	return nil
+
+	toDelete, toCreate = diff(ft, response.GetTables())
+	return toDelete, toCreate, nil
 }
 
-func (m *Manager) reconcileWorkers() error {
-	tbs, err := m.tm.GetTables()
-	if err != nil {
-		return err
+// sliceToMap transforms the supplied slice to map according to the function f.
+func sliceToMap[K any](slice []K, f func(entry K) string) map[string]bool {
+	res := map[string]bool{}
+	for _, item := range slice {
+		res[f(item)] = true
 	}
 
-	for _, tbl := range tbs {
-		if !m.hasWorker(tbl.Name) {
-			m.startWorker(m.factory.create(tbl.Name))
+	return res
+}
+
+// diff computes what tables should be created and which should be deleted.
+// ft \ lt gives tables to be deleted, lt \ ft gives tables to be created.
+func diff(ft []table.Table, lt []*proto.Table) (toDelete, toCreate []string) {
+	follower := sliceToMap(ft, func(entry table.Table) string { return entry.Name })
+	leader := sliceToMap(lt, func(entry *proto.Table) string { return entry.Name })
+
+	// Tables present in the leader and not in the follower should be created.
+	for table := range leader {
+		if _, ok := follower[table]; !ok {
+			toCreate = append(toCreate, table)
 		}
 	}
 
-	m.workers.mtx.RLock()
-	defer m.workers.mtx.RUnlock()
-	for name, worker := range m.workers.registry {
-		found := false
-		for _, tbl := range tbs {
-			if tbl.Name == name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			m.stopWorker(worker)
+	// Tables present in the follower and not in the leader should be deleted.
+	for table := range follower {
+		if _, ok := leader[table]; !ok {
+			toDelete = append(toDelete, table)
 		}
 	}
-	return nil
+
+	return toDelete, toCreate
+}
+
+// filterUnsuccessful from the supplied slice of tables.
+func filterUnsuccessful(tables, unsuccessful []string) []string {
+	successful := []string{}
+
+	tt := sliceToMap(unsuccessful, func(entry string) string { return entry })
+	for _, table := range tables {
+		if _, ok := tt[table]; !ok {
+			successful = append(successful, table)
+		}
+	}
+
+	return successful
 }
 
 // Close will stop replication goroutine - could be called just once.
 func (m *Manager) Close() {
 	m.closer <- struct{}{}
-	for _, worker := range m.workers.registry {
+	for _, worker := range m.listWorkers() {
 		m.stopWorker(worker)
 	}
 	m.workers.wg.Wait()
+}
+
+func (m *Manager) listWorkers() []*worker {
+	workers := []*worker{}
+
+	m.workers.mtx.Lock()
+	defer m.workers.mtx.Unlock()
+
+	for _, worker := range m.workers.registry {
+		workers = append(workers, worker)
+	}
+
+	return workers
 }
 
 func (m *Manager) hasWorker(name string) bool {
