@@ -133,6 +133,9 @@ func (m *Manager) Start() {
 			if toDelete, toCreate, err := m.tablesDiff(); err != nil {
 				m.log.Errorf("could not compute table diff: %v", err)
 			} else {
+                // TODO(jsfpdn): Fix issue of starvation of reconciliation. Some worker can be pulling
+                // snapshot from leader, postponing the stopping of the worker, blocking the whole
+                // reconciliation goroutine.
 				if len(toCreate) > 0 {
 					m.log.Infof("reconciling tables - will replicate tables %v", toCreate)
 					toStart := m.createNewTables(toCreate)
@@ -158,13 +161,13 @@ func (m *Manager) Start() {
 }
 
 // createNewTables to be replicated from the leader cluster. Returns names of tables that
-// were created successfully and the replication routine can be started.
+// were created successfully and for which the replication routine should be started.
 func (m *Manager) createNewTables(tables []string) (toStart []string) {
 	unsuccessful := []string{}
 
 	for _, table := range tables {
 		if err := m.tm.CreateTable(table); err != nil && !errors.Is(err, serrors.ErrTableExists) {
-			// Error is logged instead of returned to not halt replication of other tables from
+			// Error is logged instead of returned to not halt the replication of other tables from
 			// leader to follower cluster. We will try to create the table during the next tick.
 			m.log.Errorf("could not create new table %s: %v", table, err)
 			unsuccessful = append(unsuccessful, table)
@@ -177,8 +180,9 @@ func (m *Manager) createNewTables(tables []string) (toStart []string) {
 
 func (m *Manager) deleteTables(tables []string) {
 	for _, table := range tables {
+		// TODO(jsfpdn): Erase the records in the table before removing it.
 		if err := m.tm.DeleteTable(table); err != nil {
-			// Error is logged instead of returned to not halt deletion of other tables
+			// Error is logged instead of returned to not halt the deletion of other tables
 			// in the follower cluster. We will try to delete the table during the next tick.
 			m.log.Errorf("could not delete table %s: %v", table, err)
 		}
@@ -202,7 +206,7 @@ func (m *Manager) stopWorkers(tables []string) {
 		if worker, ok := m.workers.registry[table]; ok {
 			m.stopWorker(worker)
 		} else {
-			m.log.Warnf("tried to stop worker for table %s which does not exist")
+			m.log.Warnf("tried to stop worker for table %s which does not exist", table)
 		}
 	}
 }
@@ -221,7 +225,9 @@ func (m *Manager) tablesDiff() (toDelete, toCreate []string, err error) {
 		return nil, nil, fmt.Errorf("could not get leader's tables: %v", err)
 	}
 
-	toDelete, toCreate = diff(ft, response.GetTables())
+	follower := sliceToMap(ft, func(entry table.Table) string { return entry.Name })
+	leader := sliceToMap(response.GetTables(), func(entry *proto.Table) string { return entry.Name })
+	toDelete, toCreate = diff(follower, leader)
 	return toDelete, toCreate, nil
 }
 
@@ -237,10 +243,7 @@ func sliceToMap[K any](slice []K, f func(entry K) string) map[string]bool {
 
 // diff computes what tables should be created and which should be deleted.
 // ft \ lt gives tables to be deleted, lt \ ft gives tables to be created.
-func diff(ft []table.Table, lt []*proto.Table) (toDelete, toCreate []string) {
-	follower := sliceToMap(ft, func(entry table.Table) string { return entry.Name })
-	leader := sliceToMap(lt, func(entry *proto.Table) string { return entry.Name })
-
+func diff(follower map[string]bool, leader map[string]bool) (toDelete, toCreate []string) {
 	// Tables present in the leader and not in the follower should be created.
 	for table := range leader {
 		if _, ok := follower[table]; !ok {

@@ -178,8 +178,6 @@ func (w *worker) Start() {
 								w.log.Warnf("error retruning table: %v", err)
 							}
 						}
-					// case serror.ErrTableNotFound:
-					//    return
 					default:
 						w.log.Warnf("worker error: %v", err)
 					}

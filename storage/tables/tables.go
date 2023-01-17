@@ -5,6 +5,7 @@ package tables
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -38,6 +39,8 @@ const (
 	metaFSMClusterID          = 1000
 	tableIDsRangeStart uint64 = 10000
 )
+
+var ErrTableNotExists = errors.New("error does not exist")
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
 	return &Manager{
@@ -200,7 +203,12 @@ func (m *Manager) DeleteTable(name string) error {
 	storeName := storedTableName(name)
 	tab, err := m.store.Get(storeName)
 	if err != nil {
-		return err
+		switch err {
+		case kv.ErrNotExist:
+			return ErrTableNotExists
+		default:
+			return err
+		}
 	}
 
 	return m.store.Delete(storeName, tab.Ver)

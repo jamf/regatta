@@ -13,7 +13,6 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
@@ -202,8 +201,8 @@ func TestDiff(t *testing.T) {
 
 	tt := []struct {
 		name     string
-		ft       []table.Table
-		lt       []*proto.Table
+		ft       map[string]bool
+		lt       map[string]bool
 		expected expected
 	}{
 		{
@@ -211,31 +210,31 @@ func TestDiff(t *testing.T) {
 			expected: expected{},
 		}, {
 			name: "should create tables",
-			lt: []*proto.Table{
-				{Name: "table1"},
-				{Name: "table2"},
+			lt: map[string]bool{
+				"table1": true,
+				"table2": true,
 			},
 			expected: expected{
 				toCreate: []string{"table1", "table2"},
 			},
 		}, {
 			name: "should delete tables",
-			ft: []table.Table{
-				{Name: "table1"},
-				{Name: "table2"},
+			ft: map[string]bool{
+				"table1": true,
+				"table2": true,
 			},
 			expected: expected{
 				toDelete: []string{"table1", "table2"},
 			},
 		}, {
 			name: "should delete and create tables",
-			ft: []table.Table{
-				{Name: "table1"},
-				{Name: "table2"},
+			ft: map[string]bool{
+				"table1": true,
+				"table2": true,
 			},
-			lt: []*proto.Table{
-				{Name: "table2"},
-				{Name: "table3"},
+			lt: map[string]bool{
+				"table2": true,
+				"table3": true,
 			},
 			expected: expected{
 				toCreate: []string{"table3"},

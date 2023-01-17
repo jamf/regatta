@@ -337,7 +337,7 @@ func leader(_ *cobra.Command, _ []string) {
 		defer watcher.Stop()
 
 		ts := createTableServer(watcher)
-		proto.RegisterLeaderTablesServer(ts, regattaserver.NewLeaderTableServer(engine.Manager))
+		proto.RegisterTablesServer(ts, regattaserver.NewLeaderTableServer(engine.Manager))
 
 		go func() {
 			log.Infof("regatta table server listening at %s", ts.Addr)

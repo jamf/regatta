@@ -267,7 +267,7 @@ func follower(_ *cobra.Command, _ []string) {
 		defer watcher.Stop()
 
 		ts := createTableServer(watcher)
-		proto.RegisterFollowerTablesServer(ts, regattaserver.NewFollowerTableServer(engine.Manager))
+		proto.RegisterTablesServer(ts, regattaserver.NewFollowerTableServer(engine.Manager.GetTables))
 
 		go func() {
 			log.Infof("regatta table server listening at %s", ts.Addr)

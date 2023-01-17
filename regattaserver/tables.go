@@ -9,6 +9,7 @@ import (
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/storage/tables"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -19,56 +20,37 @@ type TableManager interface {
 	DeleteTable(name string) error
 }
 
+type GetTables func() ([]table.Table, error)
+
 type FollowerTableServer struct {
-	proto.UnimplementedFollowerTablesServer
-	tm TableManager
+	proto.UnimplementedTablesServer
+	getTables GetTables
 }
 
-func NewFollowerTableServer(tm TableManager) *FollowerTableServer {
-	return &FollowerTableServer{tm: tm}
+func NewFollowerTableServer(getTables GetTables) *FollowerTableServer {
+	return &FollowerTableServer{getTables: getTables}
 }
 
-func (fts *FollowerTableServer) CreateTable(ctx context.Context, req *proto.CreateTableRequest) (*proto.CreateTableResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "Service CreateTable not implemented")
+func (fts *FollowerTableServer) CreateTable(_ context.Context, _ *proto.CreateTableRequest) (*proto.CreateTableResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "Service CreateTable not implemented in follower cluster. Call this procedure in the leader cluster.")
 }
 
-func (fts *FollowerTableServer) DeleteTable(ctx context.Context, req *proto.DeleteTableRequest) (*proto.DeleteTableResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "Service DeleteTable not implemented")
+func (fts *FollowerTableServer) DeleteTable(_ context.Context, _ *proto.DeleteTableRequest) (*proto.DeleteTableResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "Service DeleteTable not implemented in follower cluster. Call this procedure in the leader cluster.")
 }
 
-func (fts *FollowerTableServer) GetTables(ctx context.Context, req *proto.GetTableRequest) (*proto.FollowerGetTablesResponse, error) {
-	tt, err := fts.tm.GetTables()
-	if err != nil {
-		return nil, status.Errorf(codes.Unavailable, "unknown err %v", err)
-	}
-
-	res := &proto.FollowerGetTablesResponse{
-		Tables: make([]*proto.FollowerTableInfo, len(tt)),
-	}
-
-	for i, t := range tt {
-		res.Tables[i] = &proto.FollowerTableInfo{
-			Type: proto.TableType_REPLICATED,
-			Table: &proto.TableInfo{
-				Table:   []byte(t.Name),
-				ShardId: t.ClusterID,
-			},
-		}
-	}
-
-	return res, nil
+func (fts *FollowerTableServer) GetTables(_ context.Context, _ *proto.GetTableRequest) (*proto.GetTablesResponse, error) {
+	return createResponse(fts.getTables)
 }
 
 type LeaderTableServer struct {
-	proto.UnimplementedLeaderTablesServer
+	proto.UnimplementedTablesServer
 	tm TableManager
 }
 
-func NewLeaderTableServer(tm TableManager) *LeaderTableServer {
-	return &LeaderTableServer{tm: tm}
-}
+func NewLeaderTableServer(tm TableManager) *LeaderTableServer { return &LeaderTableServer{tm: tm} }
 
-func (lts LeaderTableServer) CreateTable(ctx context.Context, req *proto.CreateTableRequest) (*proto.CreateTableResponse, error) {
+func (lts *LeaderTableServer) CreateTable(_ context.Context, req *proto.CreateTableRequest) (*proto.CreateTableResponse, error) {
 	err := lts.tm.CreateTable(string(req.Table))
 	if errors.Is(err, serrors.ErrTableExists) {
 		return nil, status.Errorf(codes.AlreadyExists, "table %s already exists", string(req.Table))
@@ -79,13 +61,24 @@ func (lts LeaderTableServer) CreateTable(ctx context.Context, req *proto.CreateT
 	return &proto.CreateTableResponse{}, nil
 }
 
-func (lts LeaderTableServer) DeleteTable(ctx context.Context, req *proto.DeleteTableRequest) (*proto.DeleteTableResponse, error) {
-	// TODO(jsfpdn): Fix lts.tm.DeleteTable returns key-value related errors instead of table related errors.
-	return &proto.DeleteTableResponse{}, lts.tm.DeleteTable(string(req.Table))
+func (lts *LeaderTableServer) DeleteTable(_ context.Context, req *proto.DeleteTableRequest) (*proto.DeleteTableResponse, error) {
+	err := lts.tm.DeleteTable(string(req.Table))
+	if errors.Is(err, tables.ErrTableNotExists) {
+		return nil, status.Errorf(codes.NotFound, "table %s not found", string(req.Table))
+	} else if err != nil {
+		return nil, status.Errorf(codes.Unknown, "unknown error: %v", err)
+	}
+
+	return &proto.DeleteTableResponse{}, nil
 }
 
-func (lts LeaderTableServer) GetTables(ctx context.Context, req *proto.GetTableRequest) (*proto.GetTablesResponse, error) {
-	tt, err := lts.tm.GetTables()
+func (lts *LeaderTableServer) GetTables(_ context.Context, _ *proto.GetTableRequest) (*proto.GetTablesResponse, error) {
+	return createResponse(lts.tm.GetTables)
+}
+
+// createResponse for the GetTables endpoint.
+func createResponse(getTables func() ([]table.Table, error)) (*proto.GetTablesResponse, error) {
+	tt, err := getTables()
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "unknown error %v", err)
 	}

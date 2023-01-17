@@ -47,7 +47,7 @@ func TestMetadataServer_Get(t *testing.T) {
 			want: &proto.MetadataResponse{Tables: []*proto.Table{
 				{
 					Name: "foo",
-					Type: proto.TableType_REPLICATED,
+					Type: proto.Table_REPLICATED,
 				},
 			}},
 		},
@@ -68,11 +68,11 @@ func TestMetadataServer_Get(t *testing.T) {
 			want: &proto.MetadataResponse{Tables: []*proto.Table{
 				{
 					Name: "foo",
-					Type: proto.TableType_REPLICATED,
+					Type: proto.Table_REPLICATED,
 				},
 				{
 					Name: "bar",
-					Type: proto.TableType_REPLICATED,
+					Type: proto.Table_REPLICATED,
 				},
 			}},
 		},
