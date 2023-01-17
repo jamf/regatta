@@ -23,7 +23,6 @@ import (
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage"
-	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,10 +43,6 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(tablesFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
-
-	// Tables flags
-	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names")
-	leaderCmd.PersistentFlags().StringSlice("tables.delete", nil, "Delete Regatta tables with given names")
 
 	// Replication flags
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Replication API enabled")
@@ -151,26 +146,6 @@ func leader(_ *cobra.Command, _ []string) {
 			return
 		}
 		log.Info("table manager started")
-		tNames := viper.GetStringSlice("tables.names")
-		for _, table := range tNames {
-			log.Debugf("creating table %s", table)
-			err := engine.CreateTable(table)
-			if err != nil {
-				if err == serrors.ErrTableExists {
-					log.Infof("table %s already exist, skipping creation", table)
-				} else {
-					log.Errorf("failed to create table %s: %v", table, err)
-				}
-			}
-		}
-		dNames := viper.GetStringSlice("tables.delete")
-		for _, table := range dNames {
-			log.Debugf("deleting table %s", table)
-			err := engine.DeleteTable(table)
-			if err != nil {
-				log.Errorf("failed to delete table %s: %v", table, err)
-			}
-		}
 	}()
 
 	// Start servers

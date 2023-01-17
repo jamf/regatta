@@ -133,9 +133,9 @@ func (m *Manager) Start() {
 			if toDelete, toCreate, err := m.tablesDiff(); err != nil {
 				m.log.Errorf("could not compute table diff: %v", err)
 			} else {
-                // TODO(jsfpdn): Fix issue of starvation of reconciliation. Some worker can be pulling
-                // snapshot from leader, postponing the stopping of the worker, blocking the whole
-                // reconciliation goroutine.
+				// TODO(jsfpdn): Fix issue of starvation of reconciliation. Some worker can be pulling
+				// snapshot from leader, postponing the stopping of the worker, blocking the whole
+				// reconciliation goroutine.
 				if len(toCreate) > 0 {
 					m.log.Infof("reconciling tables - will replicate tables %v", toCreate)
 					toStart := m.createNewTables(toCreate)
@@ -180,7 +180,7 @@ func (m *Manager) createNewTables(tables []string) (toStart []string) {
 
 func (m *Manager) deleteTables(tables []string) {
 	for _, table := range tables {
-		// TODO(jsfpdn): Erase the records in the table before removing it.
+		// TODO(jsfpdn): Do we want to delete the data in the filesystem?
 		if err := m.tm.DeleteTable(table); err != nil {
 			// Error is logged instead of returned to not halt the deletion of other tables
 			// in the follower cluster. We will try to delete the table during the next tick.

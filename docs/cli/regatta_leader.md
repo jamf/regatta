@@ -80,9 +80,7 @@ regatta leader [flags]
       --storage.block-cache-size int                   Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
       --tables.address string                          Address of the Tables API server. (default ":8446")
       --tables.cert-filename string                    Path to the API server certificate. (default "hack/replication/server.crt")
-      --tables.delete strings                          Delete Regatta tables with given names
       --tables.key-filename string                     Path to the API server private key file. (default "hack/replication/server.key")
-      --tables.names strings                           Create Regatta tables with given names
       --tables.token string                            Token to check for the Table API accesss. No token is checked when left empty (default)
 ```
 

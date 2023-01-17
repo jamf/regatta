@@ -8,7 +8,7 @@ all: check test build
 
 .PHONY: run
 run: build
-	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
+	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012'
 
 .PHONY: run-follower
 run-follower: build
