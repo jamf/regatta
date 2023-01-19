@@ -180,7 +180,8 @@ func (m *Manager) createNewTables(tables []string) (toStart []string) {
 
 func (m *Manager) deleteTables(tables []string) {
 	for _, table := range tables {
-		// TODO(jsfpdn): Do we want to delete the data in the filesystem?
+		// It is sufficient to delete the table via the table manager. The cleanup procedure
+		// will eventually delete the data from the filesystem.
 		if err := m.tm.DeleteTable(table); err != nil {
 			// Error is logged instead of returned to not halt the deletion of other tables
 			// in the follower cluster. We will try to delete the table during the next tick.

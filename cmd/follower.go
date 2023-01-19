@@ -6,17 +6,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/cockroachdb/pebble/vfs"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
-	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication"
 	"github.com/jamf/regatta/storage"
@@ -89,194 +86,34 @@ func follower(_ *cobra.Command, _ []string) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
-	engine, err := storage.New(storage.Config{
-		Logger: logger.Named("engine"),
-		NodeID: viper.GetUint64("raft.node-id"),
-		InitialMembers: func() map[uint64]string {
-			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
-			if err != nil {
-				log.Panic(err)
-			}
-			return initialMembers
-		}(),
-		WALDir:              viper.GetString("raft.wal-dir"),
-		NodeHostDir:         viper.GetString("raft.node-host-dir"),
-		RTTMillisecond:      uint64(viper.GetDuration("raft.rtt").Milliseconds()),
-		RaftAddress:         viper.GetString("raft.address"),
-		ListenAddress:       viper.GetString("raft.listen-address"),
-		EnableMetrics:       true,
-		MaxReceiveQueueSize: viper.GetUint64("raft.max-recv-queue-size"),
-		MaxSendQueueSize:    viper.GetUint64("raft.max-send-queue-size"),
-		Table: storage.TableConfig{
-			FS:                 vfs.Default,
-			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
-			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
-			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
-			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
-			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
-			WALDir:             viper.GetString("raft.state-machine-wal-dir"),
-			NodeHostDir:        viper.GetString("raft.state-machine-dir"),
-			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
+	engine, closer := startEngine(logger, log)
+	defer closer()
+
+	closer = startFollowerReplication(logger, log, engine)
+	defer closer()
+
+	grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
+
+	server := &regattaserver.ReadonlyKVServer{
+		KVServer: regattaserver.KVServer{
+			Storage: engine,
 		},
-		Meta: storage.MetaConfig{
-			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
-			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
-			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
-			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
-			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
-		},
-		LogDBImplementation: func() storage.LogDBImplementation {
-			if viper.GetBool("experimental.tanlogdb") {
-				return storage.Tan
-			}
-			return storage.Default
-		}(),
-	})
-	if err != nil {
-		log.Panic(err)
 	}
-	if err := engine.Start(); err != nil {
-		log.Panic(err)
-	}
-	defer engine.Close()
+	closer = startAPIServer(logger, log, server)
+	defer closer()
 
-	// Replication
-	{
-		watcher := &cert.Watcher{
-			CertFile: viper.GetString("replication.cert-filename"),
-			KeyFile:  viper.GetString("replication.key-filename"),
-			Log:      logger.Named("cert").Sugar(),
-		}
-		err = watcher.Watch()
-		if err != nil {
-			log.Panicf("cannot watch certificate: %v", err)
-		}
-		defer watcher.Stop()
-
-		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
-		if err != nil {
-			log.Panicf("cannot load server CA: %v", err)
-		}
-		cp := x509.NewCertPool()
-		cp.AppendCertsFromPEM(caBytes)
-
-		conn, err := createReplicationConn(cp, watcher)
-		defer func() {
-			_ = conn.Close()
-		}()
-		if err != nil {
-			log.Panicf("cannot create replication conn: %v", err)
-		}
-
-		d := replication.NewManager(engine.Manager, engine.NodeHost, conn, replication.Config{
-			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
-			Workers: replication.WorkerConfig{
-				PollInterval:        viper.GetDuration("replication.poll-interval"),
-				LeaseInterval:       viper.GetDuration("replication.lease-interval"),
-				LogRPCTimeout:       viper.GetDuration("replication.log-rpc-timeout"),
-				SnapshotRPCTimeout:  viper.GetDuration("replication.snapshot-rpc-timeout"),
-				MaxRecoveryInFlight: int64(viper.GetUint64("replication.max-recovery-in-flight")),
-				MaxSnapshotRecv:     viper.GetUint64("replication.max-snapshot-recv-bytes-per-second"),
-			},
-		})
-		prometheus.MustRegister(d)
-		d.Start()
-		defer d.Close()
+	if viper.GetBool("maintenance.enabled") {
+		resetSrv := &regattaserver.ResetServer{Tables: engine}
+		closer = startMaintenanceServer(logger, log, resetSrv, nil)
+		defer closer()
 	}
 
-	// Start servers
-	{
-		{
-			grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
-			// Create regatta API server
-			// Load API certificate
-			watcher := &cert.Watcher{
-				CertFile: viper.GetString("api.cert-filename"),
-				KeyFile:  viper.GetString("api.key-filename"),
-				Log:      logger.Named("cert").Sugar(),
-			}
-			err = watcher.Watch()
-			if err != nil {
-				log.Panicf("cannot watch certificate: %v", err)
-			}
-			defer watcher.Stop()
-			// Create server
-			regatta := createAPIServer(watcher)
-			proto.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
-				KVServer: regattaserver.KVServer{
-					Storage: engine,
-				},
-			})
-			// Start server
-			go func() {
-				log.Infof("regatta listening at %s", regatta.Addr)
-				if err := regatta.ListenAndServe(); err != nil {
-					log.Panicf("grpc listenAndServe failed: %v", err)
-				}
-			}()
-			defer regatta.Shutdown()
-		}
+	closer = startRESTServer(log)
+	defer closer()
 
-		if viper.GetBool("maintenance.enabled") {
-			// Load maintenance API certificate
-			watcher := &cert.Watcher{
-				CertFile: viper.GetString("maintenance.cert-filename"),
-				KeyFile:  viper.GetString("maintenance.key-filename"),
-				Log:      logger.Named("cert").Sugar(),
-			}
-			err = watcher.Watch()
-			if err != nil {
-				log.Panicf("cannot watch maintenance certificate: %v", err)
-			}
-			defer watcher.Stop()
-
-			maintenance := createMaintenanceServer(watcher)
-			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
-			// Start server
-			go func() {
-				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
-				if err := maintenance.ListenAndServe(); err != nil {
-					log.Panicf("grpc listenAndServe failed: %v", err)
-				}
-			}()
-			defer maintenance.Shutdown()
-		}
-
-		// Create REST server
-		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
-		go func() {
-			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
-				log.Panicf("REST listenAndServe failed: %v", err)
-			}
-		}()
-		defer hs.Shutdown()
-	}
-
-	// Start follower cluster table management service.
-	{
-		watcher := &cert.Watcher{
-			CertFile: viper.GetString("tables.cert-filename"),
-			KeyFile:  viper.GetString("tables.key-filename"),
-			Log:      logger.Named("cert").Sugar(),
-		}
-
-		err = watcher.Watch()
-		if err != nil {
-			log.Panicf("cannot watch table server certificate: %v", err)
-		}
-		defer watcher.Stop()
-
-		ts := createTableServer(watcher)
-		proto.RegisterTablesServer(ts, regattaserver.NewFollowerTableServer(engine.Manager.GetTables))
-
-		go func() {
-			log.Infof("regatta table server listening at %s", ts.Addr)
-			if err := ts.ListenAndServe(); err != nil {
-				log.Panicf("grpc listenAndServe for table server failed: %v", err)
-			}
-		}()
-		defer ts.Shutdown()
-	}
+	tableServer := regattaserver.NewFollowerTableServer(engine.Manager.GetTables)
+	closer = startTableServer(logger, log, tableServer)
+	defer closer()
 
 	// Cleanup
 	<-shutdown
@@ -300,4 +137,49 @@ func createReplicationConn(cp *x509.CertPool, replicationWatcher *cert.Watcher) 
 		return nil, err
 	}
 	return replConn, nil
+}
+
+func startFollowerReplication(logger *zap.Logger, log *zap.SugaredLogger, engine *storage.Engine) closerFunc {
+	watcher := startWatcher(
+		viper.GetString("replication.cert-filename"),
+		viper.GetString("replication.key-filename"),
+		logger.Named("cert").Sugar(),
+	)
+
+	caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
+	if err != nil {
+		watcher.Stop()
+		log.Panicf("cannot load server CA: %v", err)
+	}
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(caBytes)
+
+	conn, err := createReplicationConn(cp, watcher)
+	if err != nil {
+		if connErr := conn.Close(); connErr != nil {
+			log.Errorf("could not close replication connection: %v", connErr)
+		}
+		watcher.Stop()
+		log.Panicf("cannot create replication conn: %v", err)
+	}
+
+	d := replication.NewManager(engine.Manager, engine.NodeHost, conn, replication.Config{
+		ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
+		Workers: replication.WorkerConfig{
+			PollInterval:        viper.GetDuration("replication.poll-interval"),
+			LeaseInterval:       viper.GetDuration("replication.lease-interval"),
+			LogRPCTimeout:       viper.GetDuration("replication.log-rpc-timeout"),
+			SnapshotRPCTimeout:  viper.GetDuration("replication.snapshot-rpc-timeout"),
+			MaxRecoveryInFlight: int64(viper.GetUint64("replication.max-recovery-in-flight")),
+			MaxSnapshotRecv:     viper.GetUint64("replication.max-snapshot-recv-bytes-per-second"),
+		},
+	})
+	prometheus.MustRegister(d)
+	d.Start()
+
+	return func() {
+		conn.Close()
+		watcher.Stop()
+		d.Close()
+	}
 }
