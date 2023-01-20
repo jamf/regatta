@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -11,14 +10,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/cockroachdb/pebble/vfs"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
-	"github.com/jamf/regatta/kafka"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/regattaserver"
@@ -40,7 +37,6 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(raftFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(storageFlagSet)
-	leaderCmd.PersistentFlags().AddFlagSet(kafkaFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
@@ -278,50 +274,6 @@ func leader(_ *cobra.Command, _ []string) {
 		defer hs.Shutdown()
 	}
 
-	// Start Kafka
-	{
-		topics := viper.GetStringSlice("kafka.topics")
-		var tc []kafka.TopicConfig
-		for _, topic := range topics {
-			tc = append(tc, kafka.TopicConfig{
-				Name:     topic,
-				GroupID:  viper.GetString("kafka.group-id"),
-				Table:    topic,
-				Listener: onMessage(engine),
-			})
-		}
-		kafkaCfg := kafka.Config{
-			Brokers:            viper.GetStringSlice("kafka.brokers"),
-			DialerTimeout:      viper.GetDuration("kafka.timeout"),
-			TLS:                viper.GetBool("kafka.tls"),
-			ServerCertFilename: viper.GetString("kafka.server-cert-filename"),
-			ClientCertFilename: viper.GetString("kafka.client-cert-filename"),
-			ClientKeyFilename:  viper.GetString("kafka.client-key-filename"),
-			Topics:             tc,
-			DebugLogs:          viper.GetBool("kafka.debug-logs"),
-		}
-
-		// wait until kafka is ready
-		checkTopics := viper.GetBool("kafka.check-topics")
-		if checkTopics && !waitForKafkaInit(shutdown, kafkaCfg) {
-			log.Info("Shutting down...")
-			return
-		}
-
-		// Start Kafka consumer
-		consumer, err := kafka.NewConsumer(kafkaCfg)
-		if err != nil {
-			log.Panicf("failed to create consumer: %v", err)
-		}
-		defer consumer.Close()
-		prometheus.MustRegister(consumer)
-
-		log.Info("start consuming...")
-		if err := consumer.Start(context.Background()); err != nil {
-			log.Panicf("failed to start consumer: %v", err)
-		}
-	}
-
 	// Cleanup
 	<-shutdown
 	log.Info("shutting down...")
@@ -357,42 +309,4 @@ func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) 
 func logDeciderFunc(_ string, err error) bool {
 	st, _ := status.FromError(err)
 	return st != nil
-}
-
-// waitForKafkaInit checks if kafka is ready and has all topics regatta will consume. It blocks until check is successful.
-// It can be interrupted with signal in `shutdown` channel.
-func waitForKafkaInit(shutdown chan os.Signal, cfg kafka.Config) bool {
-	ch := kafka.NewChecker(cfg, 30*time.Second)
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-shutdown:
-			return false
-		case <-ticker.C:
-			if ch.Check() {
-				return true
-			}
-		}
-	}
-}
-
-func onMessage(st regattaserver.KVService) kafka.OnMessageFunc {
-	return func(ctx context.Context, table, key, value []byte) error {
-		if value != nil {
-			_, err := st.Put(ctx, &proto.PutRequest{
-				Table: table,
-				Key:   key,
-				Value: value,
-			})
-			return err
-		}
-		_, err := st.Delete(ctx, &proto.DeleteRangeRequest{
-			Table: table,
-			Key:   key,
-		})
-		return err
-	}
 }

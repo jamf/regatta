@@ -16,7 +16,6 @@ var (
 	apiFlagSet          = pflag.NewFlagSet("api", pflag.ContinueOnError)
 	restFlagSet         = pflag.NewFlagSet("rest", pflag.ContinueOnError)
 	raftFlagSet         = pflag.NewFlagSet("raft", pflag.ContinueOnError)
-	kafkaFlagSet        = pflag.NewFlagSet("kafka", pflag.ContinueOnError)
 	storageFlagSet      = pflag.NewFlagSet("storage", pflag.ContinueOnError)
 	maintenanceFlagSet  = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
 	experimentalFlagSet = pflag.NewFlagSet("experimental", pflag.ContinueOnError)
@@ -89,18 +88,6 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 
 	// Storage flags
 	storageFlagSet.Int64("storage.block-cache-size", 16*1024*1024, "Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.")
-
-	// Kafka flags
-	kafkaFlagSet.StringSlice("kafka.brokers", []string{"127.0.0.1:9092"}, "Address of the Kafka broker.")
-	kafkaFlagSet.Duration("kafka.timeout", 10*time.Second, "Kafka dialer timeout.")
-	kafkaFlagSet.String("kafka.group-id", "regatta-local", "Kafka consumer group ID.")
-	kafkaFlagSet.StringSlice("kafka.topics", nil, "Kafka topics to read from.")
-	kafkaFlagSet.Bool("kafka.tls", false, "Enables Kafka broker TLS connection.")
-	kafkaFlagSet.String("kafka.server-cert-filename", "", "Kafka broker CA.")
-	kafkaFlagSet.String("kafka.client-cert-filename", "", "Kafka client certificate.")
-	kafkaFlagSet.String("kafka.client-key-filename", "", "Kafka client key.")
-	kafkaFlagSet.Bool("kafka.check-topics", false, `Enables checking if all "--kafka.topics" exist before kafka client connection attempt.`)
-	kafkaFlagSet.Bool("kafka.debug-logs", false, `Enables kafka client debug logs. You need to set "--log-level" to "DEBUG", too.`)
 
 	// Maintenance flags
 	maintenanceFlagSet.Bool("maintenance.enabled", true, "Whether maintenance API is enabled.")
