@@ -41,10 +41,10 @@ func (c *cache) put(entries []raftpb.Entry) {
 	}
 
 	maxIndex := c.largestIndex()
+
 	if maxIndex == 0 {
 		// There are no entries in the cache, add all inserted entries.
-		c.buffer = append(c.buffer, entries...)
-		c.resize()
+		c.makeRoomAndAppend(entries)
 		return
 	}
 
@@ -53,8 +53,14 @@ func (c *cache) put(entries []raftpb.Entry) {
 		return
 	}
 
-	c.buffer = append(c.buffer, entries[i:]...)
-	c.resize()
+	c.makeRoomAndAppend(entries[i:])
+}
+
+func (c *cache) makeRoomAndAppend(entries []raftpb.Entry) {
+	if c.size < (len(entries) + len(c.buffer)) {
+		c.buffer = c.buffer[len(entries)+len(c.buffer)-c.size:]
+	}
+	c.buffer = append(c.buffer, entries...)
 }
 
 // findIndex finds the first entry in entries with index matching the supplied func.
@@ -131,11 +137,4 @@ func (c *cache) largestIndex() uint64 {
 	}
 
 	return c.buffer[len(c.buffer)-1].Index
-}
-
-// Resize the cache to the maximum possible size.
-func (c *cache) resize() {
-	if len(c.buffer) > c.size {
-		c.buffer = c.buffer[len(c.buffer)-c.size:]
-	}
 }
