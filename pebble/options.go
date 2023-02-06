@@ -61,7 +61,7 @@ func DefaultOptions() *pebble.Options {
 	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
 	return &pebble.Options{
 		FormatMajorVersion:          pebble.FormatRangeKeys,
-		L0CompactionThreshold:       l0FileNumCompactionTrigger,
+		L0CompactionFileThreshold:   l0FileNumCompactionTrigger,
 		L0StopWritesThreshold:       l0StopWritesTrigger,
 		LBaseMaxBytes:               maxBytesForLevelBase,
 		Levels:                      lvlOpts,
