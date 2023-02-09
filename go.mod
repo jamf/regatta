@@ -14,7 +14,7 @@ require (
 	github.com/lni/dragonboat/v4 v4.0.0-20221215063600-9efbcd5b6262
 	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
-	github.com/planetscale/vtprotobuf v0.3.0
+	github.com/planetscale/vtprotobuf v0.4.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.39.0
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
