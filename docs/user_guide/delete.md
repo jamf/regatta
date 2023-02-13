@@ -7,7 +7,7 @@ nav_order: 3
 
 # Deleting Records
 
-See [Delete Range Request API](/api/#regatta-v1-DeleteRangeRequest) and [Delete Range Response API](/api#regatta-v1-DeleteRangeResponse)
+See [Delete Range Request API](/api/#regatta-v1-DeleteRangeRequest) and [Delete Range Response API](/api/#regatta-v1-DeleteRangeResponse)
 for the complete gRPC API documentation for deleting records in Regatta.
 
 Delete Range API serves for deleting records in Regatta, offering exact key-value pair deletion,

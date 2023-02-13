@@ -7,7 +7,7 @@ nav_order: 4
 
 # Transactions
 
-See [Txn Request API](/api/#regatta-v1-TxnRequest) and [Txn Response API](/api#regatta-v1-TxnResponse)
+See [Txn Request API](/api/#regatta-v1-TxnRequest) and [Txn Response API](/api/#regatta-v1-TxnResponse)
 for the complete gRPC API documentation for retrieving records from Regatta.
 
 A Regatta transaction is an atomic *if/then/else* construct over the key-value store.
@@ -23,7 +23,7 @@ To gain a better understanding of how to use the transaction API, see [examples]
 ## Retrieving or Modifying Data With Transactions
 
 Transactions can be invoked by sending `TxnRequest` message via the
-[`Txn` remote procedure call](/api#regatta-v1-KV), `regatta.v1.KV/Txn`, which returns `TxnResponse` message.
+[`Txn` remote procedure call](/api/#regatta-v1-KV), `regatta.v1.KV/Txn`, which returns `TxnResponse` message.
 
 `TxnRequest` consists of `Compare` predicates, `RequestOp` operations to be executed
 depending on the evaluation of the predicates, and the name of a table in which the transaction
