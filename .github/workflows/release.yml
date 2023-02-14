@@ -83,7 +83,7 @@ jobs:
       uses: docker/setup-buildx-action@v2
 
     - name: Docker build & push
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v4
       with:
         push: true
         context: .
