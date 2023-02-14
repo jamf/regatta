@@ -7,7 +7,7 @@ nav_order: 3
 
 # Backups
 
-Regatta supports creating backups and restoring from them through the [Maintenance gRPC API](/api/#maintenance-prot)
+Regatta supports creating backups and restoring from them through the [Maintenance gRPC API](/api/#maintenance-proto)
 and built-in [`backup`](/operations_guide/cli/regatta_backup) and
 [`restore`](/operations_guide/cli/regatta_restore) commands.
 

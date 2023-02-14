@@ -13,8 +13,8 @@ See
 [Regatta](https://github.com/jamf/regatta-helm/blob/3dc1954d2a08c4a983c7cef0c2e853bfa5ef65aa/charts/regatta/values.yaml#L114),
 [Replication](https://github.com/jamf/regatta-helm/blob/3dc1954d2a08c4a983c7cef0c2e853bfa5ef65aa/charts/regatta/values.yaml#L197), and
 [Maintenance API](https://github.com/jamf/regatta-helm/blob/3dc1954d2a08c4a983c7cef0c2e853bfa5ef65aa/charts/regatta/values.yaml#L285)
-definitions in the Helm Chart or [`regatta leader`](/operations_guid/cli/regatta_leader)
-and [`regatta follower`](/operations_guid/cli/regatta_follower) commands for reference.
+definitions in the Helm Chart or [`regatta leader`](/operations_guide/cli/regatta_leader)
+and [`regatta follower`](/operations_guide/cli/regatta_follower) commands for reference.
 
 ## Deploying Regatta leader cluster
 
