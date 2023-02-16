@@ -4,6 +4,9 @@ remote_theme: just-the-docs/just-the-docs@v0.4.0
 
 permalink: pretty
 
+logo: "/static/regatta.png"
+fabicon_ico: "/static/regatta-favicon.svg"
+
 aux_links:
   GitHub: https://github.com/jamf/regatta
 
