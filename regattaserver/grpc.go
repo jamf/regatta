@@ -3,13 +3,19 @@
 package regattaserver
 
 import (
+	"compress/gzip"
 	"net"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	grpc_gzip "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/reflection"
 )
+
+func init() {
+	grpc_gzip.SetLevel(gzip.BestSpeed)
+}
 
 // RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
