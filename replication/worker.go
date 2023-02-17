@@ -21,6 +21,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 // TODO make configurable.
@@ -210,7 +212,7 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
-	stream, err := w.logClient.Replicate(ctx, replicateRequest)
+	stream, err := w.logClient.Replicate(ctx, replicateRequest, grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		return fmt.Errorf("could not open log stream: %w", err)
 	}
