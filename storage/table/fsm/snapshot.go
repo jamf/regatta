@@ -3,19 +3,27 @@
 package fsm
 
 import (
+	"archive/tar"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sync"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/sstable"
+	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
 	"github.com/jamf/regatta/storage/errors"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 )
+
+type snapshot struct {
+	fsm *FSM
+}
 
 type snapshotContext struct {
 	*pebble.Snapshot
@@ -27,25 +35,22 @@ func (s *snapshotContext) Close() (err error) {
 	return
 }
 
-// PrepareSnapshot prepares the snapshot to be concurrently captured and
-// streamed.
-func (p *FSM) PrepareSnapshot() (interface{}, error) {
-	db := p.pebble.Load()
+func (s *snapshot) prepare() (any, error) {
+	db := s.fsm.pebble.Load()
 	ctx := &snapshotContext{Snapshot: db.NewSnapshot()}
 	runtime.SetFinalizer(ctx, func(s *snapshotContext) { _ = s.Close() })
 	return ctx, nil
 }
 
-// SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
+func (s *snapshot) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
 	snapshot := ctx.(*snapshotContext)
 	iter := snapshot.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {
-			p.log.Error(err)
+			s.fsm.log.Error(err)
 		}
 		if err := snapshot.Close(); err != nil {
-			p.log.Error(err)
+			s.fsm.log.Error(err)
 		}
 	}()
 
@@ -82,30 +87,27 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) 
 	return writeLenDelimited(memfile, w)
 }
 
-// RecoverFromSnapshot recovers the state machine state from snapshot specified by
-// the io.Reader object. The snapshot is recovered into a new DB first and then
-// atomically swapped with the existing DB to complete the recovery.
-func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
-	if p.closed {
+func (s *snapshot) recover(r io.Reader, stopc <-chan struct{}) (er error) {
+	if s.fsm.closed {
 		return errors.ErrStateMachineClosed
 	}
-	if p.clusterID < 1 {
+	if s.fsm.clusterID < 1 {
 		return errors.ErrInvalidClusterID
 	}
-	if p.nodeID < 1 {
+	if s.fsm.nodeID < 1 {
 		return errors.ErrInvalidNodeID
 	}
 
 	randomDirName := rp.GetNewRandomDBDirName()
-	dbdir := filepath.Join(p.dirname, randomDirName)
+	dbdir := filepath.Join(s.fsm.dirname, randomDirName)
 
-	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir)
+	s.fsm.log.Infof("recovering pebble state machine with dirname: '%s'", dbdir)
 	db, err := rp.OpenDB(
 		dbdir,
-		rp.WithFS(p.fs),
-		rp.WithCache(p.blockCache),
-		rp.WithLogger(p.log),
-		rp.WithEventListener(makeLoggingEventListener(p.log)),
+		rp.WithFS(s.fsm.fs),
+		rp.WithCache(s.fsm.blockCache),
+		rp.WithLogger(s.fsm.log),
+		rp.WithEventListener(makeLoggingEventListener(s.fsm.log)),
 	)
 	if err != nil {
 		return err
@@ -123,8 +125,8 @@ read:
 		select {
 		case <-stopc:
 			_ = db.Close()
-			if err := rp.CleanupNodeDataDir(p.fs, p.dirname); err != nil {
-				p.log.Debugf("unable to cleanup directory")
+			if err := rp.CleanupNodeDataDir(s.fsm.fs, s.fsm.dirname); err != nil {
+				s.fsm.log.Debugf("unable to cleanup directory")
 			}
 			return sm.ErrSnapshotStopped
 		default:
@@ -138,8 +140,8 @@ read:
 			if uint64(cap(buff)) < size {
 				buff = make([]byte, size)
 			}
-			name := filepath.Join(p.dirname, fmt.Sprintf("ingest-%d.sst", count))
-			f, err := p.fs.Create(name)
+			name := filepath.Join(s.fsm.dirname, fmt.Sprintf("ingest-%d.sst", count))
+			f, err := s.fsm.fs.Create(name)
 			if err != nil {
 				return err
 			}
@@ -160,18 +162,192 @@ read:
 		return err
 	}
 
-	if err := rp.SaveCurrentDBDirName(p.fs, p.dirname, randomDirName); err != nil {
+	if err := rp.SaveCurrentDBDirName(s.fsm.fs, s.fsm.dirname, randomDirName); err != nil {
 		return err
 	}
-	if err := rp.ReplaceCurrentDBFile(p.fs, p.dirname); err != nil {
+	if err := rp.ReplaceCurrentDBFile(s.fsm.fs, s.fsm.dirname); err != nil {
 		return err
 	}
-	old := p.pebble.Swap(db)
-	p.log.Info("snapshot recovery finished")
+	old := s.fsm.pebble.Swap(db)
+	s.fsm.log.Info("snapshot recovery finished")
 
 	if old != nil {
 		_ = old.Close()
 	}
-	p.log.Debugf("snapshot recovery cleanup")
-	return rp.CleanupNodeDataDir(p.fs, p.dirname)
+	s.fsm.log.Debugf("snapshot recovery cleanup")
+	return rp.CleanupNodeDataDir(s.fsm.fs, s.fsm.dirname)
+}
+
+type checkpointContext struct {
+	once sync.Once
+	dir  string
+	fs   vfs.FS
+}
+
+func (s *checkpointContext) Close() (err error) {
+	s.once.Do(func() { err = s.fs.RemoveAll(s.dir) })
+	return
+}
+
+type checkpoint struct {
+	fsm *FSM
+}
+
+func (c *checkpoint) prepare() (any, error) {
+	db := c.fsm.pebble.Load()
+	if err := db.Flush(); err != nil {
+		return nil, err
+	}
+	dir := path.Join(c.fsm.dirname, "checkpoint")
+	if err := c.fsm.fs.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	if err := db.Checkpoint(dir); err != nil {
+		return nil, err
+	}
+
+	ctx := &checkpointContext{dir: dir, fs: c.fsm.fs}
+	runtime.SetFinalizer(ctx, func(s *checkpointContext) { _ = s.Close() })
+	return ctx, nil
+}
+
+func (c *checkpoint) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
+	snapshot := ctx.(*checkpointContext)
+	defer snapshot.Close()
+	tw := tar.NewWriter(w)
+	list, err := c.fsm.fs.List(snapshot.dir)
+	if err != nil {
+		return err
+	}
+	for _, fn := range list {
+		select {
+		case <-stopc:
+			return sm.ErrSnapshotStopped
+		default:
+		}
+		info, err := c.fsm.fs.Stat(path.Join(snapshot.dir, fn))
+		if err != nil {
+			return err
+		}
+		// generate tar header
+		header, err := tar.FileInfoHeader(info, fn)
+		if err != nil {
+			return err
+		}
+
+		header.Name = filepath.ToSlash(fn)
+
+		// write header
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+		// if not a dir, write file content
+		if !info.IsDir() {
+			data, err := c.fsm.fs.Open(path.Join(snapshot.dir, fn))
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(tw, data); err != nil {
+				return err
+			}
+		}
+	}
+	// produce tar
+	return tw.Close()
+}
+
+func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
+	if c.fsm.closed {
+		return errors.ErrStateMachineClosed
+	}
+	if c.fsm.clusterID < 1 {
+		return errors.ErrInvalidClusterID
+	}
+	if c.fsm.nodeID < 1 {
+		return errors.ErrInvalidNodeID
+	}
+
+	randomDirName := rp.GetNewRandomDBDirName()
+	dbdir := filepath.Join(c.fsm.dirname, randomDirName)
+
+	c.fsm.log.Infof("recovering pebble state machine with dirname: '%s'", dbdir)
+	tr := tar.NewReader(r)
+
+	if err := c.fsm.fs.MkdirAll(dbdir, 0755); err != nil {
+		return err
+	}
+	// uncompress each element
+	for {
+		select {
+		case <-stopc:
+			return sm.ErrSnapshotStopped
+		default:
+		}
+		header, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return err
+		}
+
+		// add dst + re-format slashes according to system
+		target := filepath.Join(dbdir, header.Name)
+
+		// check the type
+		switch header.Typeflag {
+		// if it's a dir, and it doesn't exist create it (with 0755 permission)
+		case tar.TypeDir:
+			if _, err := c.fsm.fs.Stat(target); err != nil {
+				if err := c.fsm.fs.MkdirAll(target, 0755); err != nil {
+					return err
+				}
+			}
+		// if it's a file create it (with same permission)
+		case tar.TypeReg:
+			fileToWrite, err := c.fsm.fs.Create(target)
+			if err != nil {
+				return err
+			}
+			// copy over contents
+			if _, err := io.Copy(fileToWrite, tr); err != nil {
+				return err
+			}
+
+			// manually close here after each file operation; defering would cause each file close
+			// to wait until all operations have completed.
+			if err := fileToWrite.Sync(); err != nil {
+				return err
+			}
+			if err := fileToWrite.Close(); err != nil {
+				return err
+			}
+		}
+	}
+
+	db, err := rp.OpenDB(
+		dbdir,
+		rp.WithFS(c.fsm.fs),
+		rp.WithCache(c.fsm.blockCache),
+		rp.WithLogger(c.fsm.log),
+		rp.WithEventListener(makeLoggingEventListener(c.fsm.log)),
+	)
+	if err != nil {
+		return err
+	}
+	if err := rp.SaveCurrentDBDirName(c.fsm.fs, c.fsm.dirname, randomDirName); err != nil {
+		return err
+	}
+	if err := rp.ReplaceCurrentDBFile(c.fsm.fs, c.fsm.dirname); err != nil {
+		return err
+	}
+	old := c.fsm.pebble.Swap(db)
+	c.fsm.log.Info("snapshot recovery finished")
+
+	if old != nil {
+		_ = old.Close()
+	}
+	c.fsm.log.Debugf("snapshot recovery cleanup")
+	return rp.CleanupNodeDataDir(c.fsm.fs, c.fsm.dirname)
 }

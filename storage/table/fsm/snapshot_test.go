@@ -12,42 +12,71 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSM_Snapshot(t *testing.T) {
+func TestFSM_Snapshot(t *testing.T) {
 	type args struct {
 		producingSMFactory func() *FSM
 		receivingSMFactory func() *FSM
+		snapshotType       SnapshotRecoveryType
 	}
 	tests := []struct {
 		name string
 		args args
 	}{
 		{
-			"small values",
+			"recover using snapshot (small DB)",
 			args{
 				producingSMFactory: filledSM,
 				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeSnapshot,
 			},
 		},
 		{
-			"large values",
+			"recover using snapshot (large DB)",
 			args{
 				producingSMFactory: filledLargeValuesSM,
 				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeSnapshot,
 			},
 		},
 		{
-			"index only",
+			"recover using snapshot (empty DB)",
 			args{
 				producingSMFactory: filledIndexOnlySM,
 				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeSnapshot,
+			},
+		},
+		{
+			"recover using checkpoint (small DB)",
+			args{
+				producingSMFactory: filledSM,
+				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeCheckpoint,
+			},
+		},
+		{
+			"recover using snapshot (large DB)",
+			args{
+				producingSMFactory: filledLargeValuesSM,
+				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeCheckpoint,
+			},
+		},
+		{
+			"recover using snapshot (empty DB)",
+			args{
+				producingSMFactory: filledIndexOnlySM,
+				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeCheckpoint,
 			},
 		},
 	}
 	for _, tt := range tests {
-		t.Log("applying snapshot to the empty DB should produce the same hash")
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
+
 			p := tt.args.producingSMFactory()
+			p.recoveryType = tt.args.snapshotType
 			defer p.Close()
 
 			want, err := p.GetHash()
@@ -57,6 +86,7 @@ func TestSM_Snapshot(t *testing.T) {
 			r.NoError(err)
 
 			ep := tt.args.receivingSMFactory()
+			ep.recoveryType = tt.args.snapshotType
 			defer ep.Close()
 
 			snapf, err := os.Create(filepath.Join(t.TempDir(), "snapshot-file"))
@@ -99,34 +129,45 @@ func TestSM_Snapshot(t *testing.T) {
 	}
 }
 
-func TestSM_Snapshot_Stopped(t *testing.T) {
+func TestFSM_SnapshotStopped(t *testing.T) {
 	type args struct {
 		producingSMFactory func() *FSM
 		receivingSMFactory func() *FSM
+		snapshotType       SnapshotRecoveryType
 	}
 	tests := []struct {
 		name string
 		args args
 	}{
 		{
-			"Pebble(large) -> Pebble",
+			"stop recovery using snapshot",
 			args{
 				producingSMFactory: filledLargeValuesSM,
 				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeSnapshot,
+			},
+		},
+		{
+			"stop recovery using checkpoint",
+			args{
+				producingSMFactory: filledLargeValuesSM,
+				receivingSMFactory: emptySM,
+				snapshotType:       RecoveryTypeCheckpoint,
 			},
 		},
 	}
 	for _, tt := range tests {
-		t.Log("Applying snapshot to the empty DB should be stopped")
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			p := tt.args.producingSMFactory()
+			p.recoveryType = tt.args.snapshotType
 			defer p.Close()
 
 			snp, err := p.PrepareSnapshot()
 			r.NoError(err)
 
 			ep := tt.args.receivingSMFactory()
+			ep.recoveryType = tt.args.snapshotType
 
 			snapf, err := os.Create(filepath.Join(t.TempDir(), "snapshot-file"))
 			r.NoError(err)
@@ -136,6 +177,7 @@ func TestSM_Snapshot_Stopped(t *testing.T) {
 			_, err = snapf.Seek(0, 0)
 			r.NoError(err)
 
+			startc := make(chan struct{})
 			stopc := make(chan struct{})
 			go func() {
 				defer func() {
@@ -144,12 +186,13 @@ func TestSM_Snapshot_Stopped(t *testing.T) {
 					_ = snapf.Close()
 				}()
 				t.Log("Recover from snapshot routine started")
+				startc <- struct{}{}
 				err := ep.RecoverFromSnapshot(snapf, stopc)
 				r.Error(err)
 				r.Equal(sm.ErrSnapshotStopped, err)
 			}()
-
-			time.Sleep(10 * time.Millisecond)
+			<-startc
+			time.Sleep(1 * time.Millisecond)
 			close(stopc)
 
 			t.Log("Recovery stopped")

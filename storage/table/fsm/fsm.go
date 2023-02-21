@@ -55,7 +55,20 @@ const (
 	ResultSuccess
 )
 
-func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
+type SnapshotRecoveryType uint8
+
+const (
+	RecoveryTypeSnapshot = iota
+	RecoveryTypeCheckpoint
+)
+
+type snapshotRecoverer interface {
+	prepare() (any, error)
+	save(ctx any, w io.Writer, stopc <-chan struct{}) error
+	recover(r io.Reader, stopc <-chan struct{}) error
+}
+
+func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, srt SnapshotRecoveryType) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
@@ -64,30 +77,32 @@ func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache)
 		dbDirName := rp.GetNodeDBDirName(stateMachineDir, hostname, fmt.Sprintf("%s-%d", tableName, clusterID))
 
 		return &FSM{
-			tableName:  tableName,
-			clusterID:  clusterID,
-			nodeID:     nodeID,
-			dirname:    dbDirName,
-			fs:         fs,
-			blockCache: blockCache,
-			log:        zap.S().Named("table").Named(tableName),
-			metrics:    newMetrics(tableName, clusterID),
+			tableName:    tableName,
+			clusterID:    clusterID,
+			nodeID:       nodeID,
+			dirname:      dbDirName,
+			fs:           fs,
+			blockCache:   blockCache,
+			log:          zap.S().Named("table").Named(tableName),
+			metrics:      newMetrics(tableName, clusterID),
+			recoveryType: srt,
 		}
 	}
 }
 
 // FSM is a statemachine.IOnDiskStateMachine impl.
 type FSM struct {
-	pebble     atomic.Pointer[pebble.DB]
-	fs         vfs.FS
-	clusterID  uint64
-	nodeID     uint64
-	tableName  string
-	dirname    string
-	closed     bool
-	log        *zap.SugaredLogger
-	blockCache *pebble.Cache
-	metrics    *metrics
+	pebble       atomic.Pointer[pebble.DB]
+	fs           vfs.FS
+	clusterID    uint64
+	nodeID       uint64
+	tableName    string
+	dirname      string
+	closed       bool
+	log          *zap.SugaredLogger
+	blockCache   *pebble.Cache
+	metrics      *metrics
+	recoveryType SnapshotRecoveryType
 }
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
@@ -240,6 +255,24 @@ func (p *FSM) GetHash() (uint64, error) {
 	return hash64.Sum64(), nil
 }
 
+// PrepareSnapshot prepares the snapshot to be concurrently captured and
+// streamed.
+func (p *FSM) PrepareSnapshot() (interface{}, error) {
+	return p.getRecoverer().prepare()
+}
+
+// SaveSnapshot saves the state of the object to the provided io.Writer object.
+func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
+	return p.getRecoverer().save(ctx, w, stopc)
+}
+
+// RecoverFromSnapshot recovers the state machine state from snapshot specified by
+// the io.Reader object. The snapshot is recovered into a new DB first and then
+// atomically swapped with the existing DB to complete the recovery.
+func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) error {
+	return p.getRecoverer().recover(r, stopc)
+}
+
 func (p *FSM) Collect(ch chan<- prometheus.Metric) {
 	if p.metrics == nil {
 		return
@@ -257,6 +290,17 @@ func (p *FSM) Describe(ch chan<- *prometheus.Desc) {
 		return
 	}
 	p.metrics.Describe(ch)
+}
+
+func (p *FSM) getRecoverer() snapshotRecoverer {
+	switch p.recoveryType {
+	case RecoveryTypeSnapshot:
+		return &snapshot{p}
+	case RecoveryTypeCheckpoint:
+		return &checkpoint{p}
+	default:
+		panic(fmt.Sprintf("unknown recoverer type: %d", p.recoveryType))
+	}
 }
 
 // encodeUserKey into provided writer.
