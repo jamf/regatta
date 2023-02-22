@@ -230,7 +230,6 @@ func (c *checkpoint) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
 		if err != nil {
 			return err
 		}
-		// generate tar header
 		header, err := tar.FileInfoHeader(info, fn)
 		if err != nil {
 			return err
@@ -238,11 +237,9 @@ func (c *checkpoint) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
 
 		header.Name = filepath.ToSlash(fn)
 
-		// write header
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
-		// if not a dir, write file content
 		if !info.IsDir() {
 			data, err := c.fsm.fs.Open(path.Join(snapshot.dir, fn))
 			if err != nil {
@@ -274,10 +271,10 @@ func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
 	c.fsm.log.Infof("recovering pebble state machine with dirname: '%s'", dbdir)
 	tr := tar.NewReader(r)
 
-	if err := c.fsm.fs.MkdirAll(dbdir, 0755); err != nil {
+	if err := c.fsm.fs.MkdirAll(dbdir, 0o755); err != nil {
 		return err
 	}
-	// uncompress each element
+
 	for {
 		select {
 		case <-stopc:
@@ -292,31 +289,28 @@ func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
 			return err
 		}
 
-		// add dst + re-format slashes according to system
-		target := filepath.Join(dbdir, header.Name)
+		if !filepath.IsLocal(header.Name) {
+			return fmt.Errorf("path traversal detected path: '%s'", header.Name)
+		}
+		target := filepath.Join(dbdir, filepath.Clean(header.Name))
 
-		// check the type
 		switch header.Typeflag {
-		// if it's a dir, and it doesn't exist create it (with 0755 permission)
 		case tar.TypeDir:
 			if _, err := c.fsm.fs.Stat(target); err != nil {
-				if err := c.fsm.fs.MkdirAll(target, 0755); err != nil {
+				if err := c.fsm.fs.MkdirAll(target, 0o755); err != nil {
 					return err
 				}
 			}
-		// if it's a file create it (with same permission)
 		case tar.TypeReg:
 			fileToWrite, err := c.fsm.fs.Create(target)
 			if err != nil {
 				return err
 			}
-			// copy over contents
+			// #nosec G110 -- Tar stream is not compressed
 			if _, err := io.Copy(fileToWrite, tr); err != nil {
 				return err
 			}
 
-			// manually close here after each file operation; defering would cause each file close
-			// to wait until all operations have completed.
 			if err := fileToWrite.Sync(); err != nil {
 				return err
 			}
