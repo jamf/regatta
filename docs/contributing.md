@@ -13,7 +13,7 @@ raise an issue, or open a pull request**.
 
 ## Development prerequisites
 
-* [Go](https://golang.org/) >= 1.19
+* [Go](https://golang.org/) >= 1.20
 * [Protocol Buffer compiler](https://grpc.io/docs/protoc-installation/) >= 3
 * [Go Protocol Bufffer compiler plugin](https://pkg.go.dev/github.com/golang/protobuf/protoc-gen-go)
   -- `go get -d google.golang.org/protobuf/cmd/protoc-gen-go`
