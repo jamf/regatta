@@ -2,7 +2,9 @@
 
 package tables
 
-import "github.com/cockroachdb/pebble/vfs"
+import (
+	"github.com/cockroachdb/pebble/vfs"
+)
 
 type Config struct {
 	// NodeID is a non-zero value used to identify a node within a Raft cluster.
@@ -12,6 +14,13 @@ type Config struct {
 	// Meta is a configuration for metadata inmemory state machine.
 	Meta MetaConfig
 }
+
+type SnapshotRecoveryType uint8
+
+const (
+	RecoveryTypeSnapshot = iota
+	RecoveryTypeCheckpoint
+)
 
 type TableConfig struct {
 	// ElectionRTT is the minimum number of message RTT between elections. Message
@@ -95,6 +104,8 @@ type TableConfig struct {
 	NodeHostDir string
 	// BlockCacheSize shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.
 	BlockCacheSize int64
+	// RecoveryType the in-cluster snapshot recovery type.
+	RecoveryType SnapshotRecoveryType
 }
 
 type MetaConfig struct {

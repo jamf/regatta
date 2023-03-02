@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
 	"github.com/jamf/regatta/regattaserver"
+	"github.com/jamf/regatta/storage/tables"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -54,6 +56,20 @@ func createMaintenanceServer(watcher *cert.Watcher) *regattaserver.RegattaServer
 		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
 		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
 	)
+}
+
+func toRecoveryType(str string) tables.SnapshotRecoveryType {
+	switch str {
+	case "snapshot":
+		return tables.RecoveryTypeSnapshot
+	case "checkpoint":
+		return tables.RecoveryTypeCheckpoint
+	default:
+		if runtime.GOOS == "windows" {
+			return tables.RecoveryTypeSnapshot
+		}
+		return tables.RecoveryTypeCheckpoint
+	}
 }
 
 func authFunc(token string) func(ctx context.Context) (context.Context, error) {

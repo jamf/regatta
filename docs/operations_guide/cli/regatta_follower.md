@@ -57,9 +57,9 @@ regatta follower [flags]
       --raft.snapshot-entries uint                            SnapshotEntries defines how often the state machine should be snapshotted automatically.
                                                               It is defined in terms of the number of applied Raft log entries.
                                                               SnapshotEntries can be set to 0 to disable such automatic snapshotting. (default 10000)
-      --raft.state-machine-dir string                         StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false. (default "/tmp/regatta/state-machine")
-      --raft.state-machine-wal-dir string                     StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
-                                                              Applicable only when in-memory-state-machine=false.
+      --raft.snapshot-recovery-type string                    Specifies the way how the snapshots should be shared between nodes within the cluster. Options: snapshot, checkpoint, default: checkpoint for non Windows systems. 
+                                                              Type 'snapshot' uses in-memory snapshot of DB to send over wire to the peer. Type 'checkpoint'' uses hardlinks on FS a sends DB in tarball over wire. Checkpoint is thus much more memory and compute efficient at the potential expense of disk space, it is not advisable to use on OS/FS which does not support hardlinks.
+      --raft.state-machine-dir string                         StateMachineDir persistent storage for the state machine. (default "/tmp/regatta/state-machine")
       --raft.wal-dir string                                   WALDir is the directory used for storing the WAL of Raft entries. 
                                                               It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
                                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.

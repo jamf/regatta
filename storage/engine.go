@@ -23,17 +23,6 @@ const defaultQueryTimeout = 5 * time.Second
 // nodeShardToInfoIndex indexes `replicaID` -> `shardID` -> `raftio.LeaderInfo`.
 type nodeShardToInfoIndex map[uint64]map[uint64]raftio.LeaderInfo
 
-func (i nodeShardToInfoIndex) clone() nodeShardToInfoIndex {
-	c := nodeShardToInfoIndex{}
-	for replicaID, m := range i {
-		c[replicaID] = map[uint64]raftio.LeaderInfo{}
-		for shardID, info := range m {
-			c[replicaID][shardID] = info
-		}
-	}
-	return c
-}
-
 // shardToLeaderIndex indexes `shardID` -> `replicaID` of a leader node.
 type shardToLeaderIndex map[uint64]uint64
 
@@ -68,12 +57,6 @@ func (v *clusterView) update(info raftio.LeaderInfo) {
 	}
 }
 
-func (v *clusterView) snapshot() clusterViewSnapshot {
-	v.lock.RLock()
-	defer v.lock.RUnlock()
-	return clusterViewSnapshot(v.infoIndex.clone())
-}
-
 func (v *clusterView) mutateNodeMap(nodeID uint64, f func(m map[uint64]raftio.LeaderInfo)) {
 	m, ok := v.infoIndex[nodeID]
 	if !ok {
@@ -88,13 +71,11 @@ func (v *clusterView) mutateNodeMap(nodeID uint64, f func(m map[uint64]raftio.Le
 	}
 }
 
-type clusterViewSnapshot map[uint64]map[uint64]raftio.LeaderInfo
-
-func (s clusterViewSnapshot) info(nodeID uint64, shardID uint64) raftio.LeaderInfo {
-	if shards, ok := s[nodeID]; ok {
-		if info, ok := shards[shardID]; ok {
-			return info
-		}
+func (v *clusterView) shardInfo(shardID uint64) raftio.LeaderInfo {
+	v.lock.RLock()
+	defer v.lock.RUnlock()
+	if leaderID, ok := v.leaderIndex[shardID]; ok {
+		return v.infoIndex[leaderID][shardID]
 	}
 	return raftio.LeaderInfo{}
 }
@@ -223,7 +204,7 @@ func (e *Engine) getHeader(header *proto.ResponseHeader, shardID uint64) *proto.
 	if header == nil {
 		header = &proto.ResponseHeader{}
 	}
-	info := e.clusterView.snapshot().info(e.NodeID(), shardID)
+	info := e.clusterView.shardInfo(shardID)
 	header.ShardId = info.ShardID
 	header.ReplicaId = info.ReplicaID
 	header.RaftTerm = info.Term
