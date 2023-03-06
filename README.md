@@ -15,11 +15,11 @@ It is *fault-tolerant* and able to handle network partitions and node outages gr
 ## Documentation
 
 For guidance on installation, deployment, and administration,
-see the [documentation page](https://shiny-invention-a2acc4a1.pages.github.io).
+see the [documentation page](https://engineering.jamf.com/regatta).
 
 ## Contributing
 
 Regatta is in active development and contributors are welcome! For guidance on development, see the page
-[Contributing](https://shiny-invention-a2acc4a1.pages.github.io/contributing).
+[Contributing](https://engineering.jamf.com/regatta/contributing).
 Feel free to ask questions and engage in [GitHub Discussions](https://github.com/jamf/regatta/discussions)!
 
