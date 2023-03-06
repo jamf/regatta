@@ -4,6 +4,7 @@ package tables
 
 import (
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/storage/table/fsm"
 )
 
 type Config struct {
@@ -15,10 +16,10 @@ type Config struct {
 	Meta MetaConfig
 }
 
-type SnapshotRecoveryType uint8
+type SnapshotRecoveryType fsm.SnapshotRecoveryType
 
 const (
-	RecoveryTypeSnapshot = iota
+	RecoveryTypeSnapshot SnapshotRecoveryType = iota
 	RecoveryTypeCheckpoint
 )
 

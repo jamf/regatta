@@ -59,7 +59,7 @@ const (
 type SnapshotRecoveryType uint8
 
 const (
-	RecoveryTypeSnapshot = iota
+	RecoveryTypeSnapshot SnapshotRecoveryType = iota
 	RecoveryTypeCheckpoint
 )
 
