@@ -115,6 +115,7 @@ func follower(_ *cobra.Command, _ []string) {
 			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
 			WALDir:             viper.GetString("raft.state-machine-wal-dir"),
 			NodeHostDir:        viper.GetString("raft.state-machine-dir"),
+			RecoveryType:       toRecoveryType(viper.GetString("raft.snapshot-recovery-type")),
 			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
 		},
 		Meta: storage.MetaConfig{

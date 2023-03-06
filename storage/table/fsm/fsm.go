@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
+	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
@@ -55,7 +56,20 @@ const (
 	ResultSuccess
 )
 
-func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache) sm.CreateOnDiskStateMachineFunc {
+type SnapshotRecoveryType uint8
+
+const (
+	RecoveryTypeSnapshot SnapshotRecoveryType = iota
+	RecoveryTypeCheckpoint
+)
+
+type snapshotRecoverer interface {
+	prepare() (any, error)
+	save(ctx any, w io.Writer, stopc <-chan struct{}) error
+	recover(r io.Reader, stopc <-chan struct{}) error
+}
+
+func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, srt SnapshotRecoveryType) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
@@ -64,30 +78,32 @@ func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache)
 		dbDirName := rp.GetNodeDBDirName(stateMachineDir, hostname, fmt.Sprintf("%s-%d", tableName, clusterID))
 
 		return &FSM{
-			tableName:  tableName,
-			clusterID:  clusterID,
-			nodeID:     nodeID,
-			dirname:    dbDirName,
-			fs:         fs,
-			blockCache: blockCache,
-			log:        zap.S().Named("table").Named(tableName),
-			metrics:    newMetrics(tableName, clusterID),
+			tableName:    tableName,
+			clusterID:    clusterID,
+			nodeID:       nodeID,
+			dirname:      dbDirName,
+			fs:           fs,
+			blockCache:   blockCache,
+			log:          zap.S().Named("table").Named(tableName),
+			metrics:      newMetrics(tableName, clusterID),
+			recoveryType: srt,
 		}
 	}
 }
 
 // FSM is a statemachine.IOnDiskStateMachine impl.
 type FSM struct {
-	pebble     atomic.Pointer[pebble.DB]
-	fs         vfs.FS
-	clusterID  uint64
-	nodeID     uint64
-	tableName  string
-	dirname    string
-	closed     bool
-	log        *zap.SugaredLogger
-	blockCache *pebble.Cache
-	metrics    *metrics
+	pebble       atomic.Pointer[pebble.DB]
+	fs           vfs.FS
+	clusterID    uint64
+	nodeID       uint64
+	tableName    string
+	dirname      string
+	closed       bool
+	log          *zap.SugaredLogger
+	blockCache   *pebble.Cache
+	metrics      *metrics
+	recoveryType SnapshotRecoveryType
 }
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
@@ -145,6 +161,71 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	}
 
 	return readLocalIndex(db, sysLocalIndex)
+}
+
+// Lookup locally looks up the data.
+func (p *FSM) Lookup(l interface{}) (interface{}, error) {
+	switch req := l.(type) {
+	case *proto.TxnRequest:
+		snapshot := p.pebble.Load().NewSnapshot()
+		defer snapshot.Close()
+
+		ok, err := txnCompare(snapshot, req.Compare)
+		if err != nil {
+			return nil, err
+		}
+
+		var ops []*proto.RequestOp_Range
+		if ok {
+			for _, op := range req.Success {
+				ops = append(ops, op.GetRequestRange())
+			}
+		} else {
+			for _, op := range req.Failure {
+				ops = append(ops, op.GetRequestRange())
+			}
+		}
+
+		resp := &proto.TxnResponse{Succeeded: ok}
+		for _, op := range ops {
+			rr, err := lookup(snapshot, op)
+			if err != nil {
+				return nil, err
+			}
+			resp.Responses = append(resp.Responses, wrapResponseOp(rr))
+		}
+		return resp, nil
+	case *proto.RequestOp_Range:
+		db := p.pebble.Load()
+		return lookup(db, req)
+	case SnapshotRequest:
+		snapshot := p.pebble.Load().NewSnapshot()
+		defer snapshot.Close()
+
+		idx, err := commandSnapshot(snapshot, p.tableName, req.Writer, req.Stopper)
+		if err != nil {
+			return nil, err
+		}
+		return &SnapshotResponse{Index: idx}, nil
+	case LocalIndexRequest:
+		idx, err := readLocalIndex(p.pebble.Load(), sysLocalIndex)
+		if err != nil {
+			return nil, err
+		}
+		return &IndexResponse{Index: idx}, nil
+	case LeaderIndexRequest:
+		idx, err := readLocalIndex(p.pebble.Load(), sysLeaderIndex)
+		if err != nil {
+			return nil, err
+		}
+		return &IndexResponse{Index: idx}, nil
+	case PathRequest:
+		return &PathResponse{Path: p.dirname}, nil
+	default:
+		p.log.Warnf("received unknown lookup request of type %T", req)
+	}
+
+	return nil, errors.ErrUnknownQueryType
 }
 
 // Update advances the FSM.
@@ -240,6 +321,24 @@ func (p *FSM) GetHash() (uint64, error) {
 	return hash64.Sum64(), nil
 }
 
+// PrepareSnapshot prepares the snapshot to be concurrently captured and
+// streamed.
+func (p *FSM) PrepareSnapshot() (interface{}, error) {
+	return p.getRecoverer().prepare()
+}
+
+// SaveSnapshot saves the state of the object to the provided io.Writer object.
+func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
+	return p.getRecoverer().save(ctx, w, stopc)
+}
+
+// RecoverFromSnapshot recovers the state machine state from snapshot specified by
+// the io.Reader object. The snapshot is recovered into a new DB first and then
+// atomically swapped with the existing DB to complete the recovery.
+func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) error {
+	return p.getRecoverer().recover(r, stopc)
+}
+
 func (p *FSM) Collect(ch chan<- prometheus.Metric) {
 	if p.metrics == nil {
 		return
@@ -257,6 +356,17 @@ func (p *FSM) Describe(ch chan<- *prometheus.Desc) {
 		return
 	}
 	p.metrics.Describe(ch)
+}
+
+func (p *FSM) getRecoverer() snapshotRecoverer {
+	switch p.recoveryType {
+	case RecoveryTypeSnapshot:
+		return &snapshot{p}
+	case RecoveryTypeCheckpoint:
+		return &checkpoint{p}
+	default:
+		panic(fmt.Sprintf("unknown recoverer type: %d", p.recoveryType))
+	}
 }
 
 // encodeUserKey into provided writer.

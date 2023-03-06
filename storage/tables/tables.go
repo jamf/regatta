@@ -492,14 +492,14 @@ func (m *Manager) startTable(name string, id uint64) error {
 		return m.nh.StartOnDiskReplica(
 			map[uint64]dragonboat.Target{},
 			false,
-			fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.FS, m.blockCache),
+			fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.FS, m.blockCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
 			tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 		)
 	}
 	return m.nh.StartOnDiskReplica(
 		m.members,
 		false,
-		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.FS, m.blockCache),
+		fsm.New(name, m.cfg.Table.NodeHostDir, m.cfg.Table.FS, m.blockCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }

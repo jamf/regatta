@@ -1,6 +1,6 @@
 module github.com/jamf/regatta
 
-go 1.19
+go 1.20
 
 require (
 	github.com/VictoriaMetrics/metrics v1.23.0

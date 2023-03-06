@@ -54,11 +54,11 @@ When CheckQuorum is enabled, ElectionRTT also defines the interval for checking 
 It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
 Leave WALDir to have zero value will have everything stored in NodeHostDir.`)
 	raftFlagSet.String("raft.node-host-dir", "/tmp/regatta/raft", "NodeHostDir raft internal storage")
-	raftFlagSet.String("raft.state-machine-wal-dir", "",
-		`StateMachineWalDir persistent storage for the state machine. If empty all state machine data is stored in state-machine-dir. 
-Applicable only when in-memory-state-machine=false.`)
 	raftFlagSet.String("raft.state-machine-dir", "/tmp/regatta/state-machine",
-		"StateMachineDir persistent storage for the state machine. Applicable only when in-memory-state-machine=false.")
+		"StateMachineDir persistent storage for the state machine.")
+	raftFlagSet.String("raft.snapshot-recovery-type", "",
+		`Specifies the way how the snapshots should be shared between nodes within the cluster. Options: snapshot, checkpoint, default: checkpoint for non Windows systems. 
+Type 'snapshot' uses in-memory snapshot of DB to send over wire to the peer. Type 'checkpoint'' uses hardlinks on FS a sends DB in tarball over wire. Checkpoint is thus much more memory and compute efficient at the potential expense of disk space, it is not advisable to use on OS/FS which does not support hardlinks.`)
 	raftFlagSet.String("raft.address", "",
 		`RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
 This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.`)

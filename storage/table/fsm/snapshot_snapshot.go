@@ -17,6 +17,10 @@ import (
 	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
+type snapshot struct {
+	fsm *FSM
+}
+
 type snapshotContext struct {
 	*pebble.Snapshot
 	once sync.Once
@@ -27,25 +31,22 @@ func (s *snapshotContext) Close() (err error) {
 	return
 }
 
-// PrepareSnapshot prepares the snapshot to be concurrently captured and
-// streamed.
-func (p *FSM) PrepareSnapshot() (interface{}, error) {
-	db := p.pebble.Load()
+func (s *snapshot) prepare() (any, error) {
+	db := s.fsm.pebble.Load()
 	ctx := &snapshotContext{Snapshot: db.NewSnapshot()}
 	runtime.SetFinalizer(ctx, func(s *snapshotContext) { _ = s.Close() })
 	return ctx, nil
 }
 
-// SaveSnapshot saves the state of the object to the provided io.Writer object.
-func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
+func (s *snapshot) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
 	snapshot := ctx.(*snapshotContext)
 	iter := snapshot.NewIter(nil)
 	defer func() {
 		if err := iter.Close(); err != nil {
-			p.log.Error(err)
+			s.fsm.log.Error(err)
 		}
 		if err := snapshot.Close(); err != nil {
-			p.log.Error(err)
+			s.fsm.log.Error(err)
 		}
 	}()
 
@@ -82,30 +83,27 @@ func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) 
 	return writeLenDelimited(memfile, w)
 }
 
-// RecoverFromSnapshot recovers the state machine state from snapshot specified by
-// the io.Reader object. The snapshot is recovered into a new DB first and then
-// atomically swapped with the existing DB to complete the recovery.
-func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) (er error) {
-	if p.closed {
+func (s *snapshot) recover(r io.Reader, stopc <-chan struct{}) (er error) {
+	if s.fsm.closed {
 		return errors.ErrStateMachineClosed
 	}
-	if p.clusterID < 1 {
+	if s.fsm.clusterID < 1 {
 		return errors.ErrInvalidClusterID
 	}
-	if p.nodeID < 1 {
+	if s.fsm.nodeID < 1 {
 		return errors.ErrInvalidNodeID
 	}
 
 	randomDirName := rp.GetNewRandomDBDirName()
-	dbdir := filepath.Join(p.dirname, randomDirName)
+	dbdir := filepath.Join(s.fsm.dirname, randomDirName)
 
-	p.log.Infof("recovering pebble state machine with dirname: '%s', walDirName: '%s'", dbdir)
+	s.fsm.log.Infof("recovering pebble state machine with dirname: '%s'", dbdir)
 	db, err := rp.OpenDB(
 		dbdir,
-		rp.WithFS(p.fs),
-		rp.WithCache(p.blockCache),
-		rp.WithLogger(p.log),
-		rp.WithEventListener(makeLoggingEventListener(p.log)),
+		rp.WithFS(s.fsm.fs),
+		rp.WithCache(s.fsm.blockCache),
+		rp.WithLogger(s.fsm.log),
+		rp.WithEventListener(makeLoggingEventListener(s.fsm.log)),
 	)
 	if err != nil {
 		return err
@@ -123,8 +121,8 @@ read:
 		select {
 		case <-stopc:
 			_ = db.Close()
-			if err := rp.CleanupNodeDataDir(p.fs, p.dirname); err != nil {
-				p.log.Debugf("unable to cleanup directory")
+			if err := rp.CleanupNodeDataDir(s.fsm.fs, s.fsm.dirname); err != nil {
+				s.fsm.log.Debugf("unable to cleanup directory")
 			}
 			return sm.ErrSnapshotStopped
 		default:
@@ -138,8 +136,8 @@ read:
 			if uint64(cap(buff)) < size {
 				buff = make([]byte, size)
 			}
-			name := filepath.Join(p.dirname, fmt.Sprintf("ingest-%d.sst", count))
-			f, err := p.fs.Create(name)
+			name := filepath.Join(s.fsm.dirname, fmt.Sprintf("ingest-%d.sst", count))
+			f, err := s.fsm.fs.Create(name)
 			if err != nil {
 				return err
 			}
@@ -160,18 +158,18 @@ read:
 		return err
 	}
 
-	if err := rp.SaveCurrentDBDirName(p.fs, p.dirname, randomDirName); err != nil {
+	if err := rp.SaveCurrentDBDirName(s.fsm.fs, s.fsm.dirname, randomDirName); err != nil {
 		return err
 	}
-	if err := rp.ReplaceCurrentDBFile(p.fs, p.dirname); err != nil {
+	if err := rp.ReplaceCurrentDBFile(s.fsm.fs, s.fsm.dirname); err != nil {
 		return err
 	}
-	old := p.pebble.Swap(db)
-	p.log.Info("snapshot recovery finished")
+	old := s.fsm.pebble.Swap(db)
+	s.fsm.log.Info("snapshot recovery finished")
 
 	if old != nil {
 		_ = old.Close()
 	}
-	p.log.Debugf("snapshot recovery cleanup")
-	return rp.CleanupNodeDataDir(p.fs, p.dirname)
+	s.fsm.log.Debugf("snapshot recovery cleanup")
+	return rp.CleanupNodeDataDir(s.fsm.fs, s.fsm.dirname)
 }
