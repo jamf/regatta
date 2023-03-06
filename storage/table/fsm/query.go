@@ -8,75 +8,9 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 )
-
-// Lookup locally looks up the data.
-func (p *FSM) Lookup(l interface{}) (interface{}, error) {
-	switch req := l.(type) {
-	case *proto.TxnRequest:
-		snapshot := p.pebble.Load().NewSnapshot()
-		defer snapshot.Close()
-
-		ok, err := txnCompare(snapshot, req.Compare)
-		if err != nil {
-			return nil, err
-		}
-
-		var ops []*proto.RequestOp_Range
-		if ok {
-			for _, op := range req.Success {
-				ops = append(ops, op.GetRequestRange())
-			}
-		} else {
-			for _, op := range req.Failure {
-				ops = append(ops, op.GetRequestRange())
-			}
-		}
-
-		resp := &proto.TxnResponse{Succeeded: ok}
-		for _, op := range ops {
-			rr, err := lookup(snapshot, op)
-			if err != nil {
-				return nil, err
-			}
-			resp.Responses = append(resp.Responses, wrapResponseOp(rr))
-		}
-		return resp, nil
-	case *proto.RequestOp_Range:
-		db := p.pebble.Load()
-		return lookup(db, req)
-	case SnapshotRequest:
-		snapshot := p.pebble.Load().NewSnapshot()
-		defer snapshot.Close()
-
-		idx, err := commandSnapshot(snapshot, p.tableName, req.Writer, req.Stopper)
-		if err != nil {
-			return nil, err
-		}
-		return &SnapshotResponse{Index: idx}, nil
-	case LocalIndexRequest:
-		idx, err := readLocalIndex(p.pebble.Load(), sysLocalIndex)
-		if err != nil {
-			return nil, err
-		}
-		return &IndexResponse{Index: idx}, nil
-	case LeaderIndexRequest:
-		idx, err := readLocalIndex(p.pebble.Load(), sysLeaderIndex)
-		if err != nil {
-			return nil, err
-		}
-		return &IndexResponse{Index: idx}, nil
-	case PathRequest:
-		return &PathResponse{Path: p.dirname}, nil
-	default:
-		p.log.Warnf("received unknown lookup request of type %T", req)
-	}
-
-	return nil, errors.ErrUnknownQueryType
-}
 
 func commandSnapshot(reader pebble.Reader, tableName string, w io.Writer, stopc <-chan struct{}) (uint64, error) {
 	iter := reader.NewIter(nil)
