@@ -11,6 +11,6 @@ Throughout this documentation, we are using [gRPCurl](https://github.com/fullsto
 to interact with Regatta's gRPC API.
 
 To follow this user guide, it is enough to spin up a single Regatta leader cluster
-with one instance locally as described in [Quickstart](/quickstart).
+with one instance locally as described in [Quickstart](../quickstart).
 
-See [API documentation](/api/#regatta-proto) for the complete user-facing gRPC API reference.
+See [API documentation](../api.md#regatta-proto) for the complete user-facing gRPC API reference.

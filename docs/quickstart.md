@@ -19,7 +19,7 @@ can be used.
 
 ### Build from source
 
-To build and run Regatta locally, see the [Contribution page](/contributing) for all
+To build and run Regatta locally, see the [Contribution page](contributing.md) for all
 the required dependencies. Then just run
 
 ```bash
@@ -113,10 +113,10 @@ helm install my-regatta regatta/regatta -f values.yaml
 ```
 
 This will deploy Regatta leader cluster with one replica. See page
-[Deploying to Kubernets](/operations_guide/deploying_to_kubernetes/) for the more advanced deployment
+[Deploying to Kubernetes](operations_guide/deploying_to_kubernetes.md) for the more advanced deployment
 of Regatta and how to connect follower clusters to the leader cluster.
 
 ## Interact with Regatta
 
-Once Regatta is up and running, check the [User Guide page](/user_guide) to see how
+Once Regatta is up and running, check the [User Guide page](user_guide/index.md) to see how
 to interact with Regatta.

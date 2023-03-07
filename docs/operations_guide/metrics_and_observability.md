@@ -9,7 +9,7 @@ nav_order: 4
 
 Regatta exposes metrics for Prometheus, available via the `/metrics` endpoint in the REST API (default port 8079).
 Go runtime statistics, gRPC statistics, and [Dragonboat](https://github.com/lni/dragonboat) statistics,
-which is the underlying framework used for Raft clusters, are exposed. Some of the exposed metrics:
+which is the underlying framework used for Raft clusters, are exposed. Some exposed metrics:
 
 * `dragonboat_raftnode_has_leader{shardid="1000",replicaid="1"}` --
   Raft leader for the table with shard ID `1000` is instance `1`.

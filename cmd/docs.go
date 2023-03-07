@@ -26,11 +26,7 @@ func init() {
 	docsCmd.PersistentFlags().StringVar(&docsDest, "destination", "docs", "Destination folder where CLI docs should be generated.")
 }
 
-func linkHandler(filename string) string {
-	file := filepath.Base(filename)
-	command := strings.Split(file, ".")[0]
-	return "/operations_guide/cli/" + command
-}
+func identity(s string) string { return s }
 
 func frontMatter(filename string) string {
 	base := filepath.Base(filename)
@@ -52,7 +48,7 @@ var docsCmd = &cobra.Command{
 			return err
 		}
 
-		err = doc.GenMarkdownTreeCustom(rootCmd, docsDest, frontMatter, linkHandler)
+		err = doc.GenMarkdownTreeCustom(rootCmd, docsDest, frontMatter, identity)
 		if err != nil {
 			return err
 		}
