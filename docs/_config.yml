@@ -4,6 +4,8 @@ remote_theme: just-the-docs/just-the-docs@v0.4.0
 
 permalink: pretty
 
+baseurl: /regatta
+
 logo: "/static/regatta.png"
 fabicon_ico: "/static/regatta-favicon.svg"
 
