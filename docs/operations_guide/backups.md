@@ -7,9 +7,9 @@ nav_order: 3
 
 # Backups
 
-Regatta supports creating backups and restoring from them through the [Maintenance gRPC API](/api/#maintenance-proto)
-and built-in [`backup`](/operations_guide/cli/regatta_backup) and
-[`restore`](/operations_guide/cli/regatta_restore) commands.
+Regatta supports creating backups and restoring from them through the [Maintenance gRPC API](../api/#maintenance-proto)
+and built-in [`backup`](cli/regatta_backup) and
+[`restore`](cli/regatta_restore) commands.
 
 
 {: .important }
@@ -23,7 +23,7 @@ or use the [Docker Image](https://github.com/orgs/jamf/packages?repo_name=regatt
 
 To create backups, Maintenance API must be enabled during Regatta startup.
 See the [Helm Chart](https://github.com/jamf/regatta-helm/blob/master/charts/regatta/values.yaml)
-or the [CLI documentation](/operations_guide/cli/regatta_leader) for reference.
+or the [CLI documentation](cli/regatta_leader) for reference.
 
 Additionaly, a *token* must be provided during Regatta startup which
 is then provided to the `regatta backup` command:
@@ -69,5 +69,5 @@ runnin on `127.0.0.1:8445`.
 ## Resetting a follower cluster
 
 Data in the follower cluster can also be wiped completely, forcing the follower to reload all the data directly from
-the leader. See the [Reset method in the Maintenance gRPC API documentation](/api/#maintenance) for more information.
+the leader. See the [Reset method in the Maintenance gRPC API documentation](../api/#maintenance) for more information.
 

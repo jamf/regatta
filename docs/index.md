@@ -23,7 +23,7 @@ other Kubernetes deployment. Check out the
 ### Distribute data globally in a hub-and-spoke model
 
 Regatta is designed to efficiently distribute data from a single core cluster
-to multiple edge clusters around the world. See the [Architecture](/architecture#Topology)
+to multiple edge clusters around the world. See the [Architecture](architecture#Topology)
 page for more information.
 
 ### Emphasis on high read throughput
