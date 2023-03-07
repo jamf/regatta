@@ -7,7 +7,7 @@ nav_order: 3
 # Architecture
 
 Regatta is designed as a "geographically distributed [etcd](https://etcd.io)", providing etcd-like gRPC API in every location
-while maintaining a consistent data set. See [API](api) for the complete documentation of the gRPC API.
+while maintaining a consistent data set. See [API](api.md) for the complete documentation of the gRPC API.
 
 ## Topology
 
@@ -52,9 +52,9 @@ There is no guarantee of data consistency within multiple tables.
 
 Regatta exposes several gRPC APIs and a REST API:
 
-* [Regatta gRPC API](api/#regatta-proto) is the user-facing API handling all read and write requests.
-* [Replication gRPC API](api/#replication-proto) is enabled only in the leader cluster and is
+* [Regatta gRPC API](api.md/#regatta-proto) is the user-facing API handling all read and write requests.
+* [Replication gRPC API](api.md/#replication-proto) is enabled only in the leader cluster and is
   responsible for responding to the asynchronous replication requests from follower clusters. Raft log
   is replicated via this API from the leader cluster to follower clusters.
-* [Maintenance gRPC API](api/#maintenance-proto) creates backups and restores from them.
-* REST API exposes endpoints for [metrics and observability](operations_guide/metrics_and_observability).
+* [Maintenance gRPC API](api.md/#maintenance-proto) creates backups and restores from them.
+* REST API exposes endpoints for [metrics and observability](operations_guide/metrics_and_observability.md).

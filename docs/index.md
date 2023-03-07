@@ -23,7 +23,7 @@ other Kubernetes deployment. Check out the
 ### Distribute data globally in a hub-and-spoke model
 
 Regatta is designed to efficiently distribute data from a single core cluster
-to multiple edge clusters around the world. See the [Architecture](architecture#Topology)
+to multiple edge clusters around the world. See the [Architecture](architecture.md#Topology)
 page for more information.
 
 ### Emphasis on high read throughput
@@ -66,10 +66,10 @@ There are compare-and-switch and multi-key atomic operations available.
 ## Why Regatta?
 
 Regatta was built because we were unable to find a distributed system
-offering all of the aforementioned features. Full story behind Regatta can be found in the blog post
+offering all the aforementioned features. Full story behind Regatta can be found in the blog post
 [The story of Regatta](https://medium.com/@coufalja/4652f71a350f).
 
 {: .important }
 Regatta is under heavy development. This means the API may change
 and there are a lot of things to be implemented. If you would like to
-help, do not hesitate and check the [Contributing](contributing) page!
+help, do not hesitate and check the [Contributing](contributing.md) page!
