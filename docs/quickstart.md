@@ -113,7 +113,7 @@ helm install my-regatta regatta/regatta -f values.yaml
 ```
 
 This will deploy Regatta leader cluster with one replica. See page
-[Deploying to Kubernets](operations_guide/deploying_to_kubernetes.md) for the more advanced deployment
+[Deploying to Kubernetes](operations_guide/deploying_to_kubernetes.md) for the more advanced deployment
 of Regatta and how to connect follower clusters to the leader cluster.
 
 ## Interact with Regatta
