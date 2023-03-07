@@ -20,5 +20,5 @@ regatta version [flags]
 
 ### SEE ALSO
 
-* [regatta](regatta)	 - Regatta is a read-optimized distributed key-value store.
+* [regatta](regatta.md)	 - Regatta is a read-optimized distributed key-value store.
 

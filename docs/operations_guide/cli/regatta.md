@@ -23,9 +23,9 @@ done to the leader cluster to which the follower is connected to.
 
 ### SEE ALSO
 
-* [regatta backup](regatta_backup)	 - Backup Regatta to local files.
-* [regatta follower](regatta_follower)	 - Start Regatta in follower mode.
-* [regatta leader](regatta_leader)	 - Start Regatta in leader mode.
-* [regatta restore](regatta_restore)	 - Restore Regatta from local files.
-* [regatta version](regatta_version)	 - Print current version.
+* [regatta backup](regatta_backup.md)	 - Backup Regatta to local files.
+* [regatta follower](regatta_follower.md)	 - Start Regatta in follower mode.
+* [regatta leader](regatta_leader.md)	 - Start Regatta in leader mode.
+* [regatta restore](regatta_restore.md)	 - Restore Regatta from local files.
+* [regatta version](regatta_version.md)	 - Print current version.
 
