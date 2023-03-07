@@ -7,7 +7,7 @@ permalink: pretty
 baseurl: /regatta
 
 logo: "/static/regatta.png"
-fabicon_ico: "/static/regatta-favicon.svg"
+favicon_ico: "/static/regatta-favicon.svg"
 
 aux_links:
   GitHub: https://github.com/jamf/regatta
