@@ -12,7 +12,10 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
-var docsDest string
+var (
+	docsDest string
+	linkBase string
+)
 
 const frontMatterTemplate = `---
 title: %s
@@ -24,12 +27,13 @@ grand_parent: Operations Guide
 
 func init() {
 	docsCmd.PersistentFlags().StringVar(&docsDest, "destination", "docs", "Destination folder where CLI docs should be generated.")
+	docsCmd.PersistentFlags().StringVar(&linkBase, "link-base", "", "Base path for generated links.")
 }
 
 func linkHandler(filename string) string {
 	file := filepath.Base(filename)
 	command := strings.Split(file, ".")[0]
-	return "/operations_guide/cli/" + command
+	return filepath.Join(linkBase, command)
 }
 
 func frontMatter(filename string) string {

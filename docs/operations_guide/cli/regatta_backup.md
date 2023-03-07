@@ -30,5 +30,5 @@ regatta backup [flags]
 
 ### SEE ALSO
 
-* [regatta](/operations_guide/cli/regatta)	 - Regatta is a read-optimized distributed key-value store.
+* [regatta](regatta)	 - Regatta is a read-optimized distributed key-value store.
 
