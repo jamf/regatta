@@ -7,7 +7,7 @@ nav_order: 4
 
 # Transactions
 
-See [Txn Request API](../api/#regatta-v1-TxnRequest) and [Txn Response API](../api/#regatta-v1-TxnResponse)
+See [Txn Request API](../api.md#regatta-v1-TxnRequest) and [Txn Response API](../api.md#regatta-v1-TxnResponse)
 for the complete gRPC API documentation for retrieving records from Regatta.
 
 A Regatta transaction is an atomic *if/then/else* construct over the key-value store.
@@ -23,7 +23,7 @@ To gain a better understanding of how to use the transaction API, see [examples]
 ## Retrieving or Modifying Data With Transactions
 
 Transactions can be invoked by sending `TxnRequest` message via the
-[`Txn` remote procedure call](../api/#regatta-v1-KV), `regatta.v1.KV/Txn`, which returns `TxnResponse` message.
+[`Txn` remote procedure call](../api.md#regatta-v1-KV), `regatta.v1.KV/Txn`, which returns `TxnResponse` message.
 
 `TxnRequest` consists of `Compare` predicates, `RequestOp` operations to be executed
 depending on the evaluation of the predicates, and the name of a table in which the transaction
@@ -39,7 +39,7 @@ modify it. A `RequestOp` is one of `Range`, `Put`, or `DeleteRange` messages.
 They can be guarded with predicates, as described in
 [the next section](#conditional-execution).
 More detailed description and their features of the individual operations can be
-found in the [API documentation](../api/#requestop).
+found in the [API documentation](../api.md#requestop).
 
 `RequestOp` messages are used in the `success` and `failure` repeated fields in
 the `Txn` messages. This is the "execution body" of the if/then/else construct of
@@ -51,7 +51,7 @@ only in the `success` field and leave the rest empty.
 A `ResponseOp` is one of `Range`, `Put`, or `DeleteRange` messages, depending on the
 type of the corresponding `RequestOp` operation provided in the transaction.
 An *n*-th `ResponseOp` message maps to an *n*-th `RequestOp` message in the transaction.
-See the [API documentation](../api/#mvcc-v1-ResponseOp) for more details.
+See the [API documentation](../api.md#mvcc-v1-ResponseOp) for more details.
 
 ## Conditional Execution
 
@@ -66,7 +66,7 @@ operations are executed.
 **The predicates and the operations themselves form a single, non-divisible transaction.**
 
 This is the current Protobuf definition of the `Compare` message
-(see the [API documentation of `Compare`](../api/#mvcc-v1-Compare)),
+(see the [API documentation of `Compare`](../api.md#mvcc-v1-Compare)),
 representing a single term in a given conjunction:
 
 ```protobuf

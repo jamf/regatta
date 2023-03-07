@@ -7,7 +7,7 @@ nav_order: 1
 
 # Retrieving Records
 
-See [Range Request API](../api/#regatta-v1-RangeRequest) and [Range Response API](../api#regatta-v1-RangeResponse)
+See [Range Request API](../api.md#regatta-v1-RangeRequest) and [Range Response API](../api.md#regatta-v1-RangeResponse)
 for the complete gRPC API documentation for retrieving records from Regatta.
 
 Range API serves for the retrieval of data, offering exact key-value pair lookups,
