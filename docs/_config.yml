@@ -4,8 +4,6 @@ remote_theme: just-the-docs/just-the-docs@v0.4.0
 
 permalink: pretty
 
-baseurl: /regatta
-
 logo: "/static/regatta.png"
 favicon_ico: "/static/regatta-favicon.svg"
 
@@ -17,10 +15,10 @@ plugins:
 - jekyll-relative-links
 
 nav_external_links:
-  - title: Regatta on GitHub
-    url: https://github.com/jamf/regatta
-  - title: Regatta Helm Chart
-    url: https://github.com/jamf/regatta-helm
+- title: Regatta on GitHub
+  url: https://github.com/jamf/regatta
+- title: Regatta Helm Chart
+  url: https://github.com/jamf/regatta-helm
 
 callouts_level: quiet
 callouts:
