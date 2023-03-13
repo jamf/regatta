@@ -67,7 +67,7 @@ There are compare-and-switch and multi-key atomic operations available.
 
 Regatta was built because we were unable to find a distributed system
 offering all the aforementioned features. Full story behind Regatta can be found in the blog post
-[The story of Regatta](https://medium.com/@coufalja/4652f71a350f).
+[The story of Regatta](https://medium.com/jamf-engineering/the-story-of-regatta-4652f71a350f).
 
 {: .important }
 Regatta is under heavy development. This means the API may change
