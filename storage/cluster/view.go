@@ -22,12 +22,6 @@ func newView() *shardView {
 	}
 }
 
-func (v *shardView) shardCount() int {
-	v.mtx.RLock()
-	defer v.mtx.RUnlock()
-	return len(v.shards)
-}
-
 func mergeShardInfo(current dragonboat.ShardView, update dragonboat.ShardView) dragonboat.ShardView {
 	if current.ConfigChangeIndex < update.ConfigChangeIndex {
 		current.Nodes = update.Nodes

@@ -16,7 +16,7 @@ import (
 )
 
 type clusterState struct {
-	ShardView []dragonboat.ShardView `json:"ShardView"`
+	ShardView []dragonboat.ShardView `json:"shard_view"`
 }
 
 type Info struct {
@@ -80,7 +80,7 @@ func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 
 	mcfg := memberlist.DefaultLANConfig()
 	mcfg.LogOutput = &loggerAdapter{log: log}
-	mcfg.Name = strconv.FormatUint(info.NodeID, 10)
+	mcfg.Name = fmt.Sprintf("%s/%d", info.NodeHostID, info.NodeID)
 	mcfg.Events = cluster
 
 	host, port, err := net.SplitHostPort(bindAddr)
@@ -143,14 +143,14 @@ type Node struct {
 }
 
 func (n Node) String() string {
-	return fmt.Sprintf("%s: {NodeId: %d, RaftAddress: %s, MemberAddress: %s}", n.ID, n.NodeID, n.RaftAddress, n.MemberAddress)
+	return fmt.Sprintf("%s: {node_id: %d, raft_address: %s, member_address: %s}", n.ID, n.NodeID, n.RaftAddress, n.MemberAddress)
 }
 
 type NodeMeta struct {
-	ID            string `json:"ID"`
-	NodeID        uint64 `json:"NodeID"`
-	RaftAddress   string `json:"RaftAddress"`
-	MemberAddress string `json:"MemberAddress"`
+	ID            string `json:"id"`
+	NodeID        uint64 `json:"node_id"`
+	RaftAddress   string `json:"raft_address"`
+	MemberAddress string `json:"member_address"`
 }
 
 type delegate struct {
@@ -160,17 +160,12 @@ type delegate struct {
 	infoF      getClusterInfo
 }
 
-func (c *delegate) NodeMeta(limit int) []byte {
+func (c *delegate) NodeMeta(_ int) []byte {
 	bytes, _ := json.Marshal(&c.meta)
-	if len(bytes) > limit {
-		panic("gossip meta limit exceeded")
-	}
 	return bytes
 }
 
-func (c *delegate) NotifyMsg(bytes []byte) {
-
-}
+func (c *delegate) NotifyMsg(bytes []byte) {}
 
 func (c *delegate) GetBroadcasts(overhead, limit int) [][]byte {
 	return c.broadcasts.GetBroadcasts(overhead, limit)

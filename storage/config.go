@@ -10,14 +10,19 @@ import (
 type LogDBImplementation int
 
 const (
-	Pebble LogDBImplementation = iota
-	Tan
-	Default = Pebble
+	Tan LogDBImplementation = iota
+	Pebble
 )
 
 type TableConfig tables.TableConfig
 
 type MetaConfig tables.MetaConfig
+
+type GossipConfig struct {
+	BindAddress      string
+	AdvertiseAddress string
+	InitialMembers   []string
+}
 
 type Config struct {
 	Logger *zap.Logger
@@ -84,6 +89,8 @@ type Config struct {
 	// commits are not notified, clients are only notified when their proposals
 	// are both committed and applied.
 	NotifyCommit bool
+	// Gossip is a configuration for memberlist cluster discovery.
+	Gossip GossipConfig
 	// Table is a configuration for table OnDisk state machines.
 	Table TableConfig
 	// Meta is a configuration for metadata inmemory state machine.
