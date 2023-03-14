@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/memberlist"
@@ -40,28 +39,24 @@ type getClusterInfo func() Info
 type Cluster struct {
 	ml         *memberlist.Memberlist
 	infoF      getClusterInfo
-	view       *view
-	mtx        sync.RWMutex
+	shardView  *shardView
 	broadcasts *memberlist.TransmitLimitedQueue
 	log        *zap.SugaredLogger
 }
 
 func (c *Cluster) NotifyJoin(node *memberlist.Node) {
-	meta := nodeMeta{}
-	_ = json.Unmarshal(node.Meta, &meta)
-	c.log.Infof("%s joined", meta)
+	n := toNode(node)
+	c.log.Infof("%s joined", n)
 }
 
 func (c *Cluster) NotifyLeave(node *memberlist.Node) {
-	meta := nodeMeta{}
-	_ = json.Unmarshal(node.Meta, &meta)
-	c.log.Infof("%s left", meta)
+	n := toNode(node)
+	c.log.Infof("%s left", n)
 }
 
 func (c *Cluster) NotifyUpdate(node *memberlist.Node) {
-	meta := nodeMeta{}
-	_ = json.Unmarshal(node.Meta, &meta)
-	c.log.Infof("%s updated", meta)
+	n := toNode(node)
+	c.log.Infof("%s updated", n)
 }
 
 func (c *Cluster) Start(join []string) (int, error) {
@@ -78,22 +73,15 @@ func (c *Cluster) Close() error {
 	return nil
 }
 
-func (c *Cluster) getState() clusterState {
-	c.mtx.RLock()
-	defer c.mtx.RUnlock()
-	return clusterState{}
-}
-
 func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 	info := f()
 	log := zap.S().Named("memberlist").WithOptions(zap.AddCallerSkip(4))
-	bus := &Cluster{log: log, infoF: f, view: newView()}
+	cluster := &Cluster{log: log, infoF: f, shardView: newView()}
 
 	mcfg := memberlist.DefaultLANConfig()
 	mcfg.LogOutput = &loggerAdapter{log: log}
 	mcfg.Name = strconv.FormatUint(info.NodeID, 10)
-	mcfg.Delegate = bus
-	mcfg.Events = bus
+	mcfg.Events = cluster
 
 	host, port, err := net.SplitHostPort(bindAddr)
 	if err != nil {
@@ -111,58 +99,113 @@ func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 		mcfg.AdvertisePort, _ = strconv.Atoi(aPort)
 	}
 
+	cluster.broadcasts = &memberlist.TransmitLimitedQueue{
+		NumNodes:       func() int { return cluster.ml.NumMembers() },
+		RetransmitMult: mcfg.RetransmitMult,
+	}
+
+	mcfg.Delegate = &delegate{
+		meta: NodeMeta{
+			ID:            info.NodeHostID,
+			NodeID:        info.NodeID,
+			RaftAddress:   info.RaftAddress,
+			MemberAddress: bindAddr,
+		},
+		broadcasts: cluster.broadcasts,
+		shardView:  cluster.shardView,
+		infoF:      f,
+	}
+
 	ml, err := memberlist.Create(mcfg)
 	if err != nil {
 		return nil, err
 	}
-	bus.ml = ml
-	bus.broadcasts = &memberlist.TransmitLimitedQueue{
-		NumNodes:       bus.ml.NumMembers,
-		RetransmitMult: mcfg.RetransmitMult,
+	cluster.ml = ml
+	return cluster, err
+}
+
+func (c *Cluster) ShardInfo(id uint64) dragonboat.ShardView {
+	return c.shardView.shardInfo(id)
+}
+
+func (c *Cluster) Nodes() []Node {
+	members := c.ml.Members()
+	ret := make([]Node, len(members))
+	for i, member := range members {
+		ret[i] = toNode(member)
 	}
-	return bus, err
+	return ret
 }
 
-type nodeMeta struct {
-	ID          string `json:"ID"`
-	NodeID      uint64 `json:"NodeID"`
-	RaftAddress string `json:"RaftAddress"`
+type Node struct {
+	memberlist.Node
+	NodeMeta
 }
 
-func (n nodeMeta) String() string {
-	return fmt.Sprintf("[%s, %d, %s]", n.ID, n.NodeID, n.RaftAddress)
+func (n Node) String() string {
+	return fmt.Sprintf("%s: {NodeId: %d, RaftAddress: %s, MemberAddress: %s}", n.ID, n.NodeID, n.RaftAddress, n.MemberAddress)
 }
 
-func (c *Cluster) NodeMeta(limit int) []byte {
-	info := c.infoF()
-	bytes, _ := json.Marshal(&nodeMeta{
-		ID:          info.NodeHostID,
-		NodeID:      info.NodeID,
-		RaftAddress: info.RaftAddress,
-	})
+type NodeMeta struct {
+	ID            string `json:"ID"`
+	NodeID        uint64 `json:"NodeID"`
+	RaftAddress   string `json:"RaftAddress"`
+	MemberAddress string `json:"MemberAddress"`
+}
+
+type delegate struct {
+	meta       NodeMeta
+	broadcasts *memberlist.TransmitLimitedQueue
+	shardView  *shardView
+	infoF      getClusterInfo
+}
+
+func (c *delegate) NodeMeta(limit int) []byte {
+	bytes, _ := json.Marshal(&c.meta)
 	if len(bytes) > limit {
 		panic("gossip meta limit exceeded")
 	}
 	return bytes
 }
 
-func (c *Cluster) NotifyMsg(bytes []byte) {
+func (c *delegate) NotifyMsg(bytes []byte) {
 
 }
 
-func (c *Cluster) GetBroadcasts(overhead, limit int) [][]byte {
+func (c *delegate) GetBroadcasts(overhead, limit int) [][]byte {
 	return c.broadcasts.GetBroadcasts(overhead, limit)
 }
 
-func (c *Cluster) LocalState(join bool) []byte {
-	c.view.update(toShardViewList(c.infoF().ShardInfoList))
-	state := &clusterState{ShardView: c.view.toShuffledList()}
+func (c *delegate) LocalState(join bool) []byte {
+	c.shardView.update(toShardViewList(c.infoF().ShardInfoList))
+	state := &clusterState{ShardView: c.shardView.copy()}
 	b, _ := json.Marshal(state)
 	return b
 }
 
-func (c *Cluster) MergeRemoteState(buf []byte, join bool) {
+func (c *delegate) MergeRemoteState(buf []byte, join bool) {
 	remote := &clusterState{}
 	_ = json.Unmarshal(buf, remote)
-	c.view.update(remote.ShardView)
+	c.shardView.update(remote.ShardView)
+}
+
+func toNode(node *memberlist.Node) Node {
+	n := Node{
+		Node: memberlist.Node{
+			Name:  node.Name,
+			Addr:  node.Addr,
+			Port:  node.Port,
+			Meta:  node.Meta,
+			State: node.State,
+			PMin:  node.PMin,
+			PMax:  node.PMax,
+			PCur:  node.PCur,
+			DMin:  node.DMin,
+			DMax:  node.DMax,
+			DCur:  node.DCur,
+		},
+		NodeMeta: NodeMeta{},
+	}
+	_ = json.Unmarshal(node.Meta, &n.NodeMeta)
+	return n
 }

@@ -11,18 +11,18 @@ import (
 
 const noLeader = 0
 
-type view struct {
+type shardView struct {
 	mtx    sync.RWMutex
 	shards map[uint64]dragonboat.ShardView
 }
 
-func newView() *view {
-	return &view{
+func newView() *shardView {
+	return &shardView{
 		shards: make(map[uint64]dragonboat.ShardView),
 	}
 }
 
-func (v *view) shardCount() int {
+func (v *shardView) shardCount() int {
 	v.mtx.RLock()
 	defer v.mtx.RUnlock()
 	return len(v.shards)
@@ -58,7 +58,7 @@ func toShardViewList(input []dragonboat.ShardInfo) []dragonboat.ShardView {
 	return result
 }
 
-func (v *view) update(updates []dragonboat.ShardView) {
+func (v *shardView) update(updates []dragonboat.ShardView) {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
 
@@ -71,7 +71,7 @@ func (v *view) update(updates []dragonboat.ShardView) {
 	}
 }
 
-func (v *view) toShuffledList() []dragonboat.ShardView {
+func (v *shardView) copy() []dragonboat.ShardView {
 	v.mtx.RLock()
 	defer v.mtx.RUnlock()
 	ci := make([]dragonboat.ShardView, 0, len(v.shards))
@@ -82,12 +82,8 @@ func (v *view) toShuffledList() []dragonboat.ShardView {
 	return ci
 }
 
-func (v *view) copy() map[uint64]dragonboat.ShardView {
+func (v *shardView) shardInfo(id uint64) dragonboat.ShardView {
 	v.mtx.RLock()
 	defer v.mtx.RUnlock()
-	res := make(map[uint64]dragonboat.ShardView, len(v.shards))
-	for id, info := range v.shards {
-		res[id] = info
-	}
-	return res
+	return v.shards[id]
 }
