@@ -36,6 +36,7 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(apiFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(raftFlagSet)
+	leaderCmd.PersistentFlags().AddFlagSet(memberlistFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
@@ -106,6 +107,11 @@ func leader(_ *cobra.Command, _ []string) {
 		MaxReceiveQueueSize: viper.GetUint64("raft.max-recv-queue-size"),
 		MaxSendQueueSize:    viper.GetUint64("raft.max-send-queue-size"),
 		LogCacheSize:        viper.GetInt("replication.log-cache-size"),
+		Gossip: storage.GossipConfig{
+			BindAddress:      viper.GetString("memberlist.address"),
+			AdvertiseAddress: viper.GetString("memberlist.advertise-address"),
+			InitialMembers:   viper.GetStringSlice("memberlist.members"),
+		},
 		Table: storage.TableConfig{
 			FS:                 vfs.Default,
 			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
@@ -134,7 +140,7 @@ func leader(_ *cobra.Command, _ []string) {
 			default:
 				log.Panicf("unknown logdb impl: %s", viper.GetString("raft.logdb"))
 			}
-			return storage.Default
+			return storage.Pebble
 		}(),
 	},
 	)

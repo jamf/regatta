@@ -27,6 +27,12 @@ regatta follower [flags]
       --maintenance.enabled                                   Whether maintenance API is enabled. (default true)
       --maintenance.key-filename string                       Path to the API server private key file. (default "hack/replication/server.key")
       --maintenance.token string                              Token to check for maintenance API access, if left empty (default) no token is checked.
+      --memberlist.address string                             Address is the address for the gossip service to bind to and listen on. Both UDP and TCP ports are used by the gossip service.
+                                                              The local gossip service should be able to receive gossip service related messages by binding to and listening on this address. BindAddress is usually in the format of IP:Port, Hostname:Port or DNS Name:Port. (default "0.0.0.0:7432")
+      --memberlist.advertise-address string                   AdvertiseAddress is the address to advertise to other Regatta instances used for NAT traversal.
+                                                              Gossip services running on remote Regatta instances will use AdvertiseAddress to exchange gossip service related messages. AdvertiseAddress is in the format of IP:Port, Hostname:Port or DNS Name:Port.
+      --memberlist.members strings                            Seed is a list of AdvertiseAddress of remote Regatta instances. Local Regatta instance will try to contact all of them to bootstrap the gossip service. 
+                                                              At least one reachable Regatta instance is required to successfully bootstrap the gossip service. Each seed address is in the format of IP:Port, Hostname:Port or DNS Name:Port.
       --raft.address string                                   RaftAddress is a hostname:port or IP:port address used by the Raft RPC module for exchanging Raft messages and snapshots.
                                                               This is also the identifier for a Storage instance. RaftAddress should be set to the public address that can be accessed from remote Storage instances.
       --raft.compaction-overhead uint                         CompactionOverhead defines the number of most recent entries to keep after each Raft log compaction.

@@ -16,6 +16,7 @@ var (
 	apiFlagSet          = pflag.NewFlagSet("api", pflag.ContinueOnError)
 	restFlagSet         = pflag.NewFlagSet("rest", pflag.ContinueOnError)
 	raftFlagSet         = pflag.NewFlagSet("raft", pflag.ContinueOnError)
+	memberlistFlagSet   = pflag.NewFlagSet("memberlist", pflag.ContinueOnError)
 	storageFlagSet      = pflag.NewFlagSet("storage", pflag.ContinueOnError)
 	maintenanceFlagSet  = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
 	experimentalFlagSet = pflag.NewFlagSet("experimental", pflag.ContinueOnError)
@@ -87,6 +88,15 @@ dropped to restrict memory usage. When set to 0, it means the queue size is unli
 dropped to restrict memory usage. When set to 0, it means the send queue size is unlimited.`)
 	raftFlagSet.String("raft.logdb", "tan", `Log DB implementation to use for storage of Raft log. 
 Due to higher performance and lower resource consumption Tan should be preferred, use Pebble only for backward compatibility. (options: pebble, tan)`)
+
+	memberlistFlagSet.String("memberlist.address", "0.0.0.0:7432", `Address is the address for the gossip service to bind to and listen on. Both UDP and TCP ports are used by the gossip service.
+The local gossip service should be able to receive gossip service related messages by binding to and listening on this address. BindAddress is usually in the format of IP:Port, Hostname:Port or DNS Name:Port.`)
+	memberlistFlagSet.String("memberlist.advertise-address", "", `AdvertiseAddress is the address to advertise to other Regatta instances used for NAT traversal.
+Gossip services running on remote Regatta instances will use AdvertiseAddress to exchange gossip service related messages. AdvertiseAddress is in the format of IP:Port, Hostname:Port or DNS Name:Port.`)
+	memberlistFlagSet.StringSlice("memberlist.members", []string{""}, `Seed is a list of AdvertiseAddress of remote Regatta instances. Local Regatta instance will try to contact all of them to bootstrap the gossip service. 
+At least one reachable Regatta instance is required to successfully bootstrap the gossip service. Each seed address is in the format of IP:Port, Hostname:Port or DNS Name:Port.`)
+
+	// raftFlagSet.String("raft.logdb", "tan", "LogDB implementation, options: pebble, tan.")
 
 	// Storage flags
 	storageFlagSet.Int64("storage.block-cache-size", 16*1024*1024, "Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.")
