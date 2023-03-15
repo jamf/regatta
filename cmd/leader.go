@@ -113,8 +113,7 @@ func leader(_ *cobra.Command, _ []string) {
 			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
 			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
 			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
-			WALDir:             viper.GetString("raft.state-machine-wal-dir"),
-			NodeHostDir:        viper.GetString("raft.state-machine-dir"),
+			DataDir:            viper.GetString("raft.state-machine-dir"),
 			RecoveryType:       toRecoveryType(viper.GetString("raft.snapshot-recovery-type")),
 			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
 		},
@@ -126,8 +125,13 @@ func leader(_ *cobra.Command, _ []string) {
 			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
 		},
 		LogDBImplementation: func() storage.LogDBImplementation {
-			if viper.GetBool("experimental.tanlogdb") {
+			switch viper.GetString("raft.logdb") {
+			case "pebble":
+				return storage.Pebble
+			case "tan":
 				return storage.Tan
+			default:
+				log.Panicf("unknown logdb impl: %s", viper.GetString("raft.logdb"))
 			}
 			return storage.Default
 		}(),

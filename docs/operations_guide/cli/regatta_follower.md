@@ -20,7 +20,6 @@ regatta follower [flags]
       --api.key-filename string                               Path to the API server private key file. (default "hack/server.key")
       --api.reflection-api                                    Whether reflection API is enabled. Should be disabled in production.
       --dev-mode                                              Development mode enabled (verbose logging, human-friendly log format).
-      --experimental.tanlogdb                                 Whether experimental LogDB implementation Tan is used in-place of Pebble based one.
   -h, --help                                                  help for follower
       --log-level string                                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
       --maintenance.address string                            Replication API server address. (default ":8445")
@@ -43,6 +42,8 @@ regatta follower [flags]
       --raft.listen-address string                            ListenAddress is a hostname:port or IP:port address used by the Raft RPC module to listen on for Raft message and snapshots.
                                                               When the ListenAddress field is not set, The Raft RPC module listens on RaftAddress. If 0.0.0.0 is specified as the IP of the ListenAddress, Regatta listens to the specified port on all interfaces.
                                                               When hostname or domain name is specified, it is locally resolved to IP addresses first and Regatta listens to all resolved IP addresses.
+      --raft.logdb string                                     Log DB implementation to use for storage of Raft log. 
+                                                              Due to higher performance and lower resource consumption Tan should be preferred, use Pebble only for backward compatibility. (options: pebble, tan) (default "tan")
       --raft.max-in-mem-log-size uint                         MaxInMemLogSize is the target size in bytes allowed for storing in memory Raft logs on each Raft node.
                                                               In memory Raft logs are the ones that have not been applied yet. (default 6291456)
       --raft.max-recv-queue-size uint                         MaxReceiveQueueSize is the maximum size in bytes of each receive queue. Once the maximum size is reached, further replication messages will be

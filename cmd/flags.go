@@ -85,6 +85,8 @@ dropped to restrict memory usage. When set to 0, it means the queue size is unli
 	raftFlagSet.Uint64("raft.max-send-queue-size", 0,
 		`MaxSendQueueSize is the maximum size in bytes of each send queue. Once the maximum size is reached, further replication messages will be
 dropped to restrict memory usage. When set to 0, it means the send queue size is unlimited.`)
+	raftFlagSet.String("raft.logdb", "tan", `Log DB implementation to use for storage of Raft log. 
+Due to higher performance and lower resource consumption Tan should be preferred, use Pebble only for backward compatibility. (options: pebble, tan)`)
 
 	// Storage flags
 	storageFlagSet.Int64("storage.block-cache-size", 16*1024*1024, "Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.")
@@ -95,8 +97,6 @@ dropped to restrict memory usage. When set to 0, it means the send queue size is
 	maintenanceFlagSet.String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	maintenanceFlagSet.String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
-
-	experimentalFlagSet.Bool("experimental.tanlogdb", false, "Whether experimental LogDB implementation Tan is used in-place of Pebble based one.")
 }
 
 func initConfig(set *pflag.FlagSet) {
