@@ -12,6 +12,6 @@ import (
 func autoSetMaxprocs(log *zap.SugaredLogger) {
 	_, err := maxprocs.Set(maxprocs.Logger(log.Infof))
 	if err != nil {
-		log.Fatalf("maxprocs: failed to set GOMAXPROCS: %v", err)
+		log.Panicf("maxprocs: failed to set GOMAXPROCS: %v", err)
 	}
 }
