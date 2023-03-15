@@ -125,8 +125,13 @@ func follower(_ *cobra.Command, _ []string) {
 			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
 		},
 		LogDBImplementation: func() storage.LogDBImplementation {
-			if viper.GetBool("experimental.tanlogdb") {
+			switch viper.GetString("raft.logdb") {
+			case "pebble":
+				return storage.Pebble
+			case "tan":
 				return storage.Tan
+			default:
+				log.Panicf("unknown logdb impl: %s", viper.GetString("raft.logdb"))
 			}
 			return storage.Default
 		}(),
