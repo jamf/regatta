@@ -1,5 +1,12 @@
 # Regatta
 
+[![tag](https://img.shields.io/github/tag/jamf/regatta.svg)](https://github.com/jamf/regatta/releases)
+![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.20-%23007d9c)
+![Build Status](https://github.com/jamf/regatta/actions/workflows/test.yml/badge.svg)
+[![Go report](https://goreportcard.com/badge/github.com/jamf/regatta)](https://goreportcard.com/report/github.com/jamf/regatta)
+[![Contributors](https://img.shields.io/github/contributors/jamf/regatta)](https://github.com/jamf/regatta/graphs/contributors)
+[![License](https://img.shields.io/github/license/jamf/regatta)](LICENSE)
+
 ![Regatta logo](./docs/static/regatta.png "Regatta")
 
 **Regatta** is a distributed, eventually consistent key-value store built for Kubernetes.
