@@ -96,13 +96,8 @@ type TableConfig struct {
 	// FS is the filesystem to use for IOnDiskStateMachine, useful for testing,
 	// uses the real vfs.Default if nil.
 	FS vfs.FS
-	// WALDir is the directory used for storing the WAL of TableConfig entries. It is
-	// recommended to use low latency storage such as NVME SSD with power loss
-	// protection to store such WAL data. Leave WALDir to have zero value will
-	// have everything stored in NodeHostDir.
-	WALDir string
-	// NodeHostDir is where everything else is stored.
-	NodeHostDir string
+	// DataDir is where table data is stored.
+	DataDir string
 	// BlockCacheSize shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.
 	BlockCacheSize int64
 	// RecoveryType the in-cluster snapshot recovery type.
