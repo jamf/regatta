@@ -61,7 +61,7 @@ regatta follower [flags]
       --raft.rtt duration                                     RTTMillisecond defines the average Round Trip Time (RTT) between two NodeHost instances.
                                                               Such a RTT interval is internally used as a logical clock tick, Raft heartbeat and election intervals are both defined in term of how many such RTT intervals.
                                                               Note that RTTMillisecond is the combined delays between two NodeHost instances including all delays caused by network transmission, delays caused by NodeHost queuing and processing. (default 50ms)
-      --raft.snapshot-entries uint                            SnapshotEntries defines how often the state machine should be snapshotted automatically.
+      --raft.snapshot-entries uint                            SnapshotEntries defines how often the state machine should be snapshot automatically.
                                                               It is defined in terms of the number of applied Raft log entries.
                                                               SnapshotEntries can be set to 0 to disable such automatic snapshotting. (default 10000)
       --raft.snapshot-recovery-type string                    Specifies the way how the snapshots should be shared between nodes within the cluster. Options: snapshot, checkpoint, default: checkpoint for non Windows systems. 
