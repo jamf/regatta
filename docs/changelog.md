@@ -6,6 +6,8 @@ nav_order: 999
 
 # Changelog
 
+## v0.2.0 (Unreleased)
+
 ## v0.1.0
 
 Initial Regatta v0.1.0 Release
