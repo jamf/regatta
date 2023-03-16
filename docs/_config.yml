@@ -19,6 +19,8 @@ nav_external_links:
   url: https://github.com/jamf/regatta
 - title: Regatta Helm Chart
   url: https://github.com/jamf/regatta-helm
+- title: CHANGELOG
+  url: https://github.com/jamf/regatta/blob/master/CHANGELOG.md
 
 callouts_level: quiet
 callouts:
@@ -44,3 +46,10 @@ compress_html:
   startings: []
   blanklines: false
   profile: false
+
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub."
+gh_edit_repository: "https://github.com/jamf/regatta"
+gh_edit_branch: "master"
+gh_edit_source: docs
+gh_edit_view_mode: "tree"
