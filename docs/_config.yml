@@ -19,8 +19,9 @@ nav_external_links:
   url: https://github.com/jamf/regatta
 - title: Regatta Helm Chart
   url: https://github.com/jamf/regatta-helm
-- title: CHANGELOG
-  url: https://github.com/jamf/regatta/blob/master/CHANGELOG.md
+
+exclude:
+- api.tmpl
 
 callouts_level: quiet
 callouts:

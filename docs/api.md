@@ -1,74 +1,11 @@
 ---
 title: API
 layout: default
+nav_order: 500
 ---
+
 # gRPC API Documentation
-<a name="top"></a>
-
-## Table of Contents
-
-- [maintenance.proto](#maintenance-proto)
-    - [BackupRequest](#maintenance-v1-BackupRequest)
-    - [ResetRequest](#maintenance-v1-ResetRequest)
-    - [ResetResponse](#maintenance-v1-ResetResponse)
-    - [RestoreInfo](#maintenance-v1-RestoreInfo)
-    - [RestoreMessage](#maintenance-v1-RestoreMessage)
-    - [RestoreResponse](#maintenance-v1-RestoreResponse)
-  
-    - [Maintenance](#maintenance-v1-Maintenance)
-  
-- [mvcc.proto](#mvcc-proto)
-    - [Command](#mvcc-v1-Command)
-    - [CommandResult](#mvcc-v1-CommandResult)
-    - [Compare](#mvcc-v1-Compare)
-    - [KeyValue](#mvcc-v1-KeyValue)
-    - [RequestOp](#mvcc-v1-RequestOp)
-    - [RequestOp.DeleteRange](#mvcc-v1-RequestOp-DeleteRange)
-    - [RequestOp.Put](#mvcc-v1-RequestOp-Put)
-    - [RequestOp.Range](#mvcc-v1-RequestOp-Range)
-    - [ResponseOp](#mvcc-v1-ResponseOp)
-    - [ResponseOp.DeleteRange](#mvcc-v1-ResponseOp-DeleteRange)
-    - [ResponseOp.Put](#mvcc-v1-ResponseOp-Put)
-    - [ResponseOp.Range](#mvcc-v1-ResponseOp-Range)
-    - [Txn](#mvcc-v1-Txn)
-  
-    - [Command.CommandType](#mvcc-v1-Command-CommandType)
-    - [Compare.CompareResult](#mvcc-v1-Compare-CompareResult)
-    - [Compare.CompareTarget](#mvcc-v1-Compare-CompareTarget)
-  
-- [regatta.proto](#regatta-proto)
-    - [DeleteRangeRequest](#regatta-v1-DeleteRangeRequest)
-    - [DeleteRangeResponse](#regatta-v1-DeleteRangeResponse)
-    - [PutRequest](#regatta-v1-PutRequest)
-    - [PutResponse](#regatta-v1-PutResponse)
-    - [RangeRequest](#regatta-v1-RangeRequest)
-    - [RangeResponse](#regatta-v1-RangeResponse)
-    - [ResponseHeader](#regatta-v1-ResponseHeader)
-    - [TxnRequest](#regatta-v1-TxnRequest)
-    - [TxnResponse](#regatta-v1-TxnResponse)
-  
-    - [KV](#regatta-v1-KV)
-  
-- [replication.proto](#replication-proto)
-    - [MetadataRequest](#replication-v1-MetadataRequest)
-    - [MetadataResponse](#replication-v1-MetadataResponse)
-    - [ReplicateCommand](#replication-v1-ReplicateCommand)
-    - [ReplicateCommandsResponse](#replication-v1-ReplicateCommandsResponse)
-    - [ReplicateErrResponse](#replication-v1-ReplicateErrResponse)
-    - [ReplicateRequest](#replication-v1-ReplicateRequest)
-    - [ReplicateResponse](#replication-v1-ReplicateResponse)
-    - [SnapshotChunk](#replication-v1-SnapshotChunk)
-    - [SnapshotRequest](#replication-v1-SnapshotRequest)
-    - [Table](#replication-v1-Table)
-  
-    - [ReplicateError](#replication-v1-ReplicateError)
-    - [Table.Type](#replication-v1-Table-Type)
-  
-    - [Log](#replication-v1-Log)
-    - [Metadata](#replication-v1-Metadata)
-    - [Snapshot](#replication-v1-Snapshot)
-  
-- [Scalar Value Types](#scalar-value-types)
+{:toc}
 
 
 
@@ -77,13 +14,27 @@ layout: default
 
 ## maintenance.proto
 
+# Maintenance {#maintenancev1maintenance}
+Maintenance service provides methods for maintenance purposes.
+## Backup
+> **rpc** Backup([BackupRequest](#backuprequest))
+    [.replication.v1.SnapshotChunk](#replicationv1snapshotchunk)
+
+## Restore
+> **rpc** Restore([RestoreMessage](#restoremessage))
+    [RestoreResponse](#restoreresponse)
+
+## Reset
+> **rpc** Reset([ResetRequest](#resetrequest))
+    [ResetResponse](#resetresponse)
+
+
+
 
 
 <a name="maintenance-v1-BackupRequest"></a>
-
 ### BackupRequest
 BackupRequest requests and opens a stream with backup data.
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -95,10 +46,8 @@ BackupRequest requests and opens a stream with backup data.
 
 
 <a name="maintenance-v1-ResetRequest"></a>
-
 ### ResetRequest
 ResetRequest resets either a single or multiple tables in the cluster, meaning that their data will be repopulated from the Leader.
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -111,7 +60,6 @@ ResetRequest resets either a single or multiple tables in the cluster, meaning t
 
 
 <a name="maintenance-v1-ResetResponse"></a>
-
 ### ResetResponse
 
 
@@ -119,12 +67,9 @@ ResetRequest resets either a single or multiple tables in the cluster, meaning t
 
 
 
-
 <a name="maintenance-v1-RestoreInfo"></a>
-
 ### RestoreInfo
 RestoreInfo metadata of restore snapshot that is going to be uploaded.
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -136,10 +81,8 @@ RestoreInfo metadata of restore snapshot that is going to be uploaded.
 
 
 <a name="maintenance-v1-RestoreMessage"></a>
-
 ### RestoreMessage
 RestoreMessage contains either info of the table being restored or chunk of a backup data.
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -152,7 +95,6 @@ RestoreMessage contains either info of the table being restored or chunk of a ba
 
 
 <a name="maintenance-v1-RestoreResponse"></a>
-
 ### RestoreResponse
 
 
@@ -160,25 +102,10 @@ RestoreMessage contains either info of the table being restored or chunk of a ba
 
 
 
- 
-
- 
-
- 
 
 
-<a name="maintenance-v1-Maintenance"></a>
 
-### Maintenance
-Maintenance service provides methods for maintenance purposes.
 
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| Backup | [BackupRequest](#maintenance-v1-BackupRequest) | [.replication.v1.SnapshotChunk](#replication-v1-SnapshotChunk) stream |  |
-| Restore | [RestoreMessage](#maintenance-v1-RestoreMessage) stream | [RestoreResponse](#maintenance-v1-RestoreResponse) |  |
-| Reset | [ResetRequest](#maintenance-v1-ResetRequest) | [ResetResponse](#maintenance-v1-ResetResponse) |  |
-
- 
 
 
 
@@ -189,10 +116,9 @@ Maintenance service provides methods for maintenance purposes.
 
 
 
+
 <a name="mvcc-v1-Command"></a>
-
 ### Command
-
 
 
 | Field | Type | Label | Description |
@@ -203,7 +129,7 @@ Maintenance service provides methods for maintenance purposes.
 | leader_index | [uint64](#uint64) | optional | leader_index holds the value of the log index of a leader cluster from which this command was replicated from. |
 | batch | [KeyValue](#mvcc-v1-KeyValue) | repeated | batch is an atomic batch of KVs to either PUT or DELETE. (faster, no read, no mix of types, no conditions). |
 | txn | [Txn](#mvcc-v1-Txn) | optional | txn is an atomic transaction (slow, supports reads and conditions). |
-| range_end | [bytes](#bytes) | optional | range_end is the key following the last key to affect for the range [kv.key, range_end). If range_end is not given, the range is defined to contain only the kv.key argument. If range_end is one bit larger than the given kv.key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
+| range_end | [bytes](#bytes) | optional | range_end is the key following the last key to affect for the range [kv.key, range_end). If range_end is not given, the range is defined to contain only the kv.key argument. If range_end is one bit larger than the given kv.key, then the range is all the keys with the prefix (the given key). If range_end is '\0', the range is all keys greater than or equal to the key argument. |
 | prev_kvs | [bool](#bool) |  | prev_kvs if to fetch previous KVs. |
 | sequence | [Command](#mvcc-v1-Command) | repeated | sequence is the sequence of commands to be applied as a single FSM step. |
 
@@ -213,9 +139,7 @@ Maintenance service provides methods for maintenance purposes.
 
 
 <a name="mvcc-v1-CommandResult"></a>
-
 ### CommandResult
-
 
 
 | Field | Type | Label | Description |
@@ -229,7 +153,6 @@ Maintenance service provides methods for maintenance purposes.
 
 
 <a name="mvcc-v1-Compare"></a>
-
 ### Compare
 Compare property `target` for every KV from DB in [key, range_end) with target_union using the operation `result`. e.g. `DB[key].target result target_union.target`,
 that means that for asymmetric operations LESS and GREATER the target property of the key from the DB is the left-hand side of the comparison.
@@ -238,7 +161,6 @@ Examples:
 * `DB[key][value] GREATER target_union.value`
 * `DB[key...range_end][value] GREATER target_union.value`
 * `DB[key][value] LESS target_union.value`
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -256,9 +178,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-KeyValue"></a>
-
 ### KeyValue
-
 
 
 | Field | Type | Label | Description |
@@ -274,9 +194,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-RequestOp"></a>
-
 ### RequestOp
-
 
 
 | Field | Type | Label | Description |
@@ -291,15 +209,13 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-RequestOp-DeleteRange"></a>
-
 ### RequestOp.DeleteRange
-
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  | key is the first key to delete in the range. |
-| range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
+| range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is '\0', the range is all keys greater than or equal to the key argument. |
 | prev_kv | [bool](#bool) |  | If prev_kv is set, etcd gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. |
 
 
@@ -308,9 +224,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-RequestOp-Put"></a>
-
 ### RequestOp.Put
-
 
 
 | Field | Type | Label | Description |
@@ -325,15 +239,13 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-RequestOp-Range"></a>
-
 ### RequestOp.Range
-
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  | key is the first key for the range. If range_end is not given, the request only looks up key. |
-| range_end | [bytes](#bytes) |  | range_end is the upper bound on the requested range [key, range_end). If range_end is &#39;\0&#39;, the range is all keys &gt;= key. If range_end is key plus one (e.g., &#34;aa&#34;&#43;1 == &#34;ab&#34;, &#34;a\xff&#34;&#43;1 == &#34;b&#34;), then the range request gets all keys prefixed with key. If both key and range_end are &#39;\0&#39;, then the range request returns all keys. |
+| range_end | [bytes](#bytes) |  | range_end is the upper bound on the requested range [key, range_end). If range_end is '\0', the range is all keys >= key. If range_end is key plus one (e.g., "aa"+1 == "ab", "a\xff"+1 == "b"), then the range request gets all keys prefixed with key. If both key and range_end are '\0', then the range request returns all keys. |
 | limit | [int64](#int64) |  | limit is a limit on the number of keys returned for the request. When limit is set to 0, it is treated as no limit. |
 | keys_only | [bool](#bool) |  | keys_only when set returns only the keys and not the values. |
 | count_only | [bool](#bool) |  | count_only when set returns only the count of the keys in the range. |
@@ -344,9 +256,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-ResponseOp"></a>
-
 ### ResponseOp
-
 
 
 | Field | Type | Label | Description |
@@ -361,9 +271,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-ResponseOp-DeleteRange"></a>
-
 ### ResponseOp.DeleteRange
-
 
 
 | Field | Type | Label | Description |
@@ -377,9 +285,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-ResponseOp-Put"></a>
-
 ### ResponseOp.Put
-
 
 
 | Field | Type | Label | Description |
@@ -392,9 +298,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-ResponseOp-Range"></a>
-
 ### ResponseOp.Range
-
 
 
 | Field | Type | Label | Description |
@@ -409,9 +313,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="mvcc-v1-Txn"></a>
-
 ### Txn
-
 
 
 | Field | Type | Label | Description |
@@ -424,7 +326,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 
- 
+
 
 
 <a name="mvcc-v1-Command-CommandType"></a>
@@ -468,11 +370,9 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 | VALUE | 0 |  |
 
 
- 
 
- 
 
- 
+
 
 
 
@@ -481,19 +381,40 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 ## regatta.proto
 
+# KV {#regattav1kv}
+KV for handling the read/put requests
+## Range
+> **rpc** Range([RangeRequest](#rangerequest))
+    [RangeResponse](#rangeresponse)
+Range gets the keys in the range from the key-value store.
+## Put
+> **rpc** Put([PutRequest](#putrequest))
+    [PutResponse](#putresponse)
+Put puts the given key into the key-value store.
+## DeleteRange
+> **rpc** DeleteRange([DeleteRangeRequest](#deleterangerequest))
+    [DeleteRangeResponse](#deleterangeresponse)
+DeleteRange deletes the given range from the key-value store.
+## Txn
+> **rpc** Txn([TxnRequest](#txnrequest))
+    [TxnResponse](#txnresponse)
+Txn processes multiple requests in a single transaction.
+A txn request increments the revision of the key-value store
+and generates events with the same revision for every completed request.
+It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
+
+
 
 
 <a name="regatta-v1-DeleteRangeRequest"></a>
-
 ### DeleteRangeRequest
-
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | table | [bytes](#bytes) |  | table name of the table |
 | key | [bytes](#bytes) |  | key is the first key to delete in the range. |
-| range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is &#39;\0&#39;, the range is all keys greater than or equal to the key argument. |
+| range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is '\0', the range is all keys greater than or equal to the key argument. |
 | prev_kv | [bool](#bool) |  | If prev_kv is set, etcd gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. |
 
 
@@ -502,9 +423,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-DeleteRangeResponse"></a>
-
 ### DeleteRangeResponse
-
 
 
 | Field | Type | Label | Description |
@@ -519,9 +438,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-PutRequest"></a>
-
 ### PutRequest
-
 
 
 | Field | Type | Label | Description |
@@ -537,9 +454,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-PutResponse"></a>
-
 ### PutResponse
-
 
 
 | Field | Type | Label | Description |
@@ -553,16 +468,14 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-RangeRequest"></a>
-
 ### RangeRequest
-
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | table | [bytes](#bytes) |  | table name of the table |
 | key | [bytes](#bytes) |  | key is the first key for the range. If range_end is not given, the request only looks up key. |
-| range_end | [bytes](#bytes) |  | range_end is the upper bound on the requested range [key, range_end). If range_end is &#39;\0&#39;, the range is all keys &gt;= key. If range_end is key plus one (e.g., &#34;aa&#34;&#43;1 == &#34;ab&#34;, &#34;a\xff&#34;&#43;1 == &#34;b&#34;), then the range request gets all keys prefixed with key. If both key and range_end are &#39;\0&#39;, then the range request returns all keys. |
+| range_end | [bytes](#bytes) |  | range_end is the upper bound on the requested range [key, range_end). If range_end is '\0', the range is all keys >= key. If range_end is key plus one (e.g., "aa"+1 == "ab", "a\xff"+1 == "b"), then the range request gets all keys prefixed with key. If both key and range_end are '\0', then the range request returns all keys. |
 | limit | [int64](#int64) |  | limit is a limit on the number of keys returned for the request. When limit is set to 0, it is treated as no limit. |
 | linearizable | [bool](#bool) |  | linearizable sets the range request to use linearizable read. Linearizable requests have higher latency and lower throughput than serializable requests but reflect the current consensus of the cluster. For better performance, in exchange for possible stale reads, a serializable range request is served locally without needing to reach consensus with other nodes in the cluster. The serializable request is default option. |
 | keys_only | [bool](#bool) |  | keys_only when set returns only the keys and not the values. |
@@ -578,9 +491,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-RangeResponse"></a>
-
 ### RangeResponse
-
 
 
 | Field | Type | Label | Description |
@@ -596,9 +507,7 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-ResponseHeader"></a>
-
 ### ResponseHeader
-
 
 
 | Field | Type | Label | Description |
@@ -615,7 +524,6 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-v1-TxnRequest"></a>
-
 ### TxnRequest
 From google paxosdb paper:
 Our implementation hinges around a powerful primitive which we call MultiOp. All other database
@@ -632,7 +540,6 @@ to the same or different entries in the database. These operations are executed
 if guard evaluates to true.
 3. A list of database operations called f op. Like t op, but executed if guard evaluates to false.
 
-
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | table | [bytes](#bytes) |  | table name of the table |
@@ -646,9 +553,7 @@ if guard evaluates to true.
 
 
 <a name="regatta-v1-TxnResponse"></a>
-
 ### TxnResponse
-
 
 
 | Field | Type | Label | Description |
@@ -661,26 +566,11 @@ if guard evaluates to true.
 
 
 
- 
-
- 
-
- 
 
 
-<a name="regatta-v1-KV"></a>
 
-### KV
-KV for handling the read/put requests
 
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| Range | [RangeRequest](#regatta-v1-RangeRequest) | [RangeResponse](#regatta-v1-RangeResponse) | Range gets the keys in the range from the key-value store. |
-| Put | [PutRequest](#regatta-v1-PutRequest) | [PutResponse](#regatta-v1-PutResponse) | Put puts the given key into the key-value store. |
-| DeleteRange | [DeleteRangeRequest](#regatta-v1-DeleteRangeRequest) | [DeleteRangeResponse](#regatta-v1-DeleteRangeResponse) | DeleteRange deletes the given range from the key-value store. |
-| Txn | [TxnRequest](#regatta-v1-TxnRequest) | [TxnResponse](#regatta-v1-TxnResponse) | Txn processes multiple requests in a single transaction. A txn request increments the revision of the key-value store and generates events with the same revision for every completed request. It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key). |
 
- 
 
 
 
@@ -689,10 +579,31 @@ KV for handling the read/put requests
 
 ## replication.proto
 
+# Log {#replicationv1log}
+Log service provides methods to replicate data from Regatta leader's log to Regatta followers' logs.
+## Replicate
+> **rpc** Replicate([ReplicateRequest](#replicaterequest))
+    [ReplicateResponse](#replicateresponse)
+Replicate is method to ask for data of specified table from the specified index.
+
+# Metadata {#replicationv1metadata}
+Metadata service provides method to get Regatta metadata, e.g. tables.
+## Get
+> **rpc** Get([MetadataRequest](#metadatarequest))
+    [MetadataResponse](#metadataresponse)
+
+
+# Snapshot {#replicationv1snapshot}
+
+## Stream
+> **rpc** Stream([SnapshotRequest](#snapshotrequest))
+    [SnapshotChunk](#snapshotchunk)
+
+
+
 
 
 <a name="replication-v1-MetadataRequest"></a>
-
 ### MetadataRequest
 
 
@@ -700,11 +611,8 @@ KV for handling the read/put requests
 
 
 
-
 <a name="replication-v1-MetadataResponse"></a>
-
 ### MetadataResponse
-
 
 
 | Field | Type | Label | Description |
@@ -717,9 +625,7 @@ KV for handling the read/put requests
 
 
 <a name="replication-v1-ReplicateCommand"></a>
-
 ### ReplicateCommand
-
 
 
 | Field | Type | Label | Description |
@@ -733,10 +639,8 @@ KV for handling the read/put requests
 
 
 <a name="replication-v1-ReplicateCommandsResponse"></a>
-
 ### ReplicateCommandsResponse
 ReplicateCommandsResponse sequence of replication commands
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -748,9 +652,7 @@ ReplicateCommandsResponse sequence of replication commands
 
 
 <a name="replication-v1-ReplicateErrResponse"></a>
-
 ### ReplicateErrResponse
-
 
 
 | Field | Type | Label | Description |
@@ -763,10 +665,8 @@ ReplicateCommandsResponse sequence of replication commands
 
 
 <a name="replication-v1-ReplicateRequest"></a>
-
 ### ReplicateRequest
 ReplicateRequest request of the replication data at given leader_index
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -779,10 +679,8 @@ ReplicateRequest request of the replication data at given leader_index
 
 
 <a name="replication-v1-ReplicateResponse"></a>
-
 ### ReplicateResponse
 ReplicateResponse response to the ReplicateRequest
-
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -796,9 +694,7 @@ ReplicateResponse response to the ReplicateRequest
 
 
 <a name="replication-v1-SnapshotChunk"></a>
-
 ### SnapshotChunk
-
 
 
 | Field | Type | Label | Description |
@@ -813,9 +709,7 @@ ReplicateResponse response to the ReplicateRequest
 
 
 <a name="replication-v1-SnapshotRequest"></a>
-
 ### SnapshotRequest
-
 
 
 | Field | Type | Label | Description |
@@ -828,9 +722,7 @@ ReplicateResponse response to the ReplicateRequest
 
 
 <a name="replication-v1-Table"></a>
-
 ### Table
-
 
 
 | Field | Type | Label | Description |
@@ -842,7 +734,7 @@ ReplicateResponse response to the ReplicateRequest
 
 
 
- 
+
 
 
 <a name="replication-v1-ReplicateError"></a>
@@ -868,41 +760,9 @@ ReplicateResponse response to the ReplicateRequest
 | LOCAL | 1 |  |
 
 
- 
-
- 
 
 
-<a name="replication-v1-Log"></a>
 
-### Log
-Log service provides methods to replicate data from Regatta leader&#39;s log to Regatta followers&#39; logs.
-
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| Replicate | [ReplicateRequest](#replication-v1-ReplicateRequest) | [ReplicateResponse](#replication-v1-ReplicateResponse) stream | Replicate is method to ask for data of specified table from the specified index. |
-
-
-<a name="replication-v1-Metadata"></a>
-
-### Metadata
-Metadata service provides method to get Regatta metadata, e.g. tables.
-
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| Get | [MetadataRequest](#replication-v1-MetadataRequest) | [MetadataResponse](#replication-v1-MetadataResponse) |  |
-
-
-<a name="replication-v1-Snapshot"></a>
-
-### Snapshot
-
-
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| Stream | [SnapshotRequest](#replication-v1-SnapshotRequest) | [SnapshotChunk](#replication-v1-SnapshotChunk) stream |  |
-
- 
 
 
 
