@@ -17,9 +17,8 @@ nav_order: 500
 
 
 <a name="maintenance-proto"></a>
-<p align="right"><a href="#top">Top</a></p>
-
 ## maintenance.proto
+
 
 # Maintenance {#maintenancev1maintenance}
 Maintenance service provides methods for maintenance purposes.
@@ -27,13 +26,19 @@ Maintenance service provides methods for maintenance purposes.
 > **rpc** Backup([BackupRequest](#backuprequest))
     [.replication.v1.SnapshotChunk](#replicationv1snapshotchunk)
 
+
+
 ## Restore
 > **rpc** Restore([RestoreMessage](#restoremessage))
     [RestoreResponse](#restoreresponse)
 
+
+
 ## Reset
 > **rpc** Reset([ResetRequest](#resetrequest))
     [ResetResponse](#resetresponse)
+
+
 
 
 
@@ -117,9 +122,8 @@ RestoreMessage contains either info of the table being restored or chunk of a ba
 
 
 <a name="mvcc-proto"></a>
-<p align="right"><a href="#top">Top</a></p>
-
 ## mvcc.proto
+
 
 
 
@@ -384,31 +388,38 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 
 
 <a name="regatta-proto"></a>
-<p align="right"><a href="#top">Top</a></p>
-
 ## regatta.proto
+
 
 # KV {#regattav1kv}
 KV for handling the read/put requests
 ## Range
 > **rpc** Range([RangeRequest](#rangerequest))
     [RangeResponse](#rangeresponse)
+
 Range gets the keys in the range from the key-value store.
+
 ## Put
 > **rpc** Put([PutRequest](#putrequest))
     [PutResponse](#putresponse)
+
 Put puts the given key into the key-value store.
+
 ## DeleteRange
 > **rpc** DeleteRange([DeleteRangeRequest](#deleterangerequest))
     [DeleteRangeResponse](#deleterangeresponse)
+
 DeleteRange deletes the given range from the key-value store.
+
 ## Txn
 > **rpc** Txn([TxnRequest](#txnrequest))
     [TxnResponse](#txnresponse)
+
 Txn processes multiple requests in a single transaction.
 A txn request increments the revision of the key-value store
 and generates events with the same revision for every completed request.
 It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
+
 
 
 
@@ -582,16 +593,17 @@ if guard evaluates to true.
 
 
 <a name="replication-proto"></a>
-<p align="right"><a href="#top">Top</a></p>
-
 ## replication.proto
+
 
 # Log {#replicationv1log}
 Log service provides methods to replicate data from Regatta leader's log to Regatta followers' logs.
 ## Replicate
 > **rpc** Replicate([ReplicateRequest](#replicaterequest))
     [ReplicateResponse](#replicateresponse)
+
 Replicate is method to ask for data of specified table from the specified index.
+
 
 # Metadata {#replicationv1metadata}
 Metadata service provides method to get Regatta metadata, e.g. tables.
@@ -600,11 +612,15 @@ Metadata service provides method to get Regatta metadata, e.g. tables.
     [MetadataResponse](#metadataresponse)
 
 
+
+
 # Snapshot {#replicationv1snapshot}
 
 ## Stream
 > **rpc** Stream([SnapshotRequest](#snapshotrequest))
     [SnapshotChunk](#snapshotchunk)
+
+
 
 
 
