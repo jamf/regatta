@@ -26,6 +26,8 @@ const (
 	writeBufferSize = 16 * 1024 * 1024
 	// maxWriteBufferNumber number of write buffers.
 	maxWriteBufferNumber = 4
+	// maxOpenFiles
+	maxOpenFiles = 1000
 	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
 	l0FileNumCompactionTrigger = 8
 	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
@@ -73,17 +75,14 @@ func DefaultOptions() *pebble.Options {
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		DisableWAL:                  true,
 		Comparer:                    pebble.DefaultComparer,
+		MaxOpenFiles:                maxOpenFiles,
 	}
 	opts.Comparer.Split = split
-	return opts.EnsureDefaults()
+	return opts
 }
 
 func WriterOptions(level int) sstable.WriterOptions {
 	return DefaultOptions().MakeWriterOptions(level, sstable.TableFormatPebblev2)
-}
-
-func ReaderOptions() sstable.ReaderOptions {
-	return DefaultOptions().MakeReaderOptions()
 }
 
 type Option interface {
