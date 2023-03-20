@@ -26,7 +26,7 @@ const (
 	writeBufferSize = 16 * 1024 * 1024
 	// maxWriteBufferNumber number of write buffers.
 	maxWriteBufferNumber = 4
-	// maxOpenFiles
+	// maxOpenFiles number of max open files per pebble instance.
 	maxOpenFiles = 1000
 	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
 	l0FileNumCompactionTrigger = 8

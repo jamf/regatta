@@ -15,7 +15,6 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
-	rp "github.com/jamf/regatta/pebble"
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
@@ -43,7 +42,7 @@ const (
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
 	blockCache := pebble.NewCache(cfg.Table.BlockCacheSize)
-	tableCache := pebble.NewTableCache(blockCache, runtime.GOMAXPROCS(-1), rp.DefaultOptions().MaxOpenFiles)
+	tableCache := pebble.NewTableCache(blockCache, runtime.GOMAXPROCS(-1), cfg.Table.TableCacheSize)
 	return &Manager{
 		nh:                 nh,
 		reconcileInterval:  30 * time.Second,

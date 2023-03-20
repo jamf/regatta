@@ -90,6 +90,7 @@ Due to higher performance and lower resource consumption Tan should be preferred
 
 	// Storage flags
 	storageFlagSet.Int64("storage.block-cache-size", 16*1024*1024, "Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.")
+	storageFlagSet.Int("storage.table-cache-size", 1024, "Shared table cache size, the cache is used to hold handles to open SSTs.")
 
 	// Maintenance flags
 	maintenanceFlagSet.Bool("maintenance.enabled", true, "Whether maintenance API is enabled.")

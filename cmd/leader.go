@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
@@ -116,6 +115,7 @@ func leader(_ *cobra.Command, _ []string) {
 			DataDir:            viper.GetString("raft.state-machine-dir"),
 			RecoveryType:       toRecoveryType(viper.GetString("raft.snapshot-recovery-type")),
 			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
+			TableCacheSize:     viper.GetInt("storage.table-cache-size"),
 		},
 		Meta: storage.MetaConfig{
 			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
@@ -284,22 +284,22 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) *regattaserver.RegattaServer {
+func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) *regattaserver.RegattaHttpServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
 
 	// Create regatta replication server
-	return regattaserver.NewServer(
+	return regattaserver.NewMixedServer(
 		viper.GetString("replication.address"),
 		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
+		&tls.Config{
 			ClientAuth: tls.RequireAndVerifyClientCert,
 			ClientCAs:  cp,
 			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				return watcher.GetCertificate(), nil
 			},
-		})),
+		},
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_zap.StreamServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
