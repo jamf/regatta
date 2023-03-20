@@ -34,6 +34,10 @@ const (
 	maxBytesForLevelBase = 64 * 1024 * 1024
 )
 
+func split(b []byte) int {
+	return len(b)
+}
+
 func DefaultOptions() *pebble.Options {
 	lvlOpts := make([]pebble.LevelOptions, levels)
 	sz := targetFileSizeBase
@@ -68,7 +72,9 @@ func DefaultOptions() *pebble.Options {
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		DisableWAL:                  true,
+		Comparer:                    pebble.DefaultComparer,
 	}
+	opts.Comparer.Split = split
 	return opts.EnsureDefaults()
 }
 

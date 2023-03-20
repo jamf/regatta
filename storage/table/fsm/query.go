@@ -123,17 +123,17 @@ func singleLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.Resp
 		return nil, err
 	}
 
-	value, closer, err := reader.Get(keyBuf.Bytes())
-	if err != nil {
-		return nil, err
+	iter := reader.NewIter(nil)
+	defer func() {
+		_ = iter.Close()
+	}()
+	found := iter.SeekPrefixGE(keyBuf.Bytes())
+	if !found {
+		return nil, pebble.ErrNotFound
 	}
 
-	defer func() {
-		_ = closer.Close()
-	}()
-
 	kv := &proto.KeyValue{Key: req.Key}
-
+	value := iter.Value()
 	if !(req.KeysOnly || req.CountOnly) && len(value) > 0 {
 		kv.Value = make([]byte, len(value))
 		copy(kv.Value, value)
