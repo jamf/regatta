@@ -162,7 +162,7 @@ func TestBackup_Backup(t *testing.T) {
 			defer nh.Close()
 			tm := tables.NewManager(nh, nodes, tables.Config{
 				NodeID: 1,
-				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024},
+				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
 				Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 			})
 			r.NoError(tm.Start())
@@ -253,7 +253,7 @@ func TestBackup_Restore(t *testing.T) {
 			defer nh.Close()
 			tm := tables.NewManager(nh, nodes, tables.Config{
 				NodeID: 1,
-				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024},
+				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
 				Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 			})
 			r.NoError(tm.Start())

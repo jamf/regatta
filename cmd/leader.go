@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
@@ -284,22 +285,22 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) *regattaserver.RegattaHttpServer {
+func createReplicationServer(watcher *cert.Watcher, ca []byte, log *zap.Logger) *regattaserver.RegattaServer {
 	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(ca)
 
 	// Create regatta replication server
-	return regattaserver.NewMixedServer(
+	return regattaserver.NewServer(
 		viper.GetString("replication.address"),
 		viper.GetBool("api.reflection-api"),
-		&tls.Config{
+		grpc.Creds(credentials.NewTLS(&tls.Config{
 			ClientAuth: tls.RequireAndVerifyClientCert,
 			ClientCAs:  cp,
 			MinVersion: tls.VersionTLS12,
 			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				return watcher.GetCertificate(), nil
 			},
-		},
+		})),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_zap.StreamServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),

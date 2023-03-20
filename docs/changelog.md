@@ -17,6 +17,7 @@ Release is mostly focused on tidying up the docs and code base and on resource c
 ### Features
 * New `--raft.logdb` flag (defaults to Tan).
 * Added a raft cluster snapshot mode option `--raft.snapshot-recovery-type` which defaults to new `checkpoint` mode.
+* Added a flag for configuring shared table cache size `--storage.table-cache-size` which defaults to `1024`.
 
 ### Improvements
 * Compressed Log replication messages to lower API bandwidth usage.

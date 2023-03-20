@@ -65,7 +65,7 @@ func DefaultOptions() *pebble.Options {
 	// acceptable. We'll achieve 80-90% of the benefit of having bloom filters on every level for only 10% of the
 	// memory cost.
 	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
-	opts := &pebble.Options{
+	return &pebble.Options{
 		FormatMajorVersion:          pebble.FormatRangeKeys,
 		L0CompactionFileThreshold:   l0FileNumCompactionTrigger,
 		L0StopWritesThreshold:       l0StopWritesTrigger,
@@ -74,11 +74,20 @@ func DefaultOptions() *pebble.Options {
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		DisableWAL:                  true,
-		Comparer:                    pebble.DefaultComparer,
 		MaxOpenFiles:                maxOpenFiles,
+		Comparer: &pebble.Comparer{
+			Compare:            pebble.DefaultComparer.Compare,
+			Equal:              pebble.DefaultComparer.Equal,
+			AbbreviatedKey:     pebble.DefaultComparer.AbbreviatedKey,
+			FormatKey:          pebble.DefaultComparer.FormatKey,
+			FormatValue:        pebble.DefaultComparer.FormatValue,
+			Separator:          pebble.DefaultComparer.Separator,
+			Split:              split,
+			Successor:          pebble.DefaultComparer.Successor,
+			ImmediateSuccessor: pebble.DefaultComparer.ImmediateSuccessor,
+			Name:               pebble.DefaultComparer.Name,
+		},
 	}
-	opts.Comparer.Split = split
-	return opts
 }
 
 func WriterOptions(level int) sstable.WriterOptions {
