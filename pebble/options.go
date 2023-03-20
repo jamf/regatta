@@ -59,7 +59,7 @@ func DefaultOptions() *pebble.Options {
 	// acceptable. We'll achieve 80-90% of the benefit of having bloom filters on every level for only 10% of the
 	// memory cost.
 	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
-	return &pebble.Options{
+	opts := &pebble.Options{
 		FormatMajorVersion:          pebble.FormatRangeKeys,
 		L0CompactionFileThreshold:   l0FileNumCompactionTrigger,
 		L0StopWritesThreshold:       l0StopWritesTrigger,
@@ -69,6 +69,7 @@ func DefaultOptions() *pebble.Options {
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		DisableWAL:                  true,
 	}
+	return opts.EnsureDefaults()
 }
 
 func WriterOptions(level int) sstable.WriterOptions {
@@ -105,6 +106,12 @@ func WithFS(fs vfs.FS) Option {
 func WithCache(cache *pebble.Cache) Option {
 	return &funcOption{func(options *pebble.Options) {
 		options.Cache = cache
+	}}
+}
+
+func WithTableCache(cache *pebble.TableCache) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.TableCache = cache
 	}}
 }
 

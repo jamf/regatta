@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
+	rp "github.com/jamf/regatta/pebble"
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
@@ -40,6 +42,8 @@ const (
 )
 
 func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
+	blockCache := pebble.NewCache(cfg.Table.BlockCacheSize)
+	tableCache := pebble.NewTableCache(blockCache, runtime.GOMAXPROCS(-1), rp.DefaultOptions().MaxOpenFiles)
 	return &Manager{
 		nh:                 nh,
 		reconcileInterval:  30 * time.Second,
@@ -61,7 +65,8 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 		},
 		closed:     make(chan struct{}),
 		log:        zap.S().Named("manager"),
-		blockCache: pebble.NewCache(cfg.Table.BlockCacheSize),
+		blockCache: blockCache,
+		tableCache: tableCache,
 	}
 }
 
@@ -83,6 +88,7 @@ type Manager struct {
 	cleanupTimeout     time.Duration
 	log                *zap.SugaredLogger
 	blockCache         *pebble.Cache
+	tableCache         *pebble.TableCache
 }
 
 type Lease struct {
@@ -492,14 +498,14 @@ func (m *Manager) startTable(name string, id uint64) error {
 		return m.nh.StartOnDiskReplica(
 			map[uint64]dragonboat.Target{},
 			false,
-			fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
+			fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
 			tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 		)
 	}
 	return m.nh.StartOnDiskReplica(
 		m.members,
 		false,
-		fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
+		fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }

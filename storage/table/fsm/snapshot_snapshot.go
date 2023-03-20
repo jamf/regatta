@@ -98,13 +98,7 @@ func (s *snapshot) recover(r io.Reader, stopc <-chan struct{}) (er error) {
 	dbdir := filepath.Join(s.fsm.dirname, randomDirName)
 
 	s.fsm.log.Infof("recovering pebble state machine with dirname: '%s'", dbdir)
-	db, err := rp.OpenDB(
-		dbdir,
-		rp.WithFS(s.fsm.fs),
-		rp.WithCache(s.fsm.blockCache),
-		rp.WithLogger(s.fsm.log),
-		rp.WithEventListener(makeLoggingEventListener(s.fsm.log)),
-	)
+	db, err := s.fsm.openDB(dbdir)
 	if err != nil {
 		return err
 	}
