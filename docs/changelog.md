@@ -23,6 +23,7 @@ Release is mostly focused on tidying up the docs and code base and on resource c
 * Bump to Go 1.20.
 * Pebble instances table cache is now shared.
 * Single key lookups now utilise bloom filters optimizing the "key not present" case.
+* Added compaction metrics of pebble instances.
 
 ### Bugfixes
 * Removing kafka package leftovers.
