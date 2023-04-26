@@ -1,4 +1,4 @@
-// Comode pyright JAMF Software, LLC
+// Copyright JAMF Software, LLC
 
 package cmd
 

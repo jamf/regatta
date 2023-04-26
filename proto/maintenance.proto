@@ -1,3 +1,5 @@
+// Copyright JAMF Software, LLC
+
 syntax = "proto3";
 
 option go_package = "./proto";
