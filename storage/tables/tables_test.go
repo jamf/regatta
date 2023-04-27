@@ -27,7 +27,7 @@ func init() {
 var minimalTestConfig = func() Config {
 	return Config{
 		NodeID: 1,
-		Table:  TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), BlockCacheSize: 1024},
+		Table:  TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), BlockCacheSize: 1024, TableCacheSize: 1024},
 		Meta:   MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 	}
 }

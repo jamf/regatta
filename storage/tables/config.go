@@ -100,6 +100,8 @@ type TableConfig struct {
 	DataDir string
 	// BlockCacheSize shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.
 	BlockCacheSize int64
+	// TableCacheSize shared table cache size, the cache is used to hold handles to open SSTs.
+	TableCacheSize int
 	// RecoveryType the in-cluster snapshot recovery type.
 	RecoveryType SnapshotRecoveryType
 }

@@ -69,7 +69,7 @@ type snapshotRecoverer interface {
 	recover(r io.Reader, stopc <-chan struct{}) error
 }
 
-func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, srt SnapshotRecoveryType) sm.CreateOnDiskStateMachineFunc {
+func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, tableCache *pebble.TableCache, srt SnapshotRecoveryType) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
 	}
@@ -84,6 +84,7 @@ func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache,
 			dirname:      dbDirName,
 			fs:           fs,
 			blockCache:   blockCache,
+			tableCache:   tableCache,
 			log:          zap.S().Named("table").Named(tableName),
 			metrics:      newMetrics(tableName, clusterID),
 			recoveryType: srt,
@@ -102,6 +103,7 @@ type FSM struct {
 	closed       bool
 	log          *zap.SugaredLogger
 	blockCache   *pebble.Cache
+	tableCache   *pebble.TableCache
 	metrics      *metrics
 	recoveryType SnapshotRecoveryType
 }
@@ -144,13 +146,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	}
 
 	p.log.Infof("opening pebble state machine with dirname: '%s'", dbdir)
-	db, err := rp.OpenDB(
-		dbdir,
-		rp.WithFS(p.fs),
-		rp.WithCache(p.blockCache),
-		rp.WithLogger(p.log),
-		rp.WithEventListener(makeLoggingEventListener(p.log)),
-	)
+	db, err := p.openDB(dbdir)
 	if err != nil {
 		return 0, err
 	}
@@ -161,6 +157,17 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 	}
 
 	return readLocalIndex(db, sysLocalIndex)
+}
+
+func (p *FSM) openDB(dbdir string) (*pebble.DB, error) {
+	return rp.OpenDB(
+		dbdir,
+		rp.WithFS(p.fs),
+		rp.WithCache(p.blockCache),
+		rp.WithTableCache(p.tableCache),
+		rp.WithLogger(p.log),
+		rp.WithEventListener(makeLoggingEventListener(p.log)),
+	)
 }
 
 // Lookup locally looks up the data.
@@ -418,6 +425,7 @@ func prependByte(x []byte, y byte) []byte {
 }
 
 func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
+	logger = logger.WithOptions(zap.AddCallerSkip(1))
 	return pebble.EventListener{
 		BackgroundError: func(err error) {
 			logger.Errorf("background error: %s", err)

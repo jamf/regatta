@@ -20,6 +20,8 @@ type metrics struct {
 	readAmplification       prometheus.Gauge
 	totalWriteAmplification prometheus.Gauge
 	totalBytesIn            prometheus.Gauge
+	compactCount            *prometheus.GaugeVec
+	compactDebt             prometheus.Gauge
 	collected               *pebble.Metrics
 }
 
@@ -125,6 +127,26 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				},
 			},
 		),
+		compactCount: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "regatta_table_storage_compaction_count",
+				Help: "Regatta table storage compaction count by kind",
+				ConstLabels: map[string]string{
+					"table":     tableName,
+					"clusterID": fmt.Sprintf("%d", clusterID),
+				},
+			}, []string{"kind"},
+		),
+		compactDebt: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "regatta_table_storage_compaction_debt_bytes",
+				Help: "Regatta table storage compaction debt in bytes",
+				ConstLabels: map[string]string{
+					"table":     tableName,
+					"clusterID": fmt.Sprintf("%d", clusterID),
+				},
+			},
+		),
 	}
 }
 
@@ -158,6 +180,19 @@ func (p *metrics) Collect(ch chan<- prometheus.Metric) {
 	p.totalWriteAmplification.Collect(ch)
 	p.totalBytesIn.Set(float64(total.BytesIn))
 	p.totalBytesIn.Collect(ch)
+
+	compact := p.collected.Compact
+	p.compactCount.With(prometheus.Labels{"kind": "total"}).Set(float64(compact.Count))
+	p.compactCount.With(prometheus.Labels{"kind": "default"}).Set(float64(compact.DefaultCount))
+	p.compactCount.With(prometheus.Labels{"kind": "delete"}).Set(float64(compact.DeleteOnlyCount))
+	p.compactCount.With(prometheus.Labels{"kind": "elision"}).Set(float64(compact.ElisionOnlyCount))
+	p.compactCount.With(prometheus.Labels{"kind": "move"}).Set(float64(compact.MoveCount))
+	p.compactCount.With(prometheus.Labels{"kind": "read"}).Set(float64(compact.ReadCount))
+	p.compactCount.With(prometheus.Labels{"kind": "multilevel"}).Set(float64(compact.MultiLevelCount))
+	p.compactCount.Collect(ch)
+
+	p.compactDebt.Set(float64(compact.EstimatedDebt))
+	p.compactDebt.Collect(ch)
 }
 
 func (p *metrics) Describe(ch chan<- *prometheus.Desc) {
@@ -171,4 +206,6 @@ func (p *metrics) Describe(ch chan<- *prometheus.Desc) {
 	p.readAmplification.Describe(ch)
 	p.totalWriteAmplification.Describe(ch)
 	p.totalBytesIn.Describe(ch)
+	p.compactCount.Describe(ch)
+	p.compactDebt.Describe(ch)
 }

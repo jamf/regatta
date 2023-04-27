@@ -26,6 +26,8 @@ const (
 	writeBufferSize = 16 * 1024 * 1024
 	// maxWriteBufferNumber number of write buffers.
 	maxWriteBufferNumber = 4
+	// maxOpenFiles number of max open files per pebble instance.
+	maxOpenFiles = 1000
 	// l0FileNumCompactionTrigger number of files in L0 to trigger automatic compaction.
 	l0FileNumCompactionTrigger = 8
 	// l0StopWritesTrigger number of files in L0 to stop accepting more writes.
@@ -33,6 +35,10 @@ const (
 	// maxBytesForLevelBase base for amount of data stored in a single level.
 	maxBytesForLevelBase = 64 * 1024 * 1024
 )
+
+func split(b []byte) int {
+	return len(b)
+}
 
 func DefaultOptions() *pebble.Options {
 	lvlOpts := make([]pebble.LevelOptions, levels)
@@ -68,15 +74,24 @@ func DefaultOptions() *pebble.Options {
 		MemTableSize:                writeBufferSize,
 		MemTableStopWritesThreshold: maxWriteBufferNumber,
 		DisableWAL:                  true,
+		MaxOpenFiles:                maxOpenFiles,
+		Comparer: &pebble.Comparer{
+			Compare:            pebble.DefaultComparer.Compare,
+			Equal:              pebble.DefaultComparer.Equal,
+			AbbreviatedKey:     pebble.DefaultComparer.AbbreviatedKey,
+			FormatKey:          pebble.DefaultComparer.FormatKey,
+			FormatValue:        pebble.DefaultComparer.FormatValue,
+			Separator:          pebble.DefaultComparer.Separator,
+			Split:              split,
+			Successor:          pebble.DefaultComparer.Successor,
+			ImmediateSuccessor: pebble.DefaultComparer.ImmediateSuccessor,
+			Name:               pebble.DefaultComparer.Name,
+		},
 	}
 }
 
 func WriterOptions(level int) sstable.WriterOptions {
 	return DefaultOptions().MakeWriterOptions(level, sstable.TableFormatPebblev2)
-}
-
-func ReaderOptions() sstable.ReaderOptions {
-	return DefaultOptions().MakeReaderOptions()
 }
 
 type Option interface {
@@ -105,6 +120,12 @@ func WithFS(fs vfs.FS) Option {
 func WithCache(cache *pebble.Cache) Option {
 	return &funcOption{func(options *pebble.Options) {
 		options.Cache = cache
+	}}
+}
+
+func WithTableCache(cache *pebble.TableCache) Option {
+	return &funcOption{func(options *pebble.Options) {
+		options.TableCache = cache
 	}}
 }
 

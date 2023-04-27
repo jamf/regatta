@@ -159,13 +159,7 @@ func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
 		}
 	}
 
-	db, err := rp.OpenDB(
-		dbdir,
-		rp.WithFS(c.fsm.fs),
-		rp.WithCache(c.fsm.blockCache),
-		rp.WithLogger(c.fsm.log),
-		rp.WithEventListener(makeLoggingEventListener(c.fsm.log)),
-	)
+	db, err := c.fsm.openDB(dbdir)
 	if err != nil {
 		return err
 	}

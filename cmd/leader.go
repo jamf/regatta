@@ -116,6 +116,7 @@ func leader(_ *cobra.Command, _ []string) {
 			DataDir:            viper.GetString("raft.state-machine-dir"),
 			RecoveryType:       toRecoveryType(viper.GetString("raft.snapshot-recovery-type")),
 			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
+			TableCacheSize:     viper.GetInt("storage.table-cache-size"),
 		},
 		Meta: storage.MetaConfig{
 			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
