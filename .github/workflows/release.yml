@@ -67,6 +67,13 @@ jobs:
       uses: docker/metadata-action@v4
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{raw}}
+          type=semver,pattern=v{{major}}.{{minor}}
+          type=semver,pattern=v{{major}},enable=${{!startsWith(github.ref, 'refs/tags/v0.')}}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -75,8 +82,11 @@ jobs:
       uses: docker/build-push-action@v4
       with:
         push: true
+        platforms: linux/amd64,linux/arm64
         context: .
         build-args: |
           VERSION=${{ github.ref_name }}
         tags: ${{ steps.meta.outputs.tags }}
-
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
