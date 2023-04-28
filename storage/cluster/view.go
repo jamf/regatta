@@ -9,6 +9,7 @@ import (
 	"github.com/lni/dragonboat/v4"
 )
 
+// noLeader if shard has no leader the value will be equal to this constant (as IDs must be >=1).
 const noLeader = 0
 
 type shardView struct {
