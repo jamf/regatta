@@ -9,10 +9,31 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/metrics"
+	gometrics "github.com/armon/go-metrics"
+	goprometheus "github.com/armon/go-metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 )
+
+func init() {
+	ps, err := goprometheus.NewPrometheusSink()
+	if err != nil {
+		panic(err)
+	}
+	if _, err := gometrics.NewGlobal(&gometrics.Config{
+		ServiceName:          "regatta", // Use client provided service
+		HostName:             "",
+		EnableHostname:       false,            // Enable hostname prefix
+		EnableRuntimeMetrics: false,            // Enable runtime profiling
+		EnableTypePrefix:     false,            // Disable type prefix
+		TimerGranularity:     time.Millisecond, // Timers are in milliseconds
+		ProfileInterval:      time.Second,      // Poll runtime every second
+		FilterDefault:        true,             // Don't filter metrics by default
+	}, ps); err != nil {
+		panic(err)
+	}
+}
 
 // RESTServer is server exposing debug/healthcheck/metrics services of Regatta.
 type RESTServer struct {

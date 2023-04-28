@@ -34,6 +34,7 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(apiFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(restFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(raftFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(memberlistFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
@@ -106,6 +107,11 @@ func follower(_ *cobra.Command, _ []string) {
 		EnableMetrics:       true,
 		MaxReceiveQueueSize: viper.GetUint64("raft.max-recv-queue-size"),
 		MaxSendQueueSize:    viper.GetUint64("raft.max-send-queue-size"),
+		Gossip: storage.GossipConfig{
+			BindAddress:      viper.GetString("memberlist.address"),
+			AdvertiseAddress: viper.GetString("memberlist.advertise-address"),
+			InitialMembers:   viper.GetStringSlice("memberlist.members"),
+		},
 		Table: storage.TableConfig{
 			FS:                 vfs.Default,
 			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
@@ -134,7 +140,7 @@ func follower(_ *cobra.Command, _ []string) {
 			default:
 				log.Panicf("unknown logdb impl: %s", viper.GetString("raft.logdb"))
 			}
-			return storage.Default
+			return storage.Pebble
 		}(),
 	})
 	if err != nil {
