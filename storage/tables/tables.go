@@ -26,7 +26,7 @@ import (
 )
 
 type store interface {
-	Exists(key string) bool
+	Exists(key string) (bool, error)
 	Set(key string, value string, ver uint64) (kv.Pair, error)
 	Delete(key string, ver uint64) error
 	Get(key string) (kv.Pair, error)
@@ -178,7 +178,11 @@ func (m *Manager) IsLeader() bool {
 
 func (m *Manager) createTable(name string) (table.Table, error) {
 	storeName := storedTableName(name)
-	if m.store.Exists(storeName) {
+	exists, err := m.store.Exists(storeName)
+	if err != nil {
+		return table.Table{}, err
+	}
+	if exists {
 		return table.Table{}, serrors.ErrTableExists
 	}
 	seq, err := m.incAndGetIDSeq()

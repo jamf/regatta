@@ -50,7 +50,7 @@ var dirTestData = map[string]string{
 type store interface {
 	Set(key string, value string, ver uint64) (Pair, error)
 	Delete(key string, ver uint64) error
-	Exists(key string) bool
+	Exists(key string) (bool, error)
 	Get(key string) (Pair, error)
 	GetAll(pattern string) (Pairs, error)
 	GetAllValues(pattern string) ([]string, error)
@@ -134,7 +134,7 @@ func TestStore_Exists(t *testing.T) {
 			r := require.New(t)
 			store := tt.store()
 			fillData(store, testData)
-			got := store.Exists(tt.args.key)
+			got, _ := store.Exists(tt.args.key)
 			r.Equal(tt.want, got)
 			if rs, ok := store.(*RaftStore); ok {
 				rs.NodeHost.Close()

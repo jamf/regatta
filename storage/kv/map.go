@@ -3,6 +3,7 @@
 package kv
 
 import (
+	"encoding/json"
 	"path"
 	"sort"
 	"strings"
@@ -12,35 +13,36 @@ import (
 // A MapStore represents an in-memory key-value store safe for
 // concurrent access.
 type MapStore struct {
-	sync.RWMutex
-	m map[string]Pair
+	mtx sync.RWMutex
+	m   map[string]Pair
 }
 
 // NewMapStore creates and initializes a new MapStore.
-func NewMapStore(data map[string]Pair) *MapStore {
-	s := MapStore{m: data}
-	return &s
+func NewMapStore() *MapStore {
+	return &MapStore{m: make(map[string]Pair)}
 }
 
 // Delete deletes the Pair associated with key.
 func (s *MapStore) Delete(key string, ver uint64) error {
-	s.Lock()
-	defer s.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	delete(s.m, key)
 	return nil
 }
 
 // Exists checks for the existence of key in the store.
-func (s *MapStore) Exists(key string) bool {
-	_, err := s.Get(key)
-	return err == nil
+func (s *MapStore) Exists(key string) (bool, error) {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	_, ok := s.m[key]
+	return ok, nil
 }
 
 // Get gets the Pair associated with key. If there is no Pair
 // associated with key, Get returns Pair{}, ErrNotExist.
 func (s *MapStore) Get(key string) (Pair, error) {
-	s.RLock()
-	defer s.RUnlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	pair, ok := s.m[key]
 	if !ok {
 		return Pair{}, ErrNotExist
@@ -52,8 +54,8 @@ func (s *MapStore) Get(key string) (Pair, error) {
 // The syntax of patterns is the same as in path.Match.
 func (s *MapStore) GetAll(pattern string) (Pairs, error) {
 	ks := make(Pairs, 0)
-	s.RLock()
-	defer s.RUnlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	for _, kv := range s.m {
 		m, err := path.Match(pattern, kv.Key)
 		if err != nil {
@@ -91,8 +93,8 @@ func (s *MapStore) GetAllValues(pattern string) ([]string, error) {
 func (s *MapStore) List(filePath string) ([]string, error) {
 	vs := make([]string, 0)
 	m := make(map[string]bool)
-	s.RLock()
-	defer s.RUnlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	prefix := pathToTerms(filePath)
 	for _, kv := range s.m {
 		if kv.Key == filePath {
@@ -114,8 +116,8 @@ func (s *MapStore) List(filePath string) ([]string, error) {
 func (s *MapStore) ListDir(filePath string) ([]string, error) {
 	vs := make([]string, 0)
 	m := make(map[string]bool)
-	s.RLock()
-	defer s.RUnlock()
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	prefix := pathToTerms(filePath)
 	for _, kv := range s.m {
 		if strings.HasPrefix(kv.Key, filePath) {
@@ -134,12 +136,25 @@ func (s *MapStore) ListDir(filePath string) ([]string, error) {
 
 // Set sets the Pair entry associated with key to value.
 func (s *MapStore) Set(key string, value string, ver uint64) (Pair, error) {
-	s.Lock()
-	defer s.Unlock()
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	p := Pair{Key: key, Value: value, Ver: ver}
 	if s.m == nil {
 		s.m = make(map[string]Pair)
 	}
 	s.m[key] = p
 	return p, nil
+}
+
+func (s *MapStore) MarshalJSON() ([]byte, error) {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	return json.Marshal(s.m)
+}
+
+func (s *MapStore) UnmarshalJSON(bytes []byte) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.m = make(map[string]Pair)
+	return json.Unmarshal(bytes, &s.m)
 }

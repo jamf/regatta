@@ -16,7 +16,7 @@ func TestLFSM_RecoverFromSnapshot(t *testing.T) {
 	r := require.New(t)
 	snapshotPath := path.Join(t.TempDir(), snapshotFileName)
 	stateMachine := NewLFSM()(1, 1).(*LFSM)
-	stateMachine.data = map[string]Pair{
+	stateMachine.store = &MapStore{m: map[string]Pair{
 		"/foo": {
 			Key:   "/foo",
 			Value: "bar",
@@ -27,7 +27,7 @@ func TestLFSM_RecoverFromSnapshot(t *testing.T) {
 			Value: "user",
 			Ver:   2,
 		},
-	}
+	}}
 
 	t.Log("store snapshot")
 	ctx, err := stateMachine.PrepareSnapshot()
@@ -43,5 +43,5 @@ func TestLFSM_RecoverFromSnapshot(t *testing.T) {
 	stateMachine2 := NewLFSM()(1, 1).(*LFSM)
 	r.NoError(stateMachine2.RecoverFromSnapshot(file, nil, nil))
 
-	r.Equal(stateMachine.data, stateMachine2.data)
+	r.Equal(stateMachine.store.m, stateMachine2.store.m)
 }
