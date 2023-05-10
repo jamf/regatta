@@ -17,11 +17,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Message sent between the members of the memberlist.
 type Message struct {
 	Key     string `json:"key"`
 	Payload []byte `json:"payload"`
 }
 
+// Invalidates checks if enqueuing the current broadcast
+// invalidates a previous broadcast.
 func (m Message) Invalidates(b memberlist.Broadcast) bool {
 	if o, ok := b.(memberlist.NamedBroadcast); ok {
 		return m.Name() == o.Name()
@@ -29,15 +32,20 @@ func (m Message) Invalidates(b memberlist.Broadcast) bool {
 	return false
 }
 
+// The unique identity of this broadcast message.
 func (m Message) Name() string {
 	return m.Key
 }
 
+// Returns a byte form of the message.
 func (m Message) Message() []byte {
 	b, _ := json.Marshal(&m)
 	return b
 }
 
+// Finished is invoked when the message will no longer
+// be broadcast, either due to invalidation or to the
+// transmit limit being reached.
 func (m Message) Finished() {
 }
 
@@ -45,6 +53,7 @@ type clusterState struct {
 	ShardView []dragonboat.ShardView `json:"shard_view"`
 }
 
+// Info carries Raft-related information to the particular NodeHost in the cluster.
 type Info struct {
 	// NodeHostID is the unique identifier of the NodeHost instance.
 	NodeHostID string
@@ -60,14 +69,16 @@ type Info struct {
 	LogInfo []raftio.NodeInfo
 }
 
-type getClusterInfo func() Info
-
+// listener is responsible for processing received messages with a given key or prefix.
 type listener struct {
 	ch   chan Message
 	stop chan struct{}
-	f    func(Message)
+	// f is called by the listener when receiving a message.
+	f func(Message)
 }
 
+// handle waits for a message and proccesses it. It blocks
+// until receiving the stop message.
 func (l *listener) handle() {
 	for {
 		select {
@@ -79,22 +90,26 @@ func (l *listener) handle() {
 	}
 }
 
+// listenerStore is a convenience data structure for storing a map of listeners
+// wrapped by a sync.RWMutex.
+type listenerStore struct {
+	mu        sync.RWMutex
+	listeners map[string]*listener
+}
+
+type getClusterInfo func() Info
+
+// Cluster holds information about the memberlist cluster and active listeners.
 type Cluster struct {
-	ml           *memberlist.Memberlist
-	infoF        getClusterInfo
-	shardView    *shardView
-	broadcasts   *memberlist.TransmitLimitedQueue
-	log          *zap.SugaredLogger
-	keyListeners struct {
-		mu        sync.RWMutex
-		listeners map[string]*listener
-	}
-	prefixListeners struct {
-		mu        sync.RWMutex
-		listeners map[string]*listener
-	}
-	msgs chan Message
-	stop chan struct{}
+	ml              *memberlist.Memberlist
+	infoF           getClusterInfo
+	shardView       *shardView
+	broadcasts      *memberlist.TransmitLimitedQueue
+	log             *zap.SugaredLogger
+	keyListeners    listenerStore
+	prefixListeners listenerStore
+	msgs            chan Message
+	stop            chan struct{}
 }
 
 func (c *Cluster) NotifyJoin(node *memberlist.Node) {
@@ -129,6 +144,9 @@ func (c *Cluster) Start(join []string) (int, error) {
 	return c.ml.Join(join)
 }
 
+// dispatch receives a message and forwards it to the listener responsible for the given
+// message key or prefix. If no such listener exists, the message is ignored.
+// The method blocks until it receives a stop message.
 func (c *Cluster) dispatch() {
 	for {
 		select {
@@ -152,28 +170,28 @@ func (c *Cluster) dispatch() {
 	}
 }
 
+// WatchKey sets up a background listener for the given key. Anytime a message with the
+// key is received, the supplied function f is called.
 func (c *Cluster) WatchKey(key string, f func(message Message)) {
 	c.keyListeners.mu.Lock()
 	defer c.keyListeners.mu.Unlock()
-	if c.keyListeners.listeners == nil {
-		c.keyListeners.listeners = make(map[string]*listener)
-	}
 	ls := &listener{ch: make(chan Message, 1), stop: c.stop, f: f}
 	c.keyListeners.listeners[key] = ls
 	go ls.handle()
 }
 
+// WatchPrefix sets up a background listener for the given key prefix. Anytime a message with a
+// key matching the specified prefix is received, the supplied function f is called.
 func (c *Cluster) WatchPrefix(key string, f func(message Message)) {
 	c.prefixListeners.mu.Lock()
 	defer c.prefixListeners.mu.Unlock()
-	if c.prefixListeners.listeners == nil {
-		c.prefixListeners.listeners = make(map[string]*listener)
-	}
 	ls := &listener{ch: make(chan Message, 1), stop: c.stop, f: f}
 	c.prefixListeners.listeners[key] = ls
 	go ls.handle()
 }
 
+// Close gracefully disconnects the node from the memberlist cluster.
+// It tries to wait to broadcast currently pending outgoing messages before leaving.
 func (c *Cluster) Close() error {
 	waitTimeout := time.Now().Add(10 * time.Second)
 	for c.broadcasts.NumQueued() > 0 && c.ml.NumMembers() > 1 && time.Now().Before(waitTimeout) {
@@ -195,10 +213,19 @@ func (c *Cluster) Close() error {
 	return nil
 }
 
+// New configures and creates a new memberlist. To connect the node to the cluster, see (*Cluster).Start.
 func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 	info := f()
 	log := zap.S().Named("memberlist").WithOptions(zap.AddCallerSkip(4))
-	cluster := &Cluster{log: log, infoF: f, shardView: newView(), stop: make(chan struct{}), msgs: make(chan Message, 1)}
+	cluster := &Cluster{
+		log:             log,
+		infoF:           f,
+		shardView:       newView(),
+		stop:            make(chan struct{}),
+		msgs:            make(chan Message, 1),
+		keyListeners:    listenerStore{listeners: map[string]*listener{}},
+		prefixListeners: listenerStore{listeners: map[string]*listener{}},
+	}
 
 	mcfg := memberlist.DefaultLANConfig()
 	mcfg.LogOutput = &loggerAdapter{log: log}
@@ -247,10 +274,12 @@ func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 	return cluster, err
 }
 
+// ShardInfo retrieves a record representing the state of the Raft shard.
 func (c *Cluster) ShardInfo(id uint64) dragonboat.ShardView {
 	return c.shardView.shardInfo(id)
 }
 
+// Nodes returns a list of all live nodes in the memberlist.
 func (c *Cluster) Nodes() []Node {
 	members := c.ml.Members()
 	ret := make([]Node, len(members))
