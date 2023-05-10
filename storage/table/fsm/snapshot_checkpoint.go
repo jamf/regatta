@@ -1,11 +1,11 @@
 // Copyright JAMF Software, LLC
+
 package fsm
 
 import (
 	"archive/tar"
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -37,11 +37,7 @@ func (c *checkpoint) prepare() (any, error) {
 	if err := db.Flush(); err != nil {
 		return nil, err
 	}
-	dir := path.Join(c.fsm.dirname, "checkpoint")
-	if err := c.fsm.fs.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-
+	dir := path.Join(c.fsm.dirname, "checkpoint", rp.GetNewRandomDBDirName())
 	if err := db.Checkpoint(dir); err != nil {
 		return nil, err
 	}

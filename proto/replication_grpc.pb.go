@@ -1,3 +1,5 @@
+// Copyright JAMF Software, LLC
+
 //
 // Regatta replication protobuffer specification
 //
