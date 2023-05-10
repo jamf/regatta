@@ -3,6 +3,7 @@
 package kv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,20 +22,18 @@ const (
 
 func NewLFSM() dbsm.CreateConcurrentStateMachineFunc {
 	return func(clusterID, nodeID uint64) dbsm.IConcurrentStateMachine {
-		data := make(map[string]Pair)
-		return &LFSM{
+		l := &LFSM{
 			clusterID: clusterID,
 			nodeID:    nodeID,
-			data:      data,
-			store:     &MapStore{m: data},
+			store:     NewMapStore(),
 		}
+		return l
 	}
 }
 
 type LFSM struct {
 	clusterID uint64
 	nodeID    uint64
-	data      map[string]Pair
 	store     *MapStore
 }
 
@@ -82,6 +81,8 @@ func (fsm *LFSM) Update(entries []dbsm.Entry) ([]dbsm.Entry, error) {
 
 func (fsm *LFSM) Lookup(e interface{}) (interface{}, error) {
 	switch q := e.(type) {
+	case QueryExist:
+		return fsm.store.Exists(q.Key)
 	case QueryKey:
 		return fsm.store.Get(q.Key)
 	case QueryAll:
@@ -97,23 +98,16 @@ func (fsm *LFSM) Lookup(e interface{}) (interface{}, error) {
 }
 
 func (fsm *LFSM) PrepareSnapshot() (interface{}, error) {
-	fsm.store.RLock()
-	defer fsm.store.RUnlock()
-	ctx := make(map[string]interface{})
-	for k, v := range fsm.data {
-		ctx[k] = v
-	}
-	return ctx, nil
+	return json.Marshal(fsm.store)
 }
 
 func (fsm *LFSM) SaveSnapshot(ctx interface{}, w io.Writer, _ dbsm.ISnapshotFileCollection, _ <-chan struct{}) error {
-	return json.NewEncoder(w).Encode(ctx)
+	_, err := io.Copy(w, bytes.NewReader(ctx.([]byte)))
+	return err
 }
 
-func (fsm *LFSM) RecoverFromSnapshot(r io.Reader, _ []dbsm.SnapshotFile, _ <-chan struct{}) (err error) {
-	fsm.store.Lock()
-	defer fsm.store.Unlock()
-	return json.NewDecoder(r).Decode(&fsm.data)
+func (fsm *LFSM) RecoverFromSnapshot(r io.Reader, _ []dbsm.SnapshotFile, _ <-chan struct{}) error {
+	return json.NewDecoder(r).Decode(fsm.store)
 }
 
 func (fsm *LFSM) Close() (err error) {
@@ -121,6 +115,10 @@ func (fsm *LFSM) Close() (err error) {
 }
 
 type QueryKey struct {
+	Key string
+}
+
+type QueryExist struct {
 	Key string
 }
 
@@ -174,11 +172,14 @@ func (r *RaftStore) Delete(key string, ver uint64) error {
 	return nil
 }
 
-func (r *RaftStore) Exists(key string) bool {
+func (r *RaftStore) Exists(key string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
 	defer cancel()
-	_, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryKey{Key: key})
-	return err == nil
+	ok, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryExist{Key: key})
+	if err != nil {
+		return false, err
+	}
+	return ok.(bool), nil
 }
 
 func (r *RaftStore) Get(key string) (Pair, error) {
