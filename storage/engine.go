@@ -62,10 +62,7 @@ type Engine struct {
 }
 
 func (e *Engine) Start() error {
-	_, err := e.Cluster.Start(e.cfg.Gossip.InitialMembers)
-	if err != nil {
-		return err
-	}
+	e.Cluster.Start(e.cfg.Gossip.InitialMembers)
 	return e.Manager.Start()
 }
 

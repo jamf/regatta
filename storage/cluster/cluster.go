@@ -3,6 +3,7 @@
 package cluster
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/memberlist"
+	"github.com/jamf/regatta/storage/cluster/dns"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftio"
 	"go.uber.org/zap"
@@ -32,12 +34,12 @@ func (m Message) Invalidates(b memberlist.Broadcast) bool {
 	return false
 }
 
-// The unique identity of this broadcast message.
+// Name is a unique identity of this broadcast message.
 func (m Message) Name() string {
 	return m.Key
 }
 
-// Returns a byte form of the message.
+// Message returns a byte representation of the message.
 func (m Message) Message() []byte {
 	b, _ := json.Marshal(&m)
 	return b
@@ -47,6 +49,11 @@ func (m Message) Message() []byte {
 // be broadcast, either due to invalidation or to the
 // transmit limit being reached.
 func (m Message) Finished() {
+}
+
+type resolver interface {
+	Resolve(ctx context.Context, addrs []string) error
+	Addresses() []string
 }
 
 type clusterState struct {
@@ -110,6 +117,8 @@ type Cluster struct {
 	prefixListeners listenerStore
 	msgs            chan Message
 	stop            chan struct{}
+	resolver        resolver
+	addrs           []string
 }
 
 func (c *Cluster) NotifyJoin(node *memberlist.Node) {
@@ -139,9 +148,15 @@ func (c *Cluster) Broadcast(m Message) {
 	c.broadcasts.QueueBroadcast(m)
 }
 
-func (c *Cluster) Start(join []string) (int, error) {
+func (c *Cluster) Start(join []string) {
 	go c.dispatch()
-	return c.ml.Join(join)
+	go c.discover()
+	n, err := c.ml.Join(c.discoverMembers(join))
+	if err != nil {
+		c.log.Warnf("failed to fast join cluster")
+	} else {
+		c.log.Infof("fast joined %d nodes", n)
+	}
 }
 
 // dispatch receives a message and forwards it to the listener responsible for the given
@@ -168,6 +183,44 @@ func (c *Cluster) dispatch() {
 			return
 		}
 	}
+}
+
+func (c *Cluster) discover() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			_, err := c.ml.Join(c.discoverMembers(c.addrs))
+			if err != nil {
+				return
+			}
+		case <-c.stop:
+			return
+		}
+	}
+}
+
+func (c *Cluster) discoverMembers(members []string) []string {
+	if len(members) == 0 {
+		return nil
+	}
+	var ms, resolve []string
+	for _, member := range members {
+		if dns.IsDynamicNode(member) {
+			resolve = append(resolve, member)
+		} else {
+			// No DNS record to lookup, just append member.
+			ms = append(ms, member)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := c.resolver.Resolve(ctx, resolve)
+	if err != nil {
+		c.log.Warnf("failed to resolve members '%s': %v", strings.Join(resolve, ","), err)
+	}
+	return append(ms, c.resolver.Addresses()...)
 }
 
 // WatchKey sets up a background listener for the given key. Anytime a message with the
@@ -216,7 +269,7 @@ func (c *Cluster) Close() error {
 // New configures and creates a new memberlist. To connect the node to the cluster, see (*Cluster).Start.
 func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 	info := f()
-	log := zap.S().Named("memberlist").WithOptions(zap.AddCallerSkip(4))
+	log := zap.S().Named("memberlist")
 	cluster := &Cluster{
 		log:             log,
 		infoF:           f,
@@ -225,10 +278,11 @@ func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 		msgs:            make(chan Message, 1),
 		keyListeners:    listenerStore{listeners: map[string]*listener{}},
 		prefixListeners: listenerStore{listeners: map[string]*listener{}},
+		resolver:        dns.NewResolver(log.Named("dns")),
 	}
 
 	mcfg := memberlist.DefaultLANConfig()
-	mcfg.LogOutput = &loggerAdapter{log: log}
+	mcfg.LogOutput = &loggerAdapter{log: log.WithOptions(zap.AddCallerSkip(4))}
 	mcfg.Name = fmt.Sprintf("%s/%d", info.NodeHostID, info.NodeID)
 	mcfg.Events = cluster
 
