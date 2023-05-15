@@ -30,12 +30,13 @@ jobs:
       run: |
         go test -v -cover ./... -coverprofile coverage.out -coverpkg ./...
         go tool cover -func coverage.out -o coverage.out
+        grep -v github.com/jamf/regatta/proto coverage.out > coverage_no_generated.out
     - name: Go Coverage Badge
       uses: tj-actions/coverage-badge-go@v2
       if: ${{ runner.os == 'Linux' }}
       with:
         green: 80
-        filename: coverage.out
+        filename: coverage_no_generated.out
     - name: Verify Changed files
       uses: tj-actions/verify-changed-files@v12
       id: verify-changed-files
