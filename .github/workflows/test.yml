@@ -66,6 +66,8 @@ jobs:
       uses: docker/build-push-action@v3
       with:
         context: .
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         build-args: |
           VERSION=${{ github.ref_name }}
   vulncheck:
