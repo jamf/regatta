@@ -38,14 +38,15 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 	}
 
 	if del.RangeEnd != nil {
+		if err := ctx.EnsureIndexed(); err != nil {
+			return nil, err
+		}
+		rng, err := rangeLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key, RangeEnd: del.RangeEnd})
+		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+			return nil, err
+		}
+		resp.Deleted = rng.Count
 		if del.PrevKv {
-			if err := ctx.EnsureIndexed(); err != nil {
-				return nil, err
-			}
-			rng, err := rangeLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key, RangeEnd: del.RangeEnd})
-			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
-				return nil, err
-			}
 			if !errors.Is(err, pebble.ErrNotFound) {
 				resp.PrevKvs = rng.Kvs
 			}
@@ -71,15 +72,16 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 			return nil, err
 		}
 	} else {
-		if del.PrevKv {
-			if err := ctx.EnsureIndexed(); err != nil {
-				return nil, err
-			}
-			rng, err := singleLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key})
-			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
-				return nil, err
-			}
-			if !errors.Is(err, pebble.ErrNotFound) {
+		if err := ctx.EnsureIndexed(); err != nil {
+			return nil, err
+		}
+		rng, err := singleLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key})
+		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+			return nil, err
+		}
+		if !errors.Is(err, pebble.ErrNotFound) {
+			resp.Deleted = 1
+			if del.PrevKv {
 				resp.PrevKvs = rng.Kvs
 			}
 		}

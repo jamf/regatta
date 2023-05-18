@@ -267,7 +267,7 @@ func TestSM_Update(t *testing.T) {
 						Data: mustMarshallProto(&proto.CommandResult{
 							Revision: 2,
 							Responses: []*proto.ResponseOp{
-								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 1}}},
 							},
 						}),
 					},
@@ -445,7 +445,7 @@ func TestSM_Update(t *testing.T) {
 						Data: mustMarshallProto(&proto.CommandResult{
 							Revision: 3,
 							Responses: []*proto.ResponseOp{
-								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 2}}},
 							},
 						}),
 					},
@@ -528,7 +528,7 @@ func TestSM_Update(t *testing.T) {
 						Data: mustMarshallProto(&proto.CommandResult{
 							Revision: 3,
 							Responses: []*proto.ResponseOp{
-								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{}}},
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 2}}},
 							},
 						}),
 					},

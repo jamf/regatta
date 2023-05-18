@@ -258,6 +258,7 @@ func Test_handleTxn(t *testing.T) {
 	r.NoError(err)
 	r.Equal(1, len(res))
 	r.Equal(wrapResponseOp(&proto.ResponseOp_DeleteRange{
+		Deleted: 3,
 		PrevKvs: []*proto.KeyValue{
 			{Key: []byte("key_1"), Value: []byte("value")},
 			{Key: []byte("key_2"), Value: []byte("value")},
