@@ -13,7 +13,7 @@ RUN ls -la
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build GOMODCACHE=/go/pkg/mod GOCACHE=/root/.cache/go-build VERSION=${VERSION} make regatta
 
 # Runtime
-FROM alpine:3.17 as runtime
+FROM alpine:3.18 as runtime
 
 LABEL maintainer="Regatta Developers regatta@jamf.com"
 LABEL desc="Regatta is a distributed key-value store"
