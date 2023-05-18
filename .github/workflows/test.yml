@@ -71,7 +71,6 @@ jobs:
         build-args: |
           VERSION=${{ github.ref_name }}
   vulncheck:
-    if: github.actor != 'dependabot[bot]' && ((github.event.issue.pull_request != '' && contains(github.event.comment.body, '/test')) || github.event_name == 'pull_request' || github.event_name == 'push')
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
