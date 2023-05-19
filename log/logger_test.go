@@ -13,6 +13,62 @@ import (
 
 func TestNewLogger(t *testing.T) {
 	type args struct {
+		devMode bool
+		level   string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantPanic bool
+	}{
+		{
+			name: "dev mode on known level",
+			args: args{
+				devMode: true,
+				level:   "INFO",
+			},
+		},
+		{
+			name: "dev mode off known level",
+			args: args{
+				devMode: false,
+				level:   "INFO",
+			},
+		},
+		{
+			name: "dev mode on unknown level",
+			args: args{
+				devMode: true,
+				level:   "FOO",
+			},
+			wantPanic: true,
+		},
+		{
+			name: "dev mode off unknown level",
+			args: args{
+				devMode: false,
+				level:   "FOO",
+			},
+			wantPanic: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.wantPanic {
+				require.Panics(t, func() {
+					NewLogger(test.args.devMode, test.args.level)
+				})
+			} else {
+				require.NotPanics(t, func() {
+					NewLogger(test.args.devMode, test.args.level)
+				})
+			}
+		})
+	}
+}
+
+func TestLoggerFactory(t *testing.T) {
+	type args struct {
 		pkgName string
 	}
 	tests := []struct {
