@@ -1,2 +1,3 @@
 * @jamf/opensource-regatta-maintain @jamf/opensource-regatta-write
-
+go.mod
+go.sum
