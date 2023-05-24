@@ -19,6 +19,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+      with:
+        persist-credentials: false
+        fetch-depth: 0
     - name: Install Go
       uses: actions/setup-go@v4
       with:
@@ -29,7 +32,7 @@ jobs:
         go tool cover -func coverage.out -o coverage.out
     - name: Go Coverage Badge
       uses: tj-actions/coverage-badge-go@v2
-      if: ${{ runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+      if: ${{ github.actor != 'dependabot[bot]' && runner.os == 'Linux' && github.event_name == 'pull_request' }}
       with:
         green: 80
         filename: coverage.out
@@ -38,14 +41,19 @@ jobs:
       id: verify-changed-files
       with:
         files: README.md
-    - name: Commit and push changes
+    - name: Commit changes
       if: steps.verify-changed-files.outputs.files_changed == 'true'
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add README.md
         git commit -m "chore: Updated coverage badge."
-        git push
+    - name: Push changes
+      if: steps.verify-changed-files.outputs.files_changed == 'true'
+      uses: ad-m/github-push-action@v0.6.0
+      with:
+        github_token: ${{ github.token }}
+        branch: ${{ github.head_ref }}
   build:
     if: (github.event.issue.pull_request != '' && contains(github.event.comment.body, '/test')) || github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
