@@ -59,6 +59,9 @@ message Command {
 
   // sequence is the sequence of commands to be applied as a single FSM step.
   repeated Command sequence = 10;
+
+  // count if to count number of records affected by a command.
+  bool count = 11;
 }
 
 message CommandResult {
@@ -121,9 +124,15 @@ message RequestOp {
     // If range_end is '\0', the range is all keys greater than or equal to the key argument.
     bytes range_end = 2;
 
-    // If prev_kv is set, etcd gets the previous key-value pairs before deleting it.
+    // If prev_kv is set, regatta gets the previous key-value pairs before deleting it.
     // The previous key-value pairs will be returned in the delete response.
-    bool prev_kv = 3;
+    // Beware that getting previous records could have serious performance impact on a delete range spanning a large dataset.
+    bool prev_kv = 4;
+
+    // If count is set, regatta gets the count of previous key-value pairs before deleting it.
+    // The deleted field will be set to number of deleted key-value pairs in the response.
+    // Beware that counting records could have serious performance impact on a delete range spanning a large dataset.
+    bool count = 5;
   }
 
   // request is a union of request types accepted by a transaction.

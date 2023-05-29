@@ -49,6 +49,16 @@ func (m *Command) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.Count {
+		i--
+		if m.Count {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x58
+	}
 	if len(m.Sequence) > 0 {
 		for iNdEx := len(m.Sequence) - 1; iNdEx >= 0; iNdEx-- {
 			size, err := m.Sequence[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
@@ -408,6 +418,16 @@ func (m *RequestOp_DeleteRange) MarshalToSizedBufferVT(dAtA []byte) (int, error)
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.Count {
+		i--
+		if m.Count {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
 	if m.PrevKv {
 		i--
 		if m.PrevKv {
@@ -416,7 +436,7 @@ func (m *RequestOp_DeleteRange) MarshalToSizedBufferVT(dAtA []byte) (int, error)
 			dAtA[i] = 0
 		}
 		i--
-		dAtA[i] = 0x18
+		dAtA[i] = 0x20
 	}
 	if len(m.RangeEnd) > 0 {
 		i -= len(m.RangeEnd)
@@ -1005,6 +1025,9 @@ func (m *Command) SizeVT() (n int) {
 			n += 1 + l + sov(uint64(l))
 		}
 	}
+	if m.Count {
+		n += 2
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1119,6 +1142,9 @@ func (m *RequestOp_DeleteRange) SizeVT() (n int) {
 		n += 1 + l + sov(uint64(l))
 	}
 	if m.PrevKv {
+		n += 2
+	}
+	if m.Count {
 		n += 2
 	}
 	n += len(m.unknownFields)
@@ -1655,6 +1681,26 @@ func (m *Command) UnmarshalVT(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 11:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Count", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Count = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
@@ -2348,7 +2394,7 @@ func (m *RequestOp_DeleteRange) UnmarshalVT(dAtA []byte) error {
 				m.RangeEnd = []byte{}
 			}
 			iNdEx = postIndex
-		case 3:
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field PrevKv", wireType)
 			}
@@ -2368,6 +2414,26 @@ func (m *RequestOp_DeleteRange) UnmarshalVT(dAtA []byte) error {
 				}
 			}
 			m.PrevKv = bool(v != 0)
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Count", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Count = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
