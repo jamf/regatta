@@ -151,7 +151,7 @@ func singleLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.Resp
 }
 
 // fillEntriesFunc fills proto.RangeResponse response.
-type fillEntriesFunc func(key, value []byte, response *proto.ResponseOp_Range) error
+type fillEntriesFunc func(key, value []byte, response *proto.ResponseOp_Range)
 
 // iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
 // Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
@@ -168,37 +168,31 @@ func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, response *prot
 			break
 		}
 		i++
-
-		if err := f(k.Key, iter.Value(), response); err != nil {
-			return err
-		}
+		f(k.Key, iter.Value(), response)
 	}
 	return nil
 }
 
 // addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
-func addKVPair(key, value []byte, response *proto.ResponseOp_Range) error {
+func addKVPair(key, value []byte, response *proto.ResponseOp_Range) {
 	kv := &proto.KeyValue{Key: make([]byte, len(key)), Value: make([]byte, len(value))}
 	copy(kv.Key, key)
 	copy(kv.Value, value)
 	response.Kvs = append(response.Kvs, kv)
 	response.Count++
-	return nil
 }
 
 // addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
-func addKeyOnly(key, _ []byte, response *proto.ResponseOp_Range) error {
+func addKeyOnly(key, _ []byte, response *proto.ResponseOp_Range) {
 	kv := &proto.KeyValue{Key: make([]byte, len(key))}
 	copy(kv.Key, key)
 	response.Kvs = append(response.Kvs, kv)
 	response.Count++
-	return nil
 }
 
 // addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
-func addCountOnly(_, _ []byte, response *proto.ResponseOp_Range) error {
+func addCountOnly(_, _ []byte, response *proto.ResponseOp_Range) {
 	response.Count++
-	return nil
 }
 
 // SnapshotRequest to write Command snapshot into provided writer.
