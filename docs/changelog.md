@@ -33,6 +33,7 @@ Release is mostly focused on tidying up the docs and code base and on resource c
 * Removing kafka package leftovers.
 * Improving logreader tests.
 * Fixed raft header returned from non-leader cluster nodes.
+* Fixed value of `Deleted` field of the `DeleteRange` response.
 
 ## v0.1.0
 

@@ -5,6 +5,7 @@ on:
     branches:
     - master
   pull_request:
+  workflow_dispatch:
   issue_comment:
     types:
     - created
@@ -29,31 +30,11 @@ jobs:
     - name: Test
       run: |
         go test -v -cover ./... -coverprofile coverage.out -coverpkg ./cert/...,./log/...,./pebble/...,./regattaserver/...,./replication/...,./storage/...,./util/...
-        go tool cover -func coverage.out -o coverage.out
-    - name: Go Coverage Badge
-      uses: tj-actions/coverage-badge-go@v2
-      if: ${{ github.actor != 'dependabot[bot]' && runner.os == 'Linux' && github.event_name == 'pull_request' }}
+    - name: Coverage track
+      uses: coverallsapp/github-action@v2
       with:
-        green: 80
-        filename: coverage.out
-    - name: Verify Changed files
-      uses: tj-actions/verify-changed-files@v14
-      id: verify-changed-files
-      with:
-        files: README.md
-    - name: Commit changes
-      if: steps.verify-changed-files.outputs.files_changed == 'true'
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add README.md
-        git commit -m "chore: Updated coverage badge."
-    - name: Push changes
-      if: steps.verify-changed-files.outputs.files_changed == 'true'
-      uses: ad-m/github-push-action@v0.6.0
-      with:
-        github_token: ${{ github.token }}
-        branch: ${{ github.head_ref }}
+        format: golang
+        file: coverage.out
   build:
     if: (github.event.issue.pull_request != '' && contains(github.event.comment.body, '/test')) || github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest

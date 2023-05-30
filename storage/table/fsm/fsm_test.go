@@ -151,7 +151,7 @@ func TestSM_Update(t *testing.T) {
 		wantLeaderIndex uint64
 	}{
 		{
-			name: "Pebble - Successful update of a single item",
+			name: "successful update of a single item",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -188,7 +188,7 @@ func TestSM_Update(t *testing.T) {
 			wantLeaderIndex: 1,
 		},
 		{
-			name: "Pebble - Successful bump of a leader index",
+			name: "successful bump of a leader index",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -216,7 +216,7 @@ func TestSM_Update(t *testing.T) {
 			wantLeaderIndex: 1,
 		},
 		{
-			name: "Pebble - Successful update of a batch",
+			name: "successful update of a batch",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -276,7 +276,7 @@ func TestSM_Update(t *testing.T) {
 			wantLeaderIndex: 2,
 		},
 		{
-			name: "Pebble - Successful update of single batched PUT",
+			name: "successful update of single batched put",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -325,7 +325,7 @@ func TestSM_Update(t *testing.T) {
 			wantLeaderIndex: 1,
 		},
 		{
-			name: "Pebble - Successful update of single batched DELETE",
+			name: "successful update of single batched delete",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -371,7 +371,7 @@ func TestSM_Update(t *testing.T) {
 			wantLeaderIndex: 1,
 		},
 		{
-			name: "Pebble - Successful DELETE range",
+			name: "successful delete range",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -454,7 +454,7 @@ func TestSM_Update(t *testing.T) {
 			wantLeaderIndex: 1,
 		},
 		{
-			name: "Pebble - Successful DELETE all range",
+			name: "successful delete all range",
 			fields: fields{
 				smFactory: emptySM,
 			},
@@ -491,7 +491,7 @@ func TestSM_Update(t *testing.T) {
 							Table:       []byte("test"),
 							Type:        proto.Command_DELETE,
 							Kv:          &proto.KeyValue{Key: []byte("test")},
-							RangeEnd:    []byte{0},
+							RangeEnd:    prependByte([]byte("test"), 1),
 						}),
 					},
 				},
@@ -536,6 +536,149 @@ func TestSM_Update(t *testing.T) {
 			},
 			wantLeaderIndex: 1,
 		},
+		{
+			name: "successful delete single with count",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test1"),
+								Value: []byte("test"),
+							},
+						}),
+					},
+					{
+						Index: 2,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_DELETE,
+							Kv:          &proto.KeyValue{Key: []byte("test1")},
+							Count:       true,
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Result: sm.Result{
+						Value: 1,
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
+					},
+				},
+				{
+					Index: 2,
+					Result: sm.Result{
+						Value: 1,
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 2,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 1}}},
+							},
+						}),
+					},
+				},
+			},
+			wantLeaderIndex: 1,
+		},
+		{
+			name: "successful delete all range with count",
+			fields: fields{
+				smFactory: emptySM,
+			},
+			args: args{
+				updates: []sm.Entry{
+					{
+						Index: 1,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test1"),
+								Value: []byte("test"),
+							},
+						}),
+					},
+					{
+						Index: 2,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_PUT,
+							Kv: &proto.KeyValue{
+								Key:   []byte("test2"),
+								Value: []byte("test"),
+							},
+						}),
+					},
+					{
+						Index: 3,
+						Cmd: mustMarshallProto(&proto.Command{
+							LeaderIndex: &one,
+							Table:       []byte("test"),
+							Type:        proto.Command_DELETE,
+							Kv:          &proto.KeyValue{Key: []byte{0}},
+							RangeEnd:    []byte{0},
+							Count:       true,
+						}),
+					},
+				},
+			},
+			want: []sm.Entry{
+				{
+					Index: 1,
+					Result: sm.Result{
+						Value: 1,
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 1,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
+					},
+				},
+				{
+					Index: 2,
+					Result: sm.Result{
+						Value: 1,
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 2,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponsePut{ResponsePut: &proto.ResponseOp_Put{}}},
+							},
+						}),
+					},
+				},
+				{
+					Index: 3,
+					Result: sm.Result{
+						Value: 1,
+						Data: mustMarshallProto(&proto.CommandResult{
+							Revision: 3,
+							Responses: []*proto.ResponseOp{
+								{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: &proto.ResponseOp_DeleteRange{Deleted: 2}}},
+							},
+						}),
+					},
+				},
+			},
+			wantLeaderIndex: 1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -553,7 +696,7 @@ func TestSM_Update(t *testing.T) {
 			maxIndex := uint64(0)
 			for i, entry := range got {
 				r.Equal(tt.want[i].Index, entry.Index)
-				r.Equal(tt.want[i].Result, entry.Result)
+				equalResult(t, tt.want[i].Result, entry.Result)
 				maxIndex = entry.Index
 			}
 
@@ -576,6 +719,15 @@ func TestSM_Update(t *testing.T) {
 			r.Equal(tt.wantLeaderIndex, indexRes.Index)
 		})
 	}
+}
+
+func equalResult(t *testing.T, want sm.Result, got sm.Result) {
+	require.Equal(t, want.Value, got.Value, "value does not match")
+	w := &proto.CommandResult{}
+	g := &proto.CommandResult{}
+	require.NoError(t, pb.Unmarshal(want.Data, w))
+	require.NoError(t, pb.Unmarshal(got.Data, g))
+	require.Equal(t, w, g, "data does not match")
 }
 
 func emptySM() *FSM {

@@ -43,7 +43,7 @@ func Test_handleDelete(t *testing.T) {
 		PrevKv: true,
 	})
 	r.NoError(err)
-	r.Equal(&proto.ResponseOp_DeleteRange{PrevKvs: []*proto.KeyValue{{Key: []byte("key_1"), Value: []byte("value_1")}}}, res)
+	r.Equal(&proto.ResponseOp_DeleteRange{Deleted: 1, PrevKvs: []*proto.KeyValue{{Key: []byte("key_1"), Value: []byte("value_1")}}}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.

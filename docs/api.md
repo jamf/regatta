@@ -143,6 +143,7 @@ RestoreMessage contains either info of the table being restored or chunk of a ba
 | range_end | [bytes](#bytes) | optional | range_end is the key following the last key to affect for the range [kv.key, range_end). If range_end is not given, the range is defined to contain only the kv.key argument. If range_end is one bit larger than the given kv.key, then the range is all the keys with the prefix (the given key). If range_end is '\0', the range is all keys greater than or equal to the key argument. |
 | prev_kvs | [bool](#bool) |  | prev_kvs if to fetch previous KVs. |
 | sequence | [Command](#mvcc-v1-Command) | repeated | sequence is the sequence of commands to be applied as a single FSM step. |
+| count | [bool](#bool) |  | count if to count number of records affected by a command. |
 
 
 
@@ -227,7 +228,8 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 | ----- | ---- | ----- | ----------- |
 | key | [bytes](#bytes) |  | key is the first key to delete in the range. |
 | range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is '\0', the range is all keys greater than or equal to the key argument. |
-| prev_kv | [bool](#bool) |  | If prev_kv is set, etcd gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. |
+| prev_kv | [bool](#bool) |  | If prev_kv is set, regatta gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. Beware that getting previous records could have serious performance impact on a delete range spanning a large dataset. |
+| count | [bool](#bool) |  | If count is set, regatta gets the count of previous key-value pairs before deleting it. The deleted field will be set to number of deleted key-value pairs in the response. Beware that counting records could have serious performance impact on a delete range spanning a large dataset. |
 
 
 
@@ -433,7 +435,8 @@ It is allowed to modify the same key several times within one txn (the result wi
 | table | [bytes](#bytes) |  | table name of the table |
 | key | [bytes](#bytes) |  | key is the first key to delete in the range. |
 | range_end | [bytes](#bytes) |  | range_end is the key following the last key to delete for the range [key, range_end). If range_end is not given, the range is defined to contain only the key argument. If range_end is one bit larger than the given key, then the range is all the keys with the prefix (the given key). If range_end is '\0', the range is all keys greater than or equal to the key argument. |
-| prev_kv | [bool](#bool) |  | If prev_kv is set, etcd gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. |
+| prev_kv | [bool](#bool) |  | If prev_kv is set, regatta gets the previous key-value pairs before deleting it. The previous key-value pairs will be returned in the delete response. Beware that getting previous records could have serious performance impact on a delete range spanning a large dataset. |
+| count | [bool](#bool) |  | If count is set, regatta gets the count of previous key-value pairs before deleting it. The deleted field will be set to number of deleted key-value pairs in the response. Beware that counting records could have serious performance impact on a delete range spanning a large dataset. |
 
 
 
