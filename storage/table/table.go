@@ -143,6 +143,7 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 		},
 		PrevKvs:  req.PrevKv,
 		RangeEnd: req.RangeEnd,
+		Count:    req.Count,
 	}
 	bytes, err := cmd.MarshalVT()
 	if err != nil {

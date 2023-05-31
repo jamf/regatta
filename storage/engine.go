@@ -43,16 +43,7 @@ func New(cfg Config) (*Engine, error) {
 	}
 	e.NodeHost = nh
 
-	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, func() cluster.Info {
-		nhi := nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
-		return cluster.Info{
-			NodeHostID:    nh.ID(),
-			NodeID:        cfg.NodeID,
-			RaftAddress:   cfg.RaftAddress,
-			ShardInfoList: nhi.ShardInfoList,
-			LogInfo:       nhi.LogInfo,
-		}
-	})
+	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +170,17 @@ func (e *Engine) LogCompacted(info raftio.EntryInfo) {
 	}
 }
 func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
+
+func (e *Engine) clusterInfo() cluster.Info {
+	nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
+	return cluster.Info{
+		NodeHostID:    e.NodeHost.ID(),
+		NodeID:        e.cfg.NodeID,
+		RaftAddress:   e.cfg.RaftAddress,
+		ShardInfoList: nhi.ShardInfoList,
+		LogInfo:       nhi.LogInfo,
+	}
+}
 
 func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {
 	nhc := config.NodeHostConfig{
