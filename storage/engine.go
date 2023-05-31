@@ -6,14 +6,12 @@ import (
 	"context"
 	"time"
 
-	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
-	dbl "github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/dragonboat/v4/plugin/tan"
 	"github.com/lni/dragonboat/v4/raftio"
 	protobuf "google.golang.org/protobuf/proto"
@@ -183,14 +181,6 @@ func (e *Engine) LogCompacted(info raftio.EntryInfo) {
 func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
 
 func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {
-	dbl.SetLoggerFactory(rl.LoggerFactory(cfg.Logger))
-	dbl.GetLogger("raft").SetLevel(dbl.WARNING)
-	dbl.GetLogger("rsm").SetLevel(dbl.WARNING)
-	dbl.GetLogger("transport").SetLevel(dbl.ERROR)
-	dbl.GetLogger("dragonboat").SetLevel(dbl.WARNING)
-	dbl.GetLogger("logdb").SetLevel(dbl.INFO)
-	dbl.GetLogger("settings").SetLevel(dbl.INFO)
-
 	nhc := config.NodeHostConfig{
 		WALDir:              cfg.WALDir,
 		NodeHostDir:         cfg.NodeHostDir,
@@ -208,6 +198,10 @@ func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaf
 		nhc.Expert.LogDBFactory = tan.Factory
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
+
+	if cfg.FS != nil {
+		nhc.Expert.FS = cfg.FS
+	}
 
 	err := nhc.Prepare()
 	if err != nil {

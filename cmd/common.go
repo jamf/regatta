@@ -7,14 +7,18 @@ import (
 	"crypto/tls"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
+	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage/tables"
+	dbl "github.com/lni/dragonboat/v4/logger"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -113,4 +117,18 @@ func parseInitialMembers(members map[string]string) (map[uint64]string, error) {
 		initialMembers[kUint] = v
 	}
 	return initialMembers, nil
+}
+
+var dbLoggerOnce sync.Once
+
+func setupDragonboatLogger(logger *zap.Logger) {
+	dbLoggerOnce.Do(func() {
+		dbl.SetLoggerFactory(rl.LoggerFactory(logger))
+		dbl.GetLogger("raft").SetLevel(dbl.WARNING)
+		dbl.GetLogger("rsm").SetLevel(dbl.WARNING)
+		dbl.GetLogger("transport").SetLevel(dbl.ERROR)
+		dbl.GetLogger("dragonboat").SetLevel(dbl.WARNING)
+		dbl.GetLogger("logdb").SetLevel(dbl.INFO)
+		dbl.GetLogger("settings").SetLevel(dbl.INFO)
+	})
 }

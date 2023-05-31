@@ -4,7 +4,7 @@ package storage
 
 import (
 	"github.com/jamf/regatta/storage/tables"
-	"go.uber.org/zap"
+	"github.com/lni/vfs"
 )
 
 type LogDBImplementation int
@@ -25,7 +25,6 @@ type GossipConfig struct {
 }
 
 type Config struct {
-	Logger *zap.Logger
 	// NodeID is a non-zero value used to identify a node within a Raft cluster.
 	NodeID uint64
 	// InitialMembers is a map of both meta and table clusters initial members.
@@ -99,4 +98,7 @@ type Config struct {
 	LogDBImplementation LogDBImplementation
 	// LogCacheSize specifies the size of the log cache.
 	LogCacheSize int
+	// FS is the filesystem to use for log store, useful for testing,
+	// uses the real vfs.Default if nil.
+	FS vfs.FS
 }

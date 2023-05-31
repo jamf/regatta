@@ -82,6 +82,7 @@ func follower(_ *cobra.Command, _ []string) {
 	}()
 	zap.ReplaceGlobals(logger)
 	log := logger.Sugar().Named("root")
+	setupDragonboatLogger(logger.Named("engine"))
 
 	autoSetMaxprocs(log)
 
@@ -90,7 +91,6 @@ func follower(_ *cobra.Command, _ []string) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	engine, err := storage.New(storage.Config{
-		Logger: logger.Named("engine"),
 		NodeID: viper.GetUint64("raft.node-id"),
 		InitialMembers: func() map[uint64]string {
 			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
