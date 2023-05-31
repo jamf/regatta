@@ -129,6 +129,7 @@ func setupDragonboatLogger(logger *zap.Logger) {
 		dbl.GetLogger("transport").SetLevel(dbl.ERROR)
 		dbl.GetLogger("dragonboat").SetLevel(dbl.WARNING)
 		dbl.GetLogger("logdb").SetLevel(dbl.INFO)
+		dbl.GetLogger("tan").SetLevel(dbl.INFO)
 		dbl.GetLogger("settings").SetLevel(dbl.INFO)
 	})
 }
