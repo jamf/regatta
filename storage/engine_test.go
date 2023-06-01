@@ -110,13 +110,13 @@ func TestEngine_Range(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		prepare func(e *Engine)
+		prepare func(t *testing.T, e *Engine)
 		want    *proto.RangeResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "table not found",
-			prepare: func(e *Engine) {},
+			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.RangeRequest{
@@ -128,8 +128,8 @@ func TestEngine_Range(t *testing.T) {
 		},
 		{
 			name: "key not found serializable request",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 			},
 			args: args{
@@ -143,8 +143,8 @@ func TestEngine_Range(t *testing.T) {
 		},
 		{
 			name: "key not found linearizable request",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 			},
 			args: args{
@@ -159,8 +159,8 @@ func TestEngine_Range(t *testing.T) {
 		},
 		{
 			name: "key found serializable request",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
 			},
@@ -185,8 +185,8 @@ func TestEngine_Range(t *testing.T) {
 		},
 		{
 			name: "key found linearizable request",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
 			},
@@ -218,7 +218,7 @@ func TestEngine_Range(t *testing.T) {
 			defer e.Close()
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
-			tt.prepare(e)
+			tt.prepare(t, e)
 			got, err := e.Range(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
 			require.Equal(t, tt.want, got)
@@ -234,13 +234,13 @@ func TestEngine_Put(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		prepare func(e *Engine)
+		prepare func(t *testing.T, e *Engine)
 		want    *proto.PutResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "table not found",
-			prepare: func(e *Engine) {},
+			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.PutRequest{
@@ -252,8 +252,8 @@ func TestEngine_Put(t *testing.T) {
 		},
 		{
 			name: "put new key",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 			},
 			args: args{
@@ -275,8 +275,8 @@ func TestEngine_Put(t *testing.T) {
 		},
 		{
 			name: "overwrite key",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -303,8 +303,8 @@ func TestEngine_Put(t *testing.T) {
 		},
 		{
 			name: "overwrite key and get prev",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -343,7 +343,7 @@ func TestEngine_Put(t *testing.T) {
 			defer e.Close()
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
-			tt.prepare(e)
+			tt.prepare(t, e)
 			got, err := e.Put(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
 			require.Equal(t, tt.want, got)
@@ -359,13 +359,13 @@ func TestEngine_Delete(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		prepare func(e *Engine)
+		prepare func(t *testing.T, e *Engine)
 		want    *proto.DeleteRangeResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "table not found",
-			prepare: func(e *Engine) {},
+			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.DeleteRangeRequest{
@@ -377,8 +377,8 @@ func TestEngine_Delete(t *testing.T) {
 		},
 		{
 			name: "delete all",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 			},
 			args: args{
@@ -400,8 +400,8 @@ func TestEngine_Delete(t *testing.T) {
 		},
 		{
 			name: "delete all and count",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -430,8 +430,8 @@ func TestEngine_Delete(t *testing.T) {
 		},
 		{
 			name: "delete all and get prev",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -470,7 +470,7 @@ func TestEngine_Delete(t *testing.T) {
 			defer e.Close()
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
-			tt.prepare(e)
+			tt.prepare(t, e)
 			got, err := e.Delete(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
 			require.Equal(t, tt.want, got)
@@ -486,13 +486,13 @@ func TestEngine_Txn(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		prepare func(e *Engine)
+		prepare func(t *testing.T, e *Engine)
 		want    *proto.TxnResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "table not found",
-			prepare: func(e *Engine) {},
+			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.TxnRequest{
@@ -503,8 +503,8 @@ func TestEngine_Txn(t *testing.T) {
 		},
 		{
 			name: "put new key no comp",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -539,8 +539,8 @@ func TestEngine_Txn(t *testing.T) {
 		},
 		{
 			name: "put new key success comp",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -581,8 +581,8 @@ func TestEngine_Txn(t *testing.T) {
 		},
 		{
 			name: "put new key failed cond",
-			prepare: func(e *Engine) {
-				_ = e.CreateTable("table")
+			prepare: func(t *testing.T, e *Engine) {
+				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
 				_, _ = e.Put(context.TODO(), &proto.PutRequest{
 					Table: []byte("table"),
@@ -639,7 +639,7 @@ func TestEngine_Txn(t *testing.T) {
 			defer e.Close()
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
-			tt.prepare(e)
+			tt.prepare(t, e)
 			got, err := e.Txn(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
 			require.Equal(t, tt.want, got)
