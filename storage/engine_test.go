@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTableName = "table"
+
 func TestEngine_Start(t *testing.T) {
 	type fields struct {
 		cfg Config
@@ -120,7 +122,7 @@ func TestEngine_Range(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				req: &proto.RangeRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
@@ -129,13 +131,12 @@ func TestEngine_Range(t *testing.T) {
 		{
 			name: "key not found serializable request",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
+				createTable(t, e)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.RangeRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
@@ -144,13 +145,12 @@ func TestEngine_Range(t *testing.T) {
 		{
 			name: "key not found linearizable request",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
+				createTable(t, e)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.RangeRequest{
-					Table:        []byte("table"),
+					Table:        []byte(testTableName),
 					Key:          []byte("key"),
 					Linearizable: true,
 				},
@@ -160,15 +160,14 @@ func TestEngine_Range(t *testing.T) {
 		{
 			name: "key found serializable request",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.RangeRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
@@ -187,15 +186,14 @@ func TestEngine_Range(t *testing.T) {
 		{
 			name: "key found linearizable request",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.RangeRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
@@ -246,7 +244,7 @@ func TestEngine_Put(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				req: &proto.PutRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
@@ -255,13 +253,12 @@ func TestEngine_Put(t *testing.T) {
 		{
 			name: "put new key",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
+				createTable(t, e)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.PutRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 					Value: []byte("value"),
 				},
@@ -278,15 +275,14 @@ func TestEngine_Put(t *testing.T) {
 		{
 			name: "overwrite key",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.PutRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 					Value: []byte("value2"),
 				},
@@ -303,15 +299,14 @@ func TestEngine_Put(t *testing.T) {
 		{
 			name: "overwrite key and get prev",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.PutRequest{
-					Table:  []byte("table"),
+					Table:  []byte(testTableName),
 					Key:    []byte("key"),
 					Value:  []byte("value2"),
 					PrevKv: true,
@@ -365,7 +360,7 @@ func TestEngine_Delete(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				req: &proto.DeleteRangeRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
@@ -374,13 +369,12 @@ func TestEngine_Delete(t *testing.T) {
 		{
 			name: "delete all",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
+				createTable(t, e)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.DeleteRangeRequest{
-					Table:    []byte("table"),
+					Table:    []byte(testTableName),
 					Key:      []byte{0},
 					RangeEnd: []byte{0},
 				},
@@ -397,15 +391,14 @@ func TestEngine_Delete(t *testing.T) {
 		{
 			name: "delete all and count",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.DeleteRangeRequest{
-					Table:    []byte("table"),
+					Table:    []byte(testTableName),
 					Key:      []byte{0},
 					RangeEnd: []byte{0},
 					Count:    true,
@@ -424,15 +417,14 @@ func TestEngine_Delete(t *testing.T) {
 		{
 			name: "delete all and get prev",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.DeleteRangeRequest{
-					Table:    []byte("table"),
+					Table:    []byte(testTableName),
 					Key:      []byte{0},
 					RangeEnd: []byte{0},
 					PrevKv:   true,
@@ -486,7 +478,7 @@ func TestEngine_Txn(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				req: &proto.TxnRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 				},
 			},
 			wantErr: require.Error,
@@ -494,15 +486,14 @@ func TestEngine_Txn(t *testing.T) {
 		{
 			name: "put new key no comp",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.TxnRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Success: []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{
 						RequestPut: &proto.RequestOp_Put{
 							Key:   []byte("key2"),
@@ -527,15 +518,14 @@ func TestEngine_Txn(t *testing.T) {
 		{
 			name: "put new key success comp",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.TxnRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Compare: []*proto.Compare{{
 						Result:      proto.Compare_EQUAL,
 						Target:      proto.Compare_VALUE,
@@ -566,15 +556,14 @@ func TestEngine_Txn(t *testing.T) {
 		{
 			name: "put new key failed cond",
 			prepare: func(t *testing.T, e *Engine) {
-				require.NoError(t, e.CreateTable("table"))
-				time.Sleep(1 * time.Second)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
 				req: &proto.TxnRequest{
-					Table: []byte("table"),
+					Table: []byte(testTableName),
 					Compare: []*proto.Compare{{
 						Result:      proto.Compare_EQUAL,
 						Target:      proto.Compare_VALUE,
@@ -661,6 +650,20 @@ func TestNew(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createTable(t *testing.T, e *Engine) {
+	require.NoError(t, e.CreateTable(testTableName))
+	require.Eventually(t, func() bool {
+		tab, err := e.GetTable(testTableName)
+		if err != nil {
+			return false
+		}
+		c, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		_, err = tab.LocalIndex(c)
+		return err == nil
+	}, 1*time.Second, 10*time.Millisecond)
 }
 
 func newTestConfig() Config {
