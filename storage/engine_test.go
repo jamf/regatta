@@ -162,7 +162,8 @@ func TestEngine_Range(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -188,7 +189,8 @@ func TestEngine_Range(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -278,11 +280,8 @@ func TestEngine_Put(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -306,11 +305,8 @@ func TestEngine_Put(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -403,11 +399,8 @@ func TestEngine_Delete(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -433,11 +426,8 @@ func TestEngine_Delete(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -506,11 +496,8 @@ func TestEngine_Txn(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -542,11 +529,8 @@ func TestEngine_Txn(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
@@ -584,11 +568,8 @@ func TestEngine_Txn(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {
 				require.NoError(t, e.CreateTable("table"))
 				time.Sleep(1 * time.Second)
-				_, _ = e.Put(context.TODO(), &proto.PutRequest{
-					Table: []byte("table"),
-					Key:   []byte("key"),
-					Value: []byte("value"),
-				})
+				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte("table"), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
