@@ -338,7 +338,7 @@ func TestBackup_ensureDefaults(t *testing.T) {
 }
 
 func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
-	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	nhc := config.NodeHostConfig{
 		WALDir:         "wal",
 		NodeHostDir:    "dragonboat",
@@ -357,7 +357,7 @@ func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
 }
 
 func startBackupServer(manager *tables.Manager) *regattaserver.RegattaServer {
-	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterMaintenanceServer(server, &regattaserver.BackupServer{Tables: manager})
@@ -373,7 +373,7 @@ func startBackupServer(manager *tables.Manager) *regattaserver.RegattaServer {
 }
 
 func getTestPort() int {
-	l, _ := net.Listen("tcp", ":0")
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer func() {
 		_ = l.Close()
 	}()

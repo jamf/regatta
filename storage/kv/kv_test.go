@@ -676,13 +676,13 @@ func TestStore_Delete(t *testing.T) {
 
 func newRaftStore() *RaftStore {
 	getTestPort := func() int {
-		l, _ := net.Listen("tcp", ":0")
+		l, _ := net.Listen("tcp", "127.0.0.1:0")
 		defer l.Close()
 		return l.Addr().(*net.TCPAddr).Port
 	}
 
 	startRaftNode := func() *dragonboat.NodeHost {
-		testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+		testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 		nhc := config.NodeHostConfig{
 			WALDir:         "wal",
 			NodeHostDir:    "dragonboat",

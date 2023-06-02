@@ -326,13 +326,13 @@ func Test_diffTables(t *testing.T) {
 }
 
 func getTestPort() int {
-	l, _ := net.Listen("tcp", ":0")
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port
 }
 
 func startRaftNode() (*dragonboat.NodeHost, map[uint64]string) {
-	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	nhc := config.NodeHostConfig{
 		WALDir:         "wal",
 		NodeHostDir:    "dragonboat",
