@@ -171,11 +171,6 @@ func (m *Manager) CreateTable(name string) error {
 	return m.startTable(created.Name, created.ClusterID)
 }
 
-func (m *Manager) IsLeader() bool {
-	id, _, b, _ := m.nh.GetLeaderID(metaFSMClusterID)
-	return b && id == m.cfg.NodeID
-}
-
 func (m *Manager) createTable(name string) (table.Table, error) {
 	storeName := storedTableName(name)
 	exists, err := m.store.Exists(storeName)
@@ -304,10 +299,6 @@ func (m *Manager) WaitUntilReady() error {
 
 func (m *Manager) Close() {
 	close(m.closed)
-}
-
-func (m *Manager) NodeID() uint64 {
-	return m.cfg.NodeID
 }
 
 func (m *Manager) reconcileLoop() {

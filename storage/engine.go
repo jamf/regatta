@@ -140,13 +140,13 @@ func (e *Engine) getHeader(header *proto.ResponseHeader, shardID uint64) *proto.
 }
 
 func (e *Engine) NodeDeleted(info raftio.NodeInfo) {
-	if info.ReplicaID == e.NodeID() {
+	if info.ReplicaID == e.cfg.NodeID {
 		e.LogReader.NodeDeleted(info)
 	}
 }
 
 func (e *Engine) NodeReady(info raftio.NodeInfo) {
-	if info.ReplicaID == e.NodeID() {
+	if info.ReplicaID == e.cfg.NodeID {
 		e.LogReader.NodeReady(info)
 	}
 }
@@ -165,7 +165,7 @@ func (e *Engine) SnapshotRecovered(info raftio.SnapshotInfo)       {}
 func (e *Engine) SnapshotCreated(info raftio.SnapshotInfo)         {}
 func (e *Engine) SnapshotCompacted(info raftio.SnapshotInfo)       {}
 func (e *Engine) LogCompacted(info raftio.EntryInfo) {
-	if info.ReplicaID == e.NodeID() {
+	if info.ReplicaID == e.cfg.NodeID {
 		e.LogReader.LogCompacted(info)
 	}
 }
