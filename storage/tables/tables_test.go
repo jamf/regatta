@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
@@ -232,6 +233,29 @@ func TestManager_GetTable(t *testing.T) {
 			r.Equal(tt.want.Name, got.Name)
 		})
 	}
+}
+
+func TestManager_Restore(t *testing.T) {
+	const existingTable = "existingTable"
+	node, m := startRaftNode(t)
+	defer node.Close()
+	tm := NewManager(node, m, minimalTestConfig())
+	require.NoError(t, tm.Start())
+	defer tm.Close()
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
+
+	tab, err := tm.GetTable(existingTable)
+	require.NoError(t, err)
+
+	sf, err := snapshot.OpenFile("testdata/snapshot.bin")
+	require.NoError(t, err)
+	require.NoError(t, tm.Restore(existingTable, sf))
+
+	tab2, err := tm.GetTable(existingTable)
+	require.NoError(t, err)
+
+	require.Greater(t, tab2.ClusterID, tab.ClusterID, "restored table should have higher ID assigned")
 }
 
 func TestManager_reconcile(t *testing.T) {
