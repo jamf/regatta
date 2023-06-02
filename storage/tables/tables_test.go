@@ -95,6 +95,98 @@ func TestManager_DeleteTable(t *testing.T) {
 	r.Equal(1, len(files), "FS should contain only a root directory (named after hostname)")
 }
 
+func TestManager_LeaseTable(t *testing.T) {
+	const existingTable = "existingTable"
+	type args struct {
+		name     string
+		duration time.Duration
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "Lease existing table",
+			args: args{name: existingTable},
+		},
+		{
+			name:    "Lease unknown table",
+			args:    args{name: "unknown"},
+			wantErr: serrors.ErrTableNotFound,
+		},
+	}
+
+	node, m := startRaftNode(t)
+	defer node.Close()
+	tm := NewManager(node, m, minimalTestConfig())
+	require.NoError(t, tm.Start())
+	defer tm.Close()
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tm.LeaseTable(tt.args.name, tt.args.duration)
+			if tt.wantErr != nil {
+				require.Error(t, tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestManager_ReturnTable(t *testing.T) {
+	const (
+		existingTable = "existingTable"
+		leasedTable   = "leasedTable"
+	)
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    bool
+		wantErr error
+	}{
+		{
+			name: "Return existing table",
+			args: args{name: existingTable},
+		},
+		{
+			name: "Return leased table",
+			args: args{name: leasedTable},
+			want: true,
+		},
+		{
+			name:    "Return unknown table",
+			args:    args{name: "unknown"},
+			wantErr: serrors.ErrTableNotFound,
+		},
+	}
+
+	node, m := startRaftNode(t)
+	defer node.Close()
+	tm := NewManager(node, m, minimalTestConfig())
+	require.NoError(t, tm.Start())
+	defer tm.Close()
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
+
+	require.NoError(t, tm.CreateTable(leasedTable))
+	require.NoError(t, tm.LeaseTable(leasedTable, 60*time.Second))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tm.ReturnTable(tt.args.name)
+			if tt.wantErr != nil {
+				require.Error(t, tt.wantErr, err)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestManager_GetTable(t *testing.T) {
 	const existingTable = "existingTable"
 	type args struct {
