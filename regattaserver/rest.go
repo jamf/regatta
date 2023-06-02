@@ -80,6 +80,8 @@ func NewRESTServer(addr string, readTimeout time.Duration) *RESTServer {
 	mux.HandleFunc("/debug/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/trace", pprof.Trace)
 
+	mux.Handle("/", http.NotFoundHandler())
+
 	l := zap.S().Named("admin")
 
 	return &RESTServer{
