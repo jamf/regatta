@@ -245,7 +245,7 @@ func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, follo
 }
 
 func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
-	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})

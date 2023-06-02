@@ -3,26 +3,19 @@
 package tables
 
 import (
-	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/log"
+	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
-
-func init() {
-	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
-}
 
 var minimalTestConfig = func() Config {
 	return Config{
@@ -35,7 +28,7 @@ var minimalTestConfig = func() Config {
 func TestManager_CreateTable(t *testing.T) {
 	const testTableName = "test"
 	r := require.New(t)
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 
 	tm := NewManager(node, m, minimalTestConfig())
@@ -54,12 +47,16 @@ func TestManager_CreateTable(t *testing.T) {
 
 	t.Log("create existing table")
 	r.ErrorIs(tm.CreateTable(testTableName), serrors.ErrTableExists)
+
+	ts, err := tm.GetTables()
+	r.NoError(err)
+	r.Equal(1, len(ts))
 }
 
 func TestManager_DeleteTable(t *testing.T) {
 	const testTableName = "test"
 	r := require.New(t)
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 
 	tm := NewManager(node, m, minimalTestConfig())
@@ -99,6 +96,98 @@ func TestManager_DeleteTable(t *testing.T) {
 	r.Equal(1, len(files), "FS should contain only a root directory (named after hostname)")
 }
 
+func TestManager_LeaseTable(t *testing.T) {
+	const existingTable = "existingTable"
+	type args struct {
+		name     string
+		duration time.Duration
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "Lease existing table",
+			args: args{name: existingTable},
+		},
+		{
+			name:    "Lease unknown table",
+			args:    args{name: "unknown"},
+			wantErr: serrors.ErrTableNotFound,
+		},
+	}
+
+	node, m := startRaftNode(t)
+	defer node.Close()
+	tm := NewManager(node, m, minimalTestConfig())
+	require.NoError(t, tm.Start())
+	defer tm.Close()
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tm.LeaseTable(tt.args.name, tt.args.duration)
+			if tt.wantErr != nil {
+				require.Error(t, tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestManager_ReturnTable(t *testing.T) {
+	const (
+		existingTable = "existingTable"
+		leasedTable   = "leasedTable"
+	)
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    bool
+		wantErr error
+	}{
+		{
+			name: "Return existing table",
+			args: args{name: existingTable},
+		},
+		{
+			name: "Return leased table",
+			args: args{name: leasedTable},
+			want: true,
+		},
+		{
+			name:    "Return unknown table",
+			args:    args{name: "unknown"},
+			wantErr: serrors.ErrTableNotFound,
+		},
+	}
+
+	node, m := startRaftNode(t)
+	defer node.Close()
+	tm := NewManager(node, m, minimalTestConfig())
+	require.NoError(t, tm.Start())
+	defer tm.Close()
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
+
+	require.NoError(t, tm.CreateTable(leasedTable))
+	require.NoError(t, tm.LeaseTable(leasedTable, 60*time.Second))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tm.ReturnTable(tt.args.name)
+			if tt.wantErr != nil {
+				require.Error(t, tt.wantErr, err)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestManager_GetTable(t *testing.T) {
 	const existingTable = "existingTable"
 	type args struct {
@@ -124,13 +213,13 @@ func TestManager_GetTable(t *testing.T) {
 		},
 	}
 
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 	tm := NewManager(node, m, minimalTestConfig())
-	_ = tm.Start()
+	require.NoError(t, tm.Start())
 	defer tm.Close()
-	_ = tm.WaitUntilReady()
-	_ = tm.CreateTable(existingTable)
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -146,10 +235,33 @@ func TestManager_GetTable(t *testing.T) {
 	}
 }
 
+func TestManager_Restore(t *testing.T) {
+	const existingTable = "existingTable"
+	node, m := startRaftNode(t)
+	defer node.Close()
+	tm := NewManager(node, m, minimalTestConfig())
+	require.NoError(t, tm.Start())
+	defer tm.Close()
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
+
+	tab, err := tm.GetTable(existingTable)
+	require.NoError(t, err)
+
+	sf, err := snapshot.OpenFile("testdata/snapshot.bin")
+	require.NoError(t, err)
+	require.NoError(t, tm.Restore(existingTable, sf))
+
+	tab2, err := tm.GetTable(existingTable)
+	require.NoError(t, err)
+
+	require.Greater(t, tab2.ClusterID, tab.ClusterID, "restored table should have higher ID assigned")
+}
+
 func TestManager_reconcile(t *testing.T) {
 	const testTableName = "test"
 	r := require.New(t)
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 
 	const reconcileInterval = 1 * time.Second
@@ -325,27 +437,21 @@ func Test_diffTables(t *testing.T) {
 	}
 }
 
-func getTestPort() int {
-	l, _ := net.Listen("tcp", ":0")
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
-func startRaftNode() (*dragonboat.NodeHost, map[uint64]string) {
-	testNodeAddress := fmt.Sprintf("localhost:%d", getTestPort())
+func startRaftNode(t *testing.T) (*dragonboat.NodeHost, map[uint64]string) {
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, l.Close())
 	nhc := config.NodeHostConfig{
 		WALDir:         "wal",
 		NodeHostDir:    "dragonboat",
 		RTTMillisecond: 1,
-		RaftAddress:    testNodeAddress,
+		RaftAddress:    l.Addr().String(),
+		EnableMetrics:  true,
 	}
-	_ = nhc.Prepare()
+	require.NoError(t, nhc.Prepare())
 	nhc.Expert.FS = vfs.NewMem()
 	nhc.Expert.Engine.ExecShards = 1
 	nhc.Expert.LogDB.Shards = 1
 	nh, err := dragonboat.NewNodeHost(nhc)
-	if err != nil {
-		zap.S().Panic(err)
-	}
-	return nh, map[uint64]string{1: testNodeAddress}
+	require.NoError(t, err)
+	return nh, map[uint64]string{1: l.Addr().String()}
 }
