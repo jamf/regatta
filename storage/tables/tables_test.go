@@ -3,26 +3,18 @@
 package tables
 
 import (
-	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/log"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
-
-func init() {
-	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
-}
 
 var minimalTestConfig = func() Config {
 	return Config{
@@ -35,7 +27,7 @@ var minimalTestConfig = func() Config {
 func TestManager_CreateTable(t *testing.T) {
 	const testTableName = "test"
 	r := require.New(t)
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 
 	tm := NewManager(node, m, minimalTestConfig())
@@ -54,12 +46,16 @@ func TestManager_CreateTable(t *testing.T) {
 
 	t.Log("create existing table")
 	r.ErrorIs(tm.CreateTable(testTableName), serrors.ErrTableExists)
+
+	ts, err := tm.GetTables()
+	r.NoError(err)
+	r.Equal(1, len(ts))
 }
 
 func TestManager_DeleteTable(t *testing.T) {
 	const testTableName = "test"
 	r := require.New(t)
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 
 	tm := NewManager(node, m, minimalTestConfig())
@@ -124,13 +120,13 @@ func TestManager_GetTable(t *testing.T) {
 		},
 	}
 
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 	tm := NewManager(node, m, minimalTestConfig())
-	_ = tm.Start()
+	require.NoError(t, tm.Start())
 	defer tm.Close()
-	_ = tm.WaitUntilReady()
-	_ = tm.CreateTable(existingTable)
+	require.NoError(t, tm.WaitUntilReady())
+	require.NoError(t, tm.CreateTable(existingTable))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -149,7 +145,7 @@ func TestManager_GetTable(t *testing.T) {
 func TestManager_reconcile(t *testing.T) {
 	const testTableName = "test"
 	r := require.New(t)
-	node, m := startRaftNode()
+	node, m := startRaftNode(t)
 	defer node.Close()
 
 	const reconcileInterval = 1 * time.Second
@@ -325,27 +321,21 @@ func Test_diffTables(t *testing.T) {
 	}
 }
 
-func getTestPort() int {
+func startRaftNode(t *testing.T) (*dragonboat.NodeHost, map[uint64]string) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
-func startRaftNode() (*dragonboat.NodeHost, map[uint64]string) {
-	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
+	require.NoError(t, l.Close())
 	nhc := config.NodeHostConfig{
 		WALDir:         "wal",
 		NodeHostDir:    "dragonboat",
 		RTTMillisecond: 1,
-		RaftAddress:    testNodeAddress,
+		RaftAddress:    l.Addr().String(),
+		EnableMetrics:  true,
 	}
-	_ = nhc.Prepare()
+	require.NoError(t, nhc.Prepare())
 	nhc.Expert.FS = vfs.NewMem()
 	nhc.Expert.Engine.ExecShards = 1
 	nhc.Expert.LogDB.Shards = 1
 	nh, err := dragonboat.NewNodeHost(nhc)
-	if err != nil {
-		zap.S().Panic(err)
-	}
-	return nh, map[uint64]string{1: testNodeAddress}
+	require.NoError(t, err)
+	return nh, map[uint64]string{1: l.Addr().String()}
 }

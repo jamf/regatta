@@ -5,6 +5,7 @@ package tables
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -99,7 +100,7 @@ func (m *Manager) LeaseTable(name string, lease time.Duration) error {
 	key := storedTableName(name) + "/lease"
 	get, err := m.store.Get(key)
 
-	unclaimed := err == kv.ErrNotExist
+	unclaimed := errors.Is(err, kv.ErrNotExist)
 	if err != nil && !unclaimed {
 		return err
 	}
@@ -135,7 +136,7 @@ func (m *Manager) ReturnTable(name string) (bool, error) {
 	key := storedTableName(name) + "/lease"
 	get, err := m.store.Get(key)
 
-	if err == kv.ErrNotExist {
+	if errors.Is(err, kv.ErrNotExist) {
 		return false, nil
 	}
 	if err != nil {
@@ -190,7 +191,7 @@ func (m *Manager) createTable(name string) (table.Table, error) {
 	}
 	err = m.setTableVersion(tab, 0)
 	if err != nil {
-		if err == kv.ErrVersionMismatch {
+		if errors.Is(err, kv.ErrVersionMismatch) {
 			return table.Table{}, serrors.ErrTableExists
 		}
 		return table.Table{}, err
@@ -392,7 +393,7 @@ func (m *Manager) cleanup() error {
 		}
 		if c.Created.Before(time.Now().Add(-m.cleanupGracePeriod)) {
 			// Distributed data race guard
-			if _, err := m.GetTableByID(c.ClusterID); err != serrors.ErrTableNotFound {
+			if _, err := m.GetTableByID(c.ClusterID); !errors.Is(err, serrors.ErrTableNotFound) {
 				m.log.Warnf("[%d:%d] cluster data cleanup skipped, table should not be deleted", c.ClusterID, m.cfg.NodeID)
 				return m.store.Delete(l.Key, l.Ver)
 			}
@@ -415,7 +416,7 @@ func (m *Manager) cleanup() error {
 func (m *Manager) incAndGetIDSeq() (uint64, error) {
 	seq, err := m.store.Get(sequenceKey)
 	if err != nil {
-		if err == kv.ErrNotExist {
+		if errors.Is(err, kv.ErrNotExist) {
 			seq = kv.Pair{
 				Key:   sequenceKey,
 				Value: strconv.FormatUint(tableIDsRangeStart, 10),
@@ -542,7 +543,7 @@ func (m *Manager) stopTable(clusterID uint64) error {
 	}
 	key := fmt.Sprintf("/cleanup/%d/%d", m.cfg.NodeID, clusterID)
 	c, err := m.store.Get(key)
-	if err != nil && err != kv.ErrNotExist {
+	if err != nil && !errors.Is(err, kv.ErrNotExist) {
 		return err
 	}
 	_, err = m.store.Set(key, string(b), c.Ver)
@@ -569,7 +570,7 @@ func (m *Manager) stopTable(clusterID uint64) error {
 
 func (m *Manager) Restore(name string, reader io.Reader) error {
 	tbl, version, err := m.getTableVersion(name)
-	if err != nil && err != serrors.ErrTableNotFound {
+	if err != nil && !errors.Is(err, serrors.ErrTableNotFound) {
 		return err
 	}
 	recoveryID, err := m.incAndGetIDSeq()
@@ -618,7 +619,7 @@ func (m *Manager) Restore(name string, reader io.Reader) error {
 func (m *Manager) getTableVersion(name string) (table.Table, uint64, error) {
 	v, err := m.store.Get(storedTableName(name))
 	if err != nil {
-		if err == kv.ErrNotExist {
+		if errors.Is(err, kv.ErrNotExist) {
 			return table.Table{}, 0, serrors.ErrTableNotFound
 		}
 		return table.Table{}, 0, err
@@ -693,7 +694,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			defer cancel()
 			_, err := m.nh.SyncPropose(ctx, session, bb)
 			if err != nil {
-				if err == dragonboat.ErrShardNotFound {
+				if errors.Is(err, dragonboat.ErrShardNotFound) {
 					m.log.Warn("cluster not found recovery probably started on a different node")
 					return backoff.Permanent(err)
 				}
