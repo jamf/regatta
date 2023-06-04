@@ -23,8 +23,9 @@ func TestNewRESTServer(t *testing.T) {
 
 func TestRESTServer(t *testing.T) {
 	type args struct {
-		method string
-		path   string
+		method  string
+		path    string
+		headers map[string][]string
 	}
 	tests := []struct {
 		name     string
@@ -48,6 +49,17 @@ func TestRESTServer(t *testing.T) {
 			wantCode: http.StatusOK,
 		},
 		{
+			name: "prometheus metrics gzipped",
+			args: args{
+				method: "GET",
+				path:   "/metrics",
+				headers: map[string][]string{
+					"Accept-Encoding": {"gzip"},
+				},
+			},
+			wantCode: http.StatusOK,
+		},
+		{
 			name: "healthcheck",
 			args: args{
 				method: "GET",
@@ -67,6 +79,9 @@ func TestRESTServer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.args.method, tt.args.path, nil)
+			if len(tt.args.headers) > 0 {
+				request.Header = tt.args.headers
+			}
 			response := httptest.NewRecorder()
 			s := NewRESTServer("127.0.0.1:3000", 30*time.Second)
 			s.httpServer.Handler.ServeHTTP(response, request)

@@ -6,15 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jamf/regatta/regattaserver"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc/encoding"
-	_ "google.golang.org/grpc/encoding/proto"
 )
 
 func init() {
-	encoding.RegisterCodec(regattaserver.Codec{})
-
 	// Add subcommands
 	rootCmd.AddCommand(leaderCmd)
 	rootCmd.AddCommand(followerCmd)

@@ -1,6 +1,6 @@
 // Copyright JAMF Software, LLC
 
-package regattaserver
+package proto
 
 import (
 	"testing"
