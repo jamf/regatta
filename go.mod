@@ -6,7 +6,7 @@ require (
 	github.com/VictoriaMetrics/metrics v1.24.0
 	github.com/armon/go-metrics v0.4.1
 	github.com/benbjohnson/clock v1.3.5
-	github.com/cenkalti/backoff/v4 v4.2.0
+	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cockroachdb/pebble v0.0.0-20221207173255-0f086d933dac
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/snappy v0.0.4
