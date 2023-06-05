@@ -1,12 +1,17 @@
 // Copyright JAMF Software, LLC
 
-package regattaserver
+package proto
 
 import (
 	"fmt"
 
+	"google.golang.org/grpc/encoding"
 	"google.golang.org/protobuf/proto"
 )
+
+func init() {
+	encoding.RegisterCodec(Codec{})
+}
 
 // Name is the name registered for the proto compressor.
 const Name = "proto"

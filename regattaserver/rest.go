@@ -3,6 +3,7 @@
 package regattaserver
 
 import (
+	gzip2 "compress/gzip"
 	"context"
 	"net/http"
 	"net/http/pprof"
@@ -11,6 +12,7 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	gometrics "github.com/armon/go-metrics"
 	goprometheus "github.com/armon/go-metrics/prometheus"
+	"github.com/jamf/regatta/regattaserver/encoding/gzip"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
@@ -88,7 +90,7 @@ func NewRESTServer(addr string, readTimeout time.Duration) *RESTServer {
 		addr: addr,
 		httpServer: &http.Server{
 			Addr:        addr,
-			Handler:     mux,
+			Handler:     gzip.NewGZIPHandler(mux, gzip2.BestSpeed),
 			ErrorLog:    zap.NewStdLog(l.Desugar()),
 			ReadTimeout: readTimeout,
 		},
