@@ -5,3 +5,5 @@ docs:
 - "README.md"
 proto:
 - "proto/**"
+proposal:
+- "docs/proposals/**"
