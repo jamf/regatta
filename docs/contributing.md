@@ -11,6 +11,19 @@ If you like this project and would like to contribute, ask questions, or just re
 **Feel free to reach out in [GitHub discussions](https://github.com/jamf/regatta/discussions),
 raise an issue, or open a pull request**.
 
+## Request For Comments
+
+For most of the changes, the normal pull request workflow is sufficient. However, some significant changes
+should go through a design process and consensus must be reached among maintainers. For this purpose, we have
+the **Request For Comments** process. RFC should be drafted for example when:
+
+* introducing a new feature or an API,
+* redesigning internals in a major way,
+* or considering breaking changes.
+
+When drafting an RFC, follow the [template](proposals/000-rfc-template.md) and create a pull request to start the discussion.
+The pull request should be tagged with the label `proposal`.
+
 ## Development prerequisites
 
 * [Go](https://golang.org/) >= 1.20
