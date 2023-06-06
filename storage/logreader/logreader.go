@@ -4,7 +4,6 @@ package logreader
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	serrors "github.com/jamf/regatta/storage/errors"
@@ -15,7 +14,7 @@ import (
 )
 
 type logQuerier interface {
-	QueryRaftLog(shardID uint64, firstIndex uint64, lastIndex uint64, maxSize uint64) (*dragonboat.RequestState, error)
+	GetLogReader(shardID uint64) (dragonboat.ReadonlyLogReader, error)
 }
 
 type shard struct {
@@ -105,48 +104,27 @@ func (l *LogReader) LogCompacted(info raftio.EntryInfo) {
 	l.shardCache.Store(info.ShardID, &shard{cache: newCache(l.ShardCacheSize)})
 }
 
-func (l *LogReader) readLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
-	rs, err := l.LogQuerier.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, maxSize)
+func (l *LogReader) readLog(_ context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+	r, err := l.LogQuerier.GetLogReader(clusterID)
 	if err != nil {
 		return nil, err
 	}
-	defer rs.Release()
-	select {
-	case result := <-rs.AppliedC():
-		switch {
-		case result.Completed():
-			entries, _ := result.RaftLogs()
-			return entries, nil
-		case result.RequestOutOfRange():
-			_, rng := result.RaftLogs()
-			// Follower is up-to-date with the leader, therefore there are no new data to be sent.
-			if rng.LastIndex == logRange.FirstIndex {
-				return nil, nil
-			}
-			// Follower is ahead of the leader, has to be manually fixed.
-			if rng.LastIndex < logRange.FirstIndex {
-				return nil, serrors.ErrLogBehind
-			}
-			// Follower's leaderIndex is in the leader's snapshot, not in the log.
-			if logRange.FirstIndex < rng.FirstIndex {
-				return nil, serrors.ErrLogAhead
-			}
-			return nil, fmt.Errorf("request out of range")
-		case result.Timeout():
-			return nil, fmt.Errorf("reading raft log timeouted")
-		case result.Rejected():
-			return nil, fmt.Errorf("reading raft log rejected")
-		case result.Terminated():
-			return nil, fmt.Errorf("reading raft log terminated")
-		case result.Dropped():
-			return nil, fmt.Errorf("raft log query dropped")
-		case result.Aborted():
-			return nil, fmt.Errorf("raft log query aborted")
-		}
-	case <-ctx.Done():
-		return nil, ctx.Err()
+
+	rFirst, rLast := r.GetRange()
+	// Follower is up-to-date with the leader, therefore there are no new data to be sent.
+	if rLast == logRange.FirstIndex {
+		return nil, nil
 	}
-	return nil, nil
+	// Follower is ahead of the leader, has to be manually fixed.
+	if rLast < logRange.FirstIndex {
+		return nil, serrors.ErrLogBehind
+	}
+	// Follower's leaderIndex is in the leader's snapshot, not in the log.
+	if logRange.FirstIndex < rFirst {
+		return nil, serrors.ErrLogAhead
+	}
+
+	return r.Entries(logRange.FirstIndex, logRange.LastIndex, maxSize)
 }
 
 func fixSize(entries []raftpb.Entry, maxSize uint64) []raftpb.Entry {
