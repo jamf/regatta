@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 
-	gs "github.com/golang/snappy"
+	gs "github.com/klauspost/compress/snappy"
 	"google.golang.org/grpc/encoding"
 )
 

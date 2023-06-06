@@ -7,7 +7,7 @@ import (
 
 	"github.com/jamf/regatta/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/grpc/reflection/grpc_reflection_v1"
 	pb "google.golang.org/protobuf/proto"
 )
 
@@ -29,7 +29,7 @@ func TestCodec_Marshal(t *testing.T) {
 		{
 			name: "Marshal V1/V2 proto",
 			args: args{
-				v: &grpc_reflection_v1alpha.ServerReflectionResponse{ValidHost: "host"},
+				v: &grpc_reflection_v1.ServerReflectionResponse{ValidHost: "host"},
 			},
 		},
 		{
@@ -75,7 +75,7 @@ func TestCodec_Unmarshal(t *testing.T) {
 		{
 			name: "Unmarshal V1/V2 proto",
 			args: args{
-				v:    &grpc_reflection_v1alpha.ServerReflectionResponse{},
+				v:    &grpc_reflection_v1.ServerReflectionResponse{},
 				data: mustMarshall(&proto.KeyValue{Key: []byte("key")}),
 			},
 		},

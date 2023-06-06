@@ -1,6 +1,6 @@
 // Copyright JAMF Software, LLC
 
-package snappy
+package gzip
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ import (
 
 const (
 	bufSize = 1024
-	message = "This is the snappy response"
+	message = "This is the gzip response"
 )
 
 type testServer struct {
