@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftio"
@@ -19,9 +20,38 @@ type mockLogQuerier struct {
 	mock.Mock
 }
 
-func (m *mockLogQuerier) QueryRaftLog(shardID uint64, firstIndex uint64, lastIndex uint64, maxSize uint64) (*dragonboat.RequestState, error) {
-	called := m.Called(shardID, firstIndex, lastIndex, maxSize)
-	return called.Get(0).(*dragonboat.RequestState), called.Error(1)
+func (m *mockLogQuerier) GetLogReader(shardID uint64) (dragonboat.ReadonlyLogReader, error) {
+	args := m.Called(shardID)
+	return args.Get(0).(dragonboat.ReadonlyLogReader), args.Error(1)
+}
+
+type mockLogReader struct {
+	mock.Mock
+}
+
+func (m *mockLogReader) GetRange() (uint64, uint64) {
+	args := m.Called()
+	return uint64(args.Int(0)), uint64(args.Int(1))
+}
+
+func (m *mockLogReader) NodeState() (raftpb.State, raftpb.Membership) {
+	args := m.Called()
+	return args.Get(0).(raftpb.State), args.Get(1).(raftpb.Membership)
+}
+
+func (m *mockLogReader) Term(index uint64) (uint64, error) {
+	args := m.Called(index)
+	return uint64(args.Int(0)), args.Error(1)
+}
+
+func (m *mockLogReader) Entries(low uint64, high uint64, maxSize uint64) ([]raftpb.Entry, error) {
+	args := m.Called(low, high, maxSize)
+	return args.Get(0).([]raftpb.Entry), args.Error(1)
+}
+
+func (m *mockLogReader) Snapshot() raftpb.Snapshot {
+	args := m.Called()
+	return args.Get(0).(raftpb.Snapshot)
 }
 
 func TestLogReader_NodeDeleted(t *testing.T) {
@@ -169,18 +199,18 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 				timeout:   30 * time.Second,
 				clusterID: 1,
 				logRange: dragonboat.LogRange{
-					FirstIndex: 100,
+					FirstIndex: 1,
 					LastIndex:  1000,
 				},
 				maxSize: 1000,
 			},
 			on: func(querier *mockLogQuerier) {
-				results := make(chan dragonboat.RequestResult, 1)
-				results <- dragonboat.RequestResult{}
-				querier.On("QueryRaftLog", uint64(1), uint64(100), uint64(1000), uint64(1000)).
-					Return(&dragonboat.RequestState{CompletedC: results}, nil)
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5)
+				lr.On("Entries", mock.Anything, mock.Anything, mock.Anything).Return([]raftpb.Entry{}, nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
 			},
-			wantErr: require.Error,
+			wantErr: require.NoError,
 		},
 		{
 			name: "cache size zero invalid logRange",
@@ -202,7 +232,7 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 			wantErr: require.NoError,
 		},
 		{
-			name: "cache returned values in the middle",
+			name: "empty cache valid logRange",
 			fields: fields{
 				ShardCacheSize: 1000,
 			},
@@ -213,20 +243,198 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 					FirstIndex: 100,
 					LastIndex:  1000,
 				},
-				maxSize: 1000,
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(100), uint64(1000), mock.Anything).Return(createEntries(100, 999), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+			want:    createEntries(100, 999),
+		},
+		{
+			name: "cache hit middle of the range prepend range",
+			fields: fields{
+				ShardCacheSize: 1000,
+			},
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 100,
+					LastIndex:  1000,
+				},
+				maxSize: 1024 * 1024,
 			},
 			cacheContent: createEntries(500, 600),
 			on: func(querier *mockLogQuerier) {
-				results := make(chan dragonboat.RequestResult, 1)
-				results <- dragonboat.RequestResult{}
-				querier.On("QueryRaftLog", uint64(1), uint64(100), uint64(500), mock.Anything).
-					Return(&dragonboat.RequestState{CompletedC: results}, nil)
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(100), uint64(500), mock.Anything).Return(createEntries(100, 499), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
 			},
-			wantErr: require.Error,
+			wantErr: require.NoError,
+			want:    createEntries(100, 600),
+		},
+		{
+			name: "cache hit middle of the range prepend range and limit size",
+			fields: fields{
+				ShardCacheSize: 1000,
+			},
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 100,
+					LastIndex:  1000,
+				},
+				maxSize: 1024,
+			},
+			cacheContent: createEntries(500, 600),
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(100), uint64(500), mock.Anything).Return(createEntries(100, 499), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+			want:    createEntries(100, 106),
+		},
+		{
+			name: "cache hit beginning of the range append range",
+			fields: fields{
+				ShardCacheSize: 1000,
+			},
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 100,
+					LastIndex:  1000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			cacheContent: createEntries(100, 500),
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(501), uint64(1000), mock.Anything).Return(createEntries(501, 999), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+			want:    createEntries(100, 999),
+		},
+		{
+			name: "cache hit beginning of the range no new entries",
+			fields: fields{
+				ShardCacheSize: 1000,
+			},
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 100,
+					LastIndex:  1000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			cacheContent: createEntries(100, 500),
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(501), uint64(1000), mock.Anything).Return([]raftpb.Entry{}, nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+			want:    createEntries(100, 500),
+		},
+		{
+			name: "cache miss append range",
+			fields: fields{
+				ShardCacheSize: 1000,
+			},
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 501,
+					LastIndex:  1000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			cacheContent: createEntries(100, 500),
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(501), uint64(1000), mock.Anything).Return(createEntries(501, 999), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+			want:    createEntries(501, 999),
 		},
 		{
 			name:    "empty log range",
 			wantErr: require.NoError,
+		},
+		{
+			name: "up to date",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 5000,
+					LastIndex:  6000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "error log ahead",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 1,
+					LastIndex:  5000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1000, 5000)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: func(t require.TestingT, err error, i ...interface{}) {
+				require.ErrorIs(t, err, serror.ErrLogAhead)
+			},
+		},
+		{
+			name: "error log behind",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 6000,
+					LastIndex:  7000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1000, 5000)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: func(t require.TestingT, err error, i ...interface{}) {
+				require.ErrorIs(t, err, serror.ErrLogBehind)
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -239,15 +447,15 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 				ShardCacheSize: tt.fields.ShardCacheSize,
 				LogQuerier:     querier,
 			}
-			if len(tt.cacheContent) > 0 {
-				l.shardCache.
-					ComputeIfAbsent(tt.args.clusterID, func(uint642 uint64) *shard { return &shard{cache: newCache(tt.fields.ShardCacheSize)} }).
-					put(tt.cacheContent)
-			}
 			l.shardCache.ComputeIfAbsent(tt.args.clusterID, func(uint642 uint64) *shard { return &shard{cache: newCache(tt.fields.ShardCacheSize)} })
+			if len(tt.cacheContent) > 0 {
+				v, _ := l.shardCache.
+					Load(tt.args.clusterID)
+				v.put(tt.cacheContent)
+			}
 			ctx, cancel := context.WithTimeout(context.TODO(), tt.args.timeout)
+			defer cancel()
 			got, err := l.QueryRaftLog(ctx, tt.args.clusterID, tt.args.logRange, tt.args.maxSize)
-			cancel()
 			tt.wantErr(t, err)
 			if tt.assert != nil {
 				tt.assert(t, querier)
