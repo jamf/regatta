@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/jamf/regatta/util"
 	"github.com/lni/dragonboat/v4"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
@@ -20,9 +20,8 @@ func TestSingleNodeCluster(t *testing.T) {
 	address := getTestBindAddress()
 	cluster, err := New(address, "", func() Info { return Info{} })
 	require.NoError(t, err)
-	count, err := cluster.Start([]string{address})
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	cluster.Start([]string{address})
+	require.Equal(t, 1, len(cluster.Nodes()))
 }
 
 func TestMultiNodeCluster(t *testing.T) {
@@ -32,7 +31,7 @@ func TestMultiNodeCluster(t *testing.T) {
 		address := getTestBindAddress()
 		cluster, err := New(address, address, func() Info {
 			return Info{
-				NodeHostID:  uuid.New().String(),
+				NodeHostID:  util.RandString(64),
 				NodeID:      uint64(i),
 				RaftAddress: fmt.Sprintf("127.0.0.%d:5762", i),
 				ShardInfoList: []dragonboat.ShardInfo{
@@ -57,9 +56,8 @@ func TestMultiNodeCluster(t *testing.T) {
 		})
 		require.NoError(t, err)
 		clusters[address] = cluster
-		count, err := cluster.Start(maps.Keys(clusters))
-		require.NoError(t, err)
-		require.Equal(t, i+1, count)
+		cluster.Start(maps.Keys(clusters))
+		require.Equal(t, i+1, len(cluster.Nodes()))
 	}
 
 	t.Log("all members see the others and has the same view of the world")
