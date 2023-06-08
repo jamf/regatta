@@ -135,8 +135,8 @@ func dnsIdNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	err = errors.Unwrap(err)
-	dnsErr, ok := err.(*net.DNSError)
+	var dnsErr *net.DNSError
+	ok := errors.As(err, &dnsErr)
 	return ok && dnsErr.IsNotFound
 }
 

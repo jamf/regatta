@@ -172,6 +172,26 @@ func TestResolver_Resolve(t *testing.T) {
 			resolver: &mockHostnameResolver{err: errorFromResolver},
 		},
 		{
+			name: "error from SRV resolver not found",
+			args: args{
+				addr:  "_test._tcp.regatta.io",
+				qtype: SRV,
+			},
+			want:     nil,
+			wantErr:  nil,
+			resolver: &mockHostnameResolver{err: &net.DNSError{IsNotFound: true}},
+		},
+		{
+			name: "error from A resolver not found",
+			args: args{
+				addr:  "http://regatta.io:8080",
+				qtype: A,
+			},
+			want:     nil,
+			wantErr:  nil,
+			resolver: &mockHostnameResolver{err: &net.DNSError{IsNotFound: true}},
+		},
+		{
 			name: "multiple SRV records from SRV no A lookup",
 			args: args{
 				addr:  "_test._tcp.regatta.io",
