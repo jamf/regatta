@@ -153,16 +153,10 @@ func follower(_ *cobra.Command, _ []string) {
 
 	// Replication
 	{
-		watcher := &cert.Watcher{
-			CertFile: viper.GetString("replication.cert-filename"),
-			KeyFile:  viper.GetString("replication.key-filename"),
-			Log:      logger.Named("cert").Sugar(),
-		}
-		err = watcher.Watch()
+		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
 		if err != nil {
-			log.Panicf("cannot watch certificate: %v", err)
+			log.Panicf("cannot load certificate: %v", err)
 		}
-		defer watcher.Stop()
 
 		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
 		if err != nil {
@@ -171,7 +165,7 @@ func follower(_ *cobra.Command, _ []string) {
 		cp := x509.NewCertPool()
 		cp.AppendCertsFromPEM(caBytes)
 
-		conn, err := createReplicationConn(cp, watcher)
+		conn, err := createReplicationConn(cp, c)
 		defer func() {
 			_ = conn.Close()
 		}()
@@ -201,18 +195,12 @@ func follower(_ *cobra.Command, _ []string) {
 			grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 			// Create regatta API server
 			// Load API certificate
-			watcher := &cert.Watcher{
-				CertFile: viper.GetString("api.cert-filename"),
-				KeyFile:  viper.GetString("api.key-filename"),
-				Log:      logger.Named("cert").Sugar(),
-			}
-			err = watcher.Watch()
+			c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
 			if err != nil {
-				log.Panicf("cannot watch certificate: %v", err)
+				log.Panicf("cannot load certificate: %v", err)
 			}
-			defer watcher.Stop()
 			// Create server
-			regatta := createAPIServer(watcher)
+			regatta := createAPIServer(c)
 			proto.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
 				KVServer: regattaserver.KVServer{
 					Storage: engine,
@@ -230,18 +218,12 @@ func follower(_ *cobra.Command, _ []string) {
 
 		if viper.GetBool("maintenance.enabled") {
 			// Load maintenance API certificate
-			watcher := &cert.Watcher{
-				CertFile: viper.GetString("maintenance.cert-filename"),
-				KeyFile:  viper.GetString("maintenance.key-filename"),
-				Log:      logger.Named("cert").Sugar(),
-			}
-			err = watcher.Watch()
+			c, err := cert.New(viper.GetString("maintenance.cert-filename"), viper.GetString("maintenance.key-filename"))
 			if err != nil {
-				log.Panicf("cannot watch maintenance certificate: %v", err)
+				log.Panicf("cannot load maintenance certificate: %v", err)
 			}
-			defer watcher.Stop()
 
-			maintenance := createMaintenanceServer(watcher)
+			maintenance := createMaintenanceServer(c)
 			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
 			// Start server
 			go func() {
@@ -256,7 +238,7 @@ func follower(_ *cobra.Command, _ []string) {
 		// Create REST server
 		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
 		go func() {
-			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
+			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				log.Panicf("REST listenAndServe failed: %v", err)
 			}
 		}()
@@ -268,13 +250,11 @@ func follower(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationConn(cp *x509.CertPool, replicationWatcher *cert.Watcher) (*grpc.ClientConn, error) {
+func createReplicationConn(cp *x509.CertPool, cer *cert.Reloadable) (*grpc.ClientConn, error) {
 	creds := credentials.NewTLS(&tls.Config{
-		RootCAs:    cp,
-		MinVersion: tls.VersionTLS12,
-		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return replicationWatcher.GetCertificate(), nil
-		},
+		RootCAs:              cp,
+		MinVersion:           tls.VersionTLS12,
+		GetClientCertificate: cer.GetClientCertificate,
 	})
 
 	replConn, err := grpc.Dial(viper.GetString("replication.leader-address"),

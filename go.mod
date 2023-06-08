@@ -8,9 +8,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cockroachdb/pebble v0.0.0-20221207173255-0f086d933dac
-	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/snappy v0.0.4
-	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/memberlist v0.5.0
@@ -51,10 +49,12 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.10.0 // indirect
+	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/getsentry/sentry-go v0.16.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect

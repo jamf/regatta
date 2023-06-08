@@ -28,15 +28,13 @@ import (
 
 var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
 
-func createAPIServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
+func createAPIServer(cert *cert.Reloadable) *regattaserver.RegattaServer {
 	return regattaserver.NewServer(
 		viper.GetString("api.address"),
 		viper.GetBool("api.reflection-api"),
 		grpc.Creds(credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return watcher.GetCertificate(), nil
-			},
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: cert.GetCertificate,
 		})),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionAge: 60 * time.Second,
@@ -46,16 +44,14 @@ func createAPIServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
 	)
 }
 
-func createMaintenanceServer(watcher *cert.Watcher) *regattaserver.RegattaServer {
+func createMaintenanceServer(cert *cert.Reloadable) *regattaserver.RegattaServer {
 	// Create regatta maintenance server
 	return regattaserver.NewServer(
 		viper.GetString("maintenance.address"),
 		viper.GetBool("api.reflection-api"),
 		grpc.Creds(credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-			GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return watcher.GetCertificate(), nil
-			},
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: cert.GetCertificate,
 		})),
 		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
 		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
