@@ -85,6 +85,7 @@ func TestSM_Open(t *testing.T) {
 				nodeID:    tt.fields.nodeID,
 				dirname:   tt.fields.dirname,
 				log:       zap.NewNop().Sugar(),
+				metrics:   newMetrics(testTable, tt.fields.clusterID),
 			}
 			_, err := p.Open(nil)
 			if tt.wantErr {
@@ -107,6 +108,7 @@ func TestSMReOpen(t *testing.T) {
 		nodeID:    1,
 		dirname:   "/tmp/dir",
 		log:       zap.NewNop().Sugar(),
+		metrics:   newMetrics(testTable, 1),
 	}
 
 	t.Log("open FSM")
@@ -737,6 +739,7 @@ func emptySM() *FSM {
 		nodeID:    1,
 		dirname:   "/tmp/tst",
 		log:       zap.NewNop().Sugar(),
+		metrics:   newMetrics(testTable, 1),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -779,6 +782,7 @@ func filledSM() *FSM {
 		nodeID:    1,
 		dirname:   "/tmp/tst",
 		log:       zap.NewNop().Sugar(),
+		metrics:   newMetrics(testTable, 1),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -812,6 +816,7 @@ func filledLargeValuesSM() *FSM {
 		nodeID:    1,
 		dirname:   "/tmp/tst",
 		log:       zap.NewNop().Sugar(),
+		metrics:   newMetrics(testTable, 1),
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -831,6 +836,7 @@ func filledIndexOnlySM() *FSM {
 		nodeID:    1,
 		dirname:   "/tmp/tst",
 		log:       zap.NewNop().Sugar(),
+		metrics:   newMetrics(testTable, 1),
 	}
 	_, err := p.Open(nil)
 	if err != nil {

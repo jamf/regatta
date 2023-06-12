@@ -159,6 +159,10 @@ func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+	idx, err := readLocalIndex(db, sysLocalIndex)
+	if err != nil {
+		return err
+	}
 	if err := rp.SaveCurrentDBDirName(c.fsm.fs, c.fsm.dirname, randomDirName); err != nil {
 		return err
 	}
@@ -166,6 +170,7 @@ func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
 		return err
 	}
 	old := c.fsm.pebble.Swap(db)
+	c.fsm.metrics.applied.Store(idx)
 	c.fsm.log.Info("snapshot recovery finished")
 
 	if old != nil {

@@ -4,12 +4,14 @@ package fsm
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type metrics struct {
+	appliedIndex            prometheus.Gauge
 	cacheHits               *prometheus.GaugeVec
 	cacheMisses             *prometheus.GaugeVec
 	cacheSize               *prometheus.GaugeVec
@@ -22,11 +24,22 @@ type metrics struct {
 	totalBytesIn            prometheus.Gauge
 	compactCount            *prometheus.GaugeVec
 	compactDebt             prometheus.Gauge
+	applied                 atomic.Uint64
 	collected               *pebble.Metrics
 }
 
 func newMetrics(tableName string, clusterID uint64) *metrics {
 	return &metrics{
+		appliedIndex: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "regatta_applied_index",
+				Help: "Regatta table applied index",
+				ConstLabels: map[string]string{
+					"table":     tableName,
+					"clusterID": fmt.Sprintf("%d", clusterID),
+				},
+			},
+		),
 		cacheHits: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "regatta_table_storage_cache_hits",
@@ -151,6 +164,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 }
 
 func (p *metrics) Collect(ch chan<- prometheus.Metric) {
+	p.appliedIndex.Set(float64(p.applied.Load()))
+
 	p.cacheHits.With(prometheus.Labels{"type": "block"}).Set(float64(p.collected.BlockCache.Hits))
 	p.cacheMisses.With(prometheus.Labels{"type": "block"}).Set(float64(p.collected.BlockCache.Misses))
 	p.cacheSize.With(prometheus.Labels{"type": "block"}).Set(float64(p.collected.BlockCache.Size))
@@ -196,6 +211,7 @@ func (p *metrics) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (p *metrics) Describe(ch chan<- *prometheus.Desc) {
+	p.appliedIndex.Describe(ch)
 	p.cacheHits.Describe(ch)
 	p.cacheMisses.Describe(ch)
 	p.cacheSize.Describe(ch)

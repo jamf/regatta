@@ -156,7 +156,12 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 		p.log.Errorf("unable to register metrics for FSM: %s", err)
 	}
 
-	return readLocalIndex(db, sysLocalIndex)
+	idx, err := readLocalIndex(db, sysLocalIndex)
+	if err != nil {
+		return 0, err
+	}
+	p.metrics.applied.Store(idx)
+	return idx, err
 }
 
 func (p *FSM) openDB(dbdir string) (*pebble.DB, error) {
@@ -248,6 +253,7 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 		_ = ctx.Close()
 	}()
 
+	var idx uint64
 	for i := 0; i < len(updates); i++ {
 		cmd, err := parseCommand(ctx, updates[i])
 		if err != nil {
@@ -267,12 +273,14 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 			updates[i].Result.Data = bts
 		}
 		updates[i].Result.Value = uint64(updateResult)
+		idx = updates[i].Index
 	}
 
 	if err := ctx.Commit(); err != nil {
 		return nil, err
 	}
 
+	p.metrics.applied.Store(idx)
 	return updates, nil
 }
 

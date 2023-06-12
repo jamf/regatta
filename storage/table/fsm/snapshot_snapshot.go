@@ -151,7 +151,10 @@ read:
 	if err := db.Ingest(files); err != nil {
 		return err
 	}
-
+	idx, err := readLocalIndex(db, sysLocalIndex)
+	if err != nil {
+		return err
+	}
 	if err := rp.SaveCurrentDBDirName(s.fsm.fs, s.fsm.dirname, randomDirName); err != nil {
 		return err
 	}
@@ -159,6 +162,7 @@ read:
 		return err
 	}
 	old := s.fsm.pebble.Swap(db)
+	s.fsm.metrics.applied.Store(idx)
 	s.fsm.log.Info("snapshot recovery finished")
 
 	if old != nil {
