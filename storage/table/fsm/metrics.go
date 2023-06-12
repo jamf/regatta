@@ -165,6 +165,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 
 func (p *metrics) Collect(ch chan<- prometheus.Metric) {
 	p.appliedIndex.Set(float64(p.applied.Load()))
+	p.appliedIndex.Collect(ch)
 
 	p.cacheHits.With(prometheus.Labels{"type": "block"}).Set(float64(p.collected.BlockCache.Hits))
 	p.cacheMisses.With(prometheus.Labels{"type": "block"}).Set(float64(p.collected.BlockCache.Misses))

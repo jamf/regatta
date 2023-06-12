@@ -161,7 +161,7 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.metrics.applied.Store(idx)
-	return idx, err
+	return idx, nil
 }
 
 func (p *FSM) openDB(dbdir string) (*pebble.DB, error) {
