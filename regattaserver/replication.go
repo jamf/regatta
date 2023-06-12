@@ -16,7 +16,6 @@ import (
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftpb"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -115,9 +114,6 @@ type LogServer struct {
 	Log       *zap.SugaredLogger
 
 	maxMessageSize uint64
-	metrics        struct {
-		replicationIndex *prometheus.GaugeVec
-	}
 	proto.UnimplementedLogServer
 }
 
@@ -127,56 +123,12 @@ func NewLogServer(ts TableService, lr LogReaderService, logger *zap.Logger, maxM
 		Log:            logger.Sugar().Named("log-replication-server"),
 		LogReader:      lr,
 		maxMessageSize: maxMessageSize,
-		metrics: struct {
-			replicationIndex *prometheus.GaugeVec
-		}{
-			replicationIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			),
-		},
 	}
 
 	if maxMessageSize == 0 {
 		ls.maxMessageSize = DefaultMaxGRPCSize
 	}
 	return ls
-}
-
-// Collect leader's metrics.
-func (l *LogServer) Collect(ch chan<- prometheus.Metric) {
-	tt, err := l.Tables.GetTables()
-	if err != nil {
-		l.Log.Errorf("cannot read tables: %v", err)
-		return
-	}
-
-	for _, t := range tt {
-		table, err := l.Tables.GetTable(t.Name)
-		if err != nil {
-			l.Log.Errorf("cannot get '%s' as active table: %v", t.Name, err)
-			continue
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		idx, err := table.LocalIndex(ctx)
-		if err != nil {
-			l.Log.Errorf("cannot get local index for table '%s': %v", table.Name, err)
-			cancel()
-			continue
-		}
-		l.metrics.replicationIndex.With(prometheus.Labels{"role": "leader", "table": table.Name}).Set(float64(idx.Index))
-		cancel()
-	}
-
-	l.metrics.replicationIndex.Collect(ch)
-}
-
-// Describe leader's metrics.
-func (l *LogServer) Describe(ch chan<- *prometheus.Desc) {
-	l.metrics.replicationIndex.Describe(ch)
 }
 
 var (

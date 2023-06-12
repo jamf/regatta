@@ -21,7 +21,6 @@ import (
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -226,8 +225,6 @@ func leader(_ *cobra.Command, _ []string) {
 			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine})
 			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine})
 			proto.RegisterLogServer(replication, ls)
-
-			prometheus.MustRegister(ls)
 			// Start server
 			go func() {
 				log.Infof("regatta replication listening at %s", replication.Addr)
