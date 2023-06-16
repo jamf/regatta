@@ -19,10 +19,6 @@ import (
 	_ "google.golang.org/grpc/encoding/proto"
 )
 
-type workerCreator interface {
-	create(table string) *worker
-}
-
 type WorkerConfig struct {
 	PollInterval        time.Duration
 	LeaseInterval       time.Duration
@@ -92,7 +88,7 @@ type Manager struct {
 	reconcileInterval time.Duration
 	tm                *tables.Manager
 	metadataClient    proto.MetadataClient
-	factory           workerCreator
+	factory           *workerFactory
 	workers           struct {
 		registry map[string]*worker
 		mtx      sync.RWMutex
@@ -100,21 +96,16 @@ type Manager struct {
 	}
 	log    *zap.SugaredLogger
 	closer chan struct{}
-	nh     *dragonboat.NodeHost
 }
 
 func (m *Manager) Describe(descs chan<- *prometheus.Desc) {
-	if factory, ok := m.factory.(*workerFactory); ok {
-		factory.metrics.replicationIndex.Describe(descs)
-		factory.metrics.replicationLeased.Describe(descs)
-	}
+	m.factory.metrics.replicationIndex.Describe(descs)
+	m.factory.metrics.replicationLeased.Describe(descs)
 }
 
 func (m *Manager) Collect(metrics chan<- prometheus.Metric) {
-	if factory, ok := m.factory.(*workerFactory); ok {
-		factory.metrics.replicationIndex.Collect(metrics)
-		factory.metrics.replicationLeased.Collect(metrics)
-	}
+	m.factory.metrics.replicationIndex.Collect(metrics)
+	m.factory.metrics.replicationLeased.Collect(metrics)
 }
 
 // Start starts the replication manager goroutine, Close will stop it.
@@ -209,8 +200,8 @@ func (m *Manager) startWorker(worker *worker) {
 	m.workers.mtx.Lock()
 	defer m.workers.mtx.Unlock()
 
-	m.log.Infof("launching replication for table %s", worker.Table)
-	m.workers.registry[worker.Table] = worker
+	m.log.Infof("launching replication for table %s", worker.table)
+	m.workers.registry[worker.table] = worker
 	m.workers.wg.Add(1)
 	worker.Start()
 }
@@ -219,8 +210,8 @@ func (m *Manager) stopWorker(worker *worker) {
 	m.workers.mtx.Lock()
 	defer m.workers.mtx.Unlock()
 
-	m.log.Infof("stopping replication for table %s", worker.Table)
+	m.log.Infof("stopping replication for table %s", worker.table)
 	worker.Close()
 	m.workers.wg.Done()
-	delete(m.workers.registry, worker.Table)
+	delete(m.workers.registry, worker.table)
 }

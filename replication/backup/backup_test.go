@@ -14,25 +14,18 @@ import (
 
 	"github.com/benbjohnson/clock"
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/logger"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
-
-func init() {
-	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
-}
 
 func TestBackup_Backup(t *testing.T) {
 	type fields struct {

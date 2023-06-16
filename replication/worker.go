@@ -4,6 +4,7 @@ package replication
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -17,6 +18,7 @@ import (
 	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -47,19 +49,10 @@ type workerFactory struct {
 
 func (f *workerFactory) create(table string) *worker {
 	return &worker{
-		logClient:         f.logClient,
-		snapshotClient:    f.snapshotClient,
-		tm:                f.tm,
-		nh:                f.nh,
-		pollInterval:      f.pollInterval,
-		leaseInterval:     f.leaseInterval,
-		logTimeout:        f.logTimeout,
-		snapshotTimeout:   f.snapshotTimeout,
-		recoverySemaphore: f.recoverySemaphore,
-		maxSnapshotRecv:   f.maxSnapshotRecv,
-		Table:             table,
-		closer:            make(chan struct{}),
-		log:               f.log.Named(table),
+		workerFactory: f,
+		table:         table,
+		closer:        make(chan struct{}),
+		log:           f.log.Named(table),
 		metrics: struct {
 			replicationLeaderIndex   prometheus.Gauge
 			replicationFollowerIndex prometheus.Gauge
@@ -74,21 +67,12 @@ func (f *workerFactory) create(table string) *worker {
 
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
-	Table             string
-	pollInterval      time.Duration
-	leaseInterval     time.Duration
-	logTimeout        time.Duration
-	snapshotTimeout   time.Duration
-	tm                *tables.Manager
-	closer            chan struct{}
-	log               *zap.SugaredLogger
-	nh                *dragonboat.NodeHost
-	logClient         proto.LogClient
-	snapshotClient    proto.SnapshotClient
-	leased            uint32
-	recoverySemaphore *semaphore.Weighted
-	maxSnapshotRecv   uint64
-	metrics           struct {
+	*workerFactory
+	table   string
+	closer  chan struct{}
+	log     *zap.SugaredLogger
+	leased  atomic.Bool
+	metrics struct {
 		replicationLeaderIndex   prometheus.Gauge
 		replicationFollowerIndex prometheus.Gauge
 		replicationLeased        prometheus.Gauge
@@ -115,16 +99,16 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
-				err := w.tm.LeaseTable(w.Table, w.leaseInterval*4)
+				err := w.tm.LeaseTable(w.table, w.leaseInterval*4)
 				if err == nil {
-					prev := atomic.SwapUint32(&w.leased, 1)
-					if prev == 0 {
+					prev := w.leased.Swap(true)
+					if !prev {
 						w.log.Info("lease acquired")
 					}
 					w.metrics.replicationLeased.Set(1)
 				} else {
-					prev := atomic.SwapUint32(&w.leased, 0)
-					if prev == 1 {
+					prev := w.leased.Swap(false)
+					if prev {
 						w.log.Info("lease lost")
 					}
 					w.metrics.replicationLeased.Set(0)
@@ -148,22 +132,22 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
-				idx, clusterID, err := w.tableState()
+				idx, sess, err := w.tableState()
 				if err != nil {
 					w.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
 				w.metrics.replicationFollowerIndex.Set(float64(idx))
-				if atomic.LoadUint32(&w.leased) != 1 {
+				if !w.leased.Load() {
 					w.log.Debug("skipping replication - table not leased")
 					continue
 				}
 
-				if err := w.do(idx, clusterID); err != nil {
-					switch err {
-					case serror.ErrLogBehind:
+				if err := w.do(idx, sess); err != nil {
+					switch {
+					case errors.Is(err, serror.ErrLogBehind):
 						w.log.Errorf("the leader log is behind ... backing off")
-					case serror.ErrLogAhead:
+					case errors.Is(err, serror.ErrLogAhead):
 						if w.recoverySemaphore.TryAcquire(1) {
 							func() {
 								defer w.recoverySemaphore.Release(1)
@@ -173,7 +157,7 @@ func (w *worker) Start() {
 							}()
 						} else {
 							w.log.Info("maximum number of recoveries already running")
-							if _, err := w.tm.ReturnTable(w.Table); err != nil {
+							if _, err := w.tm.ReturnTable(w.table); err != nil {
 								w.log.Warnf("error retruning table: %v", err)
 							}
 						}
@@ -195,7 +179,7 @@ func (w *worker) Close() {
 	close(w.closer)
 	w.wg.Wait()
 
-	ok, err := w.tm.ReturnTable(w.Table)
+	ok, err := w.tm.ReturnTable(w.table)
 	if err != nil {
 		w.log.Errorf("returning table failed %v", err)
 	}
@@ -204,10 +188,10 @@ func (w *worker) Close() {
 	}
 }
 
-func (w *worker) do(leaderIndex, clusterID uint64) error {
+func (w *worker) do(leaderIndex uint64, session *client.Session) error {
 	replicateRequest := &proto.ReplicateRequest{
 		LeaderIndex: leaderIndex + 1,
-		Table:       []byte(w.Table),
+		Table:       []byte(w.table),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
@@ -231,7 +215,7 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 
 		switch res := replicateRes.Response.(type) {
 		case *proto.ReplicateResponse_CommandsResponse:
-			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), clusterID); err != nil {
+			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), session); err != nil {
 				return fmt.Errorf("could not propose: %w", err)
 			}
 		case *proto.ReplicateResponse_ErrorResponse:
@@ -251,26 +235,24 @@ func (w *worker) do(leaderIndex, clusterID uint64) error {
 	}
 }
 
-func (w *worker) tableState() (uint64, uint64, error) {
-	t, err := w.tm.GetTable(w.Table)
+func (w *worker) tableState() (uint64, *client.Session, error) {
+	t, err := w.tm.GetTable(w.table)
 	if err != nil {
-		return 0, 0, err
+		return 0, nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
 	idxRes, err := t.LeaderIndex(ctx)
 	if err != nil {
-		return 0, 0, fmt.Errorf("could not get leader index key: %w", err)
+		return 0, nil, fmt.Errorf("could not get leader index key: %w", err)
 	}
-	return idxRes.Index, t.ClusterID, nil
+	return idxRes.Index, w.nh.GetNoOPSession(t.ClusterID), nil
 }
 
-func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, clusterID uint64) error {
+func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, session *client.Session) error {
 	seq := proto.CommandFromVTPool()
 	defer seq.ReturnToVTPool()
-	session := w.nh.GetNoOPSession(clusterID)
-
 	var buff []byte
 	propose := func() error {
 		defer func() {
@@ -313,7 +295,7 @@ func (w *worker) recover() error {
 	w.log.Info("recovering from snapshot")
 	ctx, cancel := context.WithTimeout(context.Background(), w.snapshotTimeout)
 	defer cancel()
-	stream, err := w.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(w.Table)})
+	stream, err := w.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(w.table)})
 	if err != nil {
 		return err
 	}
@@ -349,7 +331,7 @@ func (w *worker) recover() error {
 		return err
 	}
 	w.log.Info("snapshot stream saved, loading table")
-	err = w.tm.Restore(w.Table, sf)
+	err = w.tm.Restore(w.table, sf)
 	if err != nil {
 		return err
 	}
