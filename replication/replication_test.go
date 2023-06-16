@@ -12,6 +12,10 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattaserver"
+	"github.com/jamf/regatta/replication/snapshot"
+	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/raftpb"
@@ -21,11 +25,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
-
-	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/regattaserver"
-	"github.com/jamf/regatta/replication/snapshot"
-	"github.com/jamf/regatta/storage/tables"
 )
 
 type testReplicationServer struct {
