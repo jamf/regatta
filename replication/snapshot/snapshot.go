@@ -109,14 +109,6 @@ func OpenFile(path string) (*snapshotFile, error) {
 	return newFile(f, path), nil
 }
 
-func New(path string) (*snapshotFile, error) {
-	f, err := os.Create(path)
-	if err != nil {
-		return nil, err
-	}
-	return newFile(f, path), nil
-}
-
 func NewTemp() (*snapshotFile, error) {
 	dir := os.TempDir()
 	f, err := os.CreateTemp(dir, snapshotFilenamePattern)

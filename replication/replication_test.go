@@ -5,46 +5,74 @@ package replication
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"testing"
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattaserver"
+	"github.com/jamf/regatta/replication/snapshot"
 	"github.com/jamf/regatta/storage/tables"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/logger"
+	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/lni/vfs"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 )
 
-func init() {
-	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
+type testReplicationServer struct {
+	proto.UnimplementedLogServer
+	proto.UnimplementedMetadataServer
+	proto.UnimplementedSnapshotServer
+	metaResp     *proto.MetadataResponse
+	metaErr      error
+	repResp      []*proto.ReplicateResponse
+	repErr       error
+	snapshotFile string
 }
 
-type mockWorkerFactory struct {
-	mock.Mock
+func (t testReplicationServer) Get(context.Context, *proto.MetadataRequest) (*proto.MetadataResponse, error) {
+	return t.metaResp, t.metaErr
 }
 
-func (m *mockWorkerFactory) create(table string) *worker {
-	args := m.Called(table)
-	return args.Get(0).(*worker)
+func (t testReplicationServer) Replicate(_ *proto.ReplicateRequest, s proto.Log_ReplicateServer) error {
+	for _, r := range t.repResp {
+		s.Send(r)
+	}
+	return t.repErr
 }
 
-type mockMetadataClient struct {
-	mock.Mock
+func (t testReplicationServer) Stream(_ *proto.SnapshotRequest, s proto.Snapshot_StreamServer) error {
+	f, err := os.Open(t.snapshotFile)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(&snapshot.Writer{Sender: s}, f)
+	return err
 }
 
-func (m *mockMetadataClient) Get(ctx context.Context, in *proto.MetadataRequest, opts ...grpc.CallOption) (*proto.MetadataResponse, error) {
-	args := m.Called(ctx, in, opts)
-	return args.Get(0).(*proto.MetadataResponse), args.Error(1)
+func testServer(t *testing.T, regf func(server *grpc.Server)) *grpc.ClientConn {
+	lis := bufconn.Listen(10 * 1024 * 1024)
+	srv := grpc.NewServer()
+	regf(srv)
+	go srv.Serve(lis)
+	t.Cleanup(srv.Stop)
+	conn, err := grpc.DialContext(context.Background(), "",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, conn.Close())
+	})
+	return conn
 }
 
 func TestManager_reconcile(t *testing.T) {
@@ -59,91 +87,30 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(followerTM.WaitUntilReady())
 	defer followerTM.Close()
 
-	m := NewManager(followerTM, followerNH, nil, Config{})
-	mc := &mockMetadataClient{}
-	m.metadataClient = mc
-	m.reconcileInterval = 250 * time.Millisecond
-	wf := &mockWorkerFactory{}
-	m.factory = wf
-	m.log = zap.NewNop().Sugar()
-
-	wf.On("create", "test").Once().Return(&worker{
-		Table:         "test",
-		log:           m.log,
-		pollInterval:  1 * time.Second,
-		leaseInterval: 1 * time.Second,
-		nh:            m.nh,
-		tm:            m.tm,
-		closer:        make(chan struct{}),
-		metrics: struct {
-			replicationLeaderIndex   prometheus.Gauge
-			replicationFollowerIndex prometheus.Gauge
-			replicationLeased        prometheus.Gauge
-		}{
-			replicationLeaderIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			).WithLabelValues("leader", "test"),
-			replicationFollowerIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			).WithLabelValues("follower", "test"),
-			replicationLeased: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_leased",
-					Help: "Regatta replication has the worker table leased",
-				}, []string{"table"},
-			).WithLabelValues("test"),
-		},
+	conn := testServer(t, func(server *grpc.Server) {
+		s := testReplicationServer{metaResp: &proto.MetadataResponse{Tables: []*proto.Table{
+			{
+				Name: "test",
+			},
+			{
+				Name: "test2",
+			},
+		}}}
+		proto.RegisterMetadataServer(server, s)
+		proto.RegisterLogServer(server, s)
 	})
 
-	wf.On("create", "test2").Once().Return(&worker{
-		Table:         "test2",
-		log:           m.log,
-		pollInterval:  1 * time.Second,
-		leaseInterval: 1 * time.Second,
-		nh:            m.nh,
-		tm:            m.tm,
-		closer:        make(chan struct{}),
-		metrics: struct {
-			replicationLeaderIndex   prometheus.Gauge
-			replicationFollowerIndex prometheus.Gauge
-			replicationLeased        prometheus.Gauge
-		}{
-			replicationLeaderIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			).WithLabelValues("leader", "test2"),
-			replicationFollowerIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			).WithLabelValues("follower", "test2"),
-			replicationLeased: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_leased",
-					Help: "Regatta replication has the worker table leased",
-				}, []string{"table"},
-			).WithLabelValues("test2"),
+	m := NewManager(followerTM, followerNH, conn, Config{
+		ReconcileInterval: 250 * time.Millisecond,
+		Workers: WorkerConfig{
+			PollInterval:        10 * time.Millisecond,
+			LeaseInterval:       100 * time.Millisecond,
+			LogRPCTimeout:       100 * time.Millisecond,
+			SnapshotRPCTimeout:  100 * time.Millisecond,
+			MaxRecoveryInFlight: 1,
+			MaxSnapshotRecv:     0,
 		},
 	})
-
-	mc.On("Get", mock.Anything, &proto.MetadataRequest{}, mock.Anything).Return(&proto.MetadataResponse{Tables: []*proto.Table{
-		{
-			Name: "test",
-		},
-		{
-			Name: "test2",
-		},
-	}}, nil)
-
 	m.Start()
 	r.Eventually(func() bool {
 		return m.hasWorker("test")
@@ -192,6 +159,56 @@ func TestManager_reconcileTables(t *testing.T) {
 	r.Len(tabs, 2)
 }
 
+func TestWorker_recover(t *testing.T) {
+	r := require.New(t)
+	t.Log("start follower Raft")
+	followerNH, followerAddresses, err := startRaftNode()
+	r.NoError(err)
+
+	t.Log("create follower table manager")
+	followerTM := tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
+	r.NoError(followerTM.Start())
+	r.NoError(followerTM.WaitUntilReady())
+	defer followerTM.Close()
+
+	conn := testServer(t, func(server *grpc.Server) {
+		s := testReplicationServer{
+			metaResp: &proto.MetadataResponse{Tables: []*proto.Table{
+				{
+					Name: "test",
+				},
+			}},
+			repResp: []*proto.ReplicateResponse{
+				{
+					LeaderIndex: 100,
+					Response:    &proto.ReplicateResponse_ErrorResponse{ErrorResponse: &proto.ReplicateErrResponse{Error: proto.ReplicateError_USE_SNAPSHOT}},
+				},
+			},
+			snapshotFile: "snapshot/testdata/snapshot.bin",
+		}
+		proto.RegisterMetadataServer(server, s)
+		proto.RegisterLogServer(server, s)
+		proto.RegisterSnapshotServer(server, s)
+	})
+
+	m := NewManager(followerTM, followerNH, conn, Config{
+		ReconcileInterval: 250 * time.Millisecond,
+		Workers: WorkerConfig{
+			PollInterval:        10 * time.Millisecond,
+			LeaseInterval:       100 * time.Millisecond,
+			LogRPCTimeout:       100 * time.Millisecond,
+			SnapshotRPCTimeout:  10 * time.Second,
+			MaxRecoveryInFlight: 1,
+			MaxSnapshotRecv:     512,
+		},
+	})
+	m.Start()
+	defer m.Close()
+	r.Eventually(func() bool {
+		return m.factory.nh.HasNodeInfo(10002, 1)
+	}, 10*time.Second, 1*time.Second)
+}
+
 func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	nhc := config.NodeHostConfig{
@@ -223,4 +240,77 @@ func tableManagerTestConfig() tables.Config {
 		Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
 		Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 	}
+}
+
+func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, followerTM *tables.Manager, leaderNH *dragonboat.NodeHost, followerNH *dragonboat.NodeHost, closer func()) {
+	r := require.New(t)
+	t.Log("start leader Raft")
+	leaderNH, leaderAddresses, err := startRaftNode()
+	r.NoError(err)
+
+	t.Log("create leader table manager")
+	leaderTM = tables.NewManager(leaderNH, leaderAddresses, tableManagerTestConfig())
+	r.NoError(leaderTM.Start())
+	r.NoError(leaderTM.WaitUntilReady())
+
+	t.Log("start follower Raft")
+	followerNH, followerAddresses, err := startRaftNode()
+	r.NoError(err)
+
+	t.Log("create follower table manager")
+	followerTM = tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
+	r.NoError(followerTM.Start())
+	r.NoError(followerTM.WaitUntilReady())
+
+	closer = func() {
+		leaderTM.Close()
+		leaderNH.Close()
+		followerTM.Close()
+		followerNH.Close()
+	}
+	return
+}
+
+func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
+	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
+	server := regattaserver.NewServer(testNodeAddress, false)
+	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
+	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
+	proto.RegisterLogServer(
+		server,
+		regattaserver.NewLogServer(
+			manager,
+			&testLogReader{nh: nh},
+			zap.NewNop(),
+			1024,
+		),
+	)
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	// Let the server start.
+	time.Sleep(100 * time.Millisecond)
+	return server
+}
+
+type testLogReader struct {
+	nh *dragonboat.NodeHost
+}
+
+func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+	// Empty log range should return immediately.
+	if logRange.FirstIndex == logRange.LastIndex {
+		return nil, nil
+	}
+	rs, err := t.nh.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, maxSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rs.Release()
+	result := <-rs.ResultC()
+	ent, _ := result.RaftLogs()
+	return ent, nil
 }

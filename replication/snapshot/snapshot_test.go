@@ -3,12 +3,21 @@
 package snapshot
 
 import (
+	"bufio"
+	"context"
 	"io"
+	"net"
+	"os"
 	"strconv"
 	"testing"
 
 	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/util"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 	pb "google.golang.org/protobuf/proto"
 )
 
@@ -86,4 +95,103 @@ func Test_snapshotFile_ReadWrite(t *testing.T) {
 			break
 		}
 	}
+}
+
+func TestReaderWriter(t *testing.T) {
+	lis := bufconn.Listen(10 * 1024 * 1024)
+	srv := grpc.NewServer()
+	proto.RegisterSnapshotServer(srv, &mockSnapshotServer{cmds: []*proto.Command{
+		{
+			Table: []byte("table"),
+			Type:  proto.Command_PUT,
+			Kv:    &proto.KeyValue{Key: []byte("key"), Value: []byte(util.RandString(1024))},
+		},
+		{
+			Table: []byte("table"),
+			Type:  proto.Command_PUT,
+			Kv:    &proto.KeyValue{Key: []byte("key2"), Value: []byte(util.RandString(1024))},
+		},
+		{
+			Table: []byte("table"),
+			Type:  proto.Command_PUT,
+			Kv:    &proto.KeyValue{Key: []byte("key3"), Value: []byte(util.RandString(1024))},
+		},
+	}})
+	go srv.Serve(lis)
+	t.Cleanup(srv.Stop)
+	conn, err := grpc.DialContext(context.Background(), "",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, conn.Close())
+	})
+
+	sc := proto.NewSnapshotClient(conn)
+	s, err := sc.Stream(context.Background(), &proto.SnapshotRequest{})
+	require.NoError(t, err)
+
+	_, err = io.Copy(io.Discard, &Reader{Stream: s})
+	require.NoError(t, err)
+
+	s, err = sc.Stream(context.Background(), &proto.SnapshotRequest{})
+	require.NoError(t, err)
+
+	r := &Reader{Stream: s, Limiter: rate.NewLimiter(rate.Limit(256), int(256))}
+	for {
+		b := make([]byte, 512)
+		_, err := r.Read(b)
+		if err == io.EOF {
+			break
+		}
+	}
+	require.NoError(t, err)
+}
+
+type mockSnapshotServer struct {
+	proto.UnimplementedSnapshotServer
+	cmds []*proto.Command
+}
+
+func (m *mockSnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_StreamServer) error {
+	sf, err := NewTemp()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = sf.Close()
+		_ = os.Remove(sf.Path())
+	}()
+	for _, cmd := range m.cmds {
+		d, _ := cmd.MarshalVT()
+		_, _ = sf.Write(d)
+	}
+	if err != nil {
+		return err
+	}
+	// Write dummy command with leader index to commit recovery snapshot.
+	final, err := (&proto.Command{
+		Table:       req.Table,
+		Type:        proto.Command_DUMMY,
+		LeaderIndex: m.cmds[len(m.cmds)-1].LeaderIndex,
+	}).MarshalVT()
+	if err != nil {
+		return err
+	}
+	_, err = sf.Write(final)
+	if err != nil {
+		return err
+	}
+	err = sf.Sync()
+	if err != nil {
+		return err
+	}
+	_, err = sf.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(&Writer{Sender: srv}, bufio.NewReaderSize(sf.File, DefaultSnapshotChunkSize))
+	return err
 }

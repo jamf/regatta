@@ -9,11 +9,7 @@ import (
 	"time"
 
 	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage/table"
-	"github.com/jamf/regatta/storage/tables"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -49,8 +45,7 @@ func Test_worker_do(t *testing.T) {
 	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	logger, obs := observer.New(zap.DebugLevel)
-	w := &worker{
-		Table:         "test",
+	f := &workerFactory{
 		logTimeout:    time.Minute,
 		tm:            followerTM,
 		logClient:     proto.NewLogClient(conn),
@@ -59,30 +54,24 @@ func Test_worker_do(t *testing.T) {
 		pollInterval:  500 * time.Millisecond,
 		leaseInterval: 500 * time.Millisecond,
 		metrics: struct {
-			replicationLeaderIndex   prometheus.Gauge
-			replicationFollowerIndex prometheus.Gauge
-			replicationLeased        prometheus.Gauge
+			replicationIndex  *prometheus.GaugeVec
+			replicationLeased *prometheus.GaugeVec
 		}{
-			replicationLeaderIndex: prometheus.NewGaugeVec(
+			replicationIndex: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_index",
 					Help: "Regatta replication index",
 				}, []string{"role", "table"},
-			).WithLabelValues("leader", "test"),
-			replicationFollowerIndex: prometheus.NewGaugeVec(
-				prometheus.GaugeOpts{
-					Name: "regatta_replication_index",
-					Help: "Regatta replication index",
-				}, []string{"role", "table"},
-			).WithLabelValues("follower", "test"),
+			),
 			replicationLeased: prometheus.NewGaugeVec(
 				prometheus.GaugeOpts{
 					Name: "regatta_replication_leased",
 					Help: "Regatta replication has the worker table leased",
 				}, []string{"table"},
-			).WithLabelValues("test"),
+			),
 		},
 	}
+	w := f.create("test")
 	idx, id, err := w.tableState()
 	r.NoError(err)
 	r.NoError(w.do(idx, id))
@@ -196,7 +185,7 @@ func Test_worker_recover(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
-	w := &worker{Table: "test", snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
+	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 
 	t.Log("recover table from leader")
 	r.NoError(w.recover())
@@ -207,83 +196,10 @@ func Test_worker_recover(t *testing.T) {
 	r.NoError(err)
 	r.Greater(ir.Index, uint64(1))
 
-	w = &worker{Table: "test2", snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn), log: zaptest.NewLogger(t).Sugar()}
+	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 	t.Log("recover second table from leader")
 	r.NoError(w.recover())
 	tab, err = followerTM.GetTable("test2")
 	r.NoError(err)
 	r.Equal("test2", tab.Name)
-}
-
-func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, followerTM *tables.Manager, leaderNH *dragonboat.NodeHost, followerNH *dragonboat.NodeHost, closer func()) {
-	r := require.New(t)
-	t.Log("start leader Raft")
-	leaderNH, leaderAddresses, err := startRaftNode()
-	r.NoError(err)
-
-	t.Log("create leader table manager")
-	leaderTM = tables.NewManager(leaderNH, leaderAddresses, tableManagerTestConfig())
-	r.NoError(leaderTM.Start())
-	r.NoError(leaderTM.WaitUntilReady())
-
-	t.Log("start follower Raft")
-	followerNH, followerAddresses, err := startRaftNode()
-	r.NoError(err)
-
-	t.Log("create follower table manager")
-	followerTM = tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
-	r.NoError(followerTM.Start())
-	r.NoError(followerTM.WaitUntilReady())
-
-	closer = func() {
-		leaderTM.Close()
-		leaderNH.Close()
-		followerTM.Close()
-		followerNH.Close()
-	}
-	return
-}
-
-func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
-	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, false)
-	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
-	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterLogServer(
-		server,
-		regattaserver.NewLogServer(
-			manager,
-			&testLogReader{nh: nh},
-			zap.NewNop(),
-			1024,
-		),
-	)
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			panic(err)
-		}
-	}()
-	// Let the server start.
-	time.Sleep(100 * time.Millisecond)
-	return server
-}
-
-type testLogReader struct {
-	nh *dragonboat.NodeHost
-}
-
-func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
-	// Empty log range should return immediately.
-	if logRange.FirstIndex == logRange.LastIndex {
-		return nil, nil
-	}
-	rs, err := t.nh.QueryRaftLog(clusterID, logRange.FirstIndex, logRange.LastIndex, maxSize)
-	if err != nil {
-		return nil, err
-	}
-	defer rs.Release()
-	result := <-rs.ResultC()
-	ent, _ := result.RaftLogs()
-	return ent, nil
 }
