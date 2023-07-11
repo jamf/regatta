@@ -28,11 +28,12 @@ test:
 	go test ./... -cover -race -v
 
 .PHONY: build
-build: *.go **/*.go proto docs regatta
+build: proto docs regatta
 
 docs: regatta
 	./regatta docs --destination=docs/operations_guide/cli
 
+.PHONY: regatta
 regatta:
 	test $(VERSION) || (echo "version not set"; exit 1)
 	CGO_ENABLED=$(CGO_ENABLED) go build -ldflags="$(LDFLAGS)" -o regatta
