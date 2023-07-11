@@ -36,6 +36,7 @@ Release is mostly focused on tidying up the docs and code base and on resource c
 * Improving logreader tests.
 * Fixed raft header returned from non-leader cluster nodes.
 * Fixed value of `Deleted` field of the `DeleteRange` response.
+* Fixed potential DOS by limiting the storage iterator with max RPC size.
 
 ## v0.1.0
 

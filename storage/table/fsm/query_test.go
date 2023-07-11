@@ -4,9 +4,11 @@ package fsm
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/jamf/regatta/proto"
+	"github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
 )
 
@@ -362,6 +364,22 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 	}
 }
 
+func TestFSM_Lookup_Snapshot(t *testing.T) {
+	fsm := filledLargeValuesSM()
+	defer fsm.Close()
+
+	t.Run("discard", func(t *testing.T) {
+		_, err := fsm.Lookup(SnapshotRequest{io.Discard, make(<-chan struct{})})
+		require.NoError(t, err)
+	})
+	t.Run("stop by chan", func(t *testing.T) {
+		stopper := make(chan struct{})
+		close(stopper)
+		_, err := fsm.Lookup(SnapshotRequest{io.Discard, stopper})
+		require.ErrorIs(t, err, statemachine.ErrSnapshotStopped)
+	})
+}
+
 func TestFSM_Lookup_Range(t *testing.T) {
 	type fields struct {
 		smFactory func() *FSM
@@ -574,6 +592,33 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			},
 			want: &proto.ResponseOp_Range{
 				Count: 10,
+			},
+		},
+		{
+			name: "Range prefix lookup stops at maxLimit",
+			fields: fields{
+				smFactory: filledLargeValuesSM,
+			},
+			req: &proto.RequestOp_Range{
+				Key:      []byte("test"),
+				RangeEnd: incrementRightmostByte([]byte("test")),
+			},
+			want: &proto.ResponseOp_Range{
+				Count: 399,
+			},
+		},
+		{
+			name: "Range prefix count only with large values",
+			fields: fields{
+				smFactory: filledLargeValuesSM,
+			},
+			req: &proto.RequestOp_Range{
+				Key:       []byte("test"),
+				RangeEnd:  incrementRightmostByte([]byte("test")),
+				CountOnly: true,
+			},
+			want: &proto.ResponseOp_Range{
+				Count: 10000,
 			},
 		},
 	}
