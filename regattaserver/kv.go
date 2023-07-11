@@ -4,9 +4,10 @@ package regattaserver
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/storage/errors"
+	serrors "github.com/jamf/regatta/storage/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -24,33 +25,31 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 	if req.GetLimit() < 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "limit must be a positive number")
 	} else if req.GetKeysOnly() && req.GetCountOnly() {
-		return nil, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time")
+		return nil, status.Error(codes.InvalidArgument, "keys_only and count_only must not be set at the same time")
 	} else if req.GetMinModRevision() > 0 {
-		return nil, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented")
+		return nil, status.Error(codes.Unimplemented, "min_mod_revision not implemented")
 	} else if req.GetMaxModRevision() > 0 {
-		return nil, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented")
+		return nil, status.Error(codes.Unimplemented, "max_mod_revision not implemented")
 	} else if req.GetMinCreateRevision() > 0 {
-		return nil, status.Errorf(codes.Unimplemented, "min_create_revision not implemented")
+		return nil, status.Error(codes.Unimplemented, "min_create_revision not implemented")
 	} else if req.GetMaxCreateRevision() > 0 {
-		return nil, status.Errorf(codes.Unimplemented, "max_create_revision not implemented")
+		return nil, status.Error(codes.Unimplemented, "max_create_revision not implemented")
 	}
 
 	if len(req.GetTable()) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
+		return nil, status.Error(codes.InvalidArgument, "table must be set")
 	}
 
 	if len(req.GetKey()) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "key must be set")
+		return nil, status.Error(codes.InvalidArgument, "key must be set")
 	}
 
 	val, err := s.Storage.Range(ctx, req)
 	if err != nil {
-		if err == errors.ErrTableNotFound {
-			return nil, status.Errorf(codes.NotFound, "table not found")
-		} else if err == errors.ErrKeyNotFound {
-			return nil, status.Errorf(codes.NotFound, "key not found")
+		if errors.Is(err, serrors.ErrTableNotFound) {
+			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return val, nil
 }
@@ -67,8 +66,8 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 
 	r, err := s.Storage.Put(ctx, req)
 	if err != nil {
-		if err == errors.ErrTableNotFound {
-			return nil, status.Errorf(codes.NotFound, "table not found")
+		if errors.Is(err, serrors.ErrTableNotFound) {
+			return nil, status.Error(codes.NotFound, "table not found")
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -87,12 +86,10 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 
 	r, err := s.Storage.Delete(ctx, req)
 	if err != nil {
-		if err == errors.ErrTableNotFound {
-			return nil, status.Errorf(codes.NotFound, "table not found")
-		} else if err == errors.ErrKeyNotFound {
-			return nil, status.Errorf(codes.NotFound, "key not found")
+		if errors.Is(err, serrors.ErrTableNotFound) {
+			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return r, nil
 }
@@ -108,12 +105,10 @@ func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnRe
 
 	r, err := s.Storage.Txn(ctx, req)
 	if err != nil {
-		if err == errors.ErrTableNotFound {
-			return nil, status.Errorf(codes.NotFound, "table not found")
-		} else if err == errors.ErrKeyNotFound {
-			return nil, status.Errorf(codes.NotFound, "key not found")
+		if errors.Is(err, serrors.ErrTableNotFound) {
+			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return r, nil
 }
@@ -125,12 +120,12 @@ type ReadonlyKVServer struct {
 
 // Put implements proto/regatta.proto KV.Put method.
 func (r *ReadonlyKVServer) Put(_ context.Context, _ *proto.PutRequest) (*proto.PutResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented for follower")
+	return nil, status.Error(codes.Unimplemented, "method Put not implemented for follower")
 }
 
 // DeleteRange implements proto/regatta.proto KV.DeleteRange method.
 func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteRange not implemented for follower")
+	return nil, status.Error(codes.Unimplemented, "method DeleteRange not implemented for follower")
 }
 
 // Txn processes multiple requests in a single transaction.
@@ -142,7 +137,7 @@ func (r *ReadonlyKVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*pro
 	if isReadonlyTransaction(req) {
 		return r.KVServer.Txn(ctx, req)
 	}
-	return nil, status.Errorf(codes.Unimplemented, "writable Txn not implemented for follower")
+	return nil, status.Error(codes.Unimplemented, "writable Txn not implemented for follower")
 }
 
 func isReadonlyTransaction(req *proto.TxnRequest) bool {

@@ -8,8 +8,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/golang/snappy"
 	"github.com/jamf/regatta/proto"
+	"github.com/klauspost/compress/snappy"
 	"golang.org/x/time/rate"
 )
 

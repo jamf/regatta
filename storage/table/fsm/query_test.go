@@ -29,7 +29,7 @@ func TestFSM_Lookup(t *testing.T) {
 			req: &proto.RequestOp_Range{
 				Key: []byte("Hello"),
 			},
-			wantErr: true,
+			want: &proto.ResponseOp_Range{},
 		},
 		{
 			name: "Lookup full DB with non-existent key",
@@ -39,8 +39,7 @@ func TestFSM_Lookup(t *testing.T) {
 			req: &proto.RequestOp_Range{
 				Key: []byte("Hello"),
 			},
-
-			wantErr: true,
+			want: &proto.ResponseOp_Range{},
 		},
 		{
 			name: "Lookup full DB with existing key",
@@ -50,7 +49,6 @@ func TestFSM_Lookup(t *testing.T) {
 			req: &proto.RequestOp_Range{
 				Key: []byte(fmt.Sprintf(testKeyFormat, 0)),
 			},
-
 			want: &proto.ResponseOp_Range{
 				Kvs: []*proto.KeyValue{
 					{
@@ -151,7 +149,12 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 					wrapRequestOp(&proto.RequestOp_Range{Key: []byte("Hello")}),
 				},
 			},
-			wantErr: true,
+			want: &proto.TxnResponse{
+				Succeeded: true,
+				Responses: []*proto.ResponseOp{
+					wrapResponseOp(&proto.ResponseOp_Range{}),
+				},
+			},
 		},
 		{
 			name: "Lookup full DB with non-existent key",
@@ -163,7 +166,12 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 					wrapRequestOp(&proto.RequestOp_Range{Key: []byte("Hello")}),
 				},
 			},
-			wantErr: true,
+			want: &proto.TxnResponse{
+				Succeeded: true,
+				Responses: []*proto.ResponseOp{
+					wrapResponseOp(&proto.ResponseOp_Range{}),
+				},
+			},
 		},
 		{
 			name: "Lookup full DB with existing key",
