@@ -1,6 +1,6 @@
 // Copyright JAMF Software, LLC
 
-package tables
+package table
 
 import (
 	"net"
@@ -10,7 +10,6 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/vfs"
@@ -196,14 +195,14 @@ func TestManager_GetTable(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    table.ActiveTable
+		want    ActiveTable
 		wantErr error
 	}{
 		{
 			name: "Get existing table",
 			args: args{name: existingTable},
-			want: table.ActiveTable{
-				Table: table.Table{Name: existingTable},
+			want: ActiveTable{
+				Table: Table{Name: existingTable},
 			},
 		},
 		{
@@ -283,19 +282,19 @@ func TestManager_reconcile(t *testing.T) {
 
 func Test_diffTables(t *testing.T) {
 	type args struct {
-		tables   map[string]table.Table
+		tables   map[string]Table
 		raftInfo []dragonboat.ShardInfo
 	}
 	tests := []struct {
 		name        string
 		args        args
-		wantToStart map[uint64]table.Table
+		wantToStart map[uint64]Table
 		wantToStop  []uint64
 	}{
 		{
 			name: "Start a single table",
 			args: args{
-				tables: map[string]table.Table{
+				tables: map[string]Table{
 					"foo": {
 						Name:      "foo",
 						ClusterID: 10001,
@@ -303,7 +302,7 @@ func Test_diffTables(t *testing.T) {
 				},
 				raftInfo: []dragonboat.ShardInfo{},
 			},
-			wantToStart: map[uint64]table.Table{
+			wantToStart: map[uint64]Table{
 				10001: {
 					Name:      "foo",
 					ClusterID: 10001,
@@ -314,7 +313,7 @@ func Test_diffTables(t *testing.T) {
 		{
 			name: "Start a single table with invalid ClusterID",
 			args: args{
-				tables: map[string]table.Table{
+				tables: map[string]Table{
 					"foo": {
 						Name:      "foo",
 						ClusterID: 10,
@@ -328,7 +327,7 @@ func Test_diffTables(t *testing.T) {
 		{
 			name: "Stop a single table",
 			args: args{
-				tables: map[string]table.Table{
+				tables: map[string]Table{
 					"foo": {
 						Name:      "foo",
 						ClusterID: 10001,
@@ -356,7 +355,7 @@ func Test_diffTables(t *testing.T) {
 		{
 			name: "Stop a single table with invalid ClusterID",
 			args: args{
-				tables: map[string]table.Table{
+				tables: map[string]Table{
 					"foo": {
 						Name:      "foo",
 						ClusterID: 10001,
@@ -384,7 +383,7 @@ func Test_diffTables(t *testing.T) {
 		{
 			name: "Start a recovery table",
 			args: args{
-				tables: map[string]table.Table{
+				tables: map[string]Table{
 					"foo": {
 						Name:      "foo",
 						RecoverID: 10001,
@@ -392,7 +391,7 @@ func Test_diffTables(t *testing.T) {
 				},
 				raftInfo: []dragonboat.ShardInfo{},
 			},
-			wantToStart: map[uint64]table.Table{
+			wantToStart: map[uint64]Table{
 				10001: {
 					Name:      "foo",
 					RecoverID: 10001,
@@ -403,7 +402,7 @@ func Test_diffTables(t *testing.T) {
 		{
 			name: "Recover existing table table",
 			args: args{
-				tables: map[string]table.Table{
+				tables: map[string]Table{
 					"foo": {
 						Name:      "foo",
 						ClusterID: 10001,
@@ -412,7 +411,7 @@ func Test_diffTables(t *testing.T) {
 				},
 				raftInfo: []dragonboat.ShardInfo{},
 			},
-			wantToStart: map[uint64]table.Table{
+			wantToStart: map[uint64]Table{
 				10001: {
 					Name:      "foo",
 					ClusterID: 10001,

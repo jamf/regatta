@@ -16,7 +16,7 @@ import (
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/replication/snapshot"
 	serror "github.com/jamf/regatta/storage/errors"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/client"
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,7 +36,7 @@ type workerFactory struct {
 	snapshotTimeout   time.Duration
 	maxSnapshotRecv   uint64
 	recoverySemaphore *semaphore.Weighted
-	tm                *tables.Manager
+	tm                *table.Manager
 	log               *zap.SugaredLogger
 	nh                *dragonboat.NodeHost
 	logClient         proto.LogClient

@@ -15,7 +15,7 @@ import (
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattaserver"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	dbl "github.com/lni/dragonboat/v4/logger"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -58,17 +58,17 @@ func createMaintenanceServer(cert *cert.Reloadable) *regattaserver.RegattaServer
 	)
 }
 
-func toRecoveryType(str string) tables.SnapshotRecoveryType {
+func toRecoveryType(str string) table.SnapshotRecoveryType {
 	switch str {
 	case "snapshot":
-		return tables.RecoveryTypeSnapshot
+		return table.RecoveryTypeSnapshot
 	case "checkpoint":
-		return tables.RecoveryTypeCheckpoint
+		return table.RecoveryTypeCheckpoint
 	default:
 		if runtime.GOOS == "windows" {
-			return tables.RecoveryTypeSnapshot
+			return table.RecoveryTypeSnapshot
 		}
-		return tables.RecoveryTypeCheckpoint
+		return table.RecoveryTypeCheckpoint
 	}
 }
 

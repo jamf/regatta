@@ -3,7 +3,7 @@
 package storage
 
 import (
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/vfs"
 )
 
@@ -14,9 +14,9 @@ const (
 	Pebble
 )
 
-type TableConfig tables.TableConfig
+type TableConfig table.TableConfig
 
-type MetaConfig tables.MetaConfig
+type MetaConfig table.MetaConfig
 
 type GossipConfig struct {
 	BindAddress      string

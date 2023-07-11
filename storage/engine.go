@@ -9,7 +9,7 @@ import (
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/plugin/tan"
@@ -28,13 +28,13 @@ func New(cfg Config) (*Engine, error) {
 		return nil, err
 	}
 
-	manager := tables.NewManager(
+	manager := table.NewManager(
 		nh,
 		cfg.InitialMembers,
-		tables.Config{
+		table.Config{
 			NodeID: cfg.NodeID,
-			Table:  tables.TableConfig(cfg.Table),
-			Meta:   tables.MetaConfig(cfg.Meta),
+			Table:  table.TableConfig(cfg.Table),
+			Meta:   table.MetaConfig(cfg.Meta),
 		},
 	)
 	lr := &logreader.LogReader{
@@ -55,7 +55,7 @@ func New(cfg Config) (*Engine, error) {
 
 type Engine struct {
 	*dragonboat.NodeHost
-	*tables.Manager
+	*table.Manager
 	cfg       Config
 	LogReader *logreader.LogReader
 	Cluster   *cluster.Cluster

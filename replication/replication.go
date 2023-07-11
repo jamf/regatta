@@ -10,7 +10,7 @@ import (
 
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -34,7 +34,7 @@ type Config struct {
 }
 
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
-func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn, cfg Config) *Manager {
+func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn, cfg Config) *Manager {
 	replicationLog := zap.S().Named("replication")
 
 	replicationIndexGauge := prometheus.NewGaugeVec(
@@ -86,7 +86,7 @@ func NewManager(tm *tables.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCo
 // Manager schedules replication workers.
 type Manager struct {
 	reconcileInterval time.Duration
-	tm                *tables.Manager
+	tm                *table.Manager
 	metadataClient    proto.MetadataClient
 	factory           *workerFactory
 	workers           struct {
