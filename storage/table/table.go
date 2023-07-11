@@ -6,7 +6,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/fsm"
@@ -70,9 +69,6 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 	}
 
 	if err != nil {
-		if err == pebble.ErrNotFound {
-			return nil, errors.ErrKeyNotFound
-		}
 		return nil, err
 	}
 

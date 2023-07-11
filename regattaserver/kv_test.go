@@ -303,12 +303,12 @@ func TestKVServer_RangeNotFound(t *testing.T) {
 	}
 
 	t.Log("Get non-existing kv from existing table")
-	kv.Storage = &MockStorage{rangeError: errors.ErrKeyNotFound}
+	kv.Storage = &MockStorage{rangeResponse: proto.RangeResponse{}}
 	_, err := kv.Range(context.Background(), &proto.RangeRequest{
 		Table: table1Name,
 		Key:   []byte("non_existing_key"),
 	})
-	r.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
+	r.NoError(err)
 
 	t.Log("Get kv from non-existing table")
 	kv.Storage = &MockStorage{rangeError: errors.ErrTableNotFound}
@@ -471,14 +471,6 @@ func TestKVServer_DeleteRange(t *testing.T) {
 	})
 	r.NoError(err)
 	r.Equal(int64(1), drresp.GetDeleted())
-
-	t.Log("Delete non-existing kv")
-	kv.Storage = &MockStorage{deleteError: errors.ErrKeyNotFound}
-	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
-		Table: table1Name,
-		Key:   key1Name,
-	})
-	r.EqualError(err, status.Errorf(codes.NotFound, "key not found").Error())
 }
 
 func TestReadonlyKVServer_Put(t *testing.T) {

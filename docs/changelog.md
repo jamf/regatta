@@ -15,6 +15,7 @@ Release is mostly focused on tidying up the docs and code base and on resource c
 ### Breaking changes
 * Removal of `--experimental.tanlogdb` flag.
 * Addition of gossip based cluster registry.
+* `regatta.v1.KV/Range` now returns empty response instead of `NOT_FOUND` error if result of the query is an empty range. Implements proposal #001.
 
 ### Features
 * New `--raft.logdb` flag (defaults to Tan).

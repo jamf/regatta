@@ -7,24 +7,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cockroachdb/pebble"
-	"github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/jamf/regatta/util"
 	"github.com/lni/dragonboat/v4/client"
-	"github.com/lni/dragonboat/v4/logger"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"
 )
-
-func init() {
-	logger.SetLoggerFactory(log.LoggerFactory(zap.NewNop()))
-}
 
 var (
 	longKey    = []byte(util.RandString(key.LatestVersionLen + 1))
@@ -73,13 +65,13 @@ func TestActiveTable_Range(t *testing.T) {
 			on: func(handler *mockRaftHandler) {
 				handler.
 					On("StaleRead", mock.Anything, mock.Anything).
-					Return(nil, pebble.ErrNotFound)
+					Return(&proto.ResponseOp_Range{}, nil)
 			},
 			args: args{
 				ctx: context.TODO(),
 				req: &proto.RangeRequest{Key: []byte("missing")},
 			},
-			wantErr: serrors.ErrKeyNotFound,
+			want: &proto.RangeResponse{},
 		},
 		{
 			name: "Query key found",

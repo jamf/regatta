@@ -140,7 +140,13 @@ func TestEngine_Range(t *testing.T) {
 					Key:   []byte("key"),
 				},
 			},
-			wantErr: require.Error,
+			want: &proto.RangeResponse{
+				Header: &proto.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+			},
+			wantErr: require.NoError,
 		},
 		{
 			name: "key not found linearizable request",
@@ -155,7 +161,13 @@ func TestEngine_Range(t *testing.T) {
 					Linearizable: true,
 				},
 			},
-			wantErr: require.Error,
+			want: &proto.RangeResponse{
+				Header: &proto.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+			},
+			wantErr: require.NoError,
 		},
 		{
 			name: "key found serializable request",
