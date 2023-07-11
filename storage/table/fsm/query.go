@@ -4,6 +4,7 @@ package fsm
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 
 	"github.com/cockroachdb/pebble"
@@ -69,7 +70,7 @@ func writeCommand(tableName string, key []byte, val []byte, buffer []byte) ([]by
 func readLocalIndex(db pebble.Reader, indexKey []byte) (idx uint64, err error) {
 	indexVal, closer, err := db.Get(indexKey)
 	if err != nil {
-		if err != pebble.ErrNotFound {
+		if !errors.Is(err, pebble.ErrNotFound) {
 			return 0, err
 		}
 		return 0, nil
@@ -129,7 +130,7 @@ func singleLookup(reader pebble.Reader, req *proto.RequestOp_Range) (*proto.Resp
 	}()
 	found := iter.SeekPrefixGE(keyBuf.Bytes())
 	if !found {
-		return nil, pebble.ErrNotFound
+		return &proto.ResponseOp_Range{}, nil
 	}
 
 	kv := &proto.KeyValue{Key: req.Key}
