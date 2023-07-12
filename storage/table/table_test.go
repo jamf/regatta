@@ -492,7 +492,9 @@ func TestTable_AsActive(t *testing.T) {
 				Name:      tt.fields.Name,
 				ClusterID: tt.fields.ClusterID,
 			}
-			r.Equal(tt.want, tab.AsActive(nil))
+			got := tab.AsActive(&mockRaftHandler{})
+			r.Equal(tt.want.ClusterID, got.ClusterID)
+			r.Equal(tt.want.Name, got.Name)
 		})
 	}
 }

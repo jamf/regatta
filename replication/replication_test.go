@@ -15,7 +15,7 @@ import (
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication/snapshot"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/raftpb"
@@ -82,7 +82,7 @@ func TestManager_reconcile(t *testing.T) {
 	r.NoError(err)
 
 	t.Log("create follower table manager")
-	followerTM := tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
+	followerTM := table.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
 	r.NoError(followerTM.Start())
 	r.NoError(followerTM.WaitUntilReady())
 	defer followerTM.Close()
@@ -166,7 +166,7 @@ func TestWorker_recover(t *testing.T) {
 	r.NoError(err)
 
 	t.Log("create follower table manager")
-	followerTM := tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
+	followerTM := table.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
 	r.NoError(followerTM.Start())
 	r.NoError(followerTM.WaitUntilReady())
 	defer followerTM.Close()
@@ -234,22 +234,22 @@ func getTestPort() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func tableManagerTestConfig() tables.Config {
-	return tables.Config{
+func tableManagerTestConfig() table.Config {
+	return table.Config{
 		NodeID: 1,
-		Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
-		Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+		Table:  table.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
+		Meta:   table.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 	}
 }
 
-func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, followerTM *tables.Manager, leaderNH *dragonboat.NodeHost, followerNH *dragonboat.NodeHost, closer func()) {
+func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *table.Manager, followerTM *table.Manager, leaderNH *dragonboat.NodeHost, followerNH *dragonboat.NodeHost, closer func()) {
 	r := require.New(t)
 	t.Log("start leader Raft")
 	leaderNH, leaderAddresses, err := startRaftNode()
 	r.NoError(err)
 
 	t.Log("create leader table manager")
-	leaderTM = tables.NewManager(leaderNH, leaderAddresses, tableManagerTestConfig())
+	leaderTM = table.NewManager(leaderNH, leaderAddresses, tableManagerTestConfig())
 	r.NoError(leaderTM.Start())
 	r.NoError(leaderTM.WaitUntilReady())
 
@@ -258,7 +258,7 @@ func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, follo
 	r.NoError(err)
 
 	t.Log("create follower table manager")
-	followerTM = tables.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
+	followerTM = table.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
 	r.NoError(followerTM.Start())
 	r.NoError(followerTM.WaitUntilReady())
 
@@ -271,7 +271,7 @@ func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *tables.Manager, follo
 	return
 }
 
-func startReplicationServer(manager *tables.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
+func startReplicationServer(manager *table.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})

@@ -16,7 +16,7 @@ import (
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -53,7 +53,7 @@ func TestEngine_Start(t *testing.T) {
 			name: "start test node checkpoint snapshot",
 			fields: fields{cfg: func() Config {
 				cfg := newTestConfig()
-				cfg.Table.RecoveryType = tables.RecoveryTypeCheckpoint
+				cfg.Table.RecoveryType = table.RecoveryTypeCheckpoint
 				return cfg
 			}()},
 			wantStarted: true,
@@ -63,7 +63,7 @@ func TestEngine_Start(t *testing.T) {
 			name: "start test node snapshot snapshot",
 			fields: fields{cfg: func() Config {
 				cfg := newTestConfig()
-				cfg.Table.RecoveryType = tables.RecoveryTypeSnapshot
+				cfg.Table.RecoveryType = table.RecoveryTypeSnapshot
 				return cfg
 			}()},
 			wantStarted: true,
@@ -708,10 +708,10 @@ func newTestEngine(cfg Config) *Engine {
 	if err != nil {
 		panic(err)
 	}
-	e.Manager = tables.NewManager(nh, cfg.InitialMembers, tables.Config{
+	e.Manager = table.NewManager(nh, cfg.InitialMembers, table.Config{
 		NodeID: cfg.NodeID,
-		Table:  tables.TableConfig(cfg.Table),
-		Meta:   tables.MetaConfig(cfg.Meta),
+		Table:  table.TableConfig(cfg.Table),
+		Meta:   table.MetaConfig(cfg.Meta),
 	})
 	return e
 }

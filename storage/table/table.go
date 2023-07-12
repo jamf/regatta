@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/jamf/regatta/proto"
-	"github.com/jamf/regatta/storage/errors"
+	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/fsm"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/lni/dragonboat/v4/client"
@@ -33,46 +33,75 @@ type Table struct {
 
 // AsActive returns ActiveTable wrapper of this table.
 func (t Table) AsActive(host raftHandler) ActiveTable {
-	return ActiveTable{nh: host, Table: t}
+	return ActiveTable{nh: host, session: host.GetNoOPSession(t.ClusterID), Table: t}
 }
 
 // ActiveTable could be queried and new proposals could be made through it.
 type ActiveTable struct {
 	Table
-	nh raftHandler
+	nh      raftHandler
+	session *client.Session
+}
+
+func readTable[S any](t *ActiveTable, ctx context.Context, linearizable bool, req any) (S, error) {
+	var (
+		err error
+		val interface{}
+	)
+	if linearizable {
+		val, err = t.nh.SyncRead(ctx, t.ClusterID, req)
+	} else {
+		val, err = t.nh.StaleRead(t.ClusterID, req)
+	}
+	if err != nil {
+		return *new(S), err
+	}
+	return val.(S), nil
+}
+
+func proposeTable[S any](t *ActiveTable, ctx context.Context, cmd *proto.Command) (S, uint64, error) {
+	bytes, err := cmd.MarshalVT()
+	if err != nil {
+		return *new(S), 0, err
+	}
+	res, err := t.nh.SyncPropose(ctx, t.session, bytes)
+	if err != nil {
+		return *new(S), 0, err
+	}
+	pr := &proto.CommandResult{}
+	if err := pr.UnmarshalVT(res.Data); err != nil {
+		return *new(S), 0, err
+	}
+	if len(pr.Responses) == 0 {
+		return *new(S), 0, serrors.ErrNoResultFound
+	}
+	switch r := pr.Responses[0].Response.(type) {
+	case S:
+		return r, pr.Revision, nil
+	default:
+		return *new(S), 0, serrors.ErrUnknownResultType
+	}
 }
 
 // Range performs a Range query in the Raft data, supplied context must have a deadline set.
 func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
 	if len(req.Key) > key.LatestVersionLen {
-		return nil, errors.ErrKeyLengthExceeded
+		return nil, serrors.ErrKeyLengthExceeded
 	}
 	if len(req.RangeEnd) > key.LatestVersionLen {
-		return nil, errors.ErrKeyLengthExceeded
-	}
-	var (
-		err   error
-		val   interface{}
-		reqOp = &proto.RequestOp_Range{
-			Key:       req.Key,
-			RangeEnd:  req.RangeEnd,
-			Limit:     req.Limit,
-			KeysOnly:  req.KeysOnly,
-			CountOnly: req.CountOnly,
-		}
-	)
-
-	if req.Linearizable {
-		val, err = t.nh.SyncRead(ctx, t.ClusterID, reqOp)
-	} else {
-		val, err = t.nh.StaleRead(t.ClusterID, reqOp)
+		return nil, serrors.ErrKeyLengthExceeded
 	}
 
+	response, err := readTable[*proto.ResponseOp_Range](t, ctx, req.Linearizable, &proto.RequestOp_Range{
+		Key:       req.Key,
+		RangeEnd:  req.RangeEnd,
+		Limit:     req.Limit,
+		KeysOnly:  req.KeysOnly,
+		CountOnly: req.CountOnly,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	response := val.(*proto.ResponseOp_Range)
 	return &proto.RangeResponse{
 		Kvs:   response.Kvs,
 		Count: response.Count,
@@ -83,13 +112,13 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 // Put performs a Put proposal into the Raft, supplied context must have a deadline set.
 func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if len(req.Key) == 0 {
-		return nil, errors.ErrEmptyKey
+		return nil, serrors.ErrEmptyKey
 	}
 	if len(req.Key) > key.LatestVersionLen {
-		return nil, errors.ErrKeyLengthExceeded
+		return nil, serrors.ErrKeyLengthExceeded
 	}
 	if len(req.Value) > MaxValueLen {
-		return nil, errors.ErrValueLengthExceeded
+		return nil, serrors.ErrValueLengthExceeded
 	}
 	cmd := &proto.Command{
 		Type:  proto.Command_PUT,
@@ -100,36 +129,20 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 		},
 		PrevKvs: req.PrevKv,
 	}
-	bytes, err := cmd.MarshalVT()
+	r, rev, err := proposeTable[*proto.ResponseOp_ResponsePut](t, ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
-	res, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes)
-	if err != nil {
-		return nil, err
-	}
-	pr := &proto.CommandResult{}
-	if err := pr.UnmarshalVT(res.Data); err != nil {
-		return nil, err
-	}
-	if len(pr.Responses) == 0 {
-		return nil, errors.ErrNoResultFound
-	}
-	switch r := pr.Responses[0].Response.(type) {
-	case *proto.ResponseOp_ResponsePut:
-		return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv, Header: &proto.ResponseHeader{Revision: pr.Revision}}, nil
-	default:
-		return nil, errors.ErrUnknownResultType
-	}
+	return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv, Header: &proto.ResponseHeader{Revision: rev}}, nil
 }
 
 // Delete performs a DeleteRange proposal into the Raft, supplied context must have a deadline set.
 func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
 	if len(req.Key) == 0 {
-		return nil, errors.ErrEmptyKey
+		return nil, serrors.ErrEmptyKey
 	}
 	if len(req.Key) > key.LatestVersionLen {
-		return nil, errors.ErrKeyLengthExceeded
+		return nil, serrors.ErrKeyLengthExceeded
 	}
 	cmd := &proto.Command{
 		Type:  proto.Command_DELETE,
@@ -141,38 +154,17 @@ func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest)
 		RangeEnd: req.RangeEnd,
 		Count:    req.Count,
 	}
-	bytes, err := cmd.MarshalVT()
+	r, rev, err := proposeTable[*proto.ResponseOp_ResponseDeleteRange](t, ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
-
-	res, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes)
-	if err != nil {
-		return nil, err
-	}
-	dr := &proto.CommandResult{}
-	if err := dr.UnmarshalVT(res.Data); err != nil {
-		return nil, err
-	}
-	if len(dr.Responses) == 0 {
-		return nil, errors.ErrNoResultFound
-	}
-	switch r := dr.Responses[0].Response.(type) {
-	case *proto.ResponseOp_ResponseDeleteRange:
-		return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs, Header: &proto.ResponseHeader{Revision: dr.Revision}}, nil
-	default:
-		return nil, errors.ErrUnknownResultType
-	}
+	return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs, Header: &proto.ResponseHeader{Revision: rev}}, nil
 }
 
 func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
 	// Do not propose read-only transactions through the log
 	if isReadonlyTransaction(req) {
-		val, err := t.nh.SyncRead(ctx, t.ClusterID, req)
-		if err != nil {
-			return nil, err
-		}
-		return val.(*proto.TxnResponse), nil
+		return readTable[*proto.TxnResponse](t, ctx, true, req)
 	}
 
 	cmd := &proto.Command{
@@ -189,7 +181,7 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 	if err != nil {
 		return nil, err
 	}
-	res, err := t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bytes)
+	res, err := t.nh.SyncPropose(ctx, t.session, bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -221,29 +213,17 @@ func isReadonlyTransaction(req *proto.TxnRequest) bool {
 
 // Snapshot streams snapshot to the provided writer.
 func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) (*fsm.SnapshotResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, fsm.SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
-	if err != nil {
-		return nil, err
-	}
-	return val.(*fsm.SnapshotResponse), nil
+	return readTable[*fsm.SnapshotResponse](t, ctx, true, fsm.SnapshotRequest{Writer: writer, Stopper: ctx.Done()})
 }
 
 // LocalIndex returns local index.
 func (t *ActiveTable) LocalIndex(ctx context.Context) (*fsm.IndexResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, fsm.LocalIndexRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return val.(*fsm.IndexResponse), nil
+	return readTable[*fsm.IndexResponse](t, ctx, true, fsm.LocalIndexRequest{})
 }
 
 // LeaderIndex returns leader index.
 func (t *ActiveTable) LeaderIndex(ctx context.Context) (*fsm.IndexResponse, error) {
-	val, err := t.nh.SyncRead(ctx, t.ClusterID, fsm.LeaderIndexRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return val.(*fsm.IndexResponse), nil
+	return readTable[*fsm.IndexResponse](t, ctx, true, fsm.LeaderIndexRequest{})
 }
 
 // Reset resets the leader index to 0.
@@ -258,6 +238,6 @@ func (t *ActiveTable) Reset(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.nh.SyncPropose(ctx, t.nh.GetNoOPSession(t.ClusterID), bts)
+	_, err = t.nh.SyncPropose(ctx, t.session, bts)
 	return err
 }

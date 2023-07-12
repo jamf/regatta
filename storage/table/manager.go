@@ -1,6 +1,6 @@
 // Copyright JAMF Software, LLC
 
-package tables
+package table
 
 import (
 	"context"
@@ -19,7 +19,6 @@ import (
 	"github.com/jamf/regatta/proto"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
-	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/storage/table/fsm"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
@@ -59,9 +58,9 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 		},
 		cache: struct {
 			mu     sync.RWMutex
-			tables map[string]table.ActiveTable
+			tables map[string]ActiveTable
 		}{
-			tables: make(map[string]table.ActiveTable),
+			tables: make(map[string]ActiveTable),
 		},
 		closed:     make(chan struct{}),
 		log:        zap.S().Named("manager"),
@@ -76,7 +75,7 @@ type Manager struct {
 	mtx   sync.RWMutex
 	cache struct {
 		mu     sync.RWMutex
-		tables map[string]table.ActiveTable
+		tables map[string]ActiveTable
 	}
 	members            map[uint64]string
 	closed             chan struct{}
@@ -172,29 +171,29 @@ func (m *Manager) CreateTable(name string) error {
 	return m.startTable(created.Name, created.ClusterID)
 }
 
-func (m *Manager) createTable(name string) (table.Table, error) {
+func (m *Manager) createTable(name string) (Table, error) {
 	storeName := storedTableName(name)
 	exists, err := m.store.Exists(storeName)
 	if err != nil {
-		return table.Table{}, err
+		return Table{}, err
 	}
 	if exists {
-		return table.Table{}, serrors.ErrTableExists
+		return Table{}, serrors.ErrTableExists
 	}
 	seq, err := m.incAndGetIDSeq()
 	if err != nil {
-		return table.Table{}, err
+		return Table{}, err
 	}
-	tab := table.Table{
+	tab := Table{
 		Name:      name,
 		ClusterID: seq,
 	}
 	err = m.setTableVersion(tab, 0)
 	if err != nil {
 		if errors.Is(err, kv.ErrVersionMismatch) {
-			return table.Table{}, serrors.ErrTableExists
+			return Table{}, serrors.ErrTableExists
 		}
-		return table.Table{}, err
+		return Table{}, err
 	}
 	return tab, nil
 }
@@ -215,7 +214,7 @@ func storedTableName(name string) string {
 	return fmt.Sprintf("%s%s", keyPrefix, name)
 }
 
-func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
+func (m *Manager) GetTable(name string) (ActiveTable, error) {
 	m.cache.mu.RLock()
 	defer m.cache.mu.RUnlock()
 	if t, ok := m.cache.tables[name]; ok {
@@ -226,27 +225,27 @@ func (m *Manager) GetTable(name string) (table.ActiveTable, error) {
 	defer m.mtx.RUnlock()
 	tab, _, err := m.getTableVersion(name)
 	if err != nil {
-		return table.ActiveTable{}, err
+		return ActiveTable{}, err
 	}
 	return tab.AsActive(m.nh), nil
 }
 
-func (m *Manager) GetTableByID(id uint64) (table.ActiveTable, error) {
+func (m *Manager) GetTableByID(id uint64) (ActiveTable, error) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 	tables, err := m.getTables()
 	if err != nil {
-		return table.ActiveTable{}, err
+		return ActiveTable{}, err
 	}
 	for _, t := range tables {
 		if t.ClusterID == id {
 			return t.AsActive(m.nh), nil
 		}
 	}
-	return table.ActiveTable{}, serrors.ErrTableNotFound
+	return ActiveTable{}, serrors.ErrTableNotFound
 }
 
-func (m *Manager) GetTables() ([]table.Table, error) {
+func (m *Manager) GetTables() ([]Table, error) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 
@@ -254,7 +253,7 @@ func (m *Manager) GetTables() ([]table.Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	rtabs := make([]table.Table, 0, len(tabs))
+	rtabs := make([]Table, 0, len(tabs))
 	for _, t := range tabs {
 		rtabs = append(rtabs, t)
 	}
@@ -321,7 +320,7 @@ func (m *Manager) reconcileLoop() {
 
 func (m *Manager) reconcile() error {
 	// FIXME there is still a distributed race condition across the instances
-	tabs, nhi, err := func() (map[string]table.Table, *dragonboat.NodeHostInfo, error) {
+	tabs, nhi, err := func() (map[string]Table, *dragonboat.NodeHostInfo, error) {
 		m.mtx.RLock()
 		defer m.mtx.RUnlock()
 		tabs, err := m.getTables()
@@ -436,14 +435,14 @@ func (m *Manager) incAndGetIDSeq() (uint64, error) {
 	return next, err
 }
 
-func (m *Manager) getTables() (map[string]table.Table, error) {
-	tables := make(map[string]table.Table)
+func (m *Manager) getTables() (map[string]Table, error) {
+	tables := make(map[string]Table)
 	all, err := m.store.GetAll(keyPrefix + "*")
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range all {
-		tab := table.Table{}
+		tab := Table{}
 		err = json.Unmarshal([]byte(v.Value), &tab)
 		if err != nil {
 			return nil, err
@@ -454,8 +453,8 @@ func (m *Manager) getTables() (map[string]table.Table, error) {
 	return tables, nil
 }
 
-func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ShardInfo) (toStart map[uint64]table.Table, toStop []uint64) {
-	tableIDs := make(map[uint64]table.Table)
+func diffTables(tables map[string]Table, raftInfo []dragonboat.ShardInfo) (toStart map[uint64]Table, toStop []uint64) {
+	tableIDs := make(map[uint64]Table)
 	for _, t := range tables {
 		if t.ClusterID != 0 {
 			tableIDs[t.ClusterID] = t
@@ -473,7 +472,7 @@ func diffTables(tables map[string]table.Table, raftInfo []dragonboat.ShardInfo) 
 		_, found := raftTableIDs[tID]
 		if !found && tID > tableIDsRangeStart {
 			if toStart == nil {
-				toStart = make(map[uint64]table.Table)
+				toStart = make(map[uint64]Table)
 			}
 			toStart[tID] = tName
 		}
@@ -505,7 +504,7 @@ func (m *Manager) startTable(name string, id uint64) error {
 	)
 }
 
-func (m *Manager) cacheTable(tbl table.Table) {
+func (m *Manager) cacheTable(tbl Table) {
 	m.cache.mu.Lock()
 	defer m.cache.mu.Unlock()
 	m.cache.tables[tbl.Name] = tbl.AsActive(m.nh)
@@ -616,20 +615,20 @@ func (m *Manager) Restore(name string, reader io.Reader) error {
 	return nil
 }
 
-func (m *Manager) getTableVersion(name string) (table.Table, uint64, error) {
+func (m *Manager) getTableVersion(name string) (Table, uint64, error) {
 	v, err := m.store.Get(storedTableName(name))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotExist) {
-			return table.Table{}, 0, serrors.ErrTableNotFound
+			return Table{}, 0, serrors.ErrTableNotFound
 		}
-		return table.Table{}, 0, err
+		return Table{}, 0, err
 	}
-	tab := table.Table{}
+	tab := Table{}
 	err = json.Unmarshal([]byte(v.Value), &tab)
 	return tab, v.Ver, err
 }
 
-func (m *Manager) setTableVersion(tbl table.Table, version uint64) error {
+func (m *Manager) setTableVersion(tbl Table, version uint64) error {
 	storeName := storedTableName(tbl.Name)
 	bts, err := json.Marshal(&tbl)
 	if err != nil {

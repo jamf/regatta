@@ -16,7 +16,7 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/proto"
 	"github.com/jamf/regatta/regattaserver"
-	"github.com/jamf/regatta/storage/tables"
+	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/vfs"
@@ -153,10 +153,10 @@ func TestBackup_Backup(t *testing.T) {
 			nh, nodes, err := startRaftNode()
 			r.NoError(err)
 			defer nh.Close()
-			tm := tables.NewManager(nh, nodes, tables.Config{
+			tm := table.NewManager(nh, nodes, table.Config{
 				NodeID: 1,
-				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
-				Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+				Table:  table.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
+				Meta:   table.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 			})
 			r.NoError(tm.Start())
 			r.NoError(tm.WaitUntilReady())
@@ -244,10 +244,10 @@ func TestBackup_Restore(t *testing.T) {
 			nh, nodes, err := startRaftNode()
 			r.NoError(err)
 			defer nh.Close()
-			tm := tables.NewManager(nh, nodes, tables.Config{
+			tm := table.NewManager(nh, nodes, table.Config{
 				NodeID: 1,
-				Table:  tables.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
-				Meta:   tables.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+				Table:  table.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
+				Meta:   table.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
 			})
 			r.NoError(tm.Start())
 			r.NoError(tm.WaitUntilReady())
@@ -349,7 +349,7 @@ func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
 	return nh, map[uint64]string{1: testNodeAddress}, nil
 }
 
-func startBackupServer(manager *tables.Manager) *regattaserver.RegattaServer {
+func startBackupServer(manager *table.Manager) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
 	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
