@@ -73,54 +73,54 @@ func (e *Engine) Close() error {
 }
 
 func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
-	table, err := e.Manager.GetTable(string(req.Table))
+	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
 	}
-	rng, err := withDefaultTimeout(ctx, req, table.Range)
+	rng, err := withDefaultTimeout(ctx, req, t.Range)
 	if err != nil {
 		return nil, err
 	}
-	rng.Header = e.getHeader(nil, table.ClusterID)
+	rng.Header = e.getHeader(nil, t.ClusterID)
 	return rng, nil
 }
 
 func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
-	table, err := e.Manager.GetTable(string(req.Table))
+	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
 	}
-	put, err := withDefaultTimeout(ctx, req, table.Put)
+	put, err := withDefaultTimeout(ctx, req, t.Put)
 	if err != nil {
 		return nil, err
 	}
-	put.Header = e.getHeader(put.Header, table.ClusterID)
+	put.Header = e.getHeader(put.Header, t.ClusterID)
 	return put, nil
 }
 
 func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
-	table, err := e.Manager.GetTable(string(req.Table))
+	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
 	}
-	del, err := withDefaultTimeout(ctx, req, table.Delete)
+	del, err := withDefaultTimeout(ctx, req, t.Delete)
 	if err != nil {
 		return nil, err
 	}
-	del.Header = e.getHeader(del.Header, table.ClusterID)
+	del.Header = e.getHeader(del.Header, t.ClusterID)
 	return del, nil
 }
 
 func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
-	table, err := e.Manager.GetTable(string(req.Table))
+	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
 	}
-	tx, err := withDefaultTimeout(ctx, req, table.Txn)
+	tx, err := withDefaultTimeout(ctx, req, t.Txn)
 	if err != nil {
 		return nil, err
 	}
-	tx.Header = e.getHeader(tx.Header, table.ClusterID)
+	tx.Header = e.getHeader(tx.Header, t.ClusterID)
 	return tx, nil
 }
 
