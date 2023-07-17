@@ -87,29 +87,9 @@ can be used.
 To easily deploy Regatta to Kubernetes, official [Regatta Helm Chart](https://github.com/jamf/regatta-helm) can be used.
 
 ```bash
-# values.yaml
-api:
-  tls:
-    cert: "<PLAINTEXT-CERT>"
-    key: "<PLAINTEXT-KEY>"
-
-replication:
-  tls:
-    cert: "<PLAINTEXT-CERT>"
-    ca: "<PLAINTEXT-CA>"
-    key: "<PLAINTEXT-KEY>"
-
-maintenance:
-  server:
-    tls:
-      cert: "<PLAINTEXT-CERT>"
-      key: "<PLAINTEXT-KEY>"
-```
-
-```bash
 helm repo add regatta https://jamf.github.io/regatta-helm
 helm repo update
-helm install my-regatta regatta/regatta -f values.yaml
+helm install regatta regatta/regatta
 ```
 
 This will deploy Regatta leader cluster with one replica. See page
