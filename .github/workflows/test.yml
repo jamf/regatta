@@ -64,7 +64,7 @@ jobs:
         cache: false
         go-version-file: go.mod
     - name: Scan for Vulnerabilities in Code
-      uses: wandera/govulncheck-action@v0.0.10
+      uses: wandera/govulncheck-action@v1.0.0
       with:
         go-version: ${{ steps.go-version.outputs.go-version }}
         package: ./...
