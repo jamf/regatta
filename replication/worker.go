@@ -195,7 +195,7 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
-	stream, err := w.logClient.Replicate(ctx, replicateRequest, grpc.UseCompressor("gzip"))
+	stream, err := w.logClient.Replicate(ctx, replicateRequest, grpc.WaitForReady(true))
 	if err != nil {
 		return fmt.Errorf("could not open log stream: %w", err)
 	}
