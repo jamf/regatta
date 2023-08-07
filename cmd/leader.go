@@ -160,9 +160,8 @@ func leader(_ *cobra.Command, _ []string) {
 		tNames := viper.GetStringSlice("tables.names")
 		for _, table := range tNames {
 			log.Debugf("creating table %s", table)
-			err := engine.CreateTable(table)
-			if err != nil {
-				if err == serrors.ErrTableExists {
+			if err := engine.CreateTable(table); err != nil {
+				if errors.Is(err, serrors.ErrTableExists) {
 					log.Infof("table %s already exist, skipping creation", table)
 				} else {
 					log.Errorf("failed to create table %s: %v", table, err)
@@ -258,7 +257,7 @@ func leader(_ *cobra.Command, _ []string) {
 		// Create REST server
 		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
 		go func() {
-			if err := hs.ListenAndServe(); err != http.ErrServerClosed {
+			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				log.Panicf("REST listenAndServe failed: %v", err)
 			}
 		}()

@@ -259,6 +259,8 @@ func createReplicationConn(cp *x509.CertPool, cer *cert.Reloadable) (*grpc.Clien
 
 	replConn, err := grpc.Dial(viper.GetString("replication.leader-address"),
 		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(int(viper.GetUint64("replication.max-recv-message-size-bytes")))),
 	)
 	if err != nil {

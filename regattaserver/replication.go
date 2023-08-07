@@ -149,11 +149,11 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 
 	appliedIndex, err := t.LocalIndex(server.Context())
 	if err != nil {
-		return status.FromContextError(err).Err()
+		return err
 	}
 
 	if appliedIndex.Index+1 < req.LeaderIndex {
-		return status.FromContextError(server.Send(repErrLeaderBehind)).Err()
+		return server.Send(repErrLeaderBehind)
 	}
 
 	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
@@ -161,18 +161,18 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		entries, err := l.LogReader.QueryRaftLog(server.Context(), t.ClusterID, logRange, l.maxMessageSize)
 		switch {
 		case errors.Is(err, serrors.ErrLogBehind):
-			return status.FromContextError(server.Send(repErrLeaderBehind)).Err()
+			return server.Send(repErrLeaderBehind)
 		case errors.Is(err, serrors.ErrLogAhead):
-			return status.FromContextError(server.Send(repErrUseSnapshot)).Err()
+			return server.Send(repErrUseSnapshot)
 		case err != nil:
-			return status.FromContextError(err).Err()
+			return err
 		default:
 		}
 
 		read := uint64(len(entries))
 		if read == 0 {
 			if err := server.Send(&proto.ReplicateResponse{LeaderIndex: appliedIndex.Index}); err != nil {
-				return status.FromContextError(err).Err()
+				return err
 			}
 			return nil
 		}
@@ -197,7 +197,7 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 		}
 
 		if err := server.Send(msg); err != nil {
-			return status.FromContextError(err).Err()
+			return err
 		}
 		next := entries[len(entries)-1].Index + 1
 		logRange.FirstIndex = uint64(math.Min(float64(next), float64(logRange.LastIndex)))
