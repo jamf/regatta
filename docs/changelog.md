@@ -6,7 +6,10 @@ nav_order: 999
 
 # Changelog
 
-## v0.2.0 (Unreleased)
+## mainline (unreleased)
+TBD
+
+## v0.2.0
 Release is mostly focused on tidying up the docs and code base and on resource consumption improvements.
 - New way of producing table snapshots is introduced that should lead to quicker and more efficient process of recovering shards in a Raft cluster.
 - Experimental Tan logdb feature was promoted to a regular and made a default choice.
