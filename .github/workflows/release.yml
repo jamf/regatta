@@ -78,6 +78,7 @@ jobs:
     - name: Docker build & push
       uses: docker/build-push-action@v4
       with:
+        id: build
         push: true
         platforms: linux/amd64,linux/arm64
         context: .
@@ -89,6 +90,6 @@ jobs:
         cache-to: type=gha,mode=max
     - name: Sign the images
       env:
-        DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        TAGS: ${{ steps.docker_meta.outputs.tags }}
+        DIGEST: ${{ steps.build.outputs.digest }}
+        TAGS: ${{ steps.meta.outputs.tags }}
       run: cosign sign --yes "${TAGS}@${DIGEST}"
