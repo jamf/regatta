@@ -6,34 +6,34 @@ import (
 	"context"
 	"io"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
 )
 
 // MockStorage implements trivial storage for testing purposes.
 type MockStorage struct {
-	rangeResponse       proto.RangeResponse
-	putResponse         proto.PutResponse
-	deleteRangeResponse proto.DeleteRangeResponse
-	txnResponse         proto.TxnResponse
+	rangeResponse       regattapb.RangeResponse
+	putResponse         regattapb.PutResponse
+	deleteRangeResponse regattapb.DeleteRangeResponse
+	txnResponse         regattapb.TxnResponse
 	rangeError          error
 	putError            error
 	deleteError         error
 }
 
-func (s *MockStorage) Range(_ context.Context, _ *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (s *MockStorage) Range(_ context.Context, _ *regattapb.RangeRequest) (*regattapb.RangeResponse, error) {
 	return &s.rangeResponse, s.rangeError
 }
 
-func (s *MockStorage) Put(_ context.Context, _ *proto.PutRequest) (*proto.PutResponse, error) {
+func (s *MockStorage) Put(_ context.Context, _ *regattapb.PutRequest) (*regattapb.PutResponse, error) {
 	return &s.putResponse, s.putError
 }
 
-func (s *MockStorage) Delete(_ context.Context, _ *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (s *MockStorage) Delete(_ context.Context, _ *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
 	return &s.deleteRangeResponse, s.deleteError
 }
 
-func (s *MockStorage) Txn(_ context.Context, _ *proto.TxnRequest) (*proto.TxnResponse, error) {
+func (s *MockStorage) Txn(_ context.Context, _ *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	return &s.txnResponse, s.deleteError
 }
 

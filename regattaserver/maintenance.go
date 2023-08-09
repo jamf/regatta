@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,11 +19,11 @@ import (
 
 // ResetServer implements some Maintenance service methods from proto/regatta.proto.
 type ResetServer struct {
-	proto.UnimplementedMaintenanceServer
+	regattapb.UnimplementedMaintenanceServer
 	Tables TableService
 }
 
-func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*proto.ResetResponse, error) {
+func (m *ResetServer) Reset(ctx context.Context, req *regattapb.ResetRequest) (*regattapb.ResetResponse, error) {
 	reset := func(name string) error {
 		t, err := m.Tables.GetTable(name)
 		if err != nil {
@@ -48,7 +48,7 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 				return nil, err
 			}
 		}
-		return &proto.ResetResponse{}, nil
+		return &regattapb.ResetResponse{}, nil
 	}
 	if len(req.Table) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
@@ -57,16 +57,16 @@ func (m *ResetServer) Reset(ctx context.Context, req *proto.ResetRequest) (*prot
 	if err != nil {
 		return nil, err
 	}
-	return &proto.ResetResponse{}, nil
+	return &regattapb.ResetResponse{}, nil
 }
 
 // BackupServer implements some Maintenance service methods from proto/regatta.proto.
 type BackupServer struct {
-	proto.UnimplementedMaintenanceServer
+	regattapb.UnimplementedMaintenanceServer
 	Tables TableService
 }
 
-func (m *BackupServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_BackupServer) error {
+func (m *BackupServer) Backup(req *regattapb.BackupRequest, srv regattapb.Maintenance_BackupServer) error {
 	table, err := m.Tables.GetTable(string(req.Table))
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func (m *BackupServer) Backup(req *proto.BackupRequest, srv proto.Maintenance_Ba
 	return err
 }
 
-func (m *BackupServer) Restore(srv proto.Maintenance_RestoreServer) error {
+func (m *BackupServer) Restore(srv regattapb.Maintenance_RestoreServer) error {
 	msg, err := srv.Recv()
 	if err != nil {
 		return err
@@ -138,11 +138,11 @@ func (m *BackupServer) Restore(srv proto.Maintenance_RestoreServer) error {
 	if err != nil {
 		return err
 	}
-	return srv.SendAndClose(&proto.RestoreResponse{})
+	return srv.SendAndClose(&regattapb.RestoreResponse{})
 }
 
 type backupReader struct {
-	stream proto.Maintenance_RestoreServer
+	stream regattapb.Maintenance_RestoreServer
 }
 
 func (s backupReader) Read(p []byte) (int, error) {

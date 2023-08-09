@@ -7,15 +7,15 @@ import (
 	"errors"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 )
 
 type commandDelete struct {
-	*proto.Command
+	*regattapb.Command
 }
 
-func (c commandDelete) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
-	resp, err := handleDelete(ctx, &proto.RequestOp_DeleteRange{
+func (c commandDelete) handle(ctx *updateContext) (UpdateResult, *regattapb.CommandResult, error) {
+	resp, err := handleDelete(ctx, &regattapb.RequestOp_DeleteRange{
 		Key:      c.Kv.Key,
 		RangeEnd: c.RangeEnd,
 		PrevKv:   c.PrevKvs,
@@ -24,14 +24,14 @@ func (c commandDelete) handle(ctx *updateContext) (UpdateResult, *proto.CommandR
 	if err != nil {
 		return ResultFailure, nil, err
 	}
-	return ResultSuccess, &proto.CommandResult{
+	return ResultSuccess, &regattapb.CommandResult{
 		Revision:  ctx.index,
-		Responses: []*proto.ResponseOp{wrapResponseOp(resp)},
+		Responses: []*regattapb.ResponseOp{wrapResponseOp(resp)},
 	}, nil
 }
 
-func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.ResponseOp_DeleteRange, error) {
-	resp := &proto.ResponseOp_DeleteRange{}
+func handleDelete(ctx *updateContext, del *regattapb.RequestOp_DeleteRange) (*regattapb.ResponseOp_DeleteRange, error) {
+	resp := &regattapb.ResponseOp_DeleteRange{}
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	if err := encodeUserKey(keyBuf, del.Key); err != nil {
@@ -43,7 +43,7 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 			if err := ctx.EnsureIndexed(); err != nil {
 				return nil, err
 			}
-			rng, err := rangeLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key, RangeEnd: del.RangeEnd, CountOnly: del.Count && !del.PrevKv})
+			rng, err := rangeLookup(ctx.batch, &regattapb.RequestOp_Range{Key: del.Key, RangeEnd: del.RangeEnd, CountOnly: del.Count && !del.PrevKv})
 			if err != nil {
 				return nil, err
 			}
@@ -75,7 +75,7 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 			if err := ctx.EnsureIndexed(); err != nil {
 				return nil, err
 			}
-			rng, err := singleLookup(ctx.batch, &proto.RequestOp_Range{Key: del.Key, CountOnly: del.Count && !del.PrevKv})
+			rng, err := singleLookup(ctx.batch, &regattapb.RequestOp_Range{Key: del.Key, CountOnly: del.Count && !del.PrevKv})
 			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
 				return nil, err
 			}
@@ -92,13 +92,13 @@ func handleDelete(ctx *updateContext, del *proto.RequestOp_DeleteRange) (*proto.
 }
 
 type commandDeleteBatch struct {
-	*proto.Command
+	*regattapb.Command
 }
 
-func (c commandDeleteBatch) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
-	req := make([]*proto.RequestOp_DeleteRange, len(c.Batch))
+func (c commandDeleteBatch) handle(ctx *updateContext) (UpdateResult, *regattapb.CommandResult, error) {
+	req := make([]*regattapb.RequestOp_DeleteRange, len(c.Batch))
 	for i, kv := range c.Batch {
-		req[i] = &proto.RequestOp_DeleteRange{
+		req[i] = &regattapb.RequestOp_DeleteRange{
 			Key: kv.Key,
 		}
 	}
@@ -106,18 +106,18 @@ func (c commandDeleteBatch) handle(ctx *updateContext) (UpdateResult, *proto.Com
 	if err != nil {
 		return ResultFailure, nil, err
 	}
-	res := make([]*proto.ResponseOp, 0, len(c.Batch))
+	res := make([]*regattapb.ResponseOp, 0, len(c.Batch))
 	for _, put := range rop {
 		res = append(res, wrapResponseOp(put))
 	}
-	return ResultSuccess, &proto.CommandResult{
+	return ResultSuccess, &regattapb.CommandResult{
 		Revision:  ctx.index,
 		Responses: res,
 	}, nil
 }
 
-func handleDeleteBatch(ctx *updateContext, ops []*proto.RequestOp_DeleteRange) ([]*proto.ResponseOp_DeleteRange, error) {
-	var results []*proto.ResponseOp_DeleteRange
+func handleDeleteBatch(ctx *updateContext, ops []*regattapb.RequestOp_DeleteRange) ([]*regattapb.ResponseOp_DeleteRange, error) {
+	var results []*regattapb.ResponseOp_DeleteRange
 	for _, op := range ops {
 		res, err := handleDelete(ctx, op)
 		if err != nil {

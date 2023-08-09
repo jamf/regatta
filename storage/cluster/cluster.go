@@ -69,6 +69,8 @@ type Info struct {
 	// RaftAddress is the public address of the NodeHost used for exchanging Raft
 	// messages, snapshots and other metadata with other NodeHost instances.
 	RaftAddress string
+	// ClientAddress is the public address of the Regatta host used for client requests.
+	ClientAddress string
 	// ShardInfo is a list of all Raft shards managed by the NodeHost
 	ShardInfoList []dragonboat.ShardInfo
 	// LogInfo is a list of raftio.NodeInfo values representing all Raft logs
@@ -119,6 +121,11 @@ type Cluster struct {
 	stop            chan struct{}
 	resolver        resolver
 	addrs           []string
+}
+
+func (c *Cluster) Notify() {
+	c.shardView.update(toShardViewList(c.infoF().ShardInfoList))
+	_ = c.ml.UpdateNode(500 * time.Millisecond)
 }
 
 func (c *Cluster) NotifyJoin(node *memberlist.Node) {
@@ -255,11 +262,12 @@ func (c *Cluster) Close() error {
 		c.log.Warnf("broadcast messages left in queue %d", cnt)
 	}
 
-	close(c.stop)
-
-	if err := c.ml.Leave(10 * time.Second); err != nil {
+	if err := c.ml.Leave(20 * time.Second); err != nil {
 		return err
 	}
+
+	close(c.stop)
+
 	if err := c.ml.Shutdown(); err != nil {
 		return err
 	}
@@ -267,7 +275,7 @@ func (c *Cluster) Close() error {
 }
 
 // New configures and creates a new memberlist. To connect the node to the cluster, see (*Cluster).Start.
-func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
+func New(bindAddr, advAddr string, f getClusterInfo) (*Cluster, error) {
 	info := f()
 	log := zap.S().Named("memberlist")
 	cluster := &Cluster{
@@ -312,6 +320,7 @@ func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 			ID:            info.NodeHostID,
 			NodeID:        info.NodeID,
 			RaftAddress:   info.RaftAddress,
+			ClientAddress: info.ClientAddress,
 			MemberAddress: bindAddr,
 		},
 		broadcasts: cluster.broadcasts,
@@ -319,7 +328,7 @@ func New(bindAddr string, advAddr string, f getClusterInfo) (*Cluster, error) {
 		msgs:       cluster.msgs,
 		infoF:      f,
 	}
-
+	// init view
 	ml, err := memberlist.Create(mcfg)
 	if err != nil {
 		return nil, err
@@ -355,6 +364,7 @@ func (n Node) String() string {
 type NodeMeta struct {
 	ID            string `json:"id"`
 	NodeID        uint64 `json:"node_id"`
+	ClientAddress string `json:"client_address"`
 	RaftAddress   string `json:"raft_address"`
 	MemberAddress string `json:"member_address"`
 }

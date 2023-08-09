@@ -7,7 +7,7 @@ import (
 
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +28,7 @@ func Test_handlePut(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	req := &proto.RequestOp_Put{
+	req := &regattapb.RequestOp_Put{
 		Key:   []byte("key_1"),
 		Value: []byte("value_1"),
 	}
@@ -37,14 +37,14 @@ func Test_handlePut(t *testing.T) {
 	r.NoError(c.Commit())
 
 	// Make the PUT update.
-	req = &proto.RequestOp_Put{
+	req = &regattapb.RequestOp_Put{
 		Key:    []byte("key_1"),
 		Value:  []byte("value_2"),
 		PrevKv: true,
 	}
 	res, err := handlePut(c, req)
 	r.NoError(err)
-	r.Equal(&proto.ResponseOp_Put{PrevKv: &proto.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")}}, res)
+	r.Equal(&regattapb.ResponseOp_Put{PrevKv: &regattapb.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")}}, res)
 	r.NoError(c.Commit())
 
 	iter := db.NewIter(allUserKeysOpts())
@@ -83,7 +83,7 @@ func Test_handlePutBatch(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	ops := []*proto.RequestOp_Put{
+	ops := []*regattapb.RequestOp_Put{
 		{Key: []byte("key_1"), Value: []byte("value")},
 		{Key: []byte("key_2"), Value: []byte("value")},
 		{Key: []byte("key_3"), Value: []byte("value")},

@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/klauspost/compress/snappy"
 	"golang.org/x/time/rate"
 )
@@ -19,7 +19,7 @@ const DefaultSnapshotChunkSize = 1024 * 1024
 const snapshotFilenamePattern = "snapshot-*.bin"
 
 type Writer struct {
-	Sender proto.Snapshot_StreamServer
+	Sender regattapb.Snapshot_StreamServer
 }
 
 func (g *Writer) ReadFrom(r io.Reader) (int64, error) {
@@ -29,7 +29,7 @@ func (g *Writer) ReadFrom(r io.Reader) (int64, error) {
 		n, err := r.Read(chunk)
 		if n > 0 {
 			count += int64(n)
-			if err := g.Sender.Send(&proto.SnapshotChunk{
+			if err := g.Sender.Send(&regattapb.SnapshotChunk{
 				Data: chunk[:n],
 				Len:  uint64(n),
 			}); err != nil {
@@ -48,7 +48,7 @@ func (g *Writer) ReadFrom(r io.Reader) (int64, error) {
 
 func (g *Writer) Write(p []byte) (int, error) {
 	ln := len(p)
-	if err := g.Sender.Send(&proto.SnapshotChunk{
+	if err := g.Sender.Send(&regattapb.SnapshotChunk{
 		Data: p,
 		Len:  uint64(ln),
 	}); err != nil {
@@ -58,12 +58,12 @@ func (g *Writer) Write(p []byte) (int, error) {
 }
 
 type Reader struct {
-	Stream  proto.Snapshot_StreamClient
+	Stream  regattapb.Snapshot_StreamClient
 	Limiter *rate.Limiter
 }
 
 func (s Reader) Read(p []byte) (int, error) {
-	chunk := proto.SnapshotChunkFromVTPool()
+	chunk := regattapb.SnapshotChunkFromVTPool()
 	defer chunk.ReturnToVTPool()
 	if err := s.Stream.RecvMsg(chunk); err != nil {
 		return 0, err
@@ -79,7 +79,7 @@ func (s Reader) Read(p []byte) (int, error) {
 
 func (s Reader) WriteTo(w io.Writer) (int64, error) {
 	n := int64(0)
-	chunk := proto.SnapshotChunkFromVTPool()
+	chunk := regattapb.SnapshotChunkFromVTPool()
 	defer chunk.ReturnToVTPool()
 	for {
 		chunk.ResetVT()

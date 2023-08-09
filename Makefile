@@ -38,15 +38,15 @@ regatta:
 	test $(VERSION) || (echo "version not set"; exit 1)
 	CGO_ENABLED=$(CGO_ENABLED) go build -ldflags="$(LDFLAGS)" -o regatta
 
-PROTO_GO_OUTS=proto/mvcc.pb.go proto/mvcc_vtproto.pb.go \
- proto/regatta.pb.go proto/regatta_grpc.pb.go proto/regatta_vtproto.pb.go \
- proto/replication.pb.go proto/replication_grpc.pb.go proto/replication_vtproto.pb.go \
- proto/maintenance.pb.go proto/maintenance_grpc.pb.go proto/maintenance_vtproto.pb.go
+PROTO_GO_OUTS=regattapb/mvcc.pb.go regattapb/mvcc_vtproto.pb.go \
+ regattapb/regatta.pb.go regattapb/regatta_grpc.pb.go regattapb/regatta_vtproto.pb.go \
+ regattapb/replication.pb.go regattapb/replication_grpc.pb.go regattapb/replication_vtproto.pb.go \
+ regattapb/maintenance.pb.go regattapb/maintenance_grpc.pb.go regattapb/maintenance_vtproto.pb.go
 
 proto: $(PROTO_GO_OUTS)
 
 $(PROTO_GO_OUTS): proto/*.proto
-	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./proto.Command --go-vtproto_opt=pool=./proto.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=./docs/api.tmpl,api.md
+	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./regattapb.Command --go-vtproto_opt=pool=./regattapb.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=./docs/api.tmpl,api.md
 
 # Build the docker image
 .PHONY: docker-build

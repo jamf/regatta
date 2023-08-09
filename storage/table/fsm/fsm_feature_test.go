@@ -11,7 +11,7 @@ import (
 
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
@@ -43,60 +43,60 @@ type outputRecord struct {
 }
 
 // input in form of version: commands to apply.
-var input = map[int][]*proto.Command{
+var input = map[int][]*regattapb.Command{
 	0: {
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_1"),
 				Value: []byte("value_1"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_2"),
 				Value: []byte("value_2"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_2"),
 				Value: []byte("value_2_new"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_3"),
 				Value: []byte("value_3"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_DELETE,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_DELETE,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_3"),
 				Value: []byte("value_3"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_DELETE,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_DELETE,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_3"),
 				Value: []byte("value_3"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT_BATCH,
-			Batch: []*proto.KeyValue{
+			Type:  regattapb.Command_PUT_BATCH,
+			Batch: []*regattapb.KeyValue{
 				{
 					Key:   []byte("key_10"),
 					Value: []byte("value"),
@@ -117,8 +117,8 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_DELETE_BATCH,
-			Batch: []*proto.KeyValue{
+			Type:  regattapb.Command_DELETE_BATCH,
+			Batch: []*regattapb.KeyValue{
 				{
 					Key:   []byte("key_10"),
 					Value: []byte("value"),
@@ -137,56 +137,56 @@ var input = map[int][]*proto.Command{
 	1: {
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_1"),
 				Value: []byte("value_1"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_2"),
 				Value: []byte("value_2"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("not_match"),
 				Value: []byte("value"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_DELETE,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_DELETE,
+			Kv: &regattapb.KeyValue{
 				Key: []byte("key"),
 			},
 			RangeEnd: incrementRightmostByte([]byte("key")),
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   []byte("key_3"),
 				Value: []byte("value_3"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_PUT,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_PUT,
+			Kv: &regattapb.KeyValue{
 				Key:   key.LatestMaxKey,
 				Value: []byte("value_3"),
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_DELETE,
-			Kv: &proto.KeyValue{
+			Type:  regattapb.Command_DELETE,
+			Kv: &regattapb.KeyValue{
 				Key: []byte{0},
 			},
 			RangeEnd: []byte{0},
@@ -195,23 +195,23 @@ var input = map[int][]*proto.Command{
 	2: {
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_2"),
 							Value: []byte("value"),
 						}},
 					},
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_3"),
 							Value: []byte("value"),
 						}},
 					},
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_4"),
 							Value: []byte("value"),
 						}},
@@ -221,12 +221,12 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1")}},
-				Failure: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("key_1")}},
+				Failure: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_1"),
 							Value: []byte("value"),
 						}},
@@ -236,12 +236,12 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1")}},
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("key_1")}},
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_1"),
 							Value: []byte("valuevaluevalue"),
 						}},
@@ -251,12 +251,12 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_EQUAL, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("valuevaluevalue")}}},
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("key_1"), Result: regattapb.Compare_EQUAL, Target: regattapb.Compare_VALUE, TargetUnion: &regattapb.Compare_Value{Value: []byte("valuevaluevalue")}}},
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_1"),
 							Value: []byte("value1"),
 						}},
@@ -266,12 +266,12 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_LESS, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("key_1"), Result: regattapb.Compare_LESS, Target: regattapb.Compare_VALUE, TargetUnion: &regattapb.Compare_Value{Value: []byte("value")}}},
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_1"),
 							Value: []byte("value2"),
 						}},
@@ -281,20 +281,20 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key_1"), Result: proto.Compare_GREATER, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("value")}}},
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("key_1"), Result: regattapb.Compare_GREATER, Target: regattapb.Compare_VALUE, TargetUnion: &regattapb.Compare_Value{Value: []byte("value")}}},
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_1"),
 							Value: []byte("value"),
 						}},
 					},
 				},
-				Failure: []*proto.RequestOp{
+				Failure: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_1"),
 							Value: []byte("value2"),
 						}},
@@ -304,11 +304,11 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestRange{RequestRange: &proto.RequestOp_Range{
+						Request: &regattapb.RequestOp_RequestRange{RequestRange: &regattapb.RequestOp_Range{
 							Key: []byte("key_1"),
 						}},
 					},
@@ -317,12 +317,12 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("key"), RangeEnd: wildcard, Result: proto.Compare_GREATER, Target: proto.Compare_VALUE, TargetUnion: &proto.Compare_Value{Value: []byte("val")}}},
-				Success: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("key"), RangeEnd: wildcard, Result: regattapb.Compare_GREATER, Target: regattapb.Compare_VALUE, TargetUnion: &regattapb.Compare_Value{Value: []byte("val")}}},
+				Success: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_5"),
 							Value: []byte("value"),
 						}},
@@ -332,12 +332,12 @@ var input = map[int][]*proto.Command{
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_TXN,
-			Txn: &proto.Txn{
-				Compare: []*proto.Compare{{Key: []byte("nonsense"), RangeEnd: []byte("nonsense2")}},
-				Failure: []*proto.RequestOp{
+			Type:  regattapb.Command_TXN,
+			Txn: &regattapb.Txn{
+				Compare: []*regattapb.Compare{{Key: []byte("nonsense"), RangeEnd: []byte("nonsense2")}},
+				Failure: []*regattapb.RequestOp{
 					{
-						Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+						Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key_6"),
 							Value: []byte("value"),
 						}},
@@ -349,27 +349,27 @@ var input = map[int][]*proto.Command{
 	3: {
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_SEQUENCE,
-			Sequence: []*proto.Command{
+			Type:  regattapb.Command_SEQUENCE,
+			Sequence: []*regattapb.Command{
 				{
 					Table: []byte("test"),
-					Type:  proto.Command_TXN,
-					Txn: &proto.Txn{
-						Success: []*proto.RequestOp{
+					Type:  regattapb.Command_TXN,
+					Txn: &regattapb.Txn{
+						Success: []*regattapb.RequestOp{
 							{
-								Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+								Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 									Key:   []byte("key_1"),
 									Value: []byte("value"),
 								}},
 							},
 							{
-								Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+								Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 									Key:   []byte("key_2"),
 									Value: []byte("value"),
 								}},
 							},
 							{
-								Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+								Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 									Key:   []byte("key_3"),
 									Value: []byte("value"),
 								}},
@@ -379,34 +379,34 @@ var input = map[int][]*proto.Command{
 				},
 				{
 					Table: []byte("test"),
-					Type:  proto.Command_DELETE,
-					Kv:    &proto.KeyValue{Key: []byte("key_2")},
+					Type:  regattapb.Command_DELETE,
+					Kv:    &regattapb.KeyValue{Key: []byte("key_2")},
 				},
 				{
 					Table: []byte("test"),
-					Type:  proto.Command_DELETE,
-					Kv:    &proto.KeyValue{Key: []byte("key_3")},
+					Type:  regattapb.Command_DELETE,
+					Kv:    &regattapb.KeyValue{Key: []byte("key_3")},
 				},
 				{
 					Table: []byte("test"),
-					Type:  proto.Command_PUT,
-					Kv:    &proto.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")},
+					Type:  regattapb.Command_PUT,
+					Kv:    &regattapb.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")},
 				},
 			},
 		},
 		{
 			Table: []byte("test"),
-			Type:  proto.Command_SEQUENCE,
-			Sequence: []*proto.Command{
+			Type:  regattapb.Command_SEQUENCE,
+			Sequence: []*regattapb.Command{
 				{
 					Table: []byte("test"),
-					Type:  proto.Command_PUT,
-					Kv:    &proto.KeyValue{Key: []byte("key_2"), Value: []byte("value_2")},
+					Type:  regattapb.Command_PUT,
+					Kv:    &regattapb.KeyValue{Key: []byte("key_2"), Value: []byte("value_2")},
 				},
 				{
 					Table: []byte("test"),
-					Type:  proto.Command_PUT,
-					Kv:    &proto.KeyValue{Key: []byte("key_3"), Value: []byte("value_3")},
+					Type:  regattapb.Command_PUT,
+					Kv:    &regattapb.KeyValue{Key: []byte("key_3"), Value: []byte("value_3")},
 				},
 			},
 		},
@@ -422,7 +422,7 @@ func TestGenerateData(t *testing.T) {
 }
 
 //nolint:unused
-func generateFiles(t *testing.T, version int, inputCommands []*proto.Command) {
+func generateFiles(t *testing.T, version int, inputCommands []*regattapb.Command) {
 	inFile, err := os.Create(path.Join("testdata", fmt.Sprintf("v%d-input.json", version)))
 	if err != nil {
 		t.Fatal(err)

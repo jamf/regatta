@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/lni/dragonboat/v4"
@@ -30,19 +30,19 @@ const (
 
 // MetadataServer implements Metadata service from proto/replication.proto.
 type MetadataServer struct {
-	proto.UnimplementedMetadataServer
+	regattapb.UnimplementedMetadataServer
 	Tables TableService
 }
 
-func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.MetadataResponse, error) {
+func (m *MetadataServer) Get(context.Context, *regattapb.MetadataRequest) (*regattapb.MetadataResponse, error) {
 	tabs, err := m.Tables.GetTables()
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "unknown err %v", err)
 	}
-	resp := &proto.MetadataResponse{}
+	resp := &regattapb.MetadataResponse{}
 	for _, tab := range tabs {
-		resp.Tables = append(resp.Tables, &proto.Table{
-			Type: proto.Table_REPLICATED,
+		resp.Tables = append(resp.Tables, &regattapb.Table{
+			Type: regattapb.Table_REPLICATED,
 			Name: tab.Name,
 		})
 	}
@@ -51,11 +51,11 @@ func (m *MetadataServer) Get(context.Context, *proto.MetadataRequest) (*proto.Me
 
 // SnapshotServer implements Snapshot service from proto/replication.proto.
 type SnapshotServer struct {
-	proto.UnimplementedSnapshotServer
+	regattapb.UnimplementedSnapshotServer
 	Tables TableService
 }
 
-func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_StreamServer) error {
+func (s *SnapshotServer) Stream(req *regattapb.SnapshotRequest, srv regattapb.Snapshot_StreamServer) error {
 	table, err := s.Tables.GetTable(string(req.Table))
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "unable to stream from table '%s': %v", req.GetTable(), err)
@@ -82,9 +82,9 @@ func (s *SnapshotServer) Stream(req *proto.SnapshotRequest, srv proto.Snapshot_S
 		return err
 	}
 	// Write dummy command with leader index to commit recovery snapshot.
-	final, err := (&proto.Command{
+	final, err := (&regattapb.Command{
 		Table:       req.Table,
-		Type:        proto.Command_DUMMY,
+		Type:        regattapb.Command_DUMMY,
 		LeaderIndex: &resp.Index,
 	}).MarshalVT()
 	if err != nil {
@@ -114,7 +114,7 @@ type LogServer struct {
 	Log       *zap.SugaredLogger
 
 	maxMessageSize uint64
-	proto.UnimplementedLogServer
+	regattapb.UnimplementedLogServer
 }
 
 func NewLogServer(ts TableService, lr LogReaderService, logger *zap.Logger, maxMessageSize uint64) *LogServer {
@@ -132,12 +132,12 @@ func NewLogServer(ts TableService, lr LogReaderService, logger *zap.Logger, maxM
 }
 
 var (
-	repErrUseSnapshot  = errorResponseFactory(proto.ReplicateError_USE_SNAPSHOT)
-	repErrLeaderBehind = errorResponseFactory(proto.ReplicateError_LEADER_BEHIND)
+	repErrUseSnapshot  = errorResponseFactory(regattapb.ReplicateError_USE_SNAPSHOT)
+	repErrLeaderBehind = errorResponseFactory(regattapb.ReplicateError_LEADER_BEHIND)
 )
 
 // Replicate entries from the leader's log.
-func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_ReplicateServer) error {
+func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.Log_ReplicateServer) error {
 	if req.LeaderIndex == 0 {
 		return status.Error(codes.InvalidArgument, "invalid leaderIndex: leaderIndex must be greater than 0")
 	}
@@ -171,26 +171,26 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 
 		read := uint64(len(entries))
 		if read == 0 {
-			if err := server.Send(&proto.ReplicateResponse{LeaderIndex: appliedIndex.Index}); err != nil {
+			if err := server.Send(&regattapb.ReplicateResponse{LeaderIndex: appliedIndex.Index}); err != nil {
 				return err
 			}
 			return nil
 		}
 
 		// Transform entries into actual commands.
-		commands := make([]*proto.ReplicateCommand, 0, len(entries))
+		commands := make([]*regattapb.ReplicateCommand, 0, len(entries))
 		for _, e := range entries {
 			if cmd, err := entryToCommand(e); err != nil {
 				return err
 			} else {
-				commands = append(commands, &proto.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
+				commands = append(commands, &regattapb.ReplicateCommand{Command: cmd, LeaderIndex: e.Index})
 			}
 		}
 
-		msg := &proto.ReplicateResponse{
+		msg := &regattapb.ReplicateResponse{
 			LeaderIndex: appliedIndex.Index,
-			Response: &proto.ReplicateResponse_CommandsResponse{
-				CommandsResponse: &proto.ReplicateCommandsResponse{
+			Response: &regattapb.ReplicateResponse_CommandsResponse{
+				CommandsResponse: &regattapb.ReplicateCommandsResponse{
 					Commands: commands,
 				},
 			},
@@ -205,10 +205,10 @@ func (l *LogServer) Replicate(req *proto.ReplicateRequest, server proto.Log_Repl
 }
 
 // errorResponseFactory creates a ReplicateResponse error.
-func errorResponseFactory(err proto.ReplicateError) *proto.ReplicateResponse {
-	return &proto.ReplicateResponse{
-		Response: &proto.ReplicateResponse_ErrorResponse{
-			ErrorResponse: &proto.ReplicateErrResponse{
+func errorResponseFactory(err regattapb.ReplicateError) *regattapb.ReplicateResponse {
+	return &regattapb.ReplicateResponse{
+		Response: &regattapb.ReplicateResponse_ErrorResponse{
+			ErrorResponse: &regattapb.ReplicateErrResponse{
 				Error: err,
 			},
 		},
@@ -216,10 +216,10 @@ func errorResponseFactory(err proto.ReplicateError) *proto.ReplicateResponse {
 }
 
 // entryToCommand converts the raftpb.Entry to equivalent proto.ReplicateCommand.
-func entryToCommand(e raftpb.Entry) (*proto.Command, error) {
-	cmd := &proto.Command{}
+func entryToCommand(e raftpb.Entry) (*regattapb.Command, error) {
+	cmd := &regattapb.Command{}
 	if e.Type != raftpb.EncodedEntry {
-		cmd.Type = proto.Command_DUMMY
+		cmd.Type = regattapb.Command_DUMMY
 	} else if err := cmd.UnmarshalVT(e.Cmd[1:]); err != nil {
 		return nil, err
 	}

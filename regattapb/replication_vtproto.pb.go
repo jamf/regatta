@@ -2,7 +2,7 @@
 // protoc-gen-go-vtproto version: v0.4.0
 // source: replication.proto
 
-package proto
+package regattapb
 
 import (
 	fmt "fmt"

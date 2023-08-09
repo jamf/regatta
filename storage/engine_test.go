@@ -13,7 +13,7 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
@@ -107,13 +107,13 @@ func TestEngine_Start(t *testing.T) {
 func TestEngine_Range(t *testing.T) {
 	type args struct {
 		ctx context.Context
-		req *proto.RangeRequest
+		req *regattapb.RangeRequest
 	}
 	tests := []struct {
 		name    string
 		args    args
 		prepare func(t *testing.T, e *Engine)
-		want    *proto.RangeResponse
+		want    *regattapb.RangeResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
@@ -121,7 +121,7 @@ func TestEngine_Range(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.RangeRequest{
+				req: &regattapb.RangeRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
@@ -135,13 +135,13 @@ func TestEngine_Range(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.RangeRequest{
+				req: &regattapb.RangeRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
-			want: &proto.RangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ReplicaId: 1,
 					ShardId:   10001,
 				},
@@ -155,14 +155,14 @@ func TestEngine_Range(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.RangeRequest{
+				req: &regattapb.RangeRequest{
 					Table:        []byte(testTableName),
 					Key:          []byte("key"),
 					Linearizable: true,
 				},
 			},
-			want: &proto.RangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ReplicaId: 1,
 					ShardId:   10001,
 				},
@@ -173,22 +173,22 @@ func TestEngine_Range(t *testing.T) {
 			name: "key found serializable request",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.RangeRequest{
+				req: &regattapb.RangeRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
-			want: &proto.RangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ReplicaId: 1,
 					ShardId:   10001,
 				},
-				Kvs: []*proto.KeyValue{
+				Kvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
 				},
 				Count: 1,
@@ -199,22 +199,22 @@ func TestEngine_Range(t *testing.T) {
 			name: "key found linearizable request",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.RangeRequest{
+				req: &regattapb.RangeRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
 			},
-			want: &proto.RangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ReplicaId: 1,
 					ShardId:   10001,
 				},
-				Kvs: []*proto.KeyValue{
+				Kvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
 				},
 				Count: 1,
@@ -241,13 +241,13 @@ func TestEngine_Range(t *testing.T) {
 func TestEngine_Put(t *testing.T) {
 	type args struct {
 		ctx context.Context
-		req *proto.PutRequest
+		req *regattapb.PutRequest
 	}
 	tests := []struct {
 		name    string
 		args    args
 		prepare func(t *testing.T, e *Engine)
-		want    *proto.PutResponse
+		want    *regattapb.PutResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
@@ -255,7 +255,7 @@ func TestEngine_Put(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.PutRequest{
+				req: &regattapb.PutRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
@@ -269,14 +269,14 @@ func TestEngine_Put(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.PutRequest{
+				req: &regattapb.PutRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 					Value: []byte("value"),
 				},
 			},
-			want: &proto.PutResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.PutResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  3,
@@ -288,19 +288,19 @@ func TestEngine_Put(t *testing.T) {
 			name: "overwrite key",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.PutRequest{
+				req: &regattapb.PutRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 					Value: []byte("value2"),
 				},
 			},
-			want: &proto.PutResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.PutResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
@@ -312,25 +312,25 @@ func TestEngine_Put(t *testing.T) {
 			name: "overwrite key and get prev",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.PutRequest{
+				req: &regattapb.PutRequest{
 					Table:  []byte(testTableName),
 					Key:    []byte("key"),
 					Value:  []byte("value2"),
 					PrevKv: true,
 				},
 			},
-			want: &proto.PutResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.PutResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
 				},
-				PrevKv: &proto.KeyValue{
+				PrevKv: &regattapb.KeyValue{
 					Key:   []byte("key"),
 					Value: []byte("value"),
 				},
@@ -357,13 +357,13 @@ func TestEngine_Put(t *testing.T) {
 func TestEngine_Delete(t *testing.T) {
 	type args struct {
 		ctx context.Context
-		req *proto.DeleteRangeRequest
+		req *regattapb.DeleteRangeRequest
 	}
 	tests := []struct {
 		name    string
 		args    args
 		prepare func(t *testing.T, e *Engine)
-		want    *proto.DeleteRangeResponse
+		want    *regattapb.DeleteRangeResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
@@ -371,7 +371,7 @@ func TestEngine_Delete(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.DeleteRangeRequest{
+				req: &regattapb.DeleteRangeRequest{
 					Table: []byte(testTableName),
 					Key:   []byte("key"),
 				},
@@ -385,14 +385,14 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.DeleteRangeRequest{
+				req: &regattapb.DeleteRangeRequest{
 					Table:    []byte(testTableName),
 					Key:      []byte{0},
 					RangeEnd: []byte{0},
 				},
 			},
-			want: &proto.DeleteRangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.DeleteRangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  3,
@@ -404,20 +404,20 @@ func TestEngine_Delete(t *testing.T) {
 			name: "delete all and count",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.DeleteRangeRequest{
+				req: &regattapb.DeleteRangeRequest{
 					Table:    []byte(testTableName),
 					Key:      []byte{0},
 					RangeEnd: []byte{0},
 					Count:    true,
 				},
 			},
-			want: &proto.DeleteRangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.DeleteRangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
@@ -430,26 +430,26 @@ func TestEngine_Delete(t *testing.T) {
 			name: "delete all and get prev",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.DeleteRangeRequest{
+				req: &regattapb.DeleteRangeRequest{
 					Table:    []byte(testTableName),
 					Key:      []byte{0},
 					RangeEnd: []byte{0},
 					PrevKv:   true,
 				},
 			},
-			want: &proto.DeleteRangeResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.DeleteRangeResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
 				},
 				Deleted: 1,
-				PrevKvs: []*proto.KeyValue{
+				PrevKvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
 				},
 			},
@@ -475,13 +475,13 @@ func TestEngine_Delete(t *testing.T) {
 func TestEngine_Txn(t *testing.T) {
 	type args struct {
 		ctx context.Context
-		req *proto.TxnRequest
+		req *regattapb.TxnRequest
 	}
 	tests := []struct {
 		name    string
 		args    args
 		prepare func(t *testing.T, e *Engine)
-		want    *proto.TxnResponse
+		want    *regattapb.TxnResponse
 		wantErr require.ErrorAssertionFunc
 	}{
 		{
@@ -489,7 +489,7 @@ func TestEngine_Txn(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.TxnRequest{
+				req: &regattapb.TxnRequest{
 					Table: []byte(testTableName),
 				},
 			},
@@ -499,30 +499,30 @@ func TestEngine_Txn(t *testing.T) {
 			name: "put new key no comp",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.TxnRequest{
+				req: &regattapb.TxnRequest{
 					Table: []byte(testTableName),
-					Success: []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{
-						RequestPut: &proto.RequestOp_Put{
+					Success: []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestPut{
+						RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key2"),
 							Value: []byte("value2"),
 						},
 					}}},
 				},
 			},
-			want: &proto.TxnResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.TxnResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
 				},
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{{Response: &proto.ResponseOp_ResponsePut{
-					ResponsePut: &proto.ResponseOp_Put{},
+				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
+					ResponsePut: &regattapb.ResponseOp_Put{},
 				}}},
 			},
 			wantErr: require.NoError,
@@ -531,36 +531,36 @@ func TestEngine_Txn(t *testing.T) {
 			name: "put new key success comp",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.TxnRequest{
+				req: &regattapb.TxnRequest{
 					Table: []byte(testTableName),
-					Compare: []*proto.Compare{{
-						Result:      proto.Compare_EQUAL,
-						Target:      proto.Compare_VALUE,
+					Compare: []*regattapb.Compare{{
+						Result:      regattapb.Compare_EQUAL,
+						Target:      regattapb.Compare_VALUE,
 						Key:         []byte("key"),
-						TargetUnion: &proto.Compare_Value{Value: []byte("value")},
+						TargetUnion: &regattapb.Compare_Value{Value: []byte("value")},
 					}},
-					Success: []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{
-						RequestPut: &proto.RequestOp_Put{
+					Success: []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestPut{
+						RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key2"),
 							Value: []byte("value2"),
 						},
 					}}},
 				},
 			},
-			want: &proto.TxnResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.TxnResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
 				},
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{{Response: &proto.ResponseOp_ResponsePut{
-					ResponsePut: &proto.ResponseOp_Put{},
+				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
+					ResponsePut: &regattapb.ResponseOp_Put{},
 				}}},
 			},
 			wantErr: require.NoError,
@@ -569,27 +569,27 @@ func TestEngine_Txn(t *testing.T) {
 			name: "put new key failed cond",
 			prepare: func(t *testing.T, e *Engine) {
 				createTable(t, e)
-				_, err := e.Put(context.Background(), &proto.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
 				require.NoError(t, err)
 			},
 			args: args{
 				ctx: context.Background(),
-				req: &proto.TxnRequest{
+				req: &regattapb.TxnRequest{
 					Table: []byte(testTableName),
-					Compare: []*proto.Compare{{
-						Result:      proto.Compare_EQUAL,
-						Target:      proto.Compare_VALUE,
+					Compare: []*regattapb.Compare{{
+						Result:      regattapb.Compare_EQUAL,
+						Target:      regattapb.Compare_VALUE,
 						Key:         []byte("key"),
-						TargetUnion: &proto.Compare_Value{Value: []byte("foo")},
+						TargetUnion: &regattapb.Compare_Value{Value: []byte("foo")},
 					}},
-					Success: []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{
-						RequestPut: &proto.RequestOp_Put{
+					Success: []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestPut{
+						RequestPut: &regattapb.RequestOp_Put{
 							Key:   []byte("key2"),
 							Value: []byte("value2"),
 						},
 					}}},
-					Failure: []*proto.RequestOp{{Request: &proto.RequestOp_RequestPut{
-						RequestPut: &proto.RequestOp_Put{
+					Failure: []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestPut{
+						RequestPut: &regattapb.RequestOp_Put{
 							Key:    []byte("key"),
 							Value:  []byte("value2"),
 							PrevKv: true,
@@ -597,16 +597,16 @@ func TestEngine_Txn(t *testing.T) {
 					}}},
 				},
 			},
-			want: &proto.TxnResponse{
-				Header: &proto.ResponseHeader{
+			want: &regattapb.TxnResponse{
+				Header: &regattapb.ResponseHeader{
 					ShardId:   10001,
 					ReplicaId: 1,
 					Revision:  4,
 				},
 				Succeeded: false,
-				Responses: []*proto.ResponseOp{{Response: &proto.ResponseOp_ResponsePut{
-					ResponsePut: &proto.ResponseOp_Put{
-						PrevKv: &proto.KeyValue{Key: []byte("key"), Value: []byte("value")},
+				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
+					ResponsePut: &regattapb.ResponseOp_Put{
+						PrevKv: &regattapb.KeyValue{Key: []byte("key"), Value: []byte("value")},
 					},
 				}}},
 			},

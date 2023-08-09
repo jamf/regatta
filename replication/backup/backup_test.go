@@ -14,7 +14,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
@@ -34,7 +34,7 @@ func TestBackup_Backup(t *testing.T) {
 	tests := []struct {
 		name      string
 		fields    fields
-		tableData map[string][]*proto.PutRequest
+		tableData map[string][]*regattapb.PutRequest
 		want      Manifest
 		wantErr   error
 	}{
@@ -48,7 +48,7 @@ func TestBackup_Backup(t *testing.T) {
 		},
 		{
 			name: "Single empty table backup",
-			tableData: map[string][]*proto.PutRequest{
+			tableData: map[string][]*regattapb.PutRequest{
 				"regatta-test": nil,
 			},
 			want: Manifest{
@@ -66,7 +66,7 @@ func TestBackup_Backup(t *testing.T) {
 		},
 		{
 			name: "Multiple empty table backup",
-			tableData: map[string][]*proto.PutRequest{
+			tableData: map[string][]*regattapb.PutRequest{
 				"regatta-test":  nil,
 				"regatta-test2": nil,
 			},
@@ -91,15 +91,15 @@ func TestBackup_Backup(t *testing.T) {
 		},
 		{
 			name: "Multiple table backup",
-			tableData: map[string][]*proto.PutRequest{
+			tableData: map[string][]*regattapb.PutRequest{
 				"regatta-test": {
-					&proto.PutRequest{
+					&regattapb.PutRequest{
 						Key:   []byte("foo"),
 						Value: []byte("bar"),
 					},
 				},
 				"regatta-test2": {
-					&proto.PutRequest{
+					&regattapb.PutRequest{
 						Key:   []byte("foo2"),
 						Value: []byte("bar2"),
 					},
@@ -129,15 +129,15 @@ func TestBackup_Backup(t *testing.T) {
 			fields: fields{
 				Timeout: 1 * time.Microsecond,
 			},
-			tableData: map[string][]*proto.PutRequest{
+			tableData: map[string][]*regattapb.PutRequest{
 				"regatta-test": {
-					&proto.PutRequest{
+					&regattapb.PutRequest{
 						Key:   []byte("foo"),
 						Value: []byte("bar"),
 					},
 				},
 				"regatta-test2": {
-					&proto.PutRequest{
+					&regattapb.PutRequest{
 						Key:   []byte("foo2"),
 						Value: []byte("bar2"),
 					},
@@ -352,8 +352,8 @@ func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
 func startBackupServer(manager *table.Manager) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
-	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
-	proto.RegisterMaintenanceServer(server, &regattaserver.BackupServer{Tables: manager})
+	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
+	regattapb.RegisterMaintenanceServer(server, &regattaserver.BackupServer{Tables: manager})
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {

@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	pb "google.golang.org/protobuf/proto"
 )
@@ -61,7 +61,7 @@ func (c *updateContext) Close() error {
 
 func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
 	c.index = entry.Index
-	cmd := &proto.Command{}
+	cmd := &regattapb.Command{}
 	if err := cmd.UnmarshalVT(entry.Cmd); err != nil {
 		return commandDummy{}, err
 	}
@@ -69,50 +69,50 @@ func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
 	return wrapCommand(cmd), nil
 }
 
-func wrapCommand(cmd *proto.Command) command {
+func wrapCommand(cmd *regattapb.Command) command {
 	switch cmd.Type {
-	case proto.Command_PUT:
+	case regattapb.Command_PUT:
 		return commandPut{cmd}
-	case proto.Command_DELETE:
+	case regattapb.Command_DELETE:
 		return commandDelete{cmd}
-	case proto.Command_PUT_BATCH:
+	case regattapb.Command_PUT_BATCH:
 		return commandPutBatch{cmd}
-	case proto.Command_DELETE_BATCH:
+	case regattapb.Command_DELETE_BATCH:
 		return commandDeleteBatch{cmd}
-	case proto.Command_TXN:
+	case regattapb.Command_TXN:
 		return commandTxn{cmd}
-	case proto.Command_SEQUENCE:
+	case regattapb.Command_SEQUENCE:
 		return commandSequence{cmd}
-	case proto.Command_DUMMY:
+	case regattapb.Command_DUMMY:
 		return commandDummy{}
 	}
 	panic("unknown command type")
 }
 
 type command interface {
-	handle(*updateContext) (UpdateResult, *proto.CommandResult, error)
+	handle(*updateContext) (UpdateResult, *regattapb.CommandResult, error)
 }
 
-func wrapRequestOp(req pb.Message) *proto.RequestOp {
+func wrapRequestOp(req pb.Message) *regattapb.RequestOp {
 	switch op := req.(type) {
-	case *proto.RequestOp_Range:
-		return &proto.RequestOp{Request: &proto.RequestOp_RequestRange{RequestRange: op}}
-	case *proto.RequestOp_Put:
-		return &proto.RequestOp{Request: &proto.RequestOp_RequestPut{RequestPut: op}}
-	case *proto.RequestOp_DeleteRange:
-		return &proto.RequestOp{Request: &proto.RequestOp_RequestDeleteRange{RequestDeleteRange: op}}
+	case *regattapb.RequestOp_Range:
+		return &regattapb.RequestOp{Request: &regattapb.RequestOp_RequestRange{RequestRange: op}}
+	case *regattapb.RequestOp_Put:
+		return &regattapb.RequestOp{Request: &regattapb.RequestOp_RequestPut{RequestPut: op}}
+	case *regattapb.RequestOp_DeleteRange:
+		return &regattapb.RequestOp{Request: &regattapb.RequestOp_RequestDeleteRange{RequestDeleteRange: op}}
 	}
 	return nil
 }
 
-func wrapResponseOp(req pb.Message) *proto.ResponseOp {
+func wrapResponseOp(req pb.Message) *regattapb.ResponseOp {
 	switch op := req.(type) {
-	case *proto.ResponseOp_Range:
-		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseRange{ResponseRange: op}}
-	case *proto.ResponseOp_Put:
-		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponsePut{ResponsePut: op}}
-	case *proto.ResponseOp_DeleteRange:
-		return &proto.ResponseOp{Response: &proto.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: op}}
+	case *regattapb.ResponseOp_Range:
+		return &regattapb.ResponseOp{Response: &regattapb.ResponseOp_ResponseRange{ResponseRange: op}}
+	case *regattapb.ResponseOp_Put:
+		return &regattapb.ResponseOp{Response: &regattapb.ResponseOp_ResponsePut{ResponsePut: op}}
+	case *regattapb.ResponseOp_DeleteRange:
+		return &regattapb.ResponseOp{Response: &regattapb.ResponseOp_ResponseDeleteRange{ResponseDeleteRange: op}}
 	}
 	return nil
 }

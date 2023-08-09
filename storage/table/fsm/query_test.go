@@ -7,7 +7,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
 )
@@ -19,8 +19,8 @@ func TestFSM_Lookup(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		req     *proto.RequestOp_Range
-		want    *proto.ResponseOp_Range
+		req     *regattapb.RequestOp_Range
+		want    *regattapb.ResponseOp_Range
 		wantErr bool
 	}{
 		{
@@ -28,31 +28,31 @@ func TestFSM_Lookup(t *testing.T) {
 			fields: fields{
 				smFactory: emptySM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key: []byte("Hello"),
 			},
-			want: &proto.ResponseOp_Range{},
+			want: &regattapb.ResponseOp_Range{},
 		},
 		{
 			name: "Lookup full DB with non-existent key",
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key: []byte("Hello"),
 			},
-			want: &proto.ResponseOp_Range{},
+			want: &regattapb.ResponseOp_Range{},
 		},
 		{
 			name: "Lookup full DB with existing key",
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key: []byte(fmt.Sprintf(testKeyFormat, 0)),
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
 						Value: []byte(testValue),
@@ -66,12 +66,12 @@ func TestFSM_Lookup(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 			},
 
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 						Value: []byte(largeValues[0]),
@@ -85,13 +85,13 @@ func TestFSM_Lookup(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				KeysOnly: true,
 			},
 
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0))},
 				},
 				Count: 1,
@@ -102,12 +102,12 @@ func TestFSM_Lookup(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				CountOnly: true,
 			},
 
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: 1,
 			},
 		},
@@ -137,8 +137,8 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		req     *proto.TxnRequest
-		want    *proto.TxnResponse
+		req     *regattapb.TxnRequest
+		want    *regattapb.TxnResponse
 		wantErr bool
 	}{
 		{
@@ -146,15 +146,15 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: emptySM,
 			},
-			req: &proto.TxnRequest{
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte("Hello")}),
+			req: &regattapb.TxnRequest{
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte("Hello")}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{}),
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{}),
 				},
 			},
 		},
@@ -163,15 +163,15 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte("Hello")}),
+			req: &regattapb.TxnRequest{
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte("Hello")}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{}),
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{}),
 				},
 			},
 		},
@@ -180,16 +180,16 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte(fmt.Sprintf(testKeyFormat, 0))}),
+			req: &regattapb.TxnRequest{
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte(fmt.Sprintf(testKeyFormat, 0))}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{
-						Kvs: []*proto.KeyValue{
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{
+						Kvs: []*regattapb.KeyValue{
 							{
 								Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
 								Value: []byte(testValue),
@@ -205,16 +205,16 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0))}),
+			req: &regattapb.TxnRequest{
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0))}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{
-						Kvs: []*proto.KeyValue{
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{
+						Kvs: []*regattapb.KeyValue{
 							{
 								Key:   []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 								Value: []byte(largeValues[0]),
@@ -230,16 +230,16 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), KeysOnly: true}),
+			req: &regattapb.TxnRequest{
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), KeysOnly: true}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{
-						Kvs: []*proto.KeyValue{
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{
+						Kvs: []*regattapb.KeyValue{
 							{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0))},
 						},
 						Count: 1,
@@ -252,15 +252,15 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), CountOnly: true}),
+			req: &regattapb.TxnRequest{
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), CountOnly: true}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{Count: 1}),
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{Count: 1}),
 				},
 			},
 		},
@@ -269,20 +269,20 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Compare: []*proto.Compare{
+			req: &regattapb.TxnRequest{
+				Compare: []*regattapb.Compare{
 					{
 						Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 					},
 				},
-				Success: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), CountOnly: true}),
+				Success: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), CountOnly: true}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{Count: 1}),
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{Count: 1}),
 				},
 			},
 		},
@@ -291,20 +291,20 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Compare: []*proto.Compare{
+			req: &regattapb.TxnRequest{
+				Compare: []*regattapb.Compare{
 					{
 						Key: []byte("nonsense"),
 					},
 				},
-				Failure: []*proto.RequestOp{
-					wrapRequestOp(&proto.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), CountOnly: true}),
+				Failure: []*regattapb.RequestOp{
+					wrapRequestOp(&regattapb.RequestOp_Range{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)), CountOnly: true}),
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: false,
-				Responses: []*proto.ResponseOp{
-					wrapResponseOp(&proto.ResponseOp_Range{Count: 1}),
+				Responses: []*regattapb.ResponseOp{
+					wrapResponseOp(&regattapb.ResponseOp_Range{Count: 1}),
 				},
 			},
 		},
@@ -313,14 +313,14 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Compare: []*proto.Compare{
+			req: &regattapb.TxnRequest{
+				Compare: []*regattapb.Compare{
 					{
 						Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 					},
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: true,
 			},
 		},
@@ -329,14 +329,14 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.TxnRequest{
-				Compare: []*proto.Compare{
+			req: &regattapb.TxnRequest{
+				Compare: []*regattapb.Compare{
 					{
 						Key: []byte("nonsense"),
 					},
 				},
 			},
-			want: &proto.TxnResponse{
+			want: &regattapb.TxnResponse{
 				Succeeded: false,
 			},
 		},
@@ -355,7 +355,7 @@ func TestFSM_Lookup_Txn(t *testing.T) {
 			}
 			r.NoError(err)
 
-			gotResponse, ok := got.(*proto.TxnResponse)
+			gotResponse, ok := got.(*regattapb.TxnResponse)
 			if !ok {
 				r.Fail("could not cast the 'got' to '*proto.ResponseOp_Range'")
 			}
@@ -388,8 +388,8 @@ func TestFSM_Lookup_Range(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		req     *proto.RequestOp_Range
-		want    *proto.ResponseOp_Range
+		req     *regattapb.RequestOp_Range
+		want    *regattapb.ResponseOp_Range
 		wantErr bool
 	}{
 		{
@@ -397,13 +397,13 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 2)),
 				Limit:    0,
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 						Value: []byte(largeValues[0]),
@@ -421,13 +421,13 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 9)),
 				Limit:    1,
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 						Value: []byte(largeValues[0]),
@@ -442,13 +442,13 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testKeyFormat, 0)),
 				RangeEnd: []byte{0},
 				Limit:    3,
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   []byte(fmt.Sprintf(testKeyFormat, 0)),
 						Value: []byte(testValue),
@@ -471,13 +471,13 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd: []byte{0},
 				Limit:    3,
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 						Value: []byte(largeValues[0]),
@@ -500,12 +500,12 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte{0},
 				RangeEnd: []byte{0},
 				Limit:    0,
 			},
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: smallEntries + largeEntries,
 			},
 		},
@@ -514,14 +514,14 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 5)),
 				KeysOnly: true,
 				Limit:    3,
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0))},
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 1))},
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 2))},
@@ -535,14 +535,14 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd: []byte(fmt.Sprintf(testLargeKeyFormat, 3)),
 				KeysOnly: true,
 				Limit:    10,
 			},
-			want: &proto.ResponseOp_Range{
-				Kvs: []*proto.KeyValue{
+			want: &regattapb.ResponseOp_Range{
+				Kvs: []*regattapb.KeyValue{
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 0))},
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 1))},
 					{Key: []byte(fmt.Sprintf(testLargeKeyFormat, 2))},
@@ -555,13 +555,13 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd:  []byte(fmt.Sprintf(testLargeKeyFormat, 5)),
 				CountOnly: true,
 				Limit:     3,
 			},
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: 3,
 			},
 		},
@@ -570,13 +570,13 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:       []byte(fmt.Sprintf(testLargeKeyFormat, 0)),
 				RangeEnd:  []byte(fmt.Sprintf(testLargeKeyFormat, 3)),
 				CountOnly: true,
 				Limit:     10,
 			},
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: 3,
 			},
 		},
@@ -585,12 +585,12 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:       []byte("testlarge"),
 				RangeEnd:  incrementRightmostByte([]byte("testlarge")),
 				CountOnly: true,
 			},
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: 10,
 			},
 		},
@@ -599,11 +599,11 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledLargeValuesSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:      []byte("test"),
 				RangeEnd: incrementRightmostByte([]byte("test")),
 			},
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: 399,
 			},
 		},
@@ -612,12 +612,12 @@ func TestFSM_Lookup_Range(t *testing.T) {
 			fields: fields{
 				smFactory: filledLargeValuesSM,
 			},
-			req: &proto.RequestOp_Range{
+			req: &regattapb.RequestOp_Range{
 				Key:       []byte("test"),
 				RangeEnd:  incrementRightmostByte([]byte("test")),
 				CountOnly: true,
 			},
-			want: &proto.ResponseOp_Range{
+			want: &regattapb.ResponseOp_Range{
 				Count: 10000,
 			},
 		},
@@ -638,7 +638,7 @@ func TestFSM_Lookup_Range(t *testing.T) {
 
 			r.NoError(err)
 
-			gotResponse, ok := got.(*proto.ResponseOp_Range)
+			gotResponse, ok := got.(*regattapb.ResponseOp_Range)
 			if !ok {
 				r.Fail("could not cast the 'got' to '*proto.ResponseOp_Range'")
 			}

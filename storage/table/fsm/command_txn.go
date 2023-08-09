@@ -7,14 +7,14 @@ import (
 	"errors"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 )
 
 type commandTxn struct {
-	*proto.Command
+	*regattapb.Command
 }
 
-func (c commandTxn) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
+func (c commandTxn) handle(ctx *updateContext) (UpdateResult, *regattapb.CommandResult, error) {
 	succ, rop, err := handleTxn(ctx, c.Txn.Compare, c.Txn.Success, c.Txn.Failure)
 	if err != nil {
 		return ResultFailure, nil, err
@@ -23,11 +23,11 @@ func (c commandTxn) handle(ctx *updateContext) (UpdateResult, *proto.CommandResu
 	if !succ {
 		result = ResultFailure
 	}
-	return result, &proto.CommandResult{Revision: ctx.index, Responses: rop}, nil
+	return result, &regattapb.CommandResult{Revision: ctx.index, Responses: rop}, nil
 }
 
 // handleTxn handle transaction operation, returns if the operation succeeded (if success, or fail was applied) list or respective results and error.
-func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*proto.RequestOp) (bool, []*proto.ResponseOp, error) {
+func handleTxn(ctx *updateContext, compare []*regattapb.Compare, success, fail []*regattapb.RequestOp) (bool, []*regattapb.ResponseOp, error) {
 	if err := ctx.EnsureIndexed(); err != nil {
 		return false, nil, err
 	}
@@ -43,26 +43,26 @@ func handleTxn(ctx *updateContext, compare []*proto.Compare, success, fail []*pr
 	return false, res, err
 }
 
-func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.ResponseOp, error) {
-	var results []*proto.ResponseOp
+func handleTxnOps(ctx *updateContext, req []*regattapb.RequestOp) ([]*regattapb.ResponseOp, error) {
+	var results []*regattapb.ResponseOp
 	for _, op := range req {
 		switch o := op.Request.(type) {
-		case *proto.RequestOp_RequestRange:
+		case *regattapb.RequestOp_RequestRange:
 			response, err := lookup(ctx.batch, o.RequestRange)
 			if err != nil {
 				if !errors.Is(err, pebble.ErrNotFound) {
 					return nil, err
 				}
-				response = &proto.ResponseOp_Range{}
+				response = &regattapb.ResponseOp_Range{}
 			}
 			results = append(results, wrapResponseOp(response))
-		case *proto.RequestOp_RequestPut:
+		case *regattapb.RequestOp_RequestPut:
 			response, err := handlePut(ctx, o.RequestPut)
 			if err != nil {
 				return nil, err
 			}
 			results = append(results, wrapResponseOp(response))
-		case *proto.RequestOp_RequestDeleteRange:
+		case *regattapb.RequestOp_RequestDeleteRange:
 			response, err := handleDelete(ctx, o.RequestDeleteRange)
 			if err != nil {
 				return nil, err
@@ -74,7 +74,7 @@ func handleTxnOps(ctx *updateContext, req []*proto.RequestOp) ([]*proto.Response
 	return results, nil
 }
 
-func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
+func txnCompare(reader pebble.Reader, compare []*regattapb.Compare) (bool, error) {
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	for _, cmp := range compare {
@@ -139,17 +139,17 @@ func txnCompare(reader pebble.Reader, compare []*proto.Compare) (bool, error) {
 	return true, nil
 }
 
-func txnCompareSingle(cmp *proto.Compare, value []byte) bool {
+func txnCompareSingle(cmp *regattapb.Compare, value []byte) bool {
 	cmpValue := true
-	if cmp.Target == proto.Compare_VALUE && cmp.TargetUnion != nil {
+	if cmp.Target == regattapb.Compare_VALUE && cmp.TargetUnion != nil {
 		switch cmp.Result {
-		case proto.Compare_EQUAL:
+		case regattapb.Compare_EQUAL:
 			cmpValue = bytes.Equal(value, cmp.GetValue())
-		case proto.Compare_NOT_EQUAL:
+		case regattapb.Compare_NOT_EQUAL:
 			cmpValue = !bytes.Equal(value, cmp.GetValue())
-		case proto.Compare_GREATER:
+		case regattapb.Compare_GREATER:
 			cmpValue = bytes.Compare(value, cmp.GetValue()) == 1
-		case proto.Compare_LESS:
+		case regattapb.Compare_LESS:
 			cmpValue = bytes.Compare(value, cmp.GetValue()) == -1
 		}
 	}

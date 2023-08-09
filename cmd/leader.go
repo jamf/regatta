@@ -17,7 +17,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
@@ -190,7 +190,7 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 			// Create server
 			regatta := createAPIServer(c)
-			proto.RegisterKVServer(regatta, &regattaserver.KVServer{
+			regattapb.RegisterKVServer(regatta, &regattaserver.KVServer{
 				Storage: engine,
 			})
 			// Start server
@@ -221,9 +221,9 @@ func leader(_ *cobra.Command, _ []string) {
 				logger,
 				viper.GetUint64("replication.max-send-message-size-bytes"),
 			)
-			proto.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine})
-			proto.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine})
-			proto.RegisterLogServer(replication, ls)
+			regattapb.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine})
+			regattapb.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine})
+			regattapb.RegisterLogServer(replication, ls)
 			// Start server
 			go func() {
 				log.Infof("regatta replication listening at %s", replication.Addr)
@@ -242,8 +242,8 @@ func leader(_ *cobra.Command, _ []string) {
 			}
 
 			maintenance := createMaintenanceServer(c)
-			proto.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: engine})
-			proto.RegisterMaintenanceServer(maintenance, &regattaserver.BackupServer{Tables: engine})
+			regattapb.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: engine})
+			regattapb.RegisterMaintenanceServer(maintenance, &regattaserver.BackupServer{Tables: engine})
 			// Start server
 			go func() {
 				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
