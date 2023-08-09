@@ -16,7 +16,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication"
 	"github.com/jamf/regatta/storage"
@@ -201,7 +201,7 @@ func follower(_ *cobra.Command, _ []string) {
 			}
 			// Create server
 			regatta := createAPIServer(c)
-			proto.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
+			regattapb.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
 				KVServer: regattaserver.KVServer{
 					Storage: engine,
 				},
@@ -224,7 +224,7 @@ func follower(_ *cobra.Command, _ []string) {
 			}
 
 			maintenance := createMaintenanceServer(c)
-			proto.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
+			regattapb.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
 			// Start server
 			go func() {
 				log.Infof("regatta maintenance listening at %s", maintenance.Addr)

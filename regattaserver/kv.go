@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,14 +14,14 @@ import (
 
 // KVServer implements KV service from proto/regatta.proto.
 type KVServer struct {
-	proto.UnimplementedKVServer
+	regattapb.UnimplementedKVServer
 	Storage KVService
 }
 
 // Range implements proto/regatta.proto KV.Range method.
 // Currently, only subset of functionality is implemented.
 // The versioning functionality is not available.
-func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (s *KVServer) Range(ctx context.Context, req *regattapb.RangeRequest) (*regattapb.RangeResponse, error) {
 	if req.GetLimit() < 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "limit must be a positive number")
 	} else if req.GetKeysOnly() && req.GetCountOnly() {
@@ -55,7 +55,7 @@ func (s *KVServer) Range(ctx context.Context, req *proto.RangeRequest) (*proto.R
 }
 
 // Put implements proto/regatta.proto KV.Put method.
-func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (s *KVServer) Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error) {
 	if len(req.GetTable()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
@@ -75,7 +75,7 @@ func (s *KVServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutRe
 }
 
 // DeleteRange implements proto/regatta.proto KV.DeleteRange method.
-func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (s *KVServer) DeleteRange(ctx context.Context, req *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
 	if len(req.GetTable()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
@@ -98,7 +98,7 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *proto.DeleteRangeReques
 // A txn request increments the revision of the key-value store
 // and generates events with the same revision for every completed request.
 // It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
-func (s *KVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+func (s *KVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	if len(req.GetTable()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
@@ -119,12 +119,12 @@ type ReadonlyKVServer struct {
 }
 
 // Put implements proto/regatta.proto KV.Put method.
-func (r *ReadonlyKVServer) Put(_ context.Context, _ *proto.PutRequest) (*proto.PutResponse, error) {
+func (r *ReadonlyKVServer) Put(_ context.Context, _ *regattapb.PutRequest) (*regattapb.PutResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Put not implemented for follower")
 }
 
 // DeleteRange implements proto/regatta.proto KV.DeleteRange method.
-func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRange not implemented for follower")
 }
 
@@ -133,22 +133,22 @@ func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *proto.DeleteRangeRe
 // and generates events with the same revision for every completed request.
 // It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
 // Readonly transactions allowed using follower API.
-func (r *ReadonlyKVServer) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+func (r *ReadonlyKVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	if isReadonlyTransaction(req) {
 		return r.KVServer.Txn(ctx, req)
 	}
 	return nil, status.Error(codes.Unimplemented, "writable Txn not implemented for follower")
 }
 
-func isReadonlyTransaction(req *proto.TxnRequest) bool {
+func isReadonlyTransaction(req *regattapb.TxnRequest) bool {
 	for _, op := range req.Success {
-		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
 			return false
 		}
 	}
 
 	for _, op := range req.Failure {
-		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
 			return false
 		}
 	}

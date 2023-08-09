@@ -6,7 +6,7 @@
 
 syntax = "proto3";
 
-option go_package = "./proto";
+option go_package = "./regattapb";
 
 package replication.v1;
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +28,7 @@ func Test_handleDelete(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT.
-	_, err = handlePut(c, &proto.RequestOp_Put{
+	_, err = handlePut(c, &regattapb.RequestOp_Put{
 		Key:   []byte("key_1"),
 		Value: []byte("value_1"),
 	})
@@ -38,12 +38,12 @@ func Test_handleDelete(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE.
-	res, err := handleDelete(c, &proto.RequestOp_DeleteRange{
+	res, err := handleDelete(c, &regattapb.RequestOp_DeleteRange{
 		Key:    []byte("key_1"),
 		PrevKv: true,
 	})
 	r.NoError(err)
-	r.Equal(&proto.ResponseOp_DeleteRange{Deleted: 1, PrevKvs: []*proto.KeyValue{{Key: []byte("key_1"), Value: []byte("value_1")}}}, res)
+	r.Equal(&regattapb.ResponseOp_DeleteRange{Deleted: 1, PrevKvs: []*regattapb.KeyValue{{Key: []byte("key_1"), Value: []byte("value_1")}}}, res)
 	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.
@@ -74,7 +74,7 @@ func Test_handleDeleteBatch(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+	_, err = handlePutBatch(c, []*regattapb.RequestOp_Put{
 		{Key: []byte("key_1"), Value: []byte("value")},
 		{Key: []byte("key_2"), Value: []byte("value")},
 		{Key: []byte("key_3"), Value: []byte("value")},
@@ -86,7 +86,7 @@ func Test_handleDeleteBatch(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE_BATCH.
-	_, err = handleDeleteBatch(c, []*proto.RequestOp_DeleteRange{
+	_, err = handleDeleteBatch(c, []*regattapb.RequestOp_DeleteRange{
 		{Key: []byte("key_1")},
 		{Key: []byte("key_2")},
 		{Key: []byte("key_3")},
@@ -124,7 +124,7 @@ func Test_handleDeleteRange(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	// Make the PUT_BATCH.
-	_, err = handlePutBatch(c, []*proto.RequestOp_Put{
+	_, err = handlePutBatch(c, []*regattapb.RequestOp_Put{
 		{Key: []byte("key_1"), Value: []byte("value")},
 		{Key: []byte("key_2"), Value: []byte("value")},
 		{Key: []byte("key_3"), Value: []byte("value")},
@@ -136,7 +136,7 @@ func Test_handleDeleteRange(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE RANGE - delete first two user keys.
-	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_3")})
+	_, err = handleDelete(c, &regattapb.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_3")})
 	r.NoError(err)
 	r.NoError(c.Commit())
 
@@ -158,7 +158,7 @@ func Test_handleDeleteRange(t *testing.T) {
 	c.batch = db.NewBatch()
 
 	// Make the DELETE RANGE - delete the rest of the user keys.
-	_, err = handleDelete(c, &proto.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: wildcard})
+	_, err = handleDelete(c, &regattapb.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: wildcard})
 	r.NoError(err)
 	r.NoError(c.Commit())
 

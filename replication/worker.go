@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
@@ -39,8 +39,8 @@ type workerFactory struct {
 	tm                *table.Manager
 	log               *zap.SugaredLogger
 	nh                *dragonboat.NodeHost
-	logClient         proto.LogClient
-	snapshotClient    proto.SnapshotClient
+	logClient         regattapb.LogClient
+	snapshotClient    regattapb.SnapshotClient
 	metrics           struct {
 		replicationIndex  *prometheus.GaugeVec
 		replicationLeased *prometheus.GaugeVec
@@ -189,7 +189,7 @@ func (w *worker) Close() {
 }
 
 func (w *worker) do(leaderIndex uint64, session *client.Session) error {
-	replicateRequest := &proto.ReplicateRequest{
+	replicateRequest := &regattapb.ReplicateRequest{
 		LeaderIndex: leaderIndex + 1,
 		Table:       []byte(w.table),
 	}
@@ -214,15 +214,15 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) error {
 		}
 
 		switch res := replicateRes.Response.(type) {
-		case *proto.ReplicateResponse_CommandsResponse:
+		case *regattapb.ReplicateResponse_CommandsResponse:
 			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), session); err != nil {
 				return fmt.Errorf("could not propose: %w", err)
 			}
-		case *proto.ReplicateResponse_ErrorResponse:
+		case *regattapb.ReplicateResponse_ErrorResponse:
 			switch res.ErrorResponse.Error {
-			case proto.ReplicateError_LEADER_BEHIND:
+			case regattapb.ReplicateError_LEADER_BEHIND:
 				return serror.ErrLogBehind
-			case proto.ReplicateError_USE_SNAPSHOT:
+			case regattapb.ReplicateError_USE_SNAPSHOT:
 				return serror.ErrLogAhead
 			default:
 				return fmt.Errorf(
@@ -250,8 +250,8 @@ func (w *worker) tableState() (uint64, *client.Session, error) {
 	return idxRes.Index, w.nh.GetNoOPSession(t.ClusterID), nil
 }
 
-func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCommand, session *client.Session) error {
-	seq := proto.CommandFromVTPool()
+func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.ReplicateCommand, session *client.Session) error {
+	seq := regattapb.CommandFromVTPool()
 	defer seq.ReturnToVTPool()
 	var buff []byte
 	propose := func() error {
@@ -276,7 +276,7 @@ func (w *worker) proposeBatch(ctx context.Context, commands []*proto.ReplicateCo
 		return nil
 	}
 
-	seq.Type = proto.Command_SEQUENCE
+	seq.Type = regattapb.Command_SEQUENCE
 	for i, c := range commands {
 		seq.Sequence = append(seq.Sequence, c.Command)
 		seq.LeaderIndex = &c.LeaderIndex
@@ -295,7 +295,7 @@ func (w *worker) recover() error {
 	w.log.Info("recovering from snapshot")
 	ctx, cancel := context.WithTimeout(context.Background(), w.snapshotTimeout)
 	defer cancel()
-	stream, err := w.snapshotClient.Stream(ctx, &proto.SnapshotRequest{Table: []byte(w.table)})
+	stream, err := w.snapshotClient.Stream(ctx, &regattapb.SnapshotRequest{Table: []byte(w.table)})
 	if err != nil {
 		return err
 	}

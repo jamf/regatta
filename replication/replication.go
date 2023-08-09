@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
@@ -53,7 +53,7 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 	return &Manager{
 		reconcileInterval: cfg.ReconcileInterval,
 		tm:                tm,
-		metadataClient:    proto.NewMetadataClient(conn),
+		metadataClient:    regattapb.NewMetadataClient(conn),
 		factory: &workerFactory{
 			pollInterval:      cfg.Workers.PollInterval,
 			leaseInterval:     cfg.Workers.LeaseInterval,
@@ -64,8 +64,8 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 			tm:                tm,
 			log:               replicationLog,
 			nh:                nh,
-			logClient:         proto.NewLogClient(conn),
-			snapshotClient:    proto.NewSnapshotClient(conn),
+			logClient:         regattapb.NewLogClient(conn),
+			snapshotClient:    regattapb.NewSnapshotClient(conn),
 			metrics: struct {
 				replicationIndex  *prometheus.GaugeVec
 				replicationLeased *prometheus.GaugeVec
@@ -87,7 +87,7 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 type Manager struct {
 	reconcileInterval time.Duration
 	tm                *table.Manager
-	metadataClient    proto.MetadataClient
+	metadataClient    regattapb.MetadataClient
 	factory           *workerFactory
 	workers           struct {
 		registry map[string]*worker
@@ -139,7 +139,7 @@ func (m *Manager) Start() {
 func (m *Manager) reconcileTables() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	response, err := m.metadataClient.Get(ctx, &proto.MetadataRequest{})
+	response, err := m.metadataClient.Get(ctx, &regattapb.MetadataRequest{})
 	if err != nil {
 		return err
 	}

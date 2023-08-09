@@ -6,17 +6,17 @@ import (
 	"context"
 	"io"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftpb"
 )
 
 type KVService interface {
-	Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error)
-	Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error)
-	Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error)
-	Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error)
+	Range(ctx context.Context, req *regattapb.RangeRequest) (*regattapb.RangeResponse, error)
+	Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error)
+	Delete(ctx context.Context, req *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error)
+	Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error)
 }
 
 type SnapshotService interface {

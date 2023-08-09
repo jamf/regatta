@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
@@ -72,7 +72,7 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (e *Engine) Range(ctx context.Context, req *regattapb.RangeRequest) (*regattapb.RangeResponse, error) {
 	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (e *Engine) Range(ctx context.Context, req *proto.RangeRequest) (*proto.Ran
 	return rng, nil
 }
 
-func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (e *Engine) Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error) {
 	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (e *Engine) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResp
 	return put, nil
 }
 
-func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (e *Engine) Delete(ctx context.Context, req *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
 	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (e *Engine) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*pr
 	return del, nil
 }
 
-func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+func (e *Engine) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	t, err := e.Manager.GetTable(string(req.Table))
 	if err != nil {
 		return nil, err
@@ -124,9 +124,9 @@ func (e *Engine) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResp
 	return tx, nil
 }
 
-func (e *Engine) getHeader(header *proto.ResponseHeader, shardID uint64) *proto.ResponseHeader {
+func (e *Engine) getHeader(header *regattapb.ResponseHeader, shardID uint64) *regattapb.ResponseHeader {
 	if header == nil {
-		header = &proto.ResponseHeader{}
+		header = &regattapb.ResponseHeader{}
 	}
 	header.ReplicaId = e.cfg.NodeID
 	header.ShardId = shardID

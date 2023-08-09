@@ -12,7 +12,7 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication/snapshot"
 	"github.com/jamf/regatta/storage/table"
@@ -28,28 +28,28 @@ import (
 )
 
 type testReplicationServer struct {
-	proto.UnimplementedLogServer
-	proto.UnimplementedMetadataServer
-	proto.UnimplementedSnapshotServer
-	metaResp     *proto.MetadataResponse
+	regattapb.UnimplementedLogServer
+	regattapb.UnimplementedMetadataServer
+	regattapb.UnimplementedSnapshotServer
+	metaResp     *regattapb.MetadataResponse
 	metaErr      error
-	repResp      []*proto.ReplicateResponse
+	repResp      []*regattapb.ReplicateResponse
 	repErr       error
 	snapshotFile string
 }
 
-func (t testReplicationServer) Get(context.Context, *proto.MetadataRequest) (*proto.MetadataResponse, error) {
+func (t testReplicationServer) Get(context.Context, *regattapb.MetadataRequest) (*regattapb.MetadataResponse, error) {
 	return t.metaResp, t.metaErr
 }
 
-func (t testReplicationServer) Replicate(_ *proto.ReplicateRequest, s proto.Log_ReplicateServer) error {
+func (t testReplicationServer) Replicate(_ *regattapb.ReplicateRequest, s regattapb.Log_ReplicateServer) error {
 	for _, r := range t.repResp {
 		s.Send(r)
 	}
 	return t.repErr
 }
 
-func (t testReplicationServer) Stream(_ *proto.SnapshotRequest, s proto.Snapshot_StreamServer) error {
+func (t testReplicationServer) Stream(_ *regattapb.SnapshotRequest, s regattapb.Snapshot_StreamServer) error {
 	f, err := os.Open(t.snapshotFile)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func TestManager_reconcile(t *testing.T) {
 	defer followerTM.Close()
 
 	conn := testServer(t, func(server *grpc.Server) {
-		s := testReplicationServer{metaResp: &proto.MetadataResponse{Tables: []*proto.Table{
+		s := testReplicationServer{metaResp: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
 			{
 				Name: "test",
 			},
@@ -96,8 +96,8 @@ func TestManager_reconcile(t *testing.T) {
 				Name: "test2",
 			},
 		}}}
-		proto.RegisterMetadataServer(server, s)
-		proto.RegisterLogServer(server, s)
+		regattapb.RegisterMetadataServer(server, s)
+		regattapb.RegisterLogServer(server, s)
 	})
 
 	m := NewManager(followerTM, followerNH, conn, Config{
@@ -173,22 +173,22 @@ func TestWorker_recover(t *testing.T) {
 
 	conn := testServer(t, func(server *grpc.Server) {
 		s := testReplicationServer{
-			metaResp: &proto.MetadataResponse{Tables: []*proto.Table{
+			metaResp: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
 				{
 					Name: "test",
 				},
 			}},
-			repResp: []*proto.ReplicateResponse{
+			repResp: []*regattapb.ReplicateResponse{
 				{
 					LeaderIndex: 100,
-					Response:    &proto.ReplicateResponse_ErrorResponse{ErrorResponse: &proto.ReplicateErrResponse{Error: proto.ReplicateError_USE_SNAPSHOT}},
+					Response:    &regattapb.ReplicateResponse_ErrorResponse{ErrorResponse: &regattapb.ReplicateErrResponse{Error: regattapb.ReplicateError_USE_SNAPSHOT}},
 				},
 			},
 			snapshotFile: "snapshot/testdata/snapshot.bin",
 		}
-		proto.RegisterMetadataServer(server, s)
-		proto.RegisterLogServer(server, s)
-		proto.RegisterSnapshotServer(server, s)
+		regattapb.RegisterMetadataServer(server, s)
+		regattapb.RegisterLogServer(server, s)
+		regattapb.RegisterSnapshotServer(server, s)
 	})
 
 	m := NewManager(followerTM, followerNH, conn, Config{
@@ -274,9 +274,9 @@ func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *table.Manager, follow
 func startReplicationServer(manager *table.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, false)
-	proto.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
-	proto.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
-	proto.RegisterLogServer(
+	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
+	regattapb.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
+	regattapb.RegisterLogServer(
 		server,
 		regattaserver.NewLogServer(
 			manager,

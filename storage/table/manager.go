@@ -16,7 +16,7 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/table/fsm"
@@ -647,9 +647,9 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 	session := m.nh.GetNoOPSession(id)
 	msg := make([]byte, 1024*1024*4)
 
-	cmd := &proto.Command{}
-	batchCmd := &proto.Command{
-		Type: proto.Command_PUT_BATCH,
+	cmd := &regattapb.Command{}
+	batchCmd := &regattapb.Command{
+		Type: regattapb.Command_PUT_BATCH,
 	}
 	last := false
 

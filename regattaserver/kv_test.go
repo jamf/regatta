@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,15 +29,15 @@ var (
 func TestKVServer_Get(t *testing.T) {
 	tests := []struct {
 		name          string
-		rangeRequest  *proto.RangeRequest
-		expectedValue *proto.RangeResponse
+		rangeRequest  *regattapb.RangeRequest
+		expectedValue *regattapb.RangeResponse
 		ms            KVService
 	}{
 		{
 			name: "Get one key without rangeEnd",
 			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{
-					Kvs: []*proto.KeyValue{
+				rangeResponse: regattapb.RangeResponse{
+					Kvs: []*regattapb.KeyValue{
 						{
 							Key:   key1Name,
 							Value: table1Value1,
@@ -46,12 +46,12 @@ func TestKVServer_Get(t *testing.T) {
 					Count: 1,
 				},
 			},
-			rangeRequest: &proto.RangeRequest{
+			rangeRequest: &regattapb.RangeRequest{
 				Table: table1Name,
 				Key:   key1Name,
 			},
-			expectedValue: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
+			expectedValue: &regattapb.RangeResponse{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -63,7 +63,7 @@ func TestKVServer_Get(t *testing.T) {
 		{
 			name: "Get keys from range",
 			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{Count: 2, Kvs: []*proto.KeyValue{
+				rangeResponse: regattapb.RangeResponse{Count: 2, Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -74,13 +74,13 @@ func TestKVServer_Get(t *testing.T) {
 					},
 				}},
 			},
-			rangeRequest: &proto.RangeRequest{
+			rangeRequest: &regattapb.RangeRequest{
 				Table:    table1Name,
 				Key:      key1Name,
 				RangeEnd: key3Name,
 			},
-			expectedValue: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
+			expectedValue: &regattapb.RangeResponse{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -96,19 +96,19 @@ func TestKVServer_Get(t *testing.T) {
 		{
 			name: "Get KeysOnly from range",
 			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{Count: 2, Kvs: []*proto.KeyValue{
+				rangeResponse: regattapb.RangeResponse{Count: 2, Kvs: []*regattapb.KeyValue{
 					{Key: key1Name},
 					{Key: key2Name},
 				}},
 			},
-			rangeRequest: &proto.RangeRequest{
+			rangeRequest: &regattapb.RangeRequest{
 				Table:    table1Name,
 				Key:      key1Name,
 				RangeEnd: key3Name,
 				KeysOnly: true,
 			},
-			expectedValue: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
+			expectedValue: &regattapb.RangeResponse{
+				Kvs: []*regattapb.KeyValue{
 					{Key: key1Name},
 					{Key: key2Name},
 				},
@@ -117,21 +117,21 @@ func TestKVServer_Get(t *testing.T) {
 		},
 		{
 			name: "Get CountOnly from range",
-			ms:   &MockStorage{rangeResponse: proto.RangeResponse{Count: 2}},
-			rangeRequest: &proto.RangeRequest{
+			ms:   &MockStorage{rangeResponse: regattapb.RangeResponse{Count: 2}},
+			rangeRequest: &regattapb.RangeRequest{
 				Table:     table1Name,
 				Key:       key1Name,
 				RangeEnd:  key3Name,
 				CountOnly: true,
 			},
-			expectedValue: &proto.RangeResponse{
+			expectedValue: &regattapb.RangeResponse{
 				Count: 2,
 			},
 		},
 		{
 			name: "Get response with rangeEnd set to \\0",
 			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{Count: 3, Kvs: []*proto.KeyValue{
+				rangeResponse: regattapb.RangeResponse{Count: 3, Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -146,13 +146,13 @@ func TestKVServer_Get(t *testing.T) {
 					},
 				}},
 			},
-			rangeRequest: &proto.RangeRequest{
+			rangeRequest: &regattapb.RangeRequest{
 				Table:    table1Name,
 				Key:      key1Name,
 				RangeEnd: []byte{0},
 			},
-			expectedValue: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
+			expectedValue: &regattapb.RangeResponse{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -172,7 +172,7 @@ func TestKVServer_Get(t *testing.T) {
 		{
 			name: "Get response with key and rangeEnd set to \\0",
 			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{Count: 3, Kvs: []*proto.KeyValue{
+				rangeResponse: regattapb.RangeResponse{Count: 3, Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -187,13 +187,13 @@ func TestKVServer_Get(t *testing.T) {
 					},
 				}},
 			},
-			rangeRequest: &proto.RangeRequest{
+			rangeRequest: &regattapb.RangeRequest{
 				Table:    table1Name,
 				Key:      []byte{0},
 				RangeEnd: []byte{0},
 			},
-			expectedValue: &proto.RangeResponse{
-				Kvs: []*proto.KeyValue{
+			expectedValue: &regattapb.RangeResponse{
+				Kvs: []*regattapb.KeyValue{
 					{
 						Key:   key1Name,
 						Value: table1Value1,
@@ -213,14 +213,14 @@ func TestKVServer_Get(t *testing.T) {
 		{
 			name: "Get response with rangeEnd < key",
 			ms: &MockStorage{
-				rangeResponse: proto.RangeResponse{},
+				rangeResponse: regattapb.RangeResponse{},
 			},
-			rangeRequest: &proto.RangeRequest{
+			rangeRequest: &regattapb.RangeRequest{
 				Table:    table1Name,
 				Key:      key2Name,
 				RangeEnd: key1Name,
 			},
-			expectedValue: &proto.RangeResponse{},
+			expectedValue: &regattapb.RangeResponse{},
 		},
 	}
 
@@ -247,7 +247,7 @@ func TestKVServer_Parallel(t *testing.T) {
 			r := require.New(t)
 
 			t.Log("Put kv")
-			_, err := kv.Put(context.Background(), &proto.PutRequest{
+			_, err := kv.Put(context.Background(), &regattapb.PutRequest{
 				Table: table1Name,
 				Key:   key1Name,
 				Value: table1Value1,
@@ -255,7 +255,7 @@ func TestKVServer_Parallel(t *testing.T) {
 			r.NoError(err, "Failed to put kv")
 
 			t.Log("Get kv")
-			_, err = kv.Range(context.Background(), &proto.RangeRequest{
+			_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 				Table: table1Name,
 				Key:   key1Name,
 			})
@@ -269,7 +269,7 @@ func TestKVServer_Parallel(t *testing.T) {
 func TestKVServer_RangeNotFound(t *testing.T) {
 	r := require.New(t)
 
-	putRequests := []*proto.PutRequest{
+	putRequests := []*regattapb.PutRequest{
 		{
 			Table: table1Name,
 			Key:   key1Name,
@@ -303,8 +303,8 @@ func TestKVServer_RangeNotFound(t *testing.T) {
 	}
 
 	t.Log("Get non-existing kv from existing table")
-	kv.Storage = &MockStorage{rangeResponse: proto.RangeResponse{}}
-	_, err := kv.Range(context.Background(), &proto.RangeRequest{
+	kv.Storage = &MockStorage{rangeResponse: regattapb.RangeResponse{}}
+	_, err := kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table: table1Name,
 		Key:   []byte("non_existing_key"),
 	})
@@ -312,7 +312,7 @@ func TestKVServer_RangeNotFound(t *testing.T) {
 
 	t.Log("Get kv from non-existing table")
 	kv.Storage = &MockStorage{rangeError: errors.ErrTableNotFound}
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
 	})
@@ -326,21 +326,21 @@ func TestKVServer_RangeInvalidArgument(t *testing.T) {
 	}
 
 	t.Log("Get with empty table name")
-	_, err := kv.Range(context.Background(), &proto.RangeRequest{
+	_, err := kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table: []byte{},
 		Key:   key1Name,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
 
 	t.Log("Get with empty key name")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table: table1Name,
 		Key:   []byte{},
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
 
 	t.Log("Get with negative limit")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table: table1Name,
 		Key:   key1Name,
 		Limit: -1,
@@ -348,7 +348,7 @@ func TestKVServer_RangeInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "limit must be a positive number").Error())
 
 	t.Log("Get with both CountOnly and KeysOnly")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table:     table1Name,
 		Key:       key1Name,
 		KeysOnly:  true,
@@ -364,7 +364,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 	}
 
 	t.Log("Get kv with unimplemented min_mod_revision")
-	_, err := kv.Range(context.Background(), &proto.RangeRequest{
+	_, err := kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table:          table1Name,
 		Key:            key1Name,
 		MinModRevision: 1,
@@ -372,7 +372,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented max_mod_revision")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table:          table1Name,
 		Key:            key1Name,
 		MaxModRevision: 1,
@@ -380,7 +380,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented min_create_revision")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table:             table1Name,
 		Key:               key1Name,
 		MinCreateRevision: 1,
@@ -388,7 +388,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_create_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented max_create_revision")
-	_, err = kv.Range(context.Background(), &proto.RangeRequest{
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table:             table1Name,
 		Key:               key1Name,
 		MaxCreateRevision: 1,
@@ -403,7 +403,7 @@ func TestKVServer_PutInvalidArgument(t *testing.T) {
 	}
 
 	t.Log("Put with empty table name")
-	_, err := kv.Put(context.Background(), &proto.PutRequest{
+	_, err := kv.Put(context.Background(), &regattapb.PutRequest{
 		Table: []byte{},
 		Key:   key1Name,
 		Value: table1Value1,
@@ -411,7 +411,7 @@ func TestKVServer_PutInvalidArgument(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
 
 	t.Log("Put with empty key name")
-	_, err = kv.Put(context.Background(), &proto.PutRequest{
+	_, err = kv.Put(context.Background(), &regattapb.PutRequest{
 		Table: table1Name,
 		Key:   []byte{},
 		Value: table1Value1,
@@ -420,7 +420,7 @@ func TestKVServer_PutInvalidArgument(t *testing.T) {
 
 	t.Log("Put with non-existing table")
 	kv.Storage = &MockStorage{putError: errors.ErrTableNotFound}
-	_, err = kv.Put(context.Background(), &proto.PutRequest{
+	_, err = kv.Put(context.Background(), &regattapb.PutRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
 		Value: table1Value1,
@@ -435,14 +435,14 @@ func TestKVServer_DeleteRangeInvalidArgument(t *testing.T) {
 	}
 
 	t.Log("Delete with empty table name")
-	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+	_, err := kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
 		Table: []byte{},
 		Key:   key1Name,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
 
 	t.Log("Delete with empty key name")
-	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+	_, err = kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   []byte{},
 	})
@@ -450,7 +450,7 @@ func TestKVServer_DeleteRangeInvalidArgument(t *testing.T) {
 
 	t.Log("Delete with non-existing table")
 	kv.Storage = &MockStorage{deleteError: errors.ErrTableNotFound}
-	_, err = kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+	_, err = kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
 		Table: []byte("non_existing_table"),
 		Key:   key1Name,
 	})
@@ -464,8 +464,8 @@ func TestKVServer_DeleteRange(t *testing.T) {
 	}
 
 	t.Log("Delete existing kv")
-	kv.Storage = &MockStorage{deleteRangeResponse: proto.DeleteRangeResponse{Deleted: 1}}
-	drresp, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+	kv.Storage = &MockStorage{deleteRangeResponse: regattapb.DeleteRangeResponse{Deleted: 1}}
+	drresp, err := kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   key1Name,
 	})
@@ -482,7 +482,7 @@ func TestReadonlyKVServer_Put(t *testing.T) {
 	}
 
 	t.Log("Put kv")
-	_, err := kv.Put(context.Background(), &proto.PutRequest{
+	_, err := kv.Put(context.Background(), &regattapb.PutRequest{
 		Table: table1Name,
 		Key:   key1Name,
 	})
@@ -498,7 +498,7 @@ func TestReadonlyKVServer_DeleteRange(t *testing.T) {
 	}
 
 	t.Log("Delete existing kv")
-	_, err := kv.DeleteRange(context.Background(), &proto.DeleteRangeRequest{
+	_, err := kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   key1Name,
 	})
@@ -514,10 +514,10 @@ func TestReadonlyKVServer_Txn(t *testing.T) {
 	}
 
 	t.Log("Writable Txn")
-	_, err := kv.Txn(context.Background(), &proto.TxnRequest{
-		Success: []*proto.RequestOp{
+	_, err := kv.Txn(context.Background(), &regattapb.TxnRequest{
+		Success: []*regattapb.RequestOp{
 			{
-				Request: &proto.RequestOp_RequestPut{RequestPut: &proto.RequestOp_Put{
+				Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
 					Key: key1Name,
 				}},
 			},
@@ -526,11 +526,11 @@ func TestReadonlyKVServer_Txn(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.Unimplemented, "writable Txn not implemented for follower").Error())
 
 	t.Log("Readonly Txn")
-	_, err = kv.Txn(context.Background(), &proto.TxnRequest{
+	_, err = kv.Txn(context.Background(), &regattapb.TxnRequest{
 		Table: table1Name,
-		Success: []*proto.RequestOp{
+		Success: []*regattapb.RequestOp{
 			{
-				Request: &proto.RequestOp_RequestRange{RequestRange: &proto.RequestOp_Range{
+				Request: &regattapb.RequestOp_RequestRange{RequestRange: &regattapb.RequestOp_Range{
 					Key: key1Name,
 				}},
 			},

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
@@ -48,7 +48,7 @@ func Test_worker_do(t *testing.T) {
 	f := &workerFactory{
 		logTimeout:    time.Minute,
 		tm:            followerTM,
-		logClient:     proto.NewLogClient(conn),
+		logClient:     regattapb.NewLogClient(conn),
 		nh:            followerNH,
 		log:           zap.New(logger).Sugar(),
 		pollInterval:  500 * time.Millisecond,
@@ -81,7 +81,7 @@ func Test_worker_do(t *testing.T) {
 	func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		response, err := table.Range(ctx, &proto.RangeRequest{
+		response, err := table.Range(ctx, &regattapb.RangeRequest{
 			Table:        []byte("test"),
 			Key:          []byte{0},
 			RangeEnd:     []byte{0},
@@ -146,7 +146,7 @@ func fillData(keyCount int, at table.ActiveTable) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	for i := 0; i < keyCount; i++ {
-		if _, err := at.Put(ctx, &proto.PutRequest{
+		if _, err := at.Put(ctx, &regattapb.PutRequest{
 			Key:   []byte(fmt.Sprintf("foo-%d", i)),
 			Value: []byte("bar"),
 		}); err != nil {
@@ -176,7 +176,7 @@ func Test_worker_recover(t *testing.T) {
 	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, err := at.Put(ctx, &proto.PutRequest{
+	_, err := at.Put(ctx, &regattapb.PutRequest{
 		Key:   []byte("foo"),
 		Value: []byte("bar"),
 	})
@@ -185,7 +185,7 @@ func Test_worker_recover(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
-	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
+	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 
 	t.Log("recover table from leader")
 	r.NoError(w.recover())
@@ -196,7 +196,7 @@ func Test_worker_recover(t *testing.T) {
 	r.NoError(err)
 	r.Greater(ir.Index, uint64(1))
 
-	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: proto.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
+	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 	t.Log("recover second table from leader")
 	r.NoError(w.recover())
 	tab, err = followerTM.GetTable("test2")

@@ -25,6 +25,8 @@ type GossipConfig struct {
 }
 
 type Config struct {
+	// ClientAddress is the public address of the Regatta host used for client requests.
+	ClientAddress string
 	// NodeID is a non-zero value used to identify a node within a Raft cluster.
 	NodeID uint64
 	// InitialMembers is a map of both meta and table clusters initial members.

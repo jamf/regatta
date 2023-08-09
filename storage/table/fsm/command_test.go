@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
@@ -41,7 +41,7 @@ func TestUpdateContext_Parse(t *testing.T) {
 		},
 		{
 			name: "put command with index",
-			args: args{entry: sm.Entry{Index: 200, Cmd: mustMarshallProto(&proto.Command{Type: proto.Command_PUT, Table: []byte("test"), Kv: &proto.KeyValue{Key: []byte("key")}})}},
+			args: args{entry: sm.Entry{Index: 200, Cmd: mustMarshallProto(&regattapb.Command{Type: regattapb.Command_PUT, Table: []byte("test"), Kv: &regattapb.KeyValue{Key: []byte("key")}})}},
 			want: want{index: 200, cmd: commandPut{}},
 		},
 	}

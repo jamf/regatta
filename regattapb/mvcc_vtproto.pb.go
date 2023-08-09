@@ -2,7 +2,7 @@
 // protoc-gen-go-vtproto version: v0.4.0
 // source: mvcc.proto
 
-package proto
+package regattapb
 
 import (
 	fmt "fmt"

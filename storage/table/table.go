@@ -6,7 +6,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/fsm"
 	"github.com/jamf/regatta/storage/table/key"
@@ -59,7 +59,7 @@ func readTable[S any](t *ActiveTable, ctx context.Context, linearizable bool, re
 	return val.(S), nil
 }
 
-func proposeTable[S any](t *ActiveTable, ctx context.Context, cmd *proto.Command) (S, uint64, error) {
+func proposeTable[S any](t *ActiveTable, ctx context.Context, cmd *regattapb.Command) (S, uint64, error) {
 	bytes, err := cmd.MarshalVT()
 	if err != nil {
 		return *new(S), 0, err
@@ -68,7 +68,7 @@ func proposeTable[S any](t *ActiveTable, ctx context.Context, cmd *proto.Command
 	if err != nil {
 		return *new(S), 0, err
 	}
-	pr := &proto.CommandResult{}
+	pr := &regattapb.CommandResult{}
 	if err := pr.UnmarshalVT(res.Data); err != nil {
 		return *new(S), 0, err
 	}
@@ -84,7 +84,7 @@ func proposeTable[S any](t *ActiveTable, ctx context.Context, cmd *proto.Command
 }
 
 // Range performs a Range query in the Raft data, supplied context must have a deadline set.
-func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*proto.RangeResponse, error) {
+func (t *ActiveTable) Range(ctx context.Context, req *regattapb.RangeRequest) (*regattapb.RangeResponse, error) {
 	if len(req.Key) > key.LatestVersionLen {
 		return nil, serrors.ErrKeyLengthExceeded
 	}
@@ -92,7 +92,7 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 		return nil, serrors.ErrKeyLengthExceeded
 	}
 
-	response, err := readTable[*proto.ResponseOp_Range](t, ctx, req.Linearizable, &proto.RequestOp_Range{
+	response, err := readTable[*regattapb.ResponseOp_Range](t, ctx, req.Linearizable, &regattapb.RequestOp_Range{
 		Key:       req.Key,
 		RangeEnd:  req.RangeEnd,
 		Limit:     req.Limit,
@@ -102,7 +102,7 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 	if err != nil {
 		return nil, err
 	}
-	return &proto.RangeResponse{
+	return &regattapb.RangeResponse{
 		Kvs:   response.Kvs,
 		Count: response.Count,
 		More:  response.More,
@@ -110,7 +110,7 @@ func (t *ActiveTable) Range(ctx context.Context, req *proto.RangeRequest) (*prot
 }
 
 // Put performs a Put proposal into the Raft, supplied context must have a deadline set.
-func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (t *ActiveTable) Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error) {
 	if len(req.Key) == 0 {
 		return nil, serrors.ErrEmptyKey
 	}
@@ -120,57 +120,57 @@ func (t *ActiveTable) Put(ctx context.Context, req *proto.PutRequest) (*proto.Pu
 	if len(req.Value) > MaxValueLen {
 		return nil, serrors.ErrValueLengthExceeded
 	}
-	cmd := &proto.Command{
-		Type:  proto.Command_PUT,
+	cmd := &regattapb.Command{
+		Type:  regattapb.Command_PUT,
 		Table: req.Table,
-		Kv: &proto.KeyValue{
+		Kv: &regattapb.KeyValue{
 			Key:   req.Key,
 			Value: req.Value,
 		},
 		PrevKvs: req.PrevKv,
 	}
-	r, rev, err := proposeTable[*proto.ResponseOp_ResponsePut](t, ctx, cmd)
+	r, rev, err := proposeTable[*regattapb.ResponseOp_ResponsePut](t, ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
-	return &proto.PutResponse{PrevKv: r.ResponsePut.PrevKv, Header: &proto.ResponseHeader{Revision: rev}}, nil
+	return &regattapb.PutResponse{PrevKv: r.ResponsePut.PrevKv, Header: &regattapb.ResponseHeader{Revision: rev}}, nil
 }
 
 // Delete performs a DeleteRange proposal into the Raft, supplied context must have a deadline set.
-func (t *ActiveTable) Delete(ctx context.Context, req *proto.DeleteRangeRequest) (*proto.DeleteRangeResponse, error) {
+func (t *ActiveTable) Delete(ctx context.Context, req *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
 	if len(req.Key) == 0 {
 		return nil, serrors.ErrEmptyKey
 	}
 	if len(req.Key) > key.LatestVersionLen {
 		return nil, serrors.ErrKeyLengthExceeded
 	}
-	cmd := &proto.Command{
-		Type:  proto.Command_DELETE,
+	cmd := &regattapb.Command{
+		Type:  regattapb.Command_DELETE,
 		Table: req.Table,
-		Kv: &proto.KeyValue{
+		Kv: &regattapb.KeyValue{
 			Key: req.Key,
 		},
 		PrevKvs:  req.PrevKv,
 		RangeEnd: req.RangeEnd,
 		Count:    req.Count,
 	}
-	r, rev, err := proposeTable[*proto.ResponseOp_ResponseDeleteRange](t, ctx, cmd)
+	r, rev, err := proposeTable[*regattapb.ResponseOp_ResponseDeleteRange](t, ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
-	return &proto.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs, Header: &proto.ResponseHeader{Revision: rev}}, nil
+	return &regattapb.DeleteRangeResponse{Deleted: r.ResponseDeleteRange.Deleted, PrevKvs: r.ResponseDeleteRange.PrevKvs, Header: &regattapb.ResponseHeader{Revision: rev}}, nil
 }
 
-func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
+func (t *ActiveTable) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	// Do not propose read-only transactions through the log
 	if isReadonlyTransaction(req) {
-		return readTable[*proto.TxnResponse](t, ctx, true, req)
+		return readTable[*regattapb.TxnResponse](t, ctx, true, req)
 	}
 
-	cmd := &proto.Command{
-		Type:  proto.Command_TXN,
+	cmd := &regattapb.Command{
+		Type:  regattapb.Command_TXN,
 		Table: req.Table,
-		Txn: &proto.Txn{
+		Txn: &regattapb.Txn{
 			Compare: req.Compare,
 			Success: req.Success,
 			Failure: req.Failure,
@@ -185,26 +185,26 @@ func (t *ActiveTable) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 	if err != nil {
 		return nil, err
 	}
-	txr := &proto.CommandResult{}
+	txr := &regattapb.CommandResult{}
 	if err := txr.UnmarshalVT(res.Data); err != nil {
 		return nil, err
 	}
-	return &proto.TxnResponse{
+	return &regattapb.TxnResponse{
 		Succeeded: fsm.UpdateResult(res.Value) == fsm.ResultSuccess,
 		Responses: txr.Responses,
-		Header:    &proto.ResponseHeader{Revision: txr.Revision},
+		Header:    &regattapb.ResponseHeader{Revision: txr.Revision},
 	}, nil
 }
 
-func isReadonlyTransaction(req *proto.TxnRequest) bool {
+func isReadonlyTransaction(req *regattapb.TxnRequest) bool {
 	for _, op := range req.Success {
-		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
 			return false
 		}
 	}
 
 	for _, op := range req.Failure {
-		if _, ok := op.Request.(*proto.RequestOp_RequestRange); !ok {
+		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
 			return false
 		}
 	}
@@ -229,8 +229,8 @@ func (t *ActiveTable) LeaderIndex(ctx context.Context) (*fsm.IndexResponse, erro
 // Reset resets the leader index to 0.
 func (t *ActiveTable) Reset(ctx context.Context) error {
 	li := uint64(0)
-	cmd := &proto.Command{
-		Type:        proto.Command_DUMMY,
+	cmd := &regattapb.Command{
+		Type:        regattapb.Command_DUMMY,
 		Table:       []byte(t.Name),
 		LeaderIndex: &li,
 	}

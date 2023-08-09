@@ -3,11 +3,11 @@
 package fsm
 
 import (
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 )
 
 type commandDummy struct{}
 
-func (c commandDummy) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
-	return ResultSuccess, &proto.CommandResult{Revision: ctx.index}, nil
+func (c commandDummy) handle(ctx *updateContext) (UpdateResult, *regattapb.CommandResult, error) {
+	return ResultSuccess, &regattapb.CommandResult{Revision: ctx.index}, nil
 }

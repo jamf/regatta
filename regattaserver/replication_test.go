@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ func TestMetadataServer_Get(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		want    *proto.MetadataResponse
+		want    *regattapb.MetadataResponse
 		wantErr error
 	}{
 		{
@@ -31,7 +31,7 @@ func TestMetadataServer_Get(t *testing.T) {
 					tables: []table.Table{},
 				},
 			},
-			want: &proto.MetadataResponse{Tables: nil},
+			want: &regattapb.MetadataResponse{Tables: nil},
 		},
 		{
 			name: "Get metadata - single table",
@@ -44,10 +44,10 @@ func TestMetadataServer_Get(t *testing.T) {
 					},
 				},
 			},
-			want: &proto.MetadataResponse{Tables: []*proto.Table{
+			want: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
 				{
 					Name: "foo",
-					Type: proto.Table_REPLICATED,
+					Type: regattapb.Table_REPLICATED,
 				},
 			}},
 		},
@@ -65,14 +65,14 @@ func TestMetadataServer_Get(t *testing.T) {
 					},
 				},
 			},
-			want: &proto.MetadataResponse{Tables: []*proto.Table{
+			want: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
 				{
 					Name: "foo",
-					Type: proto.Table_REPLICATED,
+					Type: regattapb.Table_REPLICATED,
 				},
 				{
 					Name: "bar",
-					Type: proto.Table_REPLICATED,
+					Type: regattapb.Table_REPLICATED,
 				},
 			}},
 		},
@@ -92,7 +92,7 @@ func TestMetadataServer_Get(t *testing.T) {
 			m := &MetadataServer{
 				Tables: tt.fields.TableManager,
 			}
-			got, err := m.Get(context.TODO(), &proto.MetadataRequest{})
+			got, err := m.Get(context.TODO(), &regattapb.MetadataRequest{})
 			if tt.wantErr != nil {
 				r.ErrorIs(err, tt.wantErr)
 				return
@@ -107,13 +107,13 @@ func TestEntryToCommand(t *testing.T) {
 	tests := []struct {
 		name    string
 		entry   raftpb.Entry
-		wantCmd *proto.Command
+		wantCmd *regattapb.Command
 		wantErr error
 	}{
 		{
 			name:    "ConfigChange Entry Type",
 			entry:   raftpb.Entry{Type: raftpb.ConfigChangeEntry, Index: 0},
-			wantCmd: &proto.Command{Type: proto.Command_DUMMY, LeaderIndex: &zero},
+			wantCmd: &regattapb.Command{Type: regattapb.Command_DUMMY, LeaderIndex: &zero},
 			wantErr: nil,
 		},
 		{
@@ -122,8 +122,8 @@ func TestEntryToCommand(t *testing.T) {
 				Type: raftpb.EncodedEntry,
 				Cmd:  []byte{0, 10, 12, 114, 101, 103, 97, 116, 116, 97, 45, 116, 101, 115, 116, 26, 23, 10, 12, 49, 54, 50, 56, 48, 48, 50, 54, 52, 57, 95, 48, 34, 7, 118, 97, 108, 117, 101, 95, 48},
 			},
-			wantCmd: &proto.Command{
-				Kv: &proto.KeyValue{
+			wantCmd: &regattapb.Command{
+				Kv: &regattapb.KeyValue{
 					Key:   []byte("1628002649_0"),
 					Value: []byte("value_0"),
 				},

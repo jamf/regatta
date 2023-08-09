@@ -6,15 +6,15 @@ import (
 	"errors"
 
 	"github.com/cockroachdb/pebble"
-	"github.com/jamf/regatta/proto"
+	"github.com/jamf/regatta/regattapb"
 )
 
 type commandPut struct {
-	*proto.Command
+	*regattapb.Command
 }
 
-func (c commandPut) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
-	resp, err := handlePut(ctx, &proto.RequestOp_Put{
+func (c commandPut) handle(ctx *updateContext) (UpdateResult, *regattapb.CommandResult, error) {
+	resp, err := handlePut(ctx, &regattapb.RequestOp_Put{
 		Key:    c.Kv.Key,
 		Value:  c.Kv.Value,
 		PrevKv: c.PrevKvs,
@@ -22,14 +22,14 @@ func (c commandPut) handle(ctx *updateContext) (UpdateResult, *proto.CommandResu
 	if err != nil {
 		return ResultFailure, nil, err
 	}
-	return ResultSuccess, &proto.CommandResult{
+	return ResultSuccess, &regattapb.CommandResult{
 		Revision:  ctx.index,
-		Responses: []*proto.ResponseOp{wrapResponseOp(resp)},
+		Responses: []*regattapb.ResponseOp{wrapResponseOp(resp)},
 	}, nil
 }
 
-func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_Put, error) {
-	resp := &proto.ResponseOp_Put{}
+func handlePut(ctx *updateContext, put *regattapb.RequestOp_Put) (*regattapb.ResponseOp_Put, error) {
+	resp := &regattapb.ResponseOp_Put{}
 	keyBuf := bufferPool.Get()
 	defer bufferPool.Put(keyBuf)
 	if err := encodeUserKey(keyBuf, put.Key); err != nil {
@@ -39,7 +39,7 @@ func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_
 		if err := ctx.EnsureIndexed(); err != nil {
 			return nil, err
 		}
-		rng, err := singleLookup(ctx.batch, &proto.RequestOp_Range{Key: put.Key})
+		rng, err := singleLookup(ctx.batch, &regattapb.RequestOp_Range{Key: put.Key})
 		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
 			return nil, err
 		}
@@ -54,13 +54,13 @@ func handlePut(ctx *updateContext, put *proto.RequestOp_Put) (*proto.ResponseOp_
 }
 
 type commandPutBatch struct {
-	*proto.Command
+	*regattapb.Command
 }
 
-func (c commandPutBatch) handle(ctx *updateContext) (UpdateResult, *proto.CommandResult, error) {
-	req := make([]*proto.RequestOp_Put, len(c.Batch))
+func (c commandPutBatch) handle(ctx *updateContext) (UpdateResult, *regattapb.CommandResult, error) {
+	req := make([]*regattapb.RequestOp_Put, len(c.Batch))
 	for i, kv := range c.Batch {
-		req[i] = &proto.RequestOp_Put{
+		req[i] = &regattapb.RequestOp_Put{
 			Key:   kv.Key,
 			Value: kv.Value,
 		}
@@ -69,18 +69,18 @@ func (c commandPutBatch) handle(ctx *updateContext) (UpdateResult, *proto.Comman
 	if err != nil {
 		return ResultFailure, nil, err
 	}
-	res := make([]*proto.ResponseOp, 0, len(c.Batch))
+	res := make([]*regattapb.ResponseOp, 0, len(c.Batch))
 	for _, put := range rop {
 		res = append(res, wrapResponseOp(put))
 	}
-	return ResultSuccess, &proto.CommandResult{
+	return ResultSuccess, &regattapb.CommandResult{
 		Revision:  ctx.index,
 		Responses: res,
 	}, nil
 }
 
-func handlePutBatch(ctx *updateContext, ops []*proto.RequestOp_Put) ([]*proto.ResponseOp_Put, error) {
-	var results []*proto.ResponseOp_Put
+func handlePutBatch(ctx *updateContext, ops []*regattapb.RequestOp_Put) ([]*regattapb.ResponseOp_Put, error) {
+	var results []*regattapb.ResponseOp_Put
 	for _, op := range ops {
 		res, err := handlePut(ctx, op)
 		if err != nil {
