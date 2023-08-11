@@ -7,7 +7,17 @@ nav_order: 999
 # Changelog
 
 ## mainline (unreleased)
-TBD
+
+### Breaking changes
+
+### Features
+
+### Improvements
+* Snapshot recovery type could be switched on a running cluster safely.
+
+### Bugfixes
+
+
 
 ## v0.2.0
 Release is mostly focused on tidying up the docs and code base and on resource consumption improvements.

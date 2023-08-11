@@ -4,6 +4,7 @@ package fsm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -65,8 +66,24 @@ const (
 
 type snapshotRecoverer interface {
 	prepare() (any, error)
+	getHeader() snapshotHeader
 	save(ctx any, w io.Writer, stopc <-chan struct{}) error
 	recover(r io.Reader, stopc <-chan struct{}) error
+}
+
+// snapshotHeader first 8 bytes of a snapshot is this header.
+// layout:
+// 0-5 reserved for extension
+// 6 snapshot format
+// 7 sentinel byte.
+type snapshotHeader [8]byte
+
+func (s *snapshotHeader) setSnapshotType(recoveryType SnapshotRecoveryType) {
+	s[6] = byte(recoveryType)
+}
+
+func (s *snapshotHeader) snapshotType() SnapshotRecoveryType {
+	return SnapshotRecoveryType(s[6])
 }
 
 func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, tableCache *pebble.TableCache, srt SnapshotRecoveryType) sm.CreateOnDiskStateMachineFunc {
@@ -339,19 +356,28 @@ func (p *FSM) GetHash() (uint64, error) {
 // PrepareSnapshot prepares the snapshot to be concurrently captured and
 // streamed.
 func (p *FSM) PrepareSnapshot() (interface{}, error) {
-	return p.getRecoverer().prepare()
+	return p.getRecoverer(p.recoveryType).prepare()
 }
 
 // SaveSnapshot saves the state of the object to the provided io.Writer object.
 func (p *FSM) SaveSnapshot(ctx interface{}, w io.Writer, stopc <-chan struct{}) error {
-	return p.getRecoverer().save(ctx, w, stopc)
+	r := p.getRecoverer(p.recoveryType)
+	if err := binary.Write(w, binary.LittleEndian, r.getHeader()); err != nil {
+		return err
+	}
+	return r.save(ctx, w, stopc)
 }
 
 // RecoverFromSnapshot recovers the state machine state from snapshot specified by
 // the io.Reader object. The snapshot is recovered into a new DB first and then
 // atomically swapped with the existing DB to complete the recovery.
 func (p *FSM) RecoverFromSnapshot(r io.Reader, stopc <-chan struct{}) error {
-	return p.getRecoverer().recover(r, stopc)
+	var header snapshotHeader
+	err := binary.Read(r, binary.LittleEndian, &header)
+	if err != nil {
+		return err
+	}
+	return p.getRecoverer(header.snapshotType()).recover(r, stopc)
 }
 
 func (p *FSM) Collect(ch chan<- prometheus.Metric) {
@@ -373,8 +399,8 @@ func (p *FSM) Describe(ch chan<- *prometheus.Desc) {
 	p.metrics.Describe(ch)
 }
 
-func (p *FSM) getRecoverer() snapshotRecoverer {
-	switch p.recoveryType {
+func (p *FSM) getRecoverer(recoveryType SnapshotRecoveryType) snapshotRecoverer {
+	switch recoveryType {
 	case RecoveryTypeSnapshot:
 		return &snapshot{p}
 	case RecoveryTypeCheckpoint:
