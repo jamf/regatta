@@ -32,6 +32,12 @@ type checkpoint struct {
 	fsm *FSM
 }
 
+func (c *checkpoint) getHeader() snapshotHeader {
+	h := snapshotHeader{}
+	h.setSnapshotType(RecoveryTypeCheckpoint)
+	return h
+}
+
 func (c *checkpoint) prepare() (any, error) {
 	db := c.fsm.pebble.Load()
 	if err := db.Flush(); err != nil {

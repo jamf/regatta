@@ -55,7 +55,7 @@ func TestFSM_Snapshot(t *testing.T) {
 			},
 		},
 		{
-			"recover using snapshot (large DB)",
+			"recover using checkpoint (large DB)",
 			args{
 				producingSMFactory: filledLargeValuesSM,
 				receivingSMFactory: emptySM,
@@ -63,7 +63,7 @@ func TestFSM_Snapshot(t *testing.T) {
 			},
 		},
 		{
-			"recover using snapshot (empty DB)",
+			"recover using checkpoint (empty DB)",
 			args{
 				producingSMFactory: filledIndexOnlySM,
 				receivingSMFactory: emptySM,

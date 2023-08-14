@@ -17,10 +17,6 @@ import (
 	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
-type snapshot struct {
-	fsm *FSM
-}
-
 type snapshotContext struct {
 	*pebble.Snapshot
 	once sync.Once
@@ -29,6 +25,16 @@ type snapshotContext struct {
 func (s *snapshotContext) Close() (err error) {
 	s.once.Do(func() { err = s.Snapshot.Close() })
 	return
+}
+
+type snapshot struct {
+	fsm *FSM
+}
+
+func (s *snapshot) getHeader() snapshotHeader {
+	h := snapshotHeader{}
+	h.setSnapshotType(RecoveryTypeSnapshot)
+	return h
 }
 
 func (s *snapshot) prepare() (any, error) {
