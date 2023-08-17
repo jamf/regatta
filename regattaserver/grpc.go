@@ -4,6 +4,7 @@ package regattaserver
 
 import (
 	"net"
+	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	_ "github.com/jamf/regatta/regattaserver/encoding/gzip"
@@ -11,8 +12,18 @@ import (
 	_ "github.com/jamf/regatta/regattaserver/encoding/snappy"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 )
+
+// defaultOpts default GRPC server options
+// * Use shared buffer pool.
+// * Allow for earlier keepalives.
+// * Allow keepalives without stream.
+var defaultOpts = []grpc.ServerOption{
+	grpc.RecvBufferPool(grpc.NewSharedBufferPool()),
+	grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 30 * time.Second, PermitWithoutStream: true}),
+}
 
 // RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
@@ -26,7 +37,7 @@ func NewServer(addr string, reflectionAPI bool, opts ...grpc.ServerOption) *Rega
 	rs := new(RegattaServer)
 	rs.Addr = addr
 	rs.log = zap.S().Named("server")
-	rs.grpcServer = grpc.NewServer(opts...)
+	rs.grpcServer = grpc.NewServer(append(defaultOpts, opts...)...)
 
 	if reflectionAPI {
 		reflection.Register(rs.grpcServer)
