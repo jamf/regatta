@@ -14,6 +14,7 @@ nav_order: 999
 
 ### Improvements
 * Snapshot recovery type could be switched on a running cluster safely.
+* Bump to Go 1.21.
 
 ### Bugfixes
 
