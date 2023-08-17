@@ -25,24 +25,6 @@ type Pair struct {
 	Ver uint64
 }
 
-// Pairs slice of Pair that could be sorted.
-type Pairs []Pair
-
-// Len is the number of elements in the collection.
-func (p Pairs) Len() int {
-	return len(p)
-}
-
-// Less reports whether the element with index i must sort before the element with index j.
-func (p Pairs) Less(i, j int) bool {
-	return p[i].Key < p[j].Key
-}
-
-// Swap swaps the elements with indexes i and j.
-func (p Pairs) Swap(i, j int) {
-	p[i], p[j] = p[j], p[i]
-}
-
 func stripKey(key, prefix string) string {
 	return strings.TrimPrefix(strings.TrimPrefix(key, prefix), "/")
 }

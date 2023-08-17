@@ -30,7 +30,7 @@ type store interface {
 	Set(key string, value string, ver uint64) (kv.Pair, error)
 	Delete(key string, ver uint64) error
 	Get(key string) (kv.Pair, error)
-	GetAll(pattern string) (kv.Pairs, error)
+	GetAll(pattern string) ([]kv.Pair, error)
 }
 
 const (

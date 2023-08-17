@@ -192,14 +192,14 @@ func (r *RaftStore) Get(key string) (Pair, error) {
 	return val.(Pair), nil
 }
 
-func (r *RaftStore) GetAll(pattern string) (Pairs, error) {
+func (r *RaftStore) GetAll(pattern string) ([]Pair, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
 	defer cancel()
 	val, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryAll{Pattern: pattern})
 	if err != nil {
 		return nil, err
 	}
-	return val.(Pairs), nil
+	return val.([]Pair), nil
 }
 
 func (r *RaftStore) GetAllValues(pattern string) ([]string, error) {
