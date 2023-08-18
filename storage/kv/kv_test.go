@@ -49,7 +49,7 @@ type store interface {
 	Delete(key string, ver uint64) error
 	Exists(key string) (bool, error)
 	Get(key string) (Pair, error)
-	GetAll(pattern string) (Pairs, error)
+	GetAll(pattern string) ([]Pair, error)
 	GetAllValues(pattern string) ([]string, error)
 	List(filePath string) ([]string, error)
 	ListDir(filePath string) ([]string, error)
@@ -213,7 +213,7 @@ func TestStore_GetAll(t *testing.T) {
 		name      string
 		args      args
 		store     func() store
-		want      Pairs
+		want      []Pair
 		wantCount int
 		wantErr   error
 	}{
@@ -331,7 +331,7 @@ func TestStore_GetAll(t *testing.T) {
 			}
 			r.NoError(err)
 			if tt.wantCount > 0 {
-				r.Equal(tt.wantCount, got.Len())
+				r.Equal(tt.wantCount, len(got))
 			} else {
 				r.Equal(tt.want, got)
 			}

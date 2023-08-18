@@ -161,8 +161,10 @@ func (w *worker) Start() {
 								w.log.Warnf("error retruning table: %v", err)
 							}
 						}
+					case errors.Is(err, context.DeadlineExceeded):
+						w.log.Warnf("unable to read leader log in time: %v", err)
 					default:
-						w.log.Warnf("worker error: %v", err)
+						w.log.Warnf("uknown worker error: %v", err)
 					}
 					continue
 				}

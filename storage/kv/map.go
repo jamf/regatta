@@ -3,11 +3,13 @@
 package kv
 
 import (
+	"cmp"
 	"encoding/json"
 	"path"
-	"sort"
 	"strings"
 	"sync"
+
+	"golang.org/x/exp/slices"
 )
 
 // A MapStore represents an in-memory key-value store safe for
@@ -52,8 +54,8 @@ func (s *MapStore) Get(key string) (Pair, error) {
 
 // GetAll returns a Pair for all nodes with keys matching pattern.
 // The syntax of patterns is the same as in path.Match.
-func (s *MapStore) GetAll(pattern string) (Pairs, error) {
-	ks := make(Pairs, 0)
+func (s *MapStore) GetAll(pattern string) ([]Pair, error) {
+	ks := make([]Pair, 0)
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	for _, kv := range s.m {
@@ -68,7 +70,9 @@ func (s *MapStore) GetAll(pattern string) (Pairs, error) {
 	if len(ks) == 0 {
 		return ks, nil
 	}
-	sort.Sort(ks)
+	slices.SortFunc(ks, func(a, b Pair) int {
+		return cmp.Compare(a.Key, b.Key)
+	})
 	return ks, nil
 }
 
@@ -86,7 +90,7 @@ func (s *MapStore) GetAllValues(pattern string) ([]string, error) {
 	for _, kv := range ks {
 		vs = append(vs, kv.Value)
 	}
-	sort.Strings(vs)
+	slices.Sort(vs)
 	return vs, nil
 }
 
@@ -109,7 +113,7 @@ func (s *MapStore) List(filePath string) ([]string, error) {
 	for k := range m {
 		vs = append(vs, k)
 	}
-	sort.Strings(vs)
+	slices.Sort(vs)
 	return vs, nil
 }
 
@@ -130,7 +134,7 @@ func (s *MapStore) ListDir(filePath string) ([]string, error) {
 	for k := range m {
 		vs = append(vs, k)
 	}
-	sort.Strings(vs)
+	slices.Sort(vs)
 	return vs, nil
 }
 

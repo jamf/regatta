@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"math"
 	"os"
 	"time"
 
@@ -147,7 +146,8 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 		return status.Errorf(codes.Unavailable, "unable to replicate table '%s': %v", req.GetTable(), err)
 	}
 
-	appliedIndex, err := t.LocalIndex(server.Context())
+	ctx := server.Context()
+	appliedIndex, err := t.LocalIndex(ctx)
 	if err != nil {
 		return err
 	}
@@ -155,22 +155,26 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 	if appliedIndex.Index+1 < req.LeaderIndex {
 		return server.Send(repErrLeaderBehind)
 	}
-
 	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
 	for {
-		entries, err := l.LogReader.QueryRaftLog(server.Context(), t.ClusterID, logRange, l.maxMessageSize)
+		if dl, ok := ctx.Deadline(); ok && time.Now().After(dl) {
+			l.Log.Infof("replication passed the deadline, ending stream prematurely")
+			return nil
+		}
+
+		entries, err := l.LogReader.QueryRaftLog(ctx, t.ClusterID, logRange, l.maxMessageSize)
 		switch {
 		case errors.Is(err, serrors.ErrLogBehind):
 			return server.Send(repErrLeaderBehind)
 		case errors.Is(err, serrors.ErrLogAhead):
 			return server.Send(repErrUseSnapshot)
 		case err != nil:
-			return err
+			l.Log.Errorf("unknown error queriyng the raft log: %v", err)
+			return nil
 		default:
 		}
 
-		read := uint64(len(entries))
-		if read == 0 {
+		if len(entries) == 0 {
 			if err := server.Send(&regattapb.ReplicateResponse{LeaderIndex: appliedIndex.Index}); err != nil {
 				return err
 			}
@@ -200,7 +204,7 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 			return err
 		}
 		next := entries[len(entries)-1].Index + 1
-		logRange.FirstIndex = uint64(math.Min(float64(next), float64(logRange.LastIndex)))
+		logRange.FirstIndex = min(next, logRange.LastIndex)
 	}
 }
 

@@ -72,6 +72,8 @@ regatta follower [flags]
                                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
       --replication.ca-filename string                        Path to the client CA cert file. (default "hack/replication/ca.crt")
       --replication.cert-filename string                      Path to the client certificate. (default "hack/replication/client.crt")
+      --replication.keepalive-time duration                   After a duration of this time if the replication client doesn't see any activity it pings the server to see if the transport is still alive. If set below 10s, a minimum value of 10s will be used instead. (default 1m0s)
+      --replication.keepalive-timeout duration                After having pinged for keepalive check, the replication client waits for a duration of Timeout and if no activity is seen even after that the connection is closed. (default 10s)
       --replication.key-filename string                       Path to the client private key file. (default "hack/replication/client.key")
       --replication.leader-address string                     Address of the leader replication API to connect to. (default "localhost:8444")
       --replication.lease-interval duration                   Interval in which the workers re-new their table leases. (default 15s)
