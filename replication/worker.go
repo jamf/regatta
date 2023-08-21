@@ -15,7 +15,6 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
-	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/client"
@@ -28,6 +27,16 @@ import (
 
 // TODO make configurable.
 const desiredProposalSize = 256 * 1024
+
+type replicateResult int
+
+const (
+	resultUnknown replicateResult = iota
+	resultLeaderBehind
+	resultLeaderAhead
+	resultFollowerLagging
+	resultFollowerTailing
+)
 
 type workerFactory struct {
 	pollInterval      time.Duration
@@ -132,6 +141,7 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
+				t.Reset(w.pollInterval)
 				idx, sess, err := w.tableState()
 				if err != nil {
 					w.log.Errorf("cannot query leader index: %v", err)
@@ -142,33 +152,36 @@ func (w *worker) Start() {
 					w.log.Debug("skipping replication - table not leased")
 					continue
 				}
-
-				if err := w.do(idx, sess); err != nil {
-					switch {
-					case errors.Is(err, serror.ErrLogBehind):
-						w.log.Errorf("the leader log is behind ... backing off")
-					case errors.Is(err, serror.ErrLogAhead):
-						if w.recoverySemaphore.TryAcquire(1) {
-							func() {
-								defer w.recoverySemaphore.Release(1)
-								if err := w.recover(); err != nil {
-									w.log.Warnf("error in recovering table: %v", err)
-								}
-							}()
-						} else {
-							w.log.Info("maximum number of recoveries already running")
-							if _, err := w.tm.ReturnTable(w.table); err != nil {
-								w.log.Warnf("error retruning table: %v", err)
-							}
-						}
-					case errors.Is(err, context.DeadlineExceeded):
+				result, err := w.do(idx, sess)
+				if err != nil {
+					if errors.Is(err, context.DeadlineExceeded) {
 						w.log.Warnf("unable to read leader log in time: %v", err)
-					default:
+					} else {
 						w.log.Warnf("uknown worker error: %v", err)
 					}
 					continue
 				}
-				t.Reset(w.pollInterval)
+				switch result {
+				case resultLeaderBehind:
+					w.log.Errorf("the leader log is behind ... backing off")
+				case resultLeaderAhead:
+					if w.recoverySemaphore.TryAcquire(1) {
+						func() {
+							defer w.recoverySemaphore.Release(1)
+							if err := w.recover(); err != nil {
+								w.log.Warnf("error in recovering table: %v", err)
+							}
+						}()
+					} else {
+						w.log.Info("maximum number of recoveries already running")
+						if _, err := w.tm.ReturnTable(w.table); err != nil {
+							w.log.Warnf("error retruning table: %v", err)
+						}
+					}
+				case resultFollowerLagging:
+					// Trigger next loop immediately.
+					t.Reset(50 * time.Millisecond)
+				}
 			case <-w.closer:
 				return
 			}
@@ -190,7 +203,7 @@ func (w *worker) Close() {
 	}
 }
 
-func (w *worker) do(leaderIndex uint64, session *client.Session) error {
+func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResult, error) {
 	replicateRequest := &regattapb.ReplicateRequest{
 		LeaderIndex: leaderIndex + 1,
 		Table:       []byte(w.table),
@@ -199,16 +212,16 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) error {
 	defer cancel()
 	stream, err := w.logClient.Replicate(ctx, replicateRequest, grpc.WaitForReady(true))
 	if err != nil {
-		return fmt.Errorf("could not open log stream: %w", err)
+		return resultUnknown, fmt.Errorf("could not open log stream: %w", err)
 	}
-
+	var applied uint64
 	for {
 		replicateRes, err := stream.Recv()
 		if err == io.EOF {
-			return nil
+			return resultUnknown, nil
 		}
 		if err != nil {
-			return fmt.Errorf("error reading replication stream: %w", err)
+			return resultUnknown, fmt.Errorf("error reading replication stream: %w", err)
 		}
 
 		if replicateRes.LeaderIndex != 0 {
@@ -217,22 +230,28 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) error {
 
 		switch res := replicateRes.Response.(type) {
 		case *regattapb.ReplicateResponse_CommandsResponse:
-			if err := w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), session); err != nil {
-				return fmt.Errorf("could not propose: %w", err)
+			applied, err = w.proposeBatch(ctx, res.CommandsResponse.GetCommands(), session)
+			if err != nil {
+				return resultUnknown, fmt.Errorf("could not propose: %w", err)
 			}
 		case *regattapb.ReplicateResponse_ErrorResponse:
 			switch res.ErrorResponse.Error {
 			case regattapb.ReplicateError_LEADER_BEHIND:
-				return serror.ErrLogBehind
+				return resultLeaderBehind, nil
 			case regattapb.ReplicateError_USE_SNAPSHOT:
-				return serror.ErrLogAhead
+				return resultLeaderAhead, nil
 			default:
-				return fmt.Errorf(
+				return resultUnknown, fmt.Errorf(
 					"unknown replicate error response '%s' with id %d",
 					res.ErrorResponse.Error.String(),
 					res.ErrorResponse.Error,
 				)
 			}
+		default:
+			if applied != 0 && applied < replicateRes.LeaderIndex {
+				return resultFollowerLagging, nil
+			}
+			return resultFollowerTailing, nil
 		}
 	}
 }
@@ -245,14 +264,14 @@ func (w *worker) tableState() (uint64, *client.Session, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
-	idxRes, err := t.LeaderIndex(ctx)
+	idxRes, err := t.LeaderIndex(ctx, false)
 	if err != nil {
 		return 0, nil, fmt.Errorf("could not get leader index key: %w", err)
 	}
 	return idxRes.Index, w.nh.GetNoOPSession(t.ClusterID), nil
 }
 
-func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.ReplicateCommand, session *client.Session) error {
+func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.ReplicateCommand, session *client.Session) (uint64, error) {
 	seq := regattapb.CommandFromVTPool()
 	defer seq.ReturnToVTPool()
 	var buff []byte
@@ -270,27 +289,27 @@ func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.Replica
 		if err != nil {
 			return fmt.Errorf("could not marshal command: %w", err)
 		}
-
 		if _, err := w.nh.SyncPropose(ctx, session, buff[:n]); err != nil {
-			return fmt.Errorf("could not SyncPropose: %w", err)
+			return fmt.Errorf("could not propose sequence: %w", err)
 		}
 		w.metrics.replicationFollowerIndex.Set(float64(*seq.LeaderIndex))
 		return nil
 	}
 
+	var lastApplied uint64
 	seq.Type = regattapb.Command_SEQUENCE
 	for i, c := range commands {
 		seq.Sequence = append(seq.Sequence, c.Command)
 		seq.LeaderIndex = &c.LeaderIndex
 		if seq.SizeVT() >= desiredProposalSize || i == len(commands)-1 {
-			err := propose()
-			if err != nil {
-				return err
+			if err := propose(); err != nil {
+				return lastApplied, err
 			}
+			lastApplied = c.LeaderIndex
 		}
 	}
 
-	return nil
+	return lastApplied, nil
 }
 
 func (w *worker) recover() error {

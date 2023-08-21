@@ -74,7 +74,8 @@ func Test_worker_do(t *testing.T) {
 	w := f.create("test")
 	idx, id, err := w.tableState()
 	r.NoError(err)
-	r.NoError(w.do(idx, id))
+	_, err = w.do(idx, id)
+	r.NoError(err)
 	table, err := followerTM.GetTable("test")
 	r.NoError(err)
 
@@ -106,7 +107,8 @@ func Test_worker_do(t *testing.T) {
 	r.Equal(uint64(0), idx)
 
 	t.Log("do after reset")
-	r.NoError(w.do(idx, id))
+	_, err = w.do(idx, id)
+	r.NoError(err)
 
 	idxAfter, _, err := w.tableState()
 	r.NoError(err)
@@ -192,7 +194,7 @@ func Test_worker_recover(t *testing.T) {
 	tab, err := followerTM.GetTable("test")
 	r.NoError(err)
 	r.Equal("test", tab.Name)
-	ir, err := tab.LeaderIndex(ctx)
+	ir, err := tab.LeaderIndex(ctx, false)
 	r.NoError(err)
 	r.Greater(ir.Index, uint64(1))
 

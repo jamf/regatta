@@ -147,7 +147,7 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 	}
 
 	ctx := server.Context()
-	appliedIndex, err := t.LocalIndex(ctx)
+	appliedIndex, err := t.LocalIndex(ctx, true)
 	if err != nil {
 		return err
 	}
@@ -175,6 +175,11 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 		}
 
 		if len(entries) == 0 {
+			// query index for update.
+			appliedIndex, err := t.LocalIndex(ctx, false)
+			if err != nil {
+				return err
+			}
 			if err := server.Send(&regattapb.ReplicateResponse{LeaderIndex: appliedIndex.Index}); err != nil {
 				return err
 			}
