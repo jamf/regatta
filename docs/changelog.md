@@ -15,6 +15,7 @@ nav_order: 999
 * Add `replication.keepalive-timeout` config option for follower. Sets how long to wait for an ack of the keepalive message.
 
 ### Improvements
+* Improve follower replication throughput and latency.
 * Snapshot recovery type could be switched on a running cluster safely.
 * Bump to Go 1.21.
 * Keepalive for replication connection to tackle misbehaving LBs.

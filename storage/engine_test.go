@@ -673,7 +673,7 @@ func createTable(t *testing.T, e *Engine) {
 		}
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		_, err = tab.LocalIndex(c)
+		_, err = tab.LocalIndex(c, true)
 		return err == nil
 	}, 1*time.Second, 10*time.Millisecond)
 }

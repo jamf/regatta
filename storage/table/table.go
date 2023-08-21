@@ -217,13 +217,13 @@ func (t *ActiveTable) Snapshot(ctx context.Context, writer io.Writer) (*fsm.Snap
 }
 
 // LocalIndex returns local index.
-func (t *ActiveTable) LocalIndex(ctx context.Context) (*fsm.IndexResponse, error) {
-	return readTable[*fsm.IndexResponse](t, ctx, true, fsm.LocalIndexRequest{})
+func (t *ActiveTable) LocalIndex(ctx context.Context, linearizable bool) (*fsm.IndexResponse, error) {
+	return readTable[*fsm.IndexResponse](t, ctx, linearizable, fsm.LocalIndexRequest{})
 }
 
 // LeaderIndex returns leader index.
-func (t *ActiveTable) LeaderIndex(ctx context.Context) (*fsm.IndexResponse, error) {
-	return readTable[*fsm.IndexResponse](t, ctx, true, fsm.LeaderIndexRequest{})
+func (t *ActiveTable) LeaderIndex(ctx context.Context, linearizable bool) (*fsm.IndexResponse, error) {
+	return readTable[*fsm.IndexResponse](t, ctx, linearizable, fsm.LeaderIndexRequest{})
 }
 
 // Reset resets the leader index to 0.
