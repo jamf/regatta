@@ -54,7 +54,28 @@ func (m *mockLogReader) Snapshot() raftpb.Snapshot {
 	return args.Get(0).(raftpb.Snapshot)
 }
 
-func TestLogReader_NodeDeleted(t *testing.T) {
+func TestUnimplementedLogReader(t *testing.T) {
+	u := unimplementedLogReader{}
+	require.Panics(t, func() { _, _ = u.QueryRaftLog(context.TODO(), 0, dragonboat.LogRange{}, 0) })
+	require.NotPanics(t, func() { u.NodeHostShuttingDown() })
+	require.NotPanics(t, func() { u.NodeUnloaded(raftio.NodeInfo{}) })
+	require.NotPanics(t, func() { u.NodeDeleted(raftio.NodeInfo{}) })
+	require.NotPanics(t, func() { u.NodeReady(raftio.NodeInfo{}) })
+	require.NotPanics(t, func() { u.MembershipChanged(raftio.NodeInfo{}) })
+	require.NotPanics(t, func() { u.ConnectionEstablished(raftio.ConnectionInfo{}) })
+	require.NotPanics(t, func() { u.ConnectionFailed(raftio.ConnectionInfo{}) })
+	require.NotPanics(t, func() { u.SendSnapshotStarted(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.SendSnapshotCompleted(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.SendSnapshotAborted(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.SnapshotReceived(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.SnapshotRecovered(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.SnapshotCreated(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.SnapshotCompacted(raftio.SnapshotInfo{}) })
+	require.NotPanics(t, func() { u.LogCompacted(raftio.EntryInfo{}) })
+	require.NotPanics(t, func() { u.LogDBCompacted(raftio.EntryInfo{}) })
+}
+
+func TestCached_NodeDeleted(t *testing.T) {
 	type args struct {
 		info raftio.NodeInfo
 	}
@@ -102,7 +123,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &LogReader{}
+			l := &Cached{}
 			for _, shardID := range tt.initialShards {
 				l.shardCache.Store(shardID, &shard{})
 			}
@@ -112,7 +133,7 @@ func TestLogReader_NodeDeleted(t *testing.T) {
 	}
 }
 
-func TestLogReader_NodeReady(t *testing.T) {
+func TestCached_NodeReady(t *testing.T) {
 	type args struct {
 		info raftio.NodeInfo
 	}
@@ -160,7 +181,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &LogReader{}
+			l := &Cached{}
 			for _, shardID := range tt.initialShards {
 				l.shardCache.Store(shardID, &shard{})
 			}
@@ -170,7 +191,7 @@ func TestLogReader_NodeReady(t *testing.T) {
 	}
 }
 
-func TestLogReader_QueryRaftLog(t *testing.T) {
+func TestCached_QueryRaftLog(t *testing.T) {
 	type fields struct {
 		ShardCacheSize int
 	}
@@ -443,7 +464,7 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 			if tt.on != nil {
 				tt.on(querier)
 			}
-			l := &LogReader{
+			l := &Cached{
 				ShardCacheSize: tt.fields.ShardCacheSize,
 				LogQuerier:     querier,
 			}
@@ -453,6 +474,103 @@ func TestLogReader_QueryRaftLog(t *testing.T) {
 					Load(tt.args.clusterID)
 				v.put(tt.cacheContent)
 			}
+			ctx, cancel := context.WithTimeout(context.TODO(), tt.args.timeout)
+			defer cancel()
+			got, err := l.QueryRaftLog(ctx, tt.args.clusterID, tt.args.logRange, tt.args.maxSize)
+			tt.wantErr(t, err)
+			if tt.assert != nil {
+				tt.assert(t, querier)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestSimple_QueryRaftLog(t *testing.T) {
+	type args struct {
+		clusterID uint64
+		logRange  dragonboat.LogRange
+		maxSize   uint64
+		timeout   time.Duration
+	}
+	tests := []struct {
+		name    string
+		args    args
+		on      func(*mockLogQuerier)
+		assert  func(*testing.T, *mockLogQuerier)
+		want    []raftpb.Entry
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "empty log range",
+			wantErr: require.NoError,
+		},
+		{
+			name: "up to date",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 5000,
+					LastIndex:  6000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "error log ahead",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 1,
+					LastIndex:  5000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1000, 5000)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: func(t require.TestingT, err error, i ...interface{}) {
+				require.ErrorIs(t, err, serror.ErrLogAhead)
+			},
+		},
+		{
+			name: "error log behind",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 6000,
+					LastIndex:  7000,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1000, 5000)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			wantErr: func(t require.TestingT, err error, i ...interface{}) {
+				require.ErrorIs(t, err, serror.ErrLogBehind)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			querier := &mockLogQuerier{}
+			if tt.on != nil {
+				tt.on(querier)
+			}
+			l := &Simple{LogQuerier: querier}
 			ctx, cancel := context.WithTimeout(context.TODO(), tt.args.timeout)
 			defer cancel()
 			got, err := l.QueryRaftLog(ctx, tt.args.clusterID, tt.args.logRange, tt.args.maxSize)

@@ -703,7 +703,7 @@ func newTestEngine(cfg Config) *Engine {
 		panic(err)
 	}
 	e.NodeHost = nh
-	e.LogReader = &logreader.LogReader{LogQuerier: nh}
+	e.LogReader = &logreader.Cached{LogQuerier: nh}
 	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
 	if err != nil {
 		panic(err)
