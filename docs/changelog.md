@@ -35,6 +35,7 @@ Release focuses on stability and performance of the leader-follower replication.
 
 ### Bugfixes
 * Fix release image cosign.
+* Fix off by one replication error.
 
 ## v0.2.0
 Release is mostly focused on tidying up the docs and code base and on resource consumption improvements.

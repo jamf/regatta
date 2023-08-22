@@ -405,7 +405,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 				timeout:   30 * time.Second,
 				clusterID: 1,
 				logRange: dragonboat.LogRange{
-					FirstIndex: 5000,
+					FirstIndex: 5001,
 					LastIndex:  6000,
 				},
 				maxSize: 1024 * 1024,
@@ -415,6 +415,26 @@ func TestCached_QueryRaftLog(t *testing.T) {
 				lr.On("GetRange").Return(1, 5000)
 				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
 			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "single record",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 5000,
+					LastIndex:  5001,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(5000), uint64(5001), mock.Anything).Return(createEntries(5000, 5001), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			want:    createEntries(5000, 5001),
 			wantErr: require.NoError,
 		},
 		{
@@ -511,7 +531,7 @@ func TestSimple_QueryRaftLog(t *testing.T) {
 				timeout:   30 * time.Second,
 				clusterID: 1,
 				logRange: dragonboat.LogRange{
-					FirstIndex: 5000,
+					FirstIndex: 5001,
 					LastIndex:  6000,
 				},
 				maxSize: 1024 * 1024,
@@ -521,6 +541,26 @@ func TestSimple_QueryRaftLog(t *testing.T) {
 				lr.On("GetRange").Return(1, 5000)
 				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
 			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "single record",
+			args: args{
+				timeout:   30 * time.Second,
+				clusterID: 1,
+				logRange: dragonboat.LogRange{
+					FirstIndex: 5000,
+					LastIndex:  5001,
+				},
+				maxSize: 1024 * 1024,
+			},
+			on: func(querier *mockLogQuerier) {
+				lr := &mockLogReader{}
+				lr.On("GetRange").Return(1, 5000)
+				lr.On("Entries", uint64(5000), uint64(5001), mock.Anything).Return(createEntries(5000, 5001), nil)
+				querier.On("GetLogReader", uint64(1)).Return(lr, nil)
+			},
+			want:    createEntries(5000, 5001),
 			wantErr: require.NoError,
 		},
 		{
