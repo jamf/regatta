@@ -75,7 +75,7 @@ regatta leader [flags]
       --replication.cert-filename string               Path to the API server certificate. (default "hack/replication/server.crt")
       --replication.enabled                            Whether replication API is enabled. (default true)
       --replication.key-filename string                Path to the API server private key file. (default "hack/replication/server.key")
-      --replication.log-cache-size int                 Size of the replication cache. (default 1024)
+      --replication.log-cache-size int                 Size of the replication cache. Size 0 means cache is turned off.
       --replication.max-send-message-size-bytes uint   The target maximum size of single replication message allowed to send.
                                                        Under some circumstances, a larger message could be sent. Followers should be able to accept slightly larger messages. (default 4194304)
       --rest.address string                            REST API server address. (default ":8079")

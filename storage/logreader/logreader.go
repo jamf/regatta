@@ -13,6 +13,14 @@ import (
 	"github.com/lni/dragonboat/v4/raftpb"
 )
 
+type Interface interface {
+	raftio.ISystemEventListener
+	// QueryRaftLog for all the entries in a given cluster within the right half-open range
+	// defined by dragonboat.LogRange. MaxSize denotes the maximum cumulative size of the entries,
+	// but this serves only as a hint and the actual size of returned entries may be larger than maxSize.
+	QueryRaftLog(context.Context, uint64, dragonboat.LogRange, uint64) ([]raftpb.Entry, error)
+}
+
 type logQuerier interface {
 	GetLogReader(shardID uint64) (dragonboat.ReadonlyLogReader, error)
 }
@@ -22,16 +30,49 @@ type shard struct {
 	mtx sync.Mutex
 }
 
-type LogReader struct {
+type unimplementedLogReader struct{}
+
+func (u unimplementedLogReader) NodeHostShuttingDown()                       {}
+func (u unimplementedLogReader) NodeUnloaded(raftio.NodeInfo)                {}
+func (u unimplementedLogReader) NodeDeleted(raftio.NodeInfo)                 {}
+func (u unimplementedLogReader) NodeReady(raftio.NodeInfo)                   {}
+func (u unimplementedLogReader) MembershipChanged(raftio.NodeInfo)           {}
+func (u unimplementedLogReader) ConnectionEstablished(raftio.ConnectionInfo) {}
+func (u unimplementedLogReader) ConnectionFailed(raftio.ConnectionInfo)      {}
+func (u unimplementedLogReader) SendSnapshotStarted(raftio.SnapshotInfo)     {}
+func (u unimplementedLogReader) SendSnapshotCompleted(raftio.SnapshotInfo)   {}
+func (u unimplementedLogReader) SendSnapshotAborted(raftio.SnapshotInfo)     {}
+func (u unimplementedLogReader) SnapshotReceived(raftio.SnapshotInfo)        {}
+func (u unimplementedLogReader) SnapshotRecovered(raftio.SnapshotInfo)       {}
+func (u unimplementedLogReader) SnapshotCreated(raftio.SnapshotInfo)         {}
+func (u unimplementedLogReader) SnapshotCompacted(raftio.SnapshotInfo)       {}
+func (u unimplementedLogReader) LogCompacted(raftio.EntryInfo)               {}
+func (u unimplementedLogReader) LogDBCompacted(raftio.EntryInfo)             {}
+func (u unimplementedLogReader) QueryRaftLog(context.Context, uint64, dragonboat.LogRange, uint64) ([]raftpb.Entry, error) {
+	panic("unimplemented")
+}
+
+type Simple struct {
+	unimplementedLogReader
+	LogQuerier logQuerier
+}
+
+func (l *Simple) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+	// Empty log range should return immediately.
+	if logRange.FirstIndex == logRange.LastIndex {
+		return nil, nil
+	}
+	return readLog(l.LogQuerier, clusterID, logRange, maxSize)
+}
+
+type Cached struct {
+	unimplementedLogReader
 	ShardCacheSize int
 	LogQuerier     logQuerier
 	shardCache     util.SyncMap[uint64, *shard]
 }
 
-// QueryRaftLog for all the entries in a given cluster within the right half-open range
-// defined by dragonboat.LogRange. MaxSize denotes the maximum cumulative size of the entries,
-// but this serves only as a hint and the actual size of returned entries may be larger than maxSize.
-func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
 	// Empty log range should return immediately.
 	if logRange.FirstIndex == logRange.LastIndex {
 		return nil, nil
@@ -50,7 +91,7 @@ func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange
 
 	if prependIndices.FirstIndex != 0 && prependIndices.LastIndex != 0 {
 		// We have to query the log for the beginning of the range and prepend the cached entries.
-		le, err := l.readLog(ctx, clusterID, prependIndices, maxSize)
+		le, err := readLog(l.LogQuerier, clusterID, prependIndices, maxSize)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +112,7 @@ func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange
 
 	if appendIndices.FirstIndex != 0 && appendIndices.LastIndex != 0 {
 		// We have to query the log for the end of the range and append the cached entries.
-		le, err := l.readLog(ctx, clusterID, appendIndices, maxSize)
+		le, err := readLog(l.LogQuerier, clusterID, appendIndices, maxSize)
 		if err != nil {
 			return nil, err
 		}
@@ -92,20 +133,20 @@ func (l *LogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange
 	return fixSize(cachedEntries, maxSize), nil
 }
 
-func (l *LogReader) NodeDeleted(info raftio.NodeInfo) {
+func (l *Cached) NodeDeleted(info raftio.NodeInfo) {
 	l.shardCache.Delete(info.ShardID)
 }
 
-func (l *LogReader) NodeReady(info raftio.NodeInfo) {
+func (l *Cached) NodeReady(info raftio.NodeInfo) {
 	l.shardCache.ComputeIfAbsent(info.ShardID, func(shardId uint64) *shard { return &shard{cache: newCache(l.ShardCacheSize)} })
 }
 
-func (l *LogReader) LogCompacted(info raftio.EntryInfo) {
+func (l *Cached) LogCompacted(info raftio.EntryInfo) {
 	l.shardCache.Store(info.ShardID, &shard{cache: newCache(l.ShardCacheSize)})
 }
 
-func (l *LogReader) readLog(_ context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
-	r, err := l.LogQuerier.GetLogReader(clusterID)
+func readLog(q logQuerier, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+	r, err := q.GetLogReader(clusterID)
 	if err != nil {
 		return nil, err
 	}

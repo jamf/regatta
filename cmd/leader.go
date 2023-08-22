@@ -52,7 +52,7 @@ Under some circumstances, a larger message could be sent. Followers should be ab
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
-	leaderCmd.PersistentFlags().Int("replication.log-cache-size", regattaserver.DefaultCacheSize, "Size of the replication cache.")
+	leaderCmd.PersistentFlags().Int("replication.log-cache-size", 0, "Size of the replication cache. Size 0 means cache is turned off.")
 }
 
 var leaderCmd = &cobra.Command{

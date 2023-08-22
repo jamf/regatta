@@ -9,6 +9,7 @@ nav_order: 999
 ## mainline (unreleased)
 
 ### Breaking changes
+* Leader `replication.logCacheSize` now defaults to 0.
 
 ### Features
 * Add `replication.keepalive-time` config option for follower. Sets how often the keepalive should be sent.

@@ -468,7 +468,7 @@ func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
 			logger.Debugf("%s", info)
 		},
 		CompactionEnd: func(info pebble.CompactionInfo) {
-			logger.Infof("%s", info)
+			logger.Debugf("%s", info)
 		},
 		DiskSlow: func(info pebble.DiskSlowInfo) {
 			logger.Warnf("%s", info)
@@ -507,7 +507,7 @@ func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
 			logger.Infof("%s", info)
 		},
 		WriteStallEnd: func() {
-			logger.Infof("write stall ending")
+			logger.Debugf("write stall ending")
 		},
 	}
 }

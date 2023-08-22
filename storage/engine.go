@@ -37,19 +37,18 @@ func New(cfg Config) (*Engine, error) {
 			Meta:   table.MetaConfig(cfg.Meta),
 		},
 	)
-	lr := &logreader.LogReader{
-		ShardCacheSize: cfg.LogCacheSize,
-		LogQuerier:     nh,
+	if cfg.LogCacheSize > 0 {
+		e.LogReader = &logreader.Cached{LogQuerier: nh, ShardCacheSize: cfg.LogCacheSize}
+	} else {
+		e.LogReader = &logreader.Simple{LogQuerier: nh}
 	}
 	e.NodeHost = nh
-
 	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
 	if err != nil {
 		return nil, err
 	}
 	e.Cluster = clst
 	e.Manager = manager
-	e.LogReader = lr
 	return e, nil
 }
 
@@ -57,7 +56,7 @@ type Engine struct {
 	*dragonboat.NodeHost
 	*table.Manager
 	cfg       Config
-	LogReader *logreader.LogReader
+	LogReader logreader.Interface
 	Cluster   *cluster.Cluster
 }
 

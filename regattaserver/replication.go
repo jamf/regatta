@@ -23,8 +23,6 @@ import (
 const (
 	// DefaultMaxGRPCSize is the default maximum size of body of gRPC message to be loaded from dragonboat.
 	DefaultMaxGRPCSize = 4 * 1024 * 1024
-	// DefaultCacheSize is a size of the cache used during the replication routine.
-	DefaultCacheSize = 1024
 )
 
 // MetadataServer implements Metadata service from proto/replication.proto.
