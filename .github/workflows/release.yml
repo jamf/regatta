@@ -91,5 +91,4 @@ jobs:
     - name: Sign the images
       env:
         DIGEST: ${{ steps.build.outputs.digest }}
-        TAGS: ${{ steps.meta.outputs.tags }}
-      run: cosign sign --yes "${TAGS}@${DIGEST}"
+      run: cosign sign --yes "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}"

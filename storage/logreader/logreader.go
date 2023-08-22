@@ -153,7 +153,7 @@ func readLog(q logQuerier, clusterID uint64, logRange dragonboat.LogRange, maxSi
 
 	rFirst, rLast := r.GetRange()
 	// Follower is up-to-date with the leader, therefore there are no new data to be sent.
-	if rLast == logRange.FirstIndex {
+	if rLast+1 == logRange.FirstIndex {
 		return nil, nil
 	}
 	// Follower is ahead of the leader, has to be manually fixed.
