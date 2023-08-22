@@ -9,6 +9,17 @@ nav_order: 999
 ## mainline (unreleased)
 
 ### Breaking changes
+
+### Features
+
+### Improvements
+
+### Bugfixes
+
+## v0.2.1
+Release focuses on stability and performance of the leader-follower replication.
+
+### Breaking changes
 * Leader `replication.logCacheSize` now defaults to 0.
 
 ### Features
@@ -20,10 +31,6 @@ nav_order: 999
 * Snapshot recovery type could be switched on a running cluster safely.
 * Bump to Go 1.21.
 * Keepalive for replication connection to tackle misbehaving LBs.
-
-### Bugfixes
-
-
 
 ## v0.2.0
 Release is mostly focused on tidying up the docs and code base and on resource consumption improvements.
