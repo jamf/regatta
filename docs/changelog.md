@@ -16,6 +16,7 @@ nav_order: 999
 
 ### Bugfixes
 
+
 ## v0.2.1
 Release focuses on stability and performance of the leader-follower replication.
 
@@ -31,6 +32,9 @@ Release focuses on stability and performance of the leader-follower replication.
 * Snapshot recovery type could be switched on a running cluster safely.
 * Bump to Go 1.21.
 * Keepalive for replication connection to tackle misbehaving LBs.
+
+### Bugfixes
+* Fix release image cosign.
 
 ## v0.2.0
 Release is mostly focused on tidying up the docs and code base and on resource consumption improvements.

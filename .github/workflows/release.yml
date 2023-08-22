@@ -76,9 +76,9 @@ jobs:
     - name: Setup Cosign
       uses: sigstore/cosign-installer@v3
     - name: Docker build & push
+      id: build
       uses: docker/build-push-action@v4
       with:
-        id: build
         push: true
         platforms: linux/amd64,linux/arm64
         context: .
