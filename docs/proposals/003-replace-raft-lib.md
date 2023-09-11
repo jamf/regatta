@@ -24,6 +24,19 @@ As the Regatta evolved we run into problems with `dragonboat` library.
 
 ## Design
 
+### Challenges
+* `hashicorp/raft` is not multi-group raft implementation
+  * that could be mitigated by multiplexing over custom transport (see. [raft-grpc-transport-mux](https://github.com/coufalja/raft-grpc-transport-mux))
+  * the advantage is that we could pick the group label of our liking (like table name)
+* `hashicorp/raft` does not have support for `on-disk` statemachine impl OOTB
+  * every start of FSM is accompanied by applying the most recent snapshot
+  * in the case of our table FSM that would lead to large compute and space overhead
+  * mitigation lies in implementing own SnapshotManager that would serve lightweight snapshot out of the persisted data
+  * inspiration could be found in [Vault](https://github.com/hashicorp/vault/blob/main/physical/raft/snapshot.go)
+* `hashicorp/raft` does not automatically forward proposals to the leader node
+  * that could be implemented using the same layer as the Raft multiplexing
+  * inspiration could be drawn from [Consul](https://github.com/hashicorp/consul/blob/main/internal/storage/raft/forwarding.go)
+
 ## Alternatives
 
 * Replace `dragonboat` with `github.io/etcd/raft`. ETCD raft is a base of Dragonboat library (dragonboat is to some degree a wrapper/fork of it) and as such does not make matters simpler, 
