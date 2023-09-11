@@ -21,6 +21,7 @@ As the Regatta evolved we run into problems with `dragonboat` library.
     * ID assignment
 * Even though `dragonboat` has a lot of stars it does not seem to be used much (just tens of imports), in contrast `hashicorp/raft` has over 1k imports.
 * Library is not really modular, replacing Transport is almost impossible, the same with LogDB and Snapshot store.
+* The `hashicor/raft` is much simpler in design as well as in implementation ([dragonboat](https://ghloc.vercel.app/lni/dragonboat?branch=master) vs [raft](https://ghloc.vercel.app/hashicorp/raft?branch=master) sloc)
 
 ## Design
 
@@ -36,6 +37,22 @@ As the Regatta evolved we run into problems with `dragonboat` library.
 * `hashicorp/raft` does not automatically forward proposals to the leader node
   * that could be implemented using the same layer as the Raft multiplexing
   * inspiration could be drawn from [Consul](https://github.com/hashicorp/consul/blob/main/internal/storage/raft/forwarding.go)
+
+### In nutshell
+* Basics + Meta
+  * Adapt Metadata FSM to satisfy `raft.FSM`
+  * Add and expose `raft-grpc-transport-mux` on internal GRPC server
+  * Back the `raft.Raft` instance by `tidwall/raft-wal` or other impl
+  * Use default File based snapshot storage
+* Table FSM
+  * Adapt Table FSM to satisfy `raft.FSM` and (optionally) `raft.BatchFSM`
+  * Implement Raft leader forward over internal GRPC server
+  * Implement readIndex (serializable) read
+  * Use default File based snapshot storage
+* Optimization
+  * Implement `on-disk` snapshotting optimization
+  * Implement readIndex and forwarding pipelining
+  * Use the aforementioned snapshot store to provide user requested snapshots
 
 ## Alternatives
 
