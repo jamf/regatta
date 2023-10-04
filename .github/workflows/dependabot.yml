@@ -4,28 +4,32 @@ on: pull_request
 permissions:
   contents: write
   pull-requests: write
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  dependabot:
+  check-docker-image:
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
-    - name: Dependabot metadata
-      id: metadata
-      uses: dependabot/fetch-metadata@v1
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Approve a PR
-      if: ${{steps.metadata.outputs.update-type == 'version-update:semver-patch'}}
-      run: gh pr review --approve "$PR_URL"
-      env:
-        PR_URL: ${{github.event.pull_request.html_url}}
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-    - name: Enable auto-merge
-      if: ${{steps.metadata.outputs.update-type == 'version-update:semver-patch'}}
+    - name: check token
       run: |
-        gh pr edit --add-label "auto-merge" "$PR_URL"
-        gh pr merge --auto --merge "$PR_URL"
+        echo "IT WILL BE MASKED: $GITHUB_TOKEN"
       env:
-        PR_URL: ${{github.event.pull_request.html_url}}
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
