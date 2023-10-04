@@ -11,3 +11,8 @@ jobs:
     - uses: actions/labeler@v4
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
+    - name: check token
+      run: |
+        echo "Masked: $repo-token"
+      env:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
