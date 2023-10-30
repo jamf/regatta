@@ -61,12 +61,14 @@ can be used.
 
 Official Regatta images are present in
 [`jamf/regatta` GitHub Container Registry](https://github.com/jamf/regatta/pkgs/container/regatta).
-Just execute `Docker run` with the following arguments:
+Just execute `docker run` with the following arguments:
 
 ```bash
 docker run \
     --mount type=bind,source=$(pwd)/hack,target=/hack \
-    ghcr.io/jamf/regatta:latest leader \
+    -e TZ=America/New_York \
+    ghcr.io/jamf/regatta:latest \
+    leader \
     --dev-mode \
     --api.reflection-api \
     --raft.address=127.0.0.1:5012 \
