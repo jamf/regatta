@@ -86,7 +86,7 @@ type listener struct {
 	f func(Message)
 }
 
-// handle waits for a message and proccesses it. It blocks
+// handle waits for a message and processes it. It blocks
 // until receiving the stop message.
 func (l *listener) handle() {
 	for {

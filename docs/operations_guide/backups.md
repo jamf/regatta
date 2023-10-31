@@ -25,7 +25,7 @@ To create backups, Maintenance API must be enabled during Regatta startup.
 See the [Helm Chart](https://github.com/jamf/regatta-helm/blob/master/charts/regatta/values.yaml)
 or the [CLI documentation](cli/regatta_leader.md) for reference.
 
-Additionaly, a *token* must be provided during Regatta startup which
+Additionally, a *token* must be provided during Regatta startup which
 is then provided to the `regatta backup` command:
 
 ```bash
@@ -64,7 +64,7 @@ regatta restore \
 ```
 
 This command overwrites all the tables specified in the `backup` directory in a Regatta leader cluster
-runnin on `127.0.0.1:8445`.
+running on `127.0.0.1:8445`.
 
 ## Resetting a follower cluster
 

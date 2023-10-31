@@ -36,7 +36,7 @@ Expected response:
 }
 ```
 
-Additionaly, the field `prev_kv` set to `true` can be supplied. Regatta then responds with
+Additionally, the field `prev_kv` set to `true` can be supplied. Regatta then responds with
 the previous key-value pair upserted with the request, if any exists.
 
 ```bash

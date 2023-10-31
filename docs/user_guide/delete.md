@@ -83,7 +83,7 @@ grpcurl -insecure "-d={
     }" 127.0.0.1:8443 regatta.v1.KV/DeleteRange
 ```
 
-Additionaly, the field `prev_kv` set to `true` can be supplied.
+Additionally, the field `prev_kv` set to `true` can be supplied.
 Regatta then responds with the deleted key-value pairs, if any exists.
 
 ```bash

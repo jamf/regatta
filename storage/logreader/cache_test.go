@@ -98,7 +98,7 @@ func TestCache(t *testing.T) {
 
 		// LogRange defines the right half-open interval.
 		r.Equal(uint64(151), e[0].Index)
-		r.Equal(uint64(170), e[len(e)-1].Index) // 170 is the largets index in the cache.
+		r.Equal(uint64(170), e[len(e)-1].Index) // 170 is the largest index in the cache.
 
 		r.Equal(dragonboat.LogRange{}, prependIndices)
 		r.Equal(dragonboat.LogRange{FirstIndex: 171, LastIndex: 181}, appendIndices) // cache suggests to look into the log starting from the index 171.
@@ -113,7 +113,7 @@ func TestCache(t *testing.T) {
 
 		// LogRange defines the right half-open interval.
 		r.Equal(uint64(21), e[0].Index)         // Is the smallest index in the cache.
-		r.Equal(uint64(170), e[len(e)-1].Index) // 170 is the largets index in the cache.
+		r.Equal(uint64(170), e[len(e)-1].Index) // 170 is the largest index in the cache.
 
 		r.Equal(dragonboat.LogRange{FirstIndex: 10, LastIndex: 21}, prependIndices)  // cache suggests to look into the log up until the index 21.
 		r.Equal(dragonboat.LogRange{FirstIndex: 171, LastIndex: 181}, appendIndices) // cache suggests to look into the log starting from the index 171.

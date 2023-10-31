@@ -157,7 +157,7 @@ func (w *worker) Start() {
 					if errors.Is(err, context.DeadlineExceeded) {
 						w.log.Warnf("unable to read leader log in time: %v", err)
 					} else {
-						w.log.Warnf("uknown worker error: %v", err)
+						w.log.Warnf("unknown worker error: %v", err)
 					}
 					continue
 				}
@@ -175,7 +175,7 @@ func (w *worker) Start() {
 					} else {
 						w.log.Info("maximum number of recoveries already running")
 						if _, err := w.tm.ReturnTable(w.table); err != nil {
-							w.log.Warnf("error retruning table: %v", err)
+							w.log.Warnf("error returning table: %v", err)
 						}
 					}
 				case resultFollowerLagging:

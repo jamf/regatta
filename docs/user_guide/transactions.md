@@ -280,7 +280,7 @@ This would be one of the possible responses if the record `john:doe` existed whe
 }
 ```
 
-Reponse if the record `john:doe` did not exist:
+Response if the record `john:doe` did not exist:
 
 ```json
 {
@@ -333,7 +333,7 @@ grpcurl -insecure "-d={
 ```
 
 Before executing this transaction, delete the `john:doe`
-record in the database to enfore execution of the `failure` branch.
+record in the database to enforce execution of the `failure` branch.
 This would then be the expected response:
 
 ```json
@@ -414,7 +414,7 @@ Otherwise, such response would be returned:
 ### Predicate Testing Existence of Key Within Range
 
 To test if there is any key-value pair between the keys `jack`
-and `john`, exluding the key-value pair with the key `john`,
+and `john`, excluding the key-value pair with the key `john`,
 we supply `jack` and `john` as the `key` and `range_end` in
 the predicate. If such pair exists, a count of such key-value
 pairs is retrieved.
