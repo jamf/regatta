@@ -28,7 +28,7 @@ The pull request should be tagged with the label `proposal`.
 
 * [Go](https://golang.org/) >= 1.21
 * [Protocol Buffer compiler](https://grpc.io/docs/protoc-installation/) >= 3
-* [Go Protocol Bufffer compiler plugin](https://pkg.go.dev/github.com/golang/protobuf/protoc-gen-go)
+* [Go Protocol Buffer compiler plugin](https://pkg.go.dev/github.com/golang/protobuf/protoc-gen-go)
   -- `go get -d google.golang.org/protobuf/cmd/protoc-gen-go`
 * [Go Vitess Protocol Buffers compiler](https://github.com/planetscale/vtprotobuf/)
   -- `go get -d github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto`

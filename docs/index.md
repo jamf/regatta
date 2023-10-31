@@ -35,7 +35,7 @@ Regatta is built to handle read-heavy workloads and to serve sub-millisecond rea
 Thanks to the Raft algorithm and data redundancy, Regatta can serve reads even in the event of
 network partition or node outage.
 
-### Data persistance
+### Data persistence
 
 Regatta is more than just an in-memory cache -- data persistence is built-in. Regatta
 can be backed up and restored from backups.
