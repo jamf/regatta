@@ -29,13 +29,13 @@ The pull request should be tagged with the label `proposal`.
 * [Go](https://golang.org/) >= 1.21
 * [Protocol Buffer compiler](https://grpc.io/docs/protoc-installation/) >= 3
 * [Go Protocol Buffer compiler plugin](https://pkg.go.dev/github.com/golang/protobuf/protoc-gen-go)
-  -- `go get -d google.golang.org/protobuf/cmd/protoc-gen-go`
+  -- `go install google.golang.org/protobuf/cmd/protoc-gen-go`
 * [Go Vitess Protocol Buffers compiler](https://github.com/planetscale/vtprotobuf/)
-  -- `go get -d github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto`
+  -- `go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto`
 * [Go gRPC generator Protocol Buffer compiler plugin](https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc)
-  -- `go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc`
+  -- `go install google.golang.org/grpc/cmd/protoc-gen-go-grpc`
 * [Go documentation Protocol Buffer compiler plugin](https://github.com/pseudomuto/protoc-gen-doc)
-  -- `go get -d github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc`
+  -- `go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc`
 
 ## Testing prerequisites
 
