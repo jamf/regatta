@@ -131,6 +131,7 @@ func keys(m map[string]*Cluster) []string {
 	}
 	return ret
 }
+
 func values(m map[string]*Cluster) []*Cluster {
 	var ret []*Cluster
 	for _, val := range m {
