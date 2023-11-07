@@ -6,10 +6,9 @@ import (
 	"cmp"
 	"encoding/json"
 	"path"
+	"slices"
 	"strings"
 	"sync"
-
-	"golang.org/x/exp/slices"
 )
 
 // A MapStore represents an in-memory key-value store safe for

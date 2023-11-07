@@ -25,7 +25,7 @@ func newView() *shardView {
 
 func mergeShardInfo(current dragonboat.ShardView, update dragonboat.ShardView) dragonboat.ShardView {
 	if current.ConfigChangeIndex < update.ConfigChangeIndex {
-		current.Nodes = update.Nodes
+		current.Replicas = update.Replicas
 		current.ConfigChangeIndex = update.ConfigChangeIndex
 	}
 	// we only keep which replica is the last known leader
@@ -44,7 +44,7 @@ func toShardViewList(input []dragonboat.ShardInfo) []dragonboat.ShardView {
 	for i, ci := range input {
 		result[i] = dragonboat.ShardView{
 			ShardID:           ci.ShardID,
-			Nodes:             ci.Nodes,
+			Replicas:          ci.Replicas,
 			ConfigChangeIndex: ci.ConfigChangeIndex,
 			LeaderID:          ci.LeaderID,
 			Term:              ci.Term,
