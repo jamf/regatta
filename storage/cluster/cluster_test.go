@@ -13,7 +13,6 @@ import (
 	"github.com/lni/dragonboat/v4"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"golang.org/x/exp/maps"
 )
 
 func TestSingleNodeCluster(t *testing.T) {
@@ -56,7 +55,7 @@ func TestMultiNodeCluster(t *testing.T) {
 		})
 		require.NoError(t, err)
 		clusters[address] = cluster
-		cluster.Start(maps.Keys(clusters))
+		cluster.Start(keys(clusters))
 		require.Equal(t, i+1, len(cluster.Nodes()))
 	}
 
@@ -74,8 +73,8 @@ func TestMultiNodeCluster(t *testing.T) {
 			Term:              5,
 		}, cluster1.ShardInfo(1))
 	}
-	c1 := maps.Values(clusters)[0]
-	c2 := maps.Values(clusters)[1]
+	c1 := values(clusters)[0]
+	c2 := values(clusters)[1]
 
 	t.Log("test prefix watch")
 	recvChan := make(chan Message)
@@ -123,4 +122,19 @@ func getTestBindAddress() string {
 	l, _ := net.Listen("tcp4", "127.0.0.1:0")
 	defer l.Close()
 	return l.Addr().String()
+}
+
+func keys(m map[string]*Cluster) []string {
+	var ret []string
+	for key := range m {
+		ret = append(ret, key)
+	}
+	return ret
+}
+func values(m map[string]*Cluster) []*Cluster {
+	var ret []*Cluster
+	for _, val := range m {
+		ret = append(ret, val)
+	}
+	return ret
 }
