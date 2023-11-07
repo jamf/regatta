@@ -13,9 +13,14 @@ nav_order: 999
 ### Features
 
 ### Improvements
+* Removal of few obsolete dependencies.
+* Set toolchain in go.mod file.
+* Enable profile guided optimizations.
 
 ### Bugfixes
 
+## v0.2.2
+Minor release with just updated dependencies.
 
 ## v0.2.1
 Release focuses on stability and performance of the leader-follower replication.
