@@ -393,6 +393,21 @@ TODO: fill out with most of the rest of RangeRequest fields when needed. |
 ## regatta.proto
 
 
+# Cluster {#regattav1cluster}
+Cluster service ops.
+## MemberList
+> **rpc** MemberList([MemberListRequest](#memberlistrequest))
+    [MemberListResponse](#memberlistresponse)
+
+MemberList lists all the members in the cluster.
+
+## Status
+> **rpc** Status([StatusRequest](#statusrequest))
+    [StatusResponse](#statusresponse)
+
+Status gets the status of the member.
+
+
 # KV {#regattav1kv}
 KV for handling the read/put requests
 ## Range
@@ -452,6 +467,49 @@ It is allowed to modify the same key several times within one txn (the result wi
 | header | [ResponseHeader](#regatta-v1-ResponseHeader) |  |  |
 | deleted | [int64](#int64) |  | deleted is the number of keys deleted by the delete range request. |
 | prev_kvs | [mvcc.v1.KeyValue](#mvcc-v1-KeyValue) | repeated | if prev_kv is set in the request, the previous key-value pairs will be returned. |
+
+
+
+
+
+
+<a name="regatta-v1-Member"></a>
+### Member
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [string](#string) |  | id is the member ID of this member. |
+| name | [string](#string) |  | name is the human-readable name of the member. If the member is not started, the name will be an empty string. |
+| peerURLs | [string](#string) | repeated | peerURLs is the list of URLs the member exposes to the cluster for communication. |
+| clientURLs | [string](#string) | repeated | clientURLs is the list of URLs the member exposes to clients for communication. If the member is not started, clientURLs will be empty. |
+
+
+
+
+
+
+<a name="regatta-v1-MemberListRequest"></a>
+### MemberListRequest
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| linearizable | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="regatta-v1-MemberListResponse"></a>
+### MemberListResponse
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| header | [ResponseHeader](#regatta-v1-ResponseHeader) |  |  |
+| members | [Member](#regatta-v1-Member) | repeated | members is a list of all members associated with the cluster. |
 
 
 
@@ -538,6 +596,63 @@ It is allowed to modify the same key several times within one txn (the result wi
 | revision | [uint64](#uint64) |  | revision is the key-value store revision when the request was applied. |
 | raft_term | [uint64](#uint64) |  | raft_term is the raft term when the request was applied. |
 | raft_leader_id | [uint64](#uint64) |  | raft_leader_id is the ID of the actual raft quorum leader. |
+
+
+
+
+
+
+<a name="regatta-v1-StatusRequest"></a>
+### StatusRequest
+
+
+
+
+
+
+<a name="regatta-v1-StatusResponse"></a>
+### StatusResponse
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [string](#string) |  | id is the member ID of this member. |
+| version | [string](#string) |  | version is the semver version used by the responding member. |
+| info | [string](#string) |  | info is the additional server info. |
+| tables | [StatusResponse.TablesEntry](#regatta-v1-StatusResponse-TablesEntry) | repeated | tables is a status of tables of the responding member. |
+| errors | [string](#string) | repeated | errors contains alarm/health information and status. |
+
+
+
+
+
+
+<a name="regatta-v1-StatusResponse-TablesEntry"></a>
+### StatusResponse.TablesEntry
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [TableStatus](#regatta-v1-TableStatus) |  |  |
+
+
+
+
+
+
+<a name="regatta-v1-TableStatus"></a>
+### TableStatus
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| logSize | [int64](#int64) |  | dbSize is the size of the raft log, in bytes, of the responding member. |
+| dbSize | [int64](#int64) |  | dbSize is the size of the backend database physically allocated, in bytes, of the responding member. |
+| leader | [uint64](#uint64) |  | leader is the member ID which the responding member believes is the current leader. |
+| raftIndex | [uint64](#uint64) |  | raftIndex is the current raft committed index of the responding member. |
+| raftTerm | [uint64](#uint64) |  | raftTerm is the current raft term of the responding member. |
+| raftAppliedIndex | [uint64](#uint64) |  | raftAppliedIndex is the current raft applied index of the responding member. |
 
 
 

@@ -185,3 +185,64 @@ message TxnResponse {
   // success if succeeded is true or failure if succeeded is false.
   repeated mvcc.v1.ResponseOp responses = 3;
 }
+
+// Cluster service ops.
+service Cluster {
+  // MemberList lists all the members in the cluster.
+  rpc MemberList(MemberListRequest) returns (MemberListResponse);
+
+  // Status gets the status of the member.
+  rpc Status(StatusRequest) returns (StatusResponse);
+
+}
+
+message MemberListRequest {
+  bool linearizable = 1;
+}
+
+message MemberListResponse {
+  ResponseHeader header = 1;
+  // members is a list of all members associated with the cluster.
+  repeated Member members = 2;
+}
+
+message Member {
+  // id is the member ID of this member.
+  string id = 1;
+  // name is the human-readable name of the member. If the member is not started, the name will be an empty string.
+  string name = 2;
+  // peerURLs is the list of URLs the member exposes to the cluster for communication.
+  repeated string peerURLs = 3;
+  // clientURLs is the list of URLs the member exposes to clients for communication. If the member is not started, clientURLs will be empty.
+  repeated string clientURLs = 4;
+}
+
+message TableStatus {
+  // dbSize is the size of the raft log, in bytes, of the responding member.
+  int64 logSize = 2;
+  // dbSize is the size of the backend database physically allocated, in bytes, of the responding member.
+  int64 dbSize = 3;
+  // leader is the member ID which the responding member believes is the current leader.
+  uint64 leader = 4;
+  // raftIndex is the current raft committed index of the responding member.
+  uint64 raftIndex = 5;
+  // raftTerm is the current raft term of the responding member.
+  uint64 raftTerm = 6;
+  // raftAppliedIndex is the current raft applied index of the responding member.
+  uint64 raftAppliedIndex = 7;
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+  // id is the member ID of this member.
+  string id = 1;
+  // version is the semver version used by the responding member.
+  string version = 2;
+  // info is the additional server info.
+  string info = 3;
+  // tables is a status of tables of the responding member.
+  map<string, TableStatus> tables = 4;
+  // errors contains alarm/health information and status.
+  repeated string errors = 8;
+}
