@@ -1,4 +1,4 @@
-LDFLAGS = -X github.com/jamf/regatta/cmd.Version=$(VERSION)
+LDFLAGS = -X github.com/jamf/regatta/version.Version=$(VERSION)
 VERSION ?= $(shell git describe --tags --always --dirty)
 CGO_ENABLED ?= 1
 REPOSITORY = regatta

@@ -13,6 +13,7 @@ nav_order: 999
 ### Features
 
 ### Improvements
+* Improve `version` command output.
 
 ### Bugfixes
 
