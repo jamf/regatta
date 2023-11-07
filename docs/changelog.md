@@ -13,15 +13,23 @@ nav_order: 999
 ### Features
 
 ### Improvements
+
+### Bugfixes
+
+---
+## v0.2.3
+Release with profile guided optimization.
+
+### Improvements
 * Removal of few obsolete dependencies.
 * Set toolchain in go.mod file.
 * Enable profile guided optimizations.
 
-### Bugfixes
-
+---
 ## v0.2.2
 Minor release with just updated dependencies.
 
+---
 ## v0.2.1
 Release focuses on stability and performance of the leader-follower replication.
 
@@ -42,6 +50,7 @@ Release focuses on stability and performance of the leader-follower replication.
 * Fix release image cosign.
 * Fix off by one replication error.
 
+---
 ## v0.2.0
 Release is mostly focused on tidying up the docs and code base and on resource consumption improvements.
 - New way of producing table snapshots is introduced that should lead to quicker and more efficient process of recovering shards in a Raft cluster.
@@ -74,6 +83,7 @@ Release is mostly focused on tidying up the docs and code base and on resource c
 * Fixed value of `Deleted` field of the `DeleteRange` response.
 * Fixed potential DOS by limiting the storage iterator with max RPC size.
 
+---
 ## v0.1.0
 
 Initial Regatta v0.1.0 Release
