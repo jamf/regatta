@@ -32,7 +32,7 @@ func Test_mergeShardInfo(t *testing.T) {
 			args: args{
 				current: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050"},
 					ConfigChangeIndex: 5,
 					LeaderID:          1,
 					Term:              1,
@@ -41,7 +41,7 @@ func Test_mergeShardInfo(t *testing.T) {
 			},
 			want: dragonboat.ShardView{
 				ShardID:           1,
-				Nodes:             map[uint64]string{1: "address:5050"},
+				Replicas:          map[uint64]string{1: "address:5050"},
 				ConfigChangeIndex: 5,
 				LeaderID:          1,
 				Term:              1,
@@ -52,14 +52,14 @@ func Test_mergeShardInfo(t *testing.T) {
 			args: args{
 				current: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050"},
 					ConfigChangeIndex: 5,
 					LeaderID:          1,
 					Term:              1,
 				},
 				update: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 					ConfigChangeIndex: 10,
 					LeaderID:          2,
 					Term:              5,
@@ -67,7 +67,7 @@ func Test_mergeShardInfo(t *testing.T) {
 			},
 			want: dragonboat.ShardView{
 				ShardID:           1,
-				Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+				Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 				ConfigChangeIndex: 10,
 				LeaderID:          2,
 				Term:              5,
@@ -78,14 +78,14 @@ func Test_mergeShardInfo(t *testing.T) {
 			args: args{
 				current: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 					ConfigChangeIndex: 10,
 					LeaderID:          2,
 					Term:              5,
 				},
 				update: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050"},
 					ConfigChangeIndex: 5,
 					LeaderID:          1,
 					Term:              1,
@@ -93,7 +93,7 @@ func Test_mergeShardInfo(t *testing.T) {
 			},
 			want: dragonboat.ShardView{
 				ShardID:           1,
-				Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+				Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 				ConfigChangeIndex: 10,
 				LeaderID:          2,
 				Term:              5,
@@ -104,14 +104,14 @@ func Test_mergeShardInfo(t *testing.T) {
 			args: args{
 				current: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 					ConfigChangeIndex: 10,
 					LeaderID:          2,
 					Term:              5,
 				},
 				update: dragonboat.ShardView{
 					ShardID:           1,
-					Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+					Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 					ConfigChangeIndex: 11,
 					LeaderID:          noLeader,
 					Term:              10,
@@ -119,7 +119,7 @@ func Test_mergeShardInfo(t *testing.T) {
 			},
 			want: dragonboat.ShardView{
 				ShardID:           1,
-				Nodes:             map[uint64]string{1: "address:5050", 2: "address:5050"},
+				Replicas:          map[uint64]string{1: "address:5050", 2: "address:5050"},
 				ConfigChangeIndex: 11,
 				LeaderID:          2,
 				Term:              5,
@@ -248,41 +248,41 @@ func Test_shardView_update(t *testing.T) {
 		{
 			name: "merge with empty view",
 			fields: fields{shards: map[uint64]dragonboat.ShardView{
-				1: {ShardID: 1, Nodes: map[uint64]string{1: "address:5050"}, ConfigChangeIndex: 5, LeaderID: 1, Term: 1},
+				1: {ShardID: 1, Replicas: map[uint64]string{1: "address:5050"}, ConfigChangeIndex: 5, LeaderID: 1, Term: 1},
 			}},
 			args: args{
 				updates: []dragonboat.ShardView{},
 			},
 			want: map[uint64]dragonboat.ShardView{
-				1: {ShardID: 1, Nodes: map[uint64]string{1: "address:5050"}, ConfigChangeIndex: 5, LeaderID: 1, Term: 1},
+				1: {ShardID: 1, Replicas: map[uint64]string{1: "address:5050"}, ConfigChangeIndex: 5, LeaderID: 1, Term: 1},
 			},
 		},
 		{
 			name: "merge with higher config index and term",
 			fields: fields{shards: map[uint64]dragonboat.ShardView{
-				1: {ShardID: 1, Nodes: map[uint64]string{1: "address:5050"}, ConfigChangeIndex: 5, LeaderID: 1, Term: 1},
+				1: {ShardID: 1, Replicas: map[uint64]string{1: "address:5050"}, ConfigChangeIndex: 5, LeaderID: 1, Term: 1},
 			}},
 			args: args{
-				updates: []dragonboat.ShardView{{ShardID: 1, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10}},
+				updates: []dragonboat.ShardView{{ShardID: 1, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10}},
 			},
 			want: map[uint64]dragonboat.ShardView{
-				1: {ShardID: 1, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
+				1: {ShardID: 1, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
 			},
 		},
 		{
 			name: "merge with multiple updates",
 			fields: fields{shards: map[uint64]dragonboat.ShardView{
-				1: {ShardID: 1, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
+				1: {ShardID: 1, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
 			}},
 			args: args{
 				updates: []dragonboat.ShardView{
-					{ShardID: 1, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
-					{ShardID: 2, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 11, LeaderID: 2, Term: 10},
+					{ShardID: 1, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
+					{ShardID: 2, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 11, LeaderID: 2, Term: 10},
 				},
 			},
 			want: map[uint64]dragonboat.ShardView{
-				1: {ShardID: 1, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
-				2: {ShardID: 2, Nodes: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 11, LeaderID: 2, Term: 10},
+				1: {ShardID: 1, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 10, LeaderID: 1, Term: 10},
+				2: {ShardID: 2, Replicas: map[uint64]string{1: "address:5050", 2: "address:5050"}, ConfigChangeIndex: 11, LeaderID: 2, Term: 10},
 			},
 		},
 	}

@@ -35,7 +35,7 @@ func TestMultiNodeCluster(t *testing.T) {
 				RaftAddress: fmt.Sprintf("127.0.0.%d:5762", i),
 				ShardInfoList: []dragonboat.ShardInfo{
 					{
-						Nodes:             map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
+						Replicas:          map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
 						ShardID:           1,
 						ReplicaID:         1,
 						ConfigChangeIndex: 1,
@@ -43,7 +43,7 @@ func TestMultiNodeCluster(t *testing.T) {
 						Term:              5,
 					},
 					{
-						Nodes:             map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
+						Replicas:          map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
 						ShardID:           2,
 						ReplicaID:         1,
 						ConfigChangeIndex: 1,
@@ -67,7 +67,7 @@ func TestMultiNodeCluster(t *testing.T) {
 		}
 		require.Equal(t, dragonboat.ShardView{
 			ShardID:           1,
-			Nodes:             map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
+			Replicas:          map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
 			ConfigChangeIndex: 1,
 			LeaderID:          1,
 			Term:              5,
