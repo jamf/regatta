@@ -209,6 +209,9 @@ func follower(_ *cobra.Command, _ []string) {
 					Storage: engine,
 				},
 			})
+			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
+				Cluster: engine,
+			})
 			// Start server
 			go func() {
 				log.Infof("regatta listening at %s", regatta.Addr)

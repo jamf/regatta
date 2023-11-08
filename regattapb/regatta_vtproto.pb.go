@@ -854,10 +854,12 @@ func (m *TableStatus) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x28
 	}
-	if m.Leader != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.Leader))
+	if len(m.Leader) > 0 {
+		i -= len(m.Leader)
+		copy(dAtA[i:], m.Leader)
+		i = encodeVarint(dAtA, i, uint64(len(m.Leader)))
 		i--
-		dAtA[i] = 0x20
+		dAtA[i] = 0x22
 	}
 	if m.DbSize != 0 {
 		i = encodeVarint(dAtA, i, uint64(m.DbSize))
@@ -1311,8 +1313,9 @@ func (m *TableStatus) SizeVT() (n int) {
 	if m.DbSize != 0 {
 		n += 1 + sov(uint64(m.DbSize))
 	}
-	if m.Leader != 0 {
-		n += 1 + sov(uint64(m.Leader))
+	l = len(m.Leader)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
 	}
 	if m.RaftIndex != 0 {
 		n += 1 + sov(uint64(m.RaftIndex))
@@ -3388,10 +3391,10 @@ func (m *TableStatus) UnmarshalVT(dAtA []byte) error {
 				}
 			}
 		case 4:
-			if wireType != 0 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Leader", wireType)
 			}
-			m.Leader = 0
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -3401,11 +3404,24 @@ func (m *TableStatus) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Leader |= uint64(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Leader = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		case 5:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field RaftIndex", wireType)

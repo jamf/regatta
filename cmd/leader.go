@@ -193,6 +193,9 @@ func leader(_ *cobra.Command, _ []string) {
 			regattapb.RegisterKVServer(regatta, &regattaserver.KVServer{
 				Storage: engine,
 			})
+			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
+				Cluster: engine,
+			})
 			// Start server
 			go func() {
 				log.Infof("regatta listening at %s", regatta.Addr)

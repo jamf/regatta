@@ -29,6 +29,11 @@ type TableService interface {
 	Restore(name string, reader io.Reader) error
 }
 
+type ClusterService interface {
+	MemberList(context.Context, *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error)
+	Status(context.Context, *regattapb.StatusRequest) (*regattapb.StatusResponse, error)
+}
+
 type LogReaderService interface {
 	QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error)
 }

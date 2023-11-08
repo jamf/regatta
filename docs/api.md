@@ -649,7 +649,7 @@ It is allowed to modify the same key several times within one txn (the result wi
 | ----- | ---- | ----- | ----------- |
 | logSize | [int64](#int64) |  | dbSize is the size of the raft log, in bytes, of the responding member. |
 | dbSize | [int64](#int64) |  | dbSize is the size of the backend database physically allocated, in bytes, of the responding member. |
-| leader | [uint64](#uint64) |  | leader is the member ID which the responding member believes is the current leader. |
+| leader | [string](#string) |  | leader is the member ID which the responding member believes is the current leader. |
 | raftIndex | [uint64](#uint64) |  | raftIndex is the current raft committed index of the responding member. |
 | raftTerm | [uint64](#uint64) |  | raftTerm is the current raft term of the responding member. |
 | raftAppliedIndex | [uint64](#uint64) |  | raftAppliedIndex is the current raft applied index of the responding member. |
