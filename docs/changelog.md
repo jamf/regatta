@@ -16,6 +16,7 @@ nav_order: 999
 * Improve `version` command output.
 
 ### Bugfixes
+* Fix cluster member node registration.
 
 ---
 ## v0.2.3

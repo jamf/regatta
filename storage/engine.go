@@ -4,12 +4,15 @@ package storage
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/version"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/plugin/tan"
@@ -123,6 +126,50 @@ func (e *Engine) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb
 	return tx, nil
 }
 
+func (e *Engine) MemberList(ctx context.Context, r *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
+	return withDefaultTimeout(ctx, r, func(ctx context.Context, r *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
+		return nil, nil
+	})
+}
+
+func (e *Engine) Status(ctx context.Context, r *regattapb.StatusRequest) (*regattapb.StatusResponse, error) {
+	return withDefaultTimeout(ctx, r, func(ctx context.Context, r *regattapb.StatusRequest) (*regattapb.StatusResponse, error) {
+		res := &regattapb.StatusResponse{
+			Id:      strconv.FormatUint(e.cfg.NodeID, 10),
+			Version: version.Version,
+			Tables:  make(map[string]*regattapb.TableStatus),
+		}
+		tables, err := e.GetTables()
+		if err != nil {
+			res.Errors = append(res.Errors, err.Error())
+		}
+		for _, t := range tables {
+			at, err := e.GetTable(t.Name)
+			if err != nil {
+				res.Errors = append(res.Errors, fmt.Sprintf("%s: %v", t.Name, err.Error()))
+				continue
+			}
+			index, err := at.LocalIndex(ctx, false)
+			if err != nil {
+				res.Errors = append(res.Errors, fmt.Sprintf("%s: %v", t.Name, err.Error()))
+				continue
+			}
+			lid, term, _, err := e.GetLeaderID(at.ClusterID)
+			if err != nil {
+				res.Errors = append(res.Errors, fmt.Sprintf("%s: %v", t.Name, err.Error()))
+				continue
+			}
+			res.Tables[at.Name] = &regattapb.TableStatus{
+				Leader:           strconv.FormatUint(lid, 10),
+				RaftIndex:        index.Index,
+				RaftTerm:         term,
+				RaftAppliedIndex: index.Index,
+			}
+		}
+		return res, nil
+	})
+}
+
 func (e *Engine) getHeader(header *regattapb.ResponseHeader, shardID uint64) *regattapb.ResponseHeader {
 	if header == nil {
 		header = &regattapb.ResponseHeader{}
@@ -147,10 +194,20 @@ func (e *Engine) NodeReady(info raftio.NodeInfo) {
 	}
 }
 
-func (e *Engine) LeaderUpdated(info raftio.LeaderInfo)             {}
-func (e *Engine) NodeHostShuttingDown()                            {}
-func (e *Engine) NodeUnloaded(info raftio.NodeInfo)                {}
-func (e *Engine) MembershipChanged(info raftio.NodeInfo)           {}
+func (e *Engine) LeaderUpdated(info raftio.LeaderInfo) {
+	e.Cluster.Notify()
+}
+func (e *Engine) NodeUnloaded(info raftio.NodeInfo) {
+	e.Cluster.Notify()
+}
+func (e *Engine) MembershipChanged(info raftio.NodeInfo) {
+	e.Cluster.Notify()
+}
+
+func (e *Engine) NodeHostShuttingDown() {
+	e.Cluster.Notify()
+}
+
 func (e *Engine) ConnectionEstablished(info raftio.ConnectionInfo) {}
 func (e *Engine) ConnectionFailed(info raftio.ConnectionInfo)      {}
 func (e *Engine) SendSnapshotStarted(info raftio.SnapshotInfo)     {}
@@ -168,14 +225,16 @@ func (e *Engine) LogCompacted(info raftio.EntryInfo) {
 func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
 
 func (e *Engine) clusterInfo() cluster.Info {
-	nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
-	return cluster.Info{
-		NodeHostID:    e.NodeHost.ID(),
-		NodeID:        e.cfg.NodeID,
-		RaftAddress:   e.cfg.RaftAddress,
-		ShardInfoList: nhi.ShardInfoList,
-		LogInfo:       nhi.LogInfo,
+	info := cluster.Info{
+		NodeHostID:  e.NodeHost.ID(),
+		NodeID:      e.cfg.NodeID,
+		RaftAddress: e.cfg.RaftAddress,
 	}
+	if nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption); nhi != nil {
+		info.ShardInfoList = nhi.ShardInfoList
+		info.LogInfo = nhi.LogInfo
+	}
+	return info
 }
 
 func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {

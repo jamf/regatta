@@ -17,6 +17,7 @@ import (
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/version"
 	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -142,8 +143,10 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId: 1,
-					ShardId:   10001,
+					ReplicaId:    1,
+					ShardId:      10001,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 			},
 			wantErr: require.NoError,
@@ -163,8 +166,10 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId: 1,
-					ShardId:   10001,
+					ReplicaId:    1,
+					ShardId:      10001,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 			},
 			wantErr: require.NoError,
@@ -185,8 +190,10 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId: 1,
-					ShardId:   10001,
+					ReplicaId:    1,
+					ShardId:      10001,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Kvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
@@ -211,8 +218,10 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId: 1,
-					ShardId:   10001,
+					ReplicaId:    1,
+					ShardId:      10001,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Kvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
@@ -277,9 +286,11 @@ func TestEngine_Put(t *testing.T) {
 			},
 			want: &regattapb.PutResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  3,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     3,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 			},
 			wantErr: require.NoError,
@@ -301,9 +312,11 @@ func TestEngine_Put(t *testing.T) {
 			},
 			want: &regattapb.PutResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 			},
 			wantErr: require.NoError,
@@ -326,9 +339,11 @@ func TestEngine_Put(t *testing.T) {
 			},
 			want: &regattapb.PutResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				PrevKv: &regattapb.KeyValue{
 					Key:   []byte("key"),
@@ -393,9 +408,11 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			want: &regattapb.DeleteRangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  3,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     3,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 			},
 			wantErr: require.NoError,
@@ -418,9 +435,11 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			want: &regattapb.DeleteRangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Deleted: 1,
 			},
@@ -444,9 +463,11 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			want: &regattapb.DeleteRangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Deleted: 1,
 				PrevKvs: []*regattapb.KeyValue{
@@ -516,9 +537,11 @@ func TestEngine_Txn(t *testing.T) {
 			},
 			want: &regattapb.TxnResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Succeeded: true,
 				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
@@ -554,9 +577,11 @@ func TestEngine_Txn(t *testing.T) {
 			},
 			want: &regattapb.TxnResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Succeeded: true,
 				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
@@ -599,9 +624,11 @@ func TestEngine_Txn(t *testing.T) {
 			},
 			want: &regattapb.TxnResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:   10001,
-					ReplicaId: 1,
-					Revision:  4,
+					ShardId:      10001,
+					ReplicaId:    1,
+					Revision:     4,
+					RaftTerm:     2,
+					RaftLeaderId: 1,
 				},
 				Succeeded: false,
 				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
@@ -623,6 +650,75 @@ func TestEngine_Txn(t *testing.T) {
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
 			got, err := e.Txn(tt.args.ctx, tt.args.req)
+			tt.wantErr(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEngine_Status(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T, e *Engine)
+		want    *regattapb.StatusResponse
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "no tables",
+			prepare: func(t *testing.T, e *Engine) {},
+			wantErr: require.NoError,
+			want: &regattapb.StatusResponse{
+				Id:      "1",
+				Version: version.Version,
+				Tables:  make(map[string]*regattapb.TableStatus),
+			},
+		},
+		{
+			name: "with single table",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+			},
+			wantErr: require.NoError,
+			want: &regattapb.StatusResponse{
+				Id:      "1",
+				Version: version.Version,
+				Tables: map[string]*regattapb.TableStatus{
+					testTableName: {
+						Leader:   "1",
+						RaftTerm: 2,
+					},
+				},
+			},
+		},
+		{
+			name: "engine error",
+			prepare: func(t *testing.T, e *Engine) {
+				e.Close()
+			},
+			wantErr: require.NoError,
+			want: &regattapb.StatusResponse{
+				Id:      "1",
+				Version: version.Version,
+				Tables:  make(map[string]*regattapb.TableStatus),
+				Errors: []string{
+					"dragonboat: closed",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newTestEngine(newTestConfig())
+			defer func() {
+				defer func() { recover() }() // Avoids double-close panic for test purposes.
+				e.Close()
+			}()
+			require.NoError(t, e.Start())
+			require.NoError(t, e.WaitUntilReady())
+			tt.prepare(t, e)
+			got, err := e.Status(context.Background(), &regattapb.StatusRequest{})
 			tt.wantErr(t, err)
 			require.Equal(t, tt.want, got)
 		})
