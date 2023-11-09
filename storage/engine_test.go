@@ -143,10 +143,8 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId:    1,
-					ShardId:      10001,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ReplicaId: 1,
+					ShardId:   10001,
 				},
 			},
 			wantErr: require.NoError,
@@ -166,10 +164,8 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId:    1,
-					ShardId:      10001,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ReplicaId: 1,
+					ShardId:   10001,
 				},
 			},
 			wantErr: require.NoError,
@@ -190,10 +186,8 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId:    1,
-					ShardId:      10001,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ReplicaId: 1,
+					ShardId:   10001,
 				},
 				Kvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
@@ -218,10 +212,8 @@ func TestEngine_Range(t *testing.T) {
 			},
 			want: &regattapb.RangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ReplicaId:    1,
-					ShardId:      10001,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ReplicaId: 1,
+					ShardId:   10001,
 				},
 				Kvs: []*regattapb.KeyValue{
 					{Key: []byte("key"), Value: []byte("value")},
@@ -286,11 +278,9 @@ func TestEngine_Put(t *testing.T) {
 			},
 			want: &regattapb.PutResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     3,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  3,
 				},
 			},
 			wantErr: require.NoError,
@@ -312,11 +302,9 @@ func TestEngine_Put(t *testing.T) {
 			},
 			want: &regattapb.PutResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 			},
 			wantErr: require.NoError,
@@ -339,11 +327,9 @@ func TestEngine_Put(t *testing.T) {
 			},
 			want: &regattapb.PutResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 				PrevKv: &regattapb.KeyValue{
 					Key:   []byte("key"),
@@ -408,11 +394,9 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			want: &regattapb.DeleteRangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     3,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  3,
 				},
 			},
 			wantErr: require.NoError,
@@ -435,11 +419,9 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			want: &regattapb.DeleteRangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 				Deleted: 1,
 			},
@@ -463,11 +445,9 @@ func TestEngine_Delete(t *testing.T) {
 			},
 			want: &regattapb.DeleteRangeResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 				Deleted: 1,
 				PrevKvs: []*regattapb.KeyValue{
@@ -537,11 +517,9 @@ func TestEngine_Txn(t *testing.T) {
 			},
 			want: &regattapb.TxnResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 				Succeeded: true,
 				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
@@ -577,11 +555,9 @@ func TestEngine_Txn(t *testing.T) {
 			},
 			want: &regattapb.TxnResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 				Succeeded: true,
 				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
@@ -624,11 +600,9 @@ func TestEngine_Txn(t *testing.T) {
 			},
 			want: &regattapb.TxnResponse{
 				Header: &regattapb.ResponseHeader{
-					ShardId:      10001,
-					ReplicaId:    1,
-					Revision:     4,
-					RaftTerm:     2,
-					RaftLeaderId: 1,
+					ShardId:   10001,
+					ReplicaId: 1,
+					Revision:  4,
 				},
 				Succeeded: false,
 				Responses: []*regattapb.ResponseOp{{Response: &regattapb.ResponseOp_ResponsePut{
@@ -725,6 +699,41 @@ func TestEngine_Status(t *testing.T) {
 	}
 }
 
+func TestEngine_MemberList(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T, e *Engine)
+		assert  func(t *testing.T, resp *regattapb.MemberListResponse)
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "no tables",
+			prepare: func(t *testing.T, e *Engine) {},
+			wantErr: require.NoError,
+			assert: func(t *testing.T, resp *regattapb.MemberListResponse) {
+				require.Equal(t, 1, len(resp.Members))
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newTestEngine(newTestConfig())
+			defer func() {
+				defer func() { recover() }() // Avoids double-close panic for test purposes.
+				e.Close()
+			}()
+			require.NoError(t, e.Start())
+			require.NoError(t, e.WaitUntilReady())
+			tt.prepare(t, e)
+			got, err := e.MemberList(context.Background(), &regattapb.MemberListRequest{})
+			tt.wantErr(t, err)
+			tt.assert(t, got)
+		})
+	}
+}
+
 func TestNew(t *testing.T) {
 	type args struct {
 		cfg Config
@@ -800,7 +809,9 @@ func newTestEngine(cfg Config) *Engine {
 	}
 	e.NodeHost = nh
 	e.LogReader = &logreader.Cached{LogQuerier: nh}
-	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
+	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, func() cluster.Info {
+		return cluster.Info{}
+	})
 	if err != nil {
 		panic(err)
 	}

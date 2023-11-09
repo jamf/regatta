@@ -493,11 +493,6 @@ It is allowed to modify the same key several times within one txn (the result wi
 ### MemberListRequest
 
 
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| linearizable | [bool](#bool) |  |  |
-
-
 
 
 
@@ -508,7 +503,6 @@ It is allowed to modify the same key several times within one txn (the result wi
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| header | [ResponseHeader](#regatta-v1-ResponseHeader) |  |  |
 | members | [Member](#regatta-v1-Member) | repeated | members is a list of all members associated with the cluster. |
 
 

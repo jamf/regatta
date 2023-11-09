@@ -128,7 +128,17 @@ func (e *Engine) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb
 
 func (e *Engine) MemberList(ctx context.Context, r *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
 	return withDefaultTimeout(ctx, r, func(ctx context.Context, r *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
-		return nil, nil
+		nodes := e.Cluster.Nodes()
+		res := &regattapb.MemberListResponse{Members: make([]*regattapb.Member, len(nodes))}
+		for i, node := range nodes {
+			res.Members[i] = &regattapb.Member{
+				Id:         strconv.FormatUint(node.NodeID, 10),
+				Name:       node.Name,
+				PeerURLs:   []string{node.RaftAddress},
+				ClientURLs: []string{node.ClientAddress},
+			}
+		}
+		return res, nil
 	})
 }
 
@@ -197,9 +207,11 @@ func (e *Engine) NodeReady(info raftio.NodeInfo) {
 func (e *Engine) LeaderUpdated(info raftio.LeaderInfo) {
 	e.Cluster.Notify()
 }
+
 func (e *Engine) NodeUnloaded(info raftio.NodeInfo) {
 	e.Cluster.Notify()
 }
+
 func (e *Engine) MembershipChanged(info raftio.NodeInfo) {
 	e.Cluster.Notify()
 }

@@ -196,12 +196,9 @@ service Cluster {
 
 }
 
-message MemberListRequest {
-  bool linearizable = 1;
-}
+message MemberListRequest {}
 
 message MemberListResponse {
-  ResponseHeader header = 1;
   // members is a list of all members associated with the cluster.
   repeated Member members = 2;
 }

@@ -22,6 +22,7 @@ func (c *ClusterServer) MemberList(ctx context.Context, req *regattapb.MemberLis
 	}
 	return res, nil
 }
+
 func (c *ClusterServer) Status(ctx context.Context, req *regattapb.StatusRequest) (*regattapb.StatusResponse, error) {
 	res, err := c.Cluster.Status(ctx, req)
 	if err != nil {
