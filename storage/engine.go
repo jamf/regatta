@@ -238,9 +238,10 @@ func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
 
 func (e *Engine) clusterInfo() cluster.Info {
 	info := cluster.Info{
-		NodeHostID:  e.NodeHost.ID(),
-		NodeID:      e.cfg.NodeID,
-		RaftAddress: e.cfg.RaftAddress,
+		NodeHostID:    e.NodeHost.ID(),
+		NodeID:        e.cfg.NodeID,
+		RaftAddress:   e.cfg.RaftAddress,
+		ClientAddress: e.cfg.ClientAddress,
 	}
 	if nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption); nhi != nil {
 		info.ShardInfoList = nhi.ShardInfoList
