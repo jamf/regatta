@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.2
 # Build the regatta binary
-FROM golang:1.21.3-alpine3.18 as builder
+FROM golang:1.21.4-alpine3.18 as builder
 
 ARG VERSION
 
