@@ -13,7 +13,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/memberlist v0.5.0
-	github.com/klauspost/compress v1.17.2
+	github.com/klauspost/compress v1.17.3
 	github.com/lni/dragonboat/v4 v4.0.0-20230922120309-657304aedc15
 	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
