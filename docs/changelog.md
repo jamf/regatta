@@ -7,13 +7,19 @@ nav_order: 999
 # Changelog
 
 ## mainline (unreleased)
+Release brings a brand-new Cluster API as well as ability to listen over plain or unix socket connection.
 
 ### Breaking changes
+* Semantics of `api.address` `replication.address` and `maintenance.address` changed. The protocol is now mandatory could be one of `http|https|unix|unixs`.
 
 ### Features
+* Regatta could now serve its api on unix sockets.
+* Support for serving over plain (non-TLS) gRPC added.
+* Added `regatta.v1.Cluster` api.
 
 ### Improvements
 * Improve `version` command output.
+* Follower can connect to leader over plain connection or via unix socket.
 
 ### Bugfixes
 * Fix cluster member node registration.

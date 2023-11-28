@@ -8,11 +8,11 @@ all: check test build
 
 .PHONY: run
 run: build
-	./regatta leader --dev-mode --api.reflection-api --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test
+	./regatta leader --dev-mode --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test --api.address=http://127.0.0.1:8443
 
 .PHONY: run-follower
 run-follower: build
-	./regatta follower --dev-mode --api.reflection-api --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --memberlist.address=:7433 --api.address=:9443 --maintenance.address=:9445 --rest.address=:8080 --replication.leader-address=127.0.0.1:8444 --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
+	./regatta follower --dev-mode --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --memberlist.address=:7433 --api.address=http://127.0.0.1:9443 --maintenance.address=http://127.0.0.1:9445 --rest.address=127.0.0.1:8080 --replication.leader-address=http://127.0.0.1:8444 --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
 
 # Run golangci-lint on the code
 .PHONY: check

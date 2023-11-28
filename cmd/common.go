@@ -5,6 +5,8 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"log"
+	"net/url"
 	"runtime"
 	"strconv"
 	"sync"
@@ -28,34 +30,63 @@ import (
 
 var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
 
-func createAPIServer(cert *cert.Reloadable) *regattaserver.RegattaServer {
-	return regattaserver.NewServer(
-		viper.GetString("api.address"),
-		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: cert.GetCertificate,
-		})),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionAge: 60 * time.Second,
-		}),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	)
+func init() {
+	grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 }
 
-func createMaintenanceServer(cert *cert.Reloadable) *regattaserver.RegattaServer {
-	// Create regatta maintenance server
-	return regattaserver.NewServer(
-		viper.GetString("maintenance.address"),
-		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
+func createAPIServer() *regattaserver.RegattaServer {
+	addr, secure, net := resolveUrl(viper.GetString("api.address"))
+	opts := []grpc.ServerOption{
+		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	}
+	if secure {
+		c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
+		if err != nil {
+			log.Panicf("cannot load certificate: %v", err)
+		}
+		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
 			MinVersion:     tls.VersionTLS12,
-			GetCertificate: cert.GetCertificate,
-		})),
+			GetCertificate: c.GetCertificate,
+		})))
+	}
+	return regattaserver.NewServer(addr, net, opts...)
+}
+
+func createMaintenanceServer() *regattaserver.RegattaServer {
+	addr, secure, net := resolveUrl(viper.GetString("maintenance.address"))
+	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
 		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
-	)
+	}
+	if secure {
+		c, err := cert.New(viper.GetString("maintenance.cert-filename"), viper.GetString("maintenance.key-filename"))
+		if err != nil {
+			log.Panicf("cannot load maintenance certificate: %v", err)
+		}
+		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: c.GetCertificate,
+		})))
+	}
+	// Create regatta maintenance server
+	return regattaserver.NewServer(addr, net, opts...)
+}
+
+func resolveUrl(urlStr string) (addr string, secure bool, network string) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		log.Panicf("cannot parse address: %v", err)
+	}
+	addr = u.Host
+	network = "tcp"
+	if u.Scheme == "unix" || u.Scheme == "unixs" {
+		addr = u.Host + u.Path
+		network = "unix"
+	}
+	secure = u.Scheme == "https" || u.Scheme == "unixs"
+	return addr, secure, network
 }
 
 func toRecoveryType(str string) table.SnapshotRecoveryType {

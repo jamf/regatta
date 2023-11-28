@@ -178,7 +178,7 @@ func TestBackup_Backup(t *testing.T) {
 			}
 
 			srv := startBackupServer(tm)
-			conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			path := filepath.Join(t.TempDir(), strings.ReplaceAll(tt.name, " ", "_"))
@@ -254,7 +254,7 @@ func TestBackup_Restore(t *testing.T) {
 			defer tm.Close()
 
 			srv := startBackupServer(tm)
-			conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			b := &Backup{
@@ -351,7 +351,7 @@ func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
 
 func startBackupServer(manager *table.Manager) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, false)
+	server := regattaserver.NewServer(testNodeAddress, "tcp")
 	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	regattapb.RegisterMaintenanceServer(server, &regattaserver.BackupServer{Tables: manager})
 	go func() {

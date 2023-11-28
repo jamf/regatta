@@ -130,7 +130,7 @@ func TestManager_reconcileTables(t *testing.T) {
 	defer srv.Shutdown()
 
 	t.Log("create replicator")
-	conn, err := grpc.Dial(srv.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
 	m := NewManager(followerTM, followerNH, conn, Config{})
@@ -273,7 +273,7 @@ func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *table.Manager, follow
 
 func startReplicationServer(manager *table.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, false)
+	server := regattaserver.NewServer(testNodeAddress, "tcp")
 	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
 	regattapb.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
 	regattapb.RegisterLogServer(
