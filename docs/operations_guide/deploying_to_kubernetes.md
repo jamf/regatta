@@ -34,22 +34,6 @@ replication:
   # Regatta leader cluster's replication gRPC API for the follower clusters to connect to.
   externalDomain: "leader.regatta.example.com"
   port: 8444
-
-  tls:
-    cert: "<PLAINTEXT-CERT>"
-    ca: "<PLAINTEXT-CA>"
-    key: "<PLAINTEXT-KEY>"
-
-api:
-  tls:
-    cert: "<PLAINTEXT-CERT>"
-    key: "<PLAINTEXT-KEY>"
-
-maintenance:
-  server:
-    tls:
-      cert: "<PLAINTEXT-CERT>"
-      key: "<PLAINTEXT-KEY>"
 ```
 
 Then run the following commands in the core cluster where the Regatta leader cluster should reside:
@@ -83,22 +67,8 @@ replicas: 3
 tables: testing-table1,testing-table2
 
 replication:
-  # Disable the Replication gRPC API for follower clusters.
-  server:
-    enabled: false
-
   # Specify the address of the Regatta leader cluster to asynchronously replicate data from.
   leaderAddress: "leader.regatta.example.com:8444"
-
-  tls:
-    cert: "<PLAINTEXT-CERT>"
-    ca: "<PLAINTEXT-CA>"
-    key: "<PLAINTEXT-KEY>"
-
-api:
-  tls:
-    cert: "<PLAINTEXT-CERT>"
-    key: "<PLAINTEXT-KEY>"
 
 maintenance:
   server:

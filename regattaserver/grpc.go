@@ -27,30 +27,31 @@ var defaultOpts = []grpc.ServerOption{
 
 // RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
-	Addr       string
+	addr       string
+	network    string
 	grpcServer *grpc.Server
 	log        *zap.SugaredLogger
 }
 
 // NewServer returns initialized gRPC server.
-func NewServer(addr string, reflectionAPI bool, opts ...grpc.ServerOption) *RegattaServer {
+func NewServer(addr, network string, opts ...grpc.ServerOption) *RegattaServer {
 	rs := new(RegattaServer)
-	rs.Addr = addr
+	rs.addr = addr
+	rs.network = network
 	rs.log = zap.S().Named("server")
 	rs.grpcServer = grpc.NewServer(append(defaultOpts, opts...)...)
-
-	if reflectionAPI {
-		reflection.Register(rs.grpcServer)
-		rs.log.Info("reflection API is active")
-	}
-
+	reflection.Register(rs.grpcServer)
 	return rs
+}
+
+func (s *RegattaServer) Addr() string {
+	return s.addr
 }
 
 // ListenAndServe starts underlying gRPC server.
 func (s *RegattaServer) ListenAndServe() error {
-	s.log.Infof("listen gRPC on: %s", s.Addr)
-	l, err := net.Listen("tcp", s.Addr)
+	s.log.Infof("listen gRPC on: %s", s.addr)
+	l, err := net.Listen(s.network, s.addr)
 	if err != nil {
 		return err
 	}
@@ -61,9 +62,9 @@ func (s *RegattaServer) ListenAndServe() error {
 
 // Shutdown stops underlying gRPC server.
 func (s *RegattaServer) Shutdown() {
-	s.log.Infof("stopping gRPC on: %s", s.Addr)
+	s.log.Infof("stopping gRPC on: %s", s.addr)
 	s.grpcServer.GracefulStop()
-	s.log.Infof("stopped gRPC on: %s", s.Addr)
+	s.log.Infof("stopped gRPC on: %s", s.addr)
 }
 
 // RegisterService implements grpc.ServiceRegistrar interface so internals of this type does not need to be exposed.

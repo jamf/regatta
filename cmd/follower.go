@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,7 +15,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/pebble/vfs"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattapb"
@@ -26,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -94,7 +96,8 @@ func follower(_ *cobra.Command, _ []string) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	engine, err := storage.New(storage.Config{
-		NodeID: viper.GetUint64("raft.node-id"),
+		ClientAddress: viper.GetString("api.address"),
+		NodeID:        viper.GetUint64("raft.node-id"),
 		InitialMembers: func() map[uint64]string {
 			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
 			if err != nil {
@@ -156,19 +159,7 @@ func follower(_ *cobra.Command, _ []string) {
 
 	// Replication
 	{
-		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
-		if err != nil {
-			log.Panicf("cannot load certificate: %v", err)
-		}
-
-		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
-		if err != nil {
-			log.Panicf("cannot load server CA: %v", err)
-		}
-		cp := x509.NewCertPool()
-		cp.AppendCertsFromPEM(caBytes)
-
-		conn, err := createReplicationConn(cp, c)
+		conn, err := createReplicationConn()
 		defer func() {
 			_ = conn.Close()
 		}()
@@ -195,23 +186,19 @@ func follower(_ *cobra.Command, _ []string) {
 	// Start servers
 	{
 		{
-			grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 			// Create regatta API server
-			// Load API certificate
-			c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
-			if err != nil {
-				log.Panicf("cannot load certificate: %v", err)
-			}
 			// Create server
-			regatta := createAPIServer(c)
+			regatta := createAPIServer()
 			regattapb.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
 				KVServer: regattaserver.KVServer{
 					Storage: engine,
 				},
 			})
+			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
+				Cluster: engine,
+			})
 			// Start server
 			go func() {
-				log.Infof("regatta listening at %s", regatta.Addr)
 				if err := regatta.ListenAndServe(); err != nil {
 					log.Panicf("grpc listenAndServe failed: %v", err)
 				}
@@ -220,17 +207,10 @@ func follower(_ *cobra.Command, _ []string) {
 		}
 
 		if viper.GetBool("maintenance.enabled") {
-			// Load maintenance API certificate
-			c, err := cert.New(viper.GetString("maintenance.cert-filename"), viper.GetString("maintenance.key-filename"))
-			if err != nil {
-				log.Panicf("cannot load maintenance certificate: %v", err)
-			}
-
-			maintenance := createMaintenanceServer(c)
+			maintenance := createMaintenanceServer()
 			regattapb.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
 			// Start server
 			go func() {
-				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
 				if err := maintenance.ListenAndServe(); err != nil {
 					log.Panicf("grpc listenAndServe failed: %v", err)
 				}
@@ -253,15 +233,38 @@ func follower(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationConn(cp *x509.CertPool, cer *cert.Reloadable) (*grpc.ClientConn, error) {
-	creds := credentials.NewTLS(&tls.Config{
-		RootCAs:              cp,
-		MinVersion:           tls.VersionTLS12,
-		GetClientCertificate: cer.GetClientCertificate,
-	})
+func createReplicationConn() (*grpc.ClientConn, error) {
+	addr, secure, net := resolveUrl(viper.GetString("replication.leader-address"))
+	var creds grpc.DialOption
+	if secure {
+		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
+		if err != nil {
+			log.Panicf("cannot load certificate: %v", err)
+		}
 
-	replConn, err := grpc.Dial(viper.GetString("replication.leader-address"),
-		grpc.WithTransportCredentials(creds),
+		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
+		if err != nil {
+			log.Panicf("cannot load server CA: %v", err)
+		}
+		cp := x509.NewCertPool()
+		cp.AppendCertsFromPEM(caBytes)
+		creds = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			RootCAs:              cp,
+			MinVersion:           tls.VersionTLS12,
+			GetClientCertificate: c.GetClientCertificate,
+		}))
+	} else {
+		creds = grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+
+	switch net {
+	case "unix", "unixs":
+		addr = fmt.Sprintf("unix://%s", addr)
+	default:
+		addr = fmt.Sprintf("dns:%s", addr)
+	}
+
+	replConn, err := grpc.Dial(addr, creds,
 		grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{

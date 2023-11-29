@@ -131,16 +131,19 @@ func (c *Cluster) Notify() {
 func (c *Cluster) NotifyJoin(node *memberlist.Node) {
 	n := toNode(node)
 	c.log.Infof("%s joined", n)
+	c.shardView.update(toShardViewList(c.infoF().ShardInfoList))
 }
 
 func (c *Cluster) NotifyLeave(node *memberlist.Node) {
 	n := toNode(node)
 	c.log.Infof("%s left", n)
+	c.shardView.update(toShardViewList(c.infoF().ShardInfoList))
 }
 
 func (c *Cluster) NotifyUpdate(node *memberlist.Node) {
 	n := toNode(node)
 	c.log.Infof("%s updated", n)
+	c.shardView.update(toShardViewList(c.infoF().ShardInfoList))
 }
 
 func (c *Cluster) LocalNode() Node {

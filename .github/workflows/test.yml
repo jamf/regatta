@@ -31,9 +31,13 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version-file: go.mod
+    - name: Install gotestfmt
+      uses: GoTestTools/gotestfmt-action@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
     - name: Test
       run: |
-        go test -v -cover ./... -coverprofile coverage.out -coverpkg ./cert/...,./log/...,./pebble/...,./regattaserver/...,./replication/...,./storage/...,./util/...
+        go test -json -cover ./... -coverprofile coverage.out -coverpkg ./cert/...,./log/...,./pebble/...,./regattaserver/...,./replication/...,./storage/...,./util/... | gotestfmt
     - name: Coverage track
       uses: coverallsapp/github-action@v2
       with:

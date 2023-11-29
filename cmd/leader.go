@@ -48,10 +48,10 @@ func init() {
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Whether replication API is enabled.")
 	leaderCmd.PersistentFlags().Uint64("replication.max-send-message-size-bytes", regattaserver.DefaultMaxGRPCSize, `The target maximum size of single replication message allowed to send.
 Under some circumstances, a larger message could be sent. Followers should be able to accept slightly larger messages.`)
-	leaderCmd.PersistentFlags().String("replication.address", ":8444", "Replication API server address.")
-	leaderCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
-	leaderCmd.PersistentFlags().String("replication.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
-	leaderCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the API server CA cert file.")
+	leaderCmd.PersistentFlags().String("replication.address", "http://127.0.0.1:8444", "Replication API server address.")
+	leaderCmd.PersistentFlags().String("replication.cert-filename", "", "Path to the API server certificate.")
+	leaderCmd.PersistentFlags().String("replication.key-filename", "", "Path to the API server private key file.")
+	leaderCmd.PersistentFlags().String("replication.ca-filename", "", "Path to the API server CA cert file.")
 	leaderCmd.PersistentFlags().Int("replication.log-cache-size", 0, "Size of the replication cache. Size 0 means cache is turned off.")
 }
 
@@ -89,7 +89,8 @@ func leader(_ *cobra.Command, _ []string) {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	engine, err := storage.New(storage.Config{
-		NodeID: viper.GetUint64("raft.node-id"),
+		ClientAddress: viper.GetString("api.address"),
+		NodeID:        viper.GetUint64("raft.node-id"),
 		InitialMembers: func() map[uint64]string {
 			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
 			if err != nil {
@@ -180,22 +181,17 @@ func leader(_ *cobra.Command, _ []string) {
 
 	// Start servers
 	{
-		grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 		// Create regatta API server
 		{
-			// Load API certificate
-			c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
-			if err != nil {
-				log.Panicf("cannot load certificate: %v", err)
-			}
-			// Create server
-			regatta := createAPIServer(c)
+			regatta := createAPIServer()
 			regattapb.RegisterKVServer(regatta, &regattaserver.KVServer{
 				Storage: engine,
 			})
+			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
+				Cluster: engine,
+			})
 			// Start server
 			go func() {
-				log.Infof("regatta listening at %s", regatta.Addr)
 				if err := regatta.ListenAndServe(); err != nil {
 					log.Panicf("grpc listenAndServe failed: %v", err)
 				}
@@ -205,16 +201,7 @@ func leader(_ *cobra.Command, _ []string) {
 
 		if viper.GetBool("replication.enabled") {
 			// Load replication API certificate
-			c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
-			if err != nil {
-				log.Panicf("cannot load replication certificate: %v", err)
-			}
-			caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
-			if err != nil {
-				log.Panicf("cannot load clients CA: %v", err)
-			}
-
-			replication := createReplicationServer(c, caBytes, logger.Named("server.replication"))
+			replication := createReplicationServer(logger.Named("server.replication"))
 			ls := regattaserver.NewLogServer(
 				engine.Manager,
 				engine.LogReader,
@@ -226,7 +213,6 @@ func leader(_ *cobra.Command, _ []string) {
 			regattapb.RegisterLogServer(replication, ls)
 			// Start server
 			go func() {
-				log.Infof("regatta replication listening at %s", replication.Addr)
 				if err := replication.ListenAndServe(); err != nil {
 					log.Panicf("grpc listenAndServe failed: %v", err)
 				}
@@ -235,18 +221,11 @@ func leader(_ *cobra.Command, _ []string) {
 		}
 
 		if viper.GetBool("maintenance.enabled") {
-			// Load maintenance API certificate
-			c, err := cert.New(viper.GetString("maintenance.cert-filename"), viper.GetString("maintenance.key-filename"))
-			if err != nil {
-				log.Panicf("cannot load maintenance certificate: %v", err)
-			}
-
-			maintenance := createMaintenanceServer(c)
+			maintenance := createMaintenanceServer()
 			regattapb.RegisterMetadataServer(maintenance, &regattaserver.MetadataServer{Tables: engine})
 			regattapb.RegisterMaintenanceServer(maintenance, &regattaserver.BackupServer{Tables: engine})
 			// Start server
 			go func() {
-				log.Infof("regatta maintenance listening at %s", maintenance.Addr)
 				if err := maintenance.ListenAndServe(); err != nil {
 					log.Panicf("grpc listenAndServe failed: %v", err)
 				}
@@ -255,7 +234,8 @@ func leader(_ *cobra.Command, _ []string) {
 		}
 
 		// Create REST server
-		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
+		addr, _, _ := resolveUrl(viper.GetString("rest.address"))
+		hs := regattaserver.NewRESTServer(addr, viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				log.Panicf("REST listenAndServe failed: %v", err)
@@ -269,20 +249,9 @@ func leader(_ *cobra.Command, _ []string) {
 	log.Info("shutting down...")
 }
 
-func createReplicationServer(cer *cert.Reloadable, ca []byte, log *zap.Logger) *regattaserver.RegattaServer {
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(ca)
-
-	// Create regatta replication server
-	return regattaserver.NewServer(
-		viper.GetString("replication.address"),
-		viper.GetBool("api.reflection-api"),
-		grpc.Creds(credentials.NewTLS(&tls.Config{
-			ClientAuth:     tls.RequireAndVerifyClientCert,
-			ClientCAs:      cp,
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: cer.GetCertificate,
-		})),
+func createReplicationServer(log *zap.Logger) *regattaserver.RegattaServer {
+	addr, secure, net := resolveUrl(viper.GetString("replication.address"))
+	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_zap.StreamServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
@@ -291,7 +260,27 @@ func createReplicationServer(cer *cert.Reloadable, ca []byte, log *zap.Logger) *
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_zap.UnaryServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
 		)),
-	)
+	}
+	if secure {
+		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
+		if err != nil {
+			log.Sugar().Panicf("cannot load replication certificate: %v", err)
+		}
+		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
+		if err != nil {
+			log.Sugar().Panicf("cannot load clients CA: %v", err)
+		}
+		cp := x509.NewCertPool()
+		cp.AppendCertsFromPEM(caBytes)
+		grpc.Creds(credentials.NewTLS(&tls.Config{
+			ClientAuth:     tls.RequireAndVerifyClientCert,
+			ClientCAs:      cp,
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: c.GetCertificate,
+		}))
+	}
+	// Create regatta replication server
+	return regattaserver.NewServer(addr, net, opts...)
 }
 
 func logDeciderFunc(_ string, err error) bool {
