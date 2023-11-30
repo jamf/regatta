@@ -17,6 +17,7 @@ import (
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/version"
 	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -629,6 +630,110 @@ func TestEngine_Txn(t *testing.T) {
 	}
 }
 
+func TestEngine_Status(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T, e *Engine)
+		want    *regattapb.StatusResponse
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "no tables",
+			prepare: func(t *testing.T, e *Engine) {},
+			wantErr: require.NoError,
+			want: &regattapb.StatusResponse{
+				Id:      "1",
+				Version: version.Version,
+				Tables:  make(map[string]*regattapb.TableStatus),
+			},
+		},
+		{
+			name: "with single table",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+			},
+			wantErr: require.NoError,
+			want: &regattapb.StatusResponse{
+				Id:      "1",
+				Version: version.Version,
+				Tables: map[string]*regattapb.TableStatus{
+					testTableName: {
+						Leader:   "1",
+						RaftTerm: 2,
+					},
+				},
+			},
+		},
+		{
+			name: "engine error",
+			prepare: func(t *testing.T, e *Engine) {
+				e.Close()
+			},
+			wantErr: require.NoError,
+			want: &regattapb.StatusResponse{
+				Id:      "1",
+				Version: version.Version,
+				Tables:  make(map[string]*regattapb.TableStatus),
+				Errors: []string{
+					"dragonboat: closed",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newTestEngine(newTestConfig())
+			defer func() {
+				defer func() { recover() }() // Avoids double-close panic for test purposes.
+				e.Close()
+			}()
+			require.NoError(t, e.Start())
+			require.NoError(t, e.WaitUntilReady())
+			tt.prepare(t, e)
+			got, err := e.Status(context.Background(), &regattapb.StatusRequest{})
+			tt.wantErr(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEngine_MemberList(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T, e *Engine)
+		assert  func(t *testing.T, resp *regattapb.MemberListResponse)
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "no tables",
+			prepare: func(t *testing.T, e *Engine) {},
+			wantErr: require.NoError,
+			assert: func(t *testing.T, resp *regattapb.MemberListResponse) {
+				require.Equal(t, 1, len(resp.Members))
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newTestEngine(newTestConfig())
+			defer func() {
+				defer func() { recover() }() // Avoids double-close panic for test purposes.
+				e.Close()
+			}()
+			require.NoError(t, e.Start())
+			require.NoError(t, e.WaitUntilReady())
+			tt.prepare(t, e)
+			got, err := e.MemberList(context.Background(), &regattapb.MemberListRequest{})
+			tt.wantErr(t, err)
+			tt.assert(t, got)
+		})
+	}
+}
+
 func TestNew(t *testing.T) {
 	type args struct {
 		cfg Config
@@ -704,7 +809,9 @@ func newTestEngine(cfg Config) *Engine {
 	}
 	e.NodeHost = nh
 	e.LogReader = &logreader.Cached{LogQuerier: nh}
-	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
+	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, func() cluster.Info {
+		return cluster.Info{}
+	})
 	if err != nil {
 		panic(err)
 	}

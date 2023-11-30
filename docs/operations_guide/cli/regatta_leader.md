@@ -15,17 +15,16 @@ regatta leader [flags]
 ### Options
 
 ```
-      --api.address string                             API server address. (default ":8443")
-      --api.cert-filename string                       Path to the API server certificate. (default "hack/server.crt")
-      --api.key-filename string                        Path to the API server private key file. (default "hack/server.key")
-      --api.reflection-api                             Whether reflection API is enabled. Should be disabled in production.
+      --api.address string                             API server address. (default "http://127.0.0.1:8443")
+      --api.cert-filename string                       Path to the API server certificate.
+      --api.key-filename string                        Path to the API server private key file.
       --dev-mode                                       Development mode enabled (verbose logging, human-friendly log format).
   -h, --help                                           help for leader
       --log-level string                               Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
-      --maintenance.address string                     Replication API server address. (default ":8445")
-      --maintenance.cert-filename string               Path to the API server certificate. (default "hack/replication/server.crt")
+      --maintenance.address string                     Replication API server address. (default "http://127.0.0.1:8445")
+      --maintenance.cert-filename string               Path to the API server certificate.
       --maintenance.enabled                            Whether maintenance API is enabled. (default true)
-      --maintenance.key-filename string                Path to the API server private key file. (default "hack/replication/server.key")
+      --maintenance.key-filename string                Path to the API server private key file.
       --maintenance.token string                       Token to check for maintenance API access, if left empty (default) no token is checked.
       --memberlist.address string                      Address is the address for the gossip service to bind to and listen on. Both UDP and TCP ports are used by the gossip service.
                                                        The local gossip service should be able to receive gossip service related messages by binding to and listening on this address. BindAddress is usually in the format of IP:Port, Hostname:Port or DNS Name:Port. (default "0.0.0.0:7432")
@@ -70,15 +69,15 @@ regatta leader [flags]
       --raft.wal-dir string                            WALDir is the directory used for storing the WAL of Raft entries. 
                                                        It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
                                                        Leave WALDir to have zero value will have everything stored in NodeHostDir.
-      --replication.address string                     Replication API server address. (default ":8444")
-      --replication.ca-filename string                 Path to the API server CA cert file. (default "hack/replication/ca.crt")
-      --replication.cert-filename string               Path to the API server certificate. (default "hack/replication/server.crt")
+      --replication.address string                     Replication API server address. (default "http://127.0.0.1:8444")
+      --replication.ca-filename string                 Path to the API server CA cert file.
+      --replication.cert-filename string               Path to the API server certificate.
       --replication.enabled                            Whether replication API is enabled. (default true)
-      --replication.key-filename string                Path to the API server private key file. (default "hack/replication/server.key")
+      --replication.key-filename string                Path to the API server private key file.
       --replication.log-cache-size int                 Size of the replication cache. Size 0 means cache is turned off.
       --replication.max-send-message-size-bytes uint   The target maximum size of single replication message allowed to send.
                                                        Under some circumstances, a larger message could be sent. Followers should be able to accept slightly larger messages. (default 4194304)
-      --rest.address string                            REST API server address. (default ":8079")
+      --rest.address string                            REST API server address. (default "http://127.0.0.1:8079")
       --rest.read-timeout duration                     Maximum duration for reading the entire request. (default 5s)
       --storage.block-cache-size int                   Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
       --storage.table-cache-size int                   Shared table cache size, the cache is used to hold handles to open SSTs. (default 1024)

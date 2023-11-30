@@ -1,6 +1,5 @@
 # syntax = docker/dockerfile:1.2
-# Build the regatta binary
-FROM golang:1.21.3-alpine3.18 AS builder
+FROM golang:1.21.4-alpine3.18 as builder
 
 RUN apk add --update --no-cache build-base tzdata \
  && addgroup -g 1000 -S regatta && adduser -u 1000 -S regatta -G regatta

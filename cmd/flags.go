@@ -28,13 +28,12 @@ func init() {
 	rootFlagSet.String("log-level", "INFO", "Log level: DEBUG/INFO/WARN/ERROR.")
 
 	// API flags
-	apiFlagSet.String("api.address", ":8443", "API server address.")
-	apiFlagSet.String("api.cert-filename", "hack/server.crt", "Path to the API server certificate.")
-	apiFlagSet.String("api.key-filename", "hack/server.key", "Path to the API server private key file.")
-	apiFlagSet.Bool("api.reflection-api", false, "Whether reflection API is enabled. Should be disabled in production.")
+	apiFlagSet.String("api.address", "http://127.0.0.1:8443", "API server address.")
+	apiFlagSet.String("api.cert-filename", "", "Path to the API server certificate.")
+	apiFlagSet.String("api.key-filename", "", "Path to the API server private key file.")
 
 	// REST API flags
-	restFlagSet.String("rest.address", ":8079", "REST API server address.")
+	restFlagSet.String("rest.address", "http://127.0.0.1:8079", "REST API server address.")
 	restFlagSet.Duration("rest.read-timeout", time.Second*5, "Maximum duration for reading the entire request.")
 
 	// Raft flags
@@ -102,9 +101,9 @@ At least one reachable Regatta instance is required to successfully bootstrap th
 
 	// Maintenance flags
 	maintenanceFlagSet.Bool("maintenance.enabled", true, "Whether maintenance API is enabled.")
-	maintenanceFlagSet.String("maintenance.address", ":8445", "Replication API server address.")
-	maintenanceFlagSet.String("maintenance.cert-filename", "hack/replication/server.crt", "Path to the API server certificate.")
-	maintenanceFlagSet.String("maintenance.key-filename", "hack/replication/server.key", "Path to the API server private key file.")
+	maintenanceFlagSet.String("maintenance.address", "http://127.0.0.1:8445", "Replication API server address.")
+	maintenanceFlagSet.String("maintenance.cert-filename", "", "Path to the API server certificate.")
+	maintenanceFlagSet.String("maintenance.key-filename", "", "Path to the API server private key file.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
 }
 
