@@ -38,13 +38,6 @@ After downloading the binary for the given platform, unzip the archive and run t
 tar -xf regatta-darwin-amd64.tar
 ./regatta leader \
     --dev-mode \
-    --api.reflection-api \
-    --api.cert-filename=/path/to/server.crt \
-    --api.key-filename=/path/to/server.key \
-    --maintenance.cert-filename=/path/to/server.crt \
-    --maintenance.key-filename=/path/to/server.key \
-    --replication.ca-filename=/path/to/server.crt \
-    --replication.cert-filename=/path/to/server.crt \
     --raft.address=127.0.0.1:5012 \
     --raft.initial-members='1=127.0.0.1:5012' \
     --tables.names=regatta-test
@@ -65,12 +58,9 @@ Just execute `docker run` with the following arguments:
 
 ```bash
 docker run \
-    --mount type=bind,source=$(pwd)/hack,target=/hack \
-    -e TZ=America/New_York \
     ghcr.io/jamf/regatta:latest \
     leader \
     --dev-mode \
-    --api.reflection-api \
     --raft.address=127.0.0.1:5012 \
     --raft.initial-members='1=127.0.0.1:5012' \
     --tables.names=regatta-test
