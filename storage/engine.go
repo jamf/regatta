@@ -26,6 +26,7 @@ func New(cfg Config) (*Engine, error) {
 	e := &Engine{
 		cfg: cfg,
 	}
+	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
 	nh, err := createNodeHost(cfg, e, e)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,6 @@ func New(cfg Config) (*Engine, error) {
 		e.LogReader = &logreader.Simple{LogQuerier: nh}
 	}
 	e.NodeHost = nh
-	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -238,14 +238,16 @@ func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
 
 func (e *Engine) clusterInfo() cluster.Info {
 	info := cluster.Info{
-		NodeHostID:    e.NodeHost.ID(),
 		NodeID:        e.cfg.NodeID,
 		RaftAddress:   e.cfg.RaftAddress,
 		ClientAddress: e.cfg.ClientAddress,
 	}
-	if nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption); nhi != nil {
-		info.ShardInfoList = nhi.ShardInfoList
-		info.LogInfo = nhi.LogInfo
+	if e.NodeHost != nil {
+		info.NodeHostID = e.NodeHost.ID()
+		if nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption); nhi != nil {
+			info.ShardInfoList = nhi.ShardInfoList
+			info.LogInfo = nhi.LogInfo
+		}
 	}
 	return info
 }
