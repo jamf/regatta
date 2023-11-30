@@ -6,11 +6,12 @@ nav_order: 999
 
 # Changelog
 
-## mainline (unreleased)
+## v0.3.0
 Release brings a brand-new Cluster API as well as ability to listen over plain or unix socket connection.
 
 ### Breaking changes
 * Semantics of `api.address` `replication.address` and `maintenance.address` changed. The protocol is now mandatory could be one of `http|https|unix|unixs`.
+* Removed `api.reflection-api` configuration.
 
 ### Features
 * Regatta could now serve its api on unix sockets.
