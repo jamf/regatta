@@ -27,6 +27,9 @@ func New(cfg Config) (*Engine, error) {
 		cfg: cfg,
 	}
 	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
+	if err != nil {
+		return nil, err
+	}
 	nh, err := createNodeHost(cfg, e, e)
 	if err != nil {
 		return nil, err
@@ -47,9 +50,6 @@ func New(cfg Config) (*Engine, error) {
 		e.LogReader = &logreader.Simple{LogQuerier: nh}
 	}
 	e.NodeHost = nh
-	if err != nil {
-		return nil, err
-	}
 	e.Cluster = clst
 	e.Manager = manager
 	return e, nil
