@@ -1,23 +1,33 @@
 # syntax = docker/dockerfile:1.2
-# Build the regatta binary
 FROM golang:1.21.4-alpine3.18 as builder
 
-ARG VERSION
+RUN apk add --update --no-cache build-base tzdata \
+ && addgroup -g 1000 -S regatta && adduser -u 1000 -S regatta -G regatta
 
-RUN apk add --update --no-cache build-base
 WORKDIR /github.com/jamf/regatta
 # Copy the source
-COPY . ./
+COPY . .
+
 # Build
+ARG VERSION
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build GOMODCACHE=/go/pkg/mod GOCACHE=/root/.cache/go-build VERSION=${VERSION} make regatta
 
 # Runtime
-FROM alpine:3.18 as runtime
+FROM alpine:3.18
 
-LABEL maintainer="Regatta Developers regatta@jamf.com"
-LABEL desc="Regatta is a distributed key-value store"
+ARG VERSION
+LABEL org.opencontainers.image.authors="Regatta Developers <regatta@jamf.com>"
+LABEL org.opencontainers.image.base.name="docker.io/library/alpine:3.18"
+LABEL org.opencontainers.image.description="Regatta is a distributed key-value store. It is Kubernetes friendly with emphasis on high read throughput and low operational cost."
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.source="https://github.com/jamf/regatta"
+LABEL org.opencontainers.image.version="${VERSION}"
 
-RUN apk add --update --no-cache bash ca-certificates
 WORKDIR /
-COPY --from=builder /github.com/jamf/regatta/regatta /bin/regatta
+COPY --from=builder /etc/passwd /etc/
+COPY --from=builder /usr/share/zoneinfo/ /usr/share/zoneinfo/
+COPY --from=builder --chown=1000:1000 /github.com/jamf/regatta/regatta /usr/local/bin/
+
+USER regatta
+
 ENTRYPOINT ["regatta"]
