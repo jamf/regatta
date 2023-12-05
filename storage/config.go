@@ -5,6 +5,7 @@ package storage
 import (
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/vfs"
+	"go.uber.org/zap"
 )
 
 type LogDBImplementation int
@@ -103,4 +104,6 @@ type Config struct {
 	// FS is the filesystem to use for log store, useful for testing,
 	// uses the real vfs.Default if nil.
 	FS vfs.FS
+	// Logger implementation for storage.
+	Log *zap.SugaredLogger
 }

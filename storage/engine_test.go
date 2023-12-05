@@ -20,6 +20,7 @@ import (
 	"github.com/jamf/regatta/version"
 	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 const testTableName = "table"
@@ -93,10 +94,7 @@ func TestEngine_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := newTestEngine(tt.fields.cfg)
-			defer func() {
-				require.NoError(t, e.Close())
-			}()
+			e := newTestEngine(t, tt.fields.cfg)
 			tt.wantErr(t, e.Start())
 			if tt.wantStarted {
 				require.NoError(t, e.WaitUntilReady())
@@ -227,8 +225,7 @@ func TestEngine_Range(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e := newTestEngine(newTestConfig())
-			defer e.Close()
+			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
@@ -343,8 +340,7 @@ func TestEngine_Put(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e := newTestEngine(newTestConfig())
-			defer e.Close()
+			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
@@ -461,8 +457,7 @@ func TestEngine_Delete(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e := newTestEngine(newTestConfig())
-			defer e.Close()
+			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
@@ -618,8 +613,7 @@ func TestEngine_Txn(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e := newTestEngine(newTestConfig())
-			defer e.Close()
+			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
@@ -684,11 +678,7 @@ func TestEngine_Status(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e := newTestEngine(newTestConfig())
-			defer func() {
-				defer func() { recover() }() // Avoids double-close panic for test purposes.
-				e.Close()
-			}()
+			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
@@ -719,11 +709,7 @@ func TestEngine_MemberList(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e := newTestEngine(newTestConfig())
-			defer func() {
-				defer func() { recover() }() // Avoids double-close panic for test purposes.
-				e.Close()
-			}()
+			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
 			require.NoError(t, e.WaitUntilReady())
 			tt.prepare(t, e)
@@ -801,24 +787,24 @@ func newTestConfig() Config {
 	}
 }
 
-func newTestEngine(cfg Config) *Engine {
-	e := &Engine{cfg: cfg}
-	nh, err := createNodeHost(cfg, e, e)
-	if err != nil {
-		panic(err)
-	}
+func newTestEngine(t *testing.T, cfg Config) *Engine {
+	e := &Engine{cfg: cfg, eventsCh: make(chan any, 1), stop: make(chan struct{}), log: zaptest.NewLogger(t).Sugar()}
+	nh, err := createNodeHost(e)
+	require.NoError(t, err)
 	e.NodeHost = nh
 	e.LogReader = &logreader.Cached{LogQuerier: nh}
 	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, func() cluster.Info {
 		return cluster.Info{}
 	})
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	e.Manager = table.NewManager(nh, cfg.InitialMembers, table.Config{
 		NodeID: cfg.NodeID,
 		Table:  table.TableConfig(cfg.Table),
 		Meta:   table.MetaConfig(cfg.Meta),
+	})
+	t.Cleanup(func() {
+		defer func() { recover() }()
+		require.NoError(t, e.Close())
 	})
 	return e
 }

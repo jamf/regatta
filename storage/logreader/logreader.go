@@ -9,12 +9,10 @@ import (
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
 	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftio"
 	"github.com/lni/dragonboat/v4/raftpb"
 )
 
 type Interface interface {
-	raftio.ISystemEventListener
 	// QueryRaftLog for all the entries in a given cluster within the right half-open range
 	// defined by dragonboat.LogRange. MaxSize denotes the maximum cumulative size of the entries,
 	// but this serves only as a hint and the actual size of returned entries may be larger than maxSize.
@@ -30,30 +28,7 @@ type shard struct {
 	mtx sync.Mutex
 }
 
-type unimplementedLogReader struct{}
-
-func (u unimplementedLogReader) NodeHostShuttingDown()                       {}
-func (u unimplementedLogReader) NodeUnloaded(raftio.NodeInfo)                {}
-func (u unimplementedLogReader) NodeDeleted(raftio.NodeInfo)                 {}
-func (u unimplementedLogReader) NodeReady(raftio.NodeInfo)                   {}
-func (u unimplementedLogReader) MembershipChanged(raftio.NodeInfo)           {}
-func (u unimplementedLogReader) ConnectionEstablished(raftio.ConnectionInfo) {}
-func (u unimplementedLogReader) ConnectionFailed(raftio.ConnectionInfo)      {}
-func (u unimplementedLogReader) SendSnapshotStarted(raftio.SnapshotInfo)     {}
-func (u unimplementedLogReader) SendSnapshotCompleted(raftio.SnapshotInfo)   {}
-func (u unimplementedLogReader) SendSnapshotAborted(raftio.SnapshotInfo)     {}
-func (u unimplementedLogReader) SnapshotReceived(raftio.SnapshotInfo)        {}
-func (u unimplementedLogReader) SnapshotRecovered(raftio.SnapshotInfo)       {}
-func (u unimplementedLogReader) SnapshotCreated(raftio.SnapshotInfo)         {}
-func (u unimplementedLogReader) SnapshotCompacted(raftio.SnapshotInfo)       {}
-func (u unimplementedLogReader) LogCompacted(raftio.EntryInfo)               {}
-func (u unimplementedLogReader) LogDBCompacted(raftio.EntryInfo)             {}
-func (u unimplementedLogReader) QueryRaftLog(context.Context, uint64, dragonboat.LogRange, uint64) ([]raftpb.Entry, error) {
-	panic("unimplemented")
-}
-
 type Simple struct {
-	unimplementedLogReader
 	LogQuerier logQuerier
 }
 
@@ -65,11 +40,26 @@ func (l *Simple) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dr
 	return readLog(l.LogQuerier, clusterID, logRange, maxSize)
 }
 
-type Cached struct {
-	unimplementedLogReader
-	ShardCacheSize int
-	LogQuerier     logQuerier
+type ShardCache struct {
 	shardCache     util.SyncMap[uint64, *shard]
+	ShardCacheSize int
+}
+
+func (l *ShardCache) NodeDeleted(shardID uint64) {
+	l.shardCache.Delete(shardID)
+}
+
+func (l *ShardCache) NodeReady(shardID uint64) {
+	l.shardCache.ComputeIfAbsent(shardID, func(shardId uint64) *shard { return &shard{cache: newCache(l.ShardCacheSize)} })
+}
+
+func (l *ShardCache) LogCompacted(shardID uint64) {
+	l.shardCache.Store(shardID, &shard{cache: newCache(l.ShardCacheSize)})
+}
+
+type Cached struct {
+	LogQuerier logQuerier
+	*ShardCache
 }
 
 func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
@@ -131,18 +121,6 @@ func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dr
 	}
 
 	return fixSize(cachedEntries, maxSize), nil
-}
-
-func (l *Cached) NodeDeleted(info raftio.NodeInfo) {
-	l.shardCache.Delete(info.ShardID)
-}
-
-func (l *Cached) NodeReady(info raftio.NodeInfo) {
-	l.shardCache.ComputeIfAbsent(info.ShardID, func(shardId uint64) *shard { return &shard{cache: newCache(l.ShardCacheSize)} })
-}
-
-func (l *Cached) LogCompacted(info raftio.EntryInfo) {
-	l.shardCache.Store(info.ShardID, &shard{cache: newCache(l.ShardCacheSize)})
 }
 
 func readLog(q logQuerier, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
