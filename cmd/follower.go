@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -62,7 +61,7 @@ func init() {
 var followerCmd = &cobra.Command{
 	Use:   "follower",
 	Short: "Start Regatta in follower mode.",
-	Run:   follower,
+	RunE:  follower,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		initConfig(cmd.PersistentFlags())
 		return validateFollowerConfig()
@@ -80,14 +79,15 @@ func validateFollowerConfig() error {
 	return nil
 }
 
-func follower(_ *cobra.Command, _ []string) {
+func follower(_ *cobra.Command, _ []string) error {
 	logger := rl.NewLogger(viper.GetBool("dev-mode"), viper.GetString("log-level"))
 	defer func() {
 		_ = logger.Sync()
 	}()
 	zap.ReplaceGlobals(logger)
 	log := logger.Sugar().Named("root")
-	setupDragonboatLogger(logger.Named("engine"))
+	engineLog := logger.Named("engine")
+	setupDragonboatLogger(engineLog)
 
 	autoSetMaxprocs(log)
 
@@ -95,16 +95,21 @@ func follower(_ *cobra.Command, _ []string) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
+	initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
+	if err != nil {
+		return fmt.Errorf("failed to parse raft.initial-members: %w", err)
+	}
+
+	logDBImpl, err := parseLogDBImplementation(viper.GetString("raft.logdb"))
+	if err != nil {
+		return fmt.Errorf("failed to parse raft.logdb: %w", err)
+	}
+
 	engine, err := storage.New(storage.Config{
-		ClientAddress: viper.GetString("api.address"),
-		NodeID:        viper.GetUint64("raft.node-id"),
-		InitialMembers: func() map[uint64]string {
-			initialMembers, err := parseInitialMembers(viper.GetStringMapString("raft.initial-members"))
-			if err != nil {
-				log.Panic(err)
-			}
-			return initialMembers
-		}(),
+		Log:                 engineLog.Sugar(),
+		ClientAddress:       viper.GetString("api.address"),
+		NodeID:              viper.GetUint64("raft.node-id"),
+		InitialMembers:      initialMembers,
 		WALDir:              viper.GetString("raft.wal-dir"),
 		NodeHostDir:         viper.GetString("raft.node-host-dir"),
 		RTTMillisecond:      uint64(viper.GetDuration("raft.rtt").Milliseconds()),
@@ -137,23 +142,13 @@ func follower(_ *cobra.Command, _ []string) {
 			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
 			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
 		},
-		LogDBImplementation: func() storage.LogDBImplementation {
-			switch viper.GetString("raft.logdb") {
-			case "pebble":
-				return storage.Pebble
-			case "tan":
-				return storage.Tan
-			default:
-				log.Panicf("unknown logdb impl: %s", viper.GetString("raft.logdb"))
-			}
-			return storage.Pebble
-		}(),
+		LogDBImplementation: logDBImpl,
 	})
 	if err != nil {
-		log.Panic(err)
+		return fmt.Errorf("failed to create engine: %w", err)
 	}
 	if err := engine.Start(); err != nil {
-		log.Panic(err)
+		return fmt.Errorf("failed to start engine: %w", err)
 	}
 	defer engine.Close()
 
@@ -164,7 +159,7 @@ func follower(_ *cobra.Command, _ []string) {
 			_ = conn.Close()
 		}()
 		if err != nil {
-			log.Panicf("cannot create replication conn: %v", err)
+			return fmt.Errorf("cannot create replication conn: %w", err)
 		}
 
 		d := replication.NewManager(engine.Manager, engine.NodeHost, conn, replication.Config{
@@ -188,7 +183,10 @@ func follower(_ *cobra.Command, _ []string) {
 		{
 			// Create regatta API server
 			// Create server
-			regatta := createAPIServer()
+			regatta, err := createAPIServer()
+			if err != nil {
+				return fmt.Errorf("failed to create API server: %w", err)
+			}
 			regattapb.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
 				KVServer: regattaserver.KVServer{
 					Storage: engine,
@@ -200,19 +198,22 @@ func follower(_ *cobra.Command, _ []string) {
 			// Start server
 			go func() {
 				if err := regatta.ListenAndServe(); err != nil {
-					log.Panicf("grpc listenAndServe failed: %v", err)
+					log.Errorf("grpc listenAndServe failed: %v", err)
 				}
 			}()
 			defer regatta.Shutdown()
 		}
 
 		if viper.GetBool("maintenance.enabled") {
-			maintenance := createMaintenanceServer()
+			maintenance, err := createMaintenanceServer()
+			if err != nil {
+				return fmt.Errorf("failed to create Maintenance server: %w", err)
+			}
 			regattapb.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
 			// Start server
 			go func() {
 				if err := maintenance.ListenAndServe(); err != nil {
-					log.Panicf("grpc listenAndServe failed: %v", err)
+					log.Errorf("grpc listenAndServe failed: %v", err)
 				}
 			}()
 			defer maintenance.Shutdown()
@@ -222,7 +223,7 @@ func follower(_ *cobra.Command, _ []string) {
 		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				log.Panicf("REST listenAndServe failed: %v", err)
+				log.Errorf("REST listenAndServe failed: %v", err)
 			}
 		}()
 		defer hs.Shutdown()
@@ -231,6 +232,7 @@ func follower(_ *cobra.Command, _ []string) {
 	// Cleanup
 	<-shutdown
 	log.Info("shutting down...")
+	return nil
 }
 
 func createReplicationConn() (*grpc.ClientConn, error) {
@@ -239,12 +241,12 @@ func createReplicationConn() (*grpc.ClientConn, error) {
 	if secure {
 		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
 		if err != nil {
-			log.Panicf("cannot load certificate: %v", err)
+			return nil, fmt.Errorf("cannot load certificate: %w", err)
 		}
 
 		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
 		if err != nil {
-			log.Panicf("cannot load server CA: %v", err)
+			return nil, fmt.Errorf("cannot load server CA: %w", err)
 		}
 		cp := x509.NewCertPool()
 		cp.AppendCertsFromPEM(caBytes)

@@ -54,40 +54,22 @@ func (m *mockLogReader) Snapshot() raftpb.Snapshot {
 	return args.Get(0).(raftpb.Snapshot)
 }
 
-func TestUnimplementedLogReader(t *testing.T) {
-	u := unimplementedLogReader{}
-	require.Panics(t, func() { _, _ = u.QueryRaftLog(context.TODO(), 0, dragonboat.LogRange{}, 0) })
-	require.NotPanics(t, func() { u.NodeHostShuttingDown() })
-	require.NotPanics(t, func() { u.NodeUnloaded(raftio.NodeInfo{}) })
-	require.NotPanics(t, func() { u.NodeDeleted(raftio.NodeInfo{}) })
-	require.NotPanics(t, func() { u.NodeReady(raftio.NodeInfo{}) })
-	require.NotPanics(t, func() { u.MembershipChanged(raftio.NodeInfo{}) })
-	require.NotPanics(t, func() { u.ConnectionEstablished(raftio.ConnectionInfo{}) })
-	require.NotPanics(t, func() { u.ConnectionFailed(raftio.ConnectionInfo{}) })
-	require.NotPanics(t, func() { u.SendSnapshotStarted(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.SendSnapshotCompleted(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.SendSnapshotAborted(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.SnapshotReceived(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.SnapshotRecovered(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.SnapshotCreated(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.SnapshotCompacted(raftio.SnapshotInfo{}) })
-	require.NotPanics(t, func() { u.LogCompacted(raftio.EntryInfo{}) })
-	require.NotPanics(t, func() { u.LogDBCompacted(raftio.EntryInfo{}) })
-}
-
 func TestCached_NodeDeleted(t *testing.T) {
 	type args struct {
 		info raftio.NodeInfo
 	}
+	type fields struct {
+		ShardCache *ShardCache
+	}
 	tests := []struct {
-		name          string
-		initialShards []uint64
-		args          args
-		assert        func(*testing.T, *util.SyncMap[uint64, *shard])
+		name   string
+		fields fields
+		args   args
+		assert func(*testing.T, *util.SyncMap[uint64, *shard])
 	}{
 		{
-			name:          "remove existing cache shard",
-			initialShards: []uint64{1},
+			name:   "remove existing cache shard",
+			fields: fields{ShardCache: &ShardCache{}},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   1,
 				ReplicaID: 1,
@@ -98,7 +80,8 @@ func TestCached_NodeDeleted(t *testing.T) {
 			},
 		},
 		{
-			name: "remove non-existent cache shard",
+			name:   "remove non-existent cache shard",
+			fields: fields{ShardCache: &ShardCache{}},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   1,
 				ReplicaID: 1,
@@ -109,8 +92,14 @@ func TestCached_NodeDeleted(t *testing.T) {
 			},
 		},
 		{
-			name:          "remove existent cache shard from list",
-			initialShards: []uint64{1, 2, 3, 4},
+			name: "remove existent cache shard from list",
+			fields: fields{ShardCache: func() *ShardCache {
+				c := &ShardCache{}
+				for i := 1; i <= 4; i++ {
+					c.shardCache.Store(uint64(i), &shard{})
+				}
+				return c
+			}()},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   2,
 				ReplicaID: 1,
@@ -123,28 +112,29 @@ func TestCached_NodeDeleted(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &Cached{}
-			for _, shardID := range tt.initialShards {
-				l.shardCache.Store(shardID, &shard{})
-			}
-			l.NodeDeleted(tt.args.info)
+			l := &Cached{ShardCache: tt.fields.ShardCache}
+			l.NodeDeleted(tt.args.info.ShardID)
 			tt.assert(t, &l.shardCache)
 		})
 	}
 }
 
 func TestCached_NodeReady(t *testing.T) {
+	type fields struct {
+		ShardCache *ShardCache
+	}
 	type args struct {
 		info raftio.NodeInfo
 	}
 	tests := []struct {
-		name          string
-		args          args
-		initialShards []uint64
-		assert        func(*testing.T, *util.SyncMap[uint64, *shard])
+		name   string
+		args   args
+		fields fields
+		assert func(*testing.T, *util.SyncMap[uint64, *shard])
 	}{
 		{
-			name: "add ready node",
+			name:   "add ready node",
+			fields: fields{ShardCache: &ShardCache{}},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   1,
 				ReplicaID: 1,
@@ -156,19 +146,30 @@ func TestCached_NodeReady(t *testing.T) {
 		},
 		{
 			name: "add existing node",
+			fields: fields{ShardCache: func() *ShardCache {
+				c := &ShardCache{}
+				c.shardCache.Store(uint64(1), &shard{})
+				return c
+			}()},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   1,
 				ReplicaID: 1,
 			}},
-			initialShards: []uint64{1},
 			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
 				_, ok := s.Load(uint64(1))
 				require.True(t, ok, "missing cache shard")
 			},
 		},
 		{
-			name:          "add ready node to list",
-			initialShards: []uint64{1, 3, 5, 6},
+			name: "add ready node to list",
+			fields: fields{ShardCache: func() *ShardCache {
+				c := &ShardCache{}
+				c.shardCache.Store(uint64(1), &shard{})
+				c.shardCache.Store(uint64(3), &shard{})
+				c.shardCache.Store(uint64(5), &shard{})
+				c.shardCache.Store(uint64(6), &shard{})
+				return c
+			}()},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   2,
 				ReplicaID: 1,
@@ -181,11 +182,8 @@ func TestCached_NodeReady(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &Cached{}
-			for _, shardID := range tt.initialShards {
-				l.shardCache.Store(shardID, &shard{})
-			}
-			l.NodeReady(tt.args.info)
+			l := &Cached{ShardCache: tt.fields.ShardCache}
+			l.NodeReady(tt.args.info.ShardID)
 			tt.assert(t, &l.shardCache)
 		})
 	}
@@ -485,8 +483,8 @@ func TestCached_QueryRaftLog(t *testing.T) {
 				tt.on(querier)
 			}
 			l := &Cached{
-				ShardCacheSize: tt.fields.ShardCacheSize,
-				LogQuerier:     querier,
+				ShardCache: &ShardCache{ShardCacheSize: tt.fields.ShardCacheSize},
+				LogQuerier: querier,
 			}
 			l.shardCache.ComputeIfAbsent(tt.args.clusterID, func(uint642 uint64) *shard { return &shard{cache: newCache(tt.fields.ShardCacheSize)} })
 			if len(tt.cacheContent) > 0 {

@@ -16,7 +16,7 @@ import (
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/plugin/tan"
-	"github.com/lni/dragonboat/v4/raftio"
+	"go.uber.org/zap"
 	protobuf "google.golang.org/protobuf/proto"
 )
 
@@ -24,15 +24,20 @@ const defaultQueryTimeout = 5 * time.Second
 
 func New(cfg Config) (*Engine, error) {
 	e := &Engine{
-		cfg: cfg,
+		cfg:      cfg,
+		log:      cfg.Log,
+		eventsCh: make(chan any, 1),
+		stop:     make(chan struct{}),
 	}
+
 	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to bootstrap gossip cluster: %w", err)
 	}
-	nh, err := createNodeHost(cfg, e, e)
+
+	nh, err := createNodeHost(e)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to start raft nodehost: %w", err)
 	}
 
 	manager := table.NewManager(
@@ -45,7 +50,8 @@ func New(cfg Config) (*Engine, error) {
 		},
 	)
 	if cfg.LogCacheSize > 0 {
-		e.LogReader = &logreader.Cached{LogQuerier: nh, ShardCacheSize: cfg.LogCacheSize}
+		e.LogCache = &logreader.ShardCache{ShardCacheSize: cfg.LogCacheSize}
+		e.LogReader = &logreader.Cached{LogQuerier: nh, ShardCache: e.LogCache}
 	} else {
 		e.LogReader = &logreader.Simple{LogQuerier: nh}
 	}
@@ -59,16 +65,25 @@ type Engine struct {
 	*dragonboat.NodeHost
 	*table.Manager
 	cfg       Config
+	log       *zap.SugaredLogger
+	eventsCh  chan any
+	stop      chan struct{}
 	LogReader logreader.Interface
 	Cluster   *cluster.Cluster
+	LogCache  *logreader.ShardCache
 }
 
 func (e *Engine) Start() error {
 	e.Cluster.Start(e.cfg.Gossip.InitialMembers)
-	return e.Manager.Start()
+	if err := e.Manager.Start(); err != nil {
+		return err
+	}
+	go e.dispatchEvents()
+	return nil
 }
 
 func (e *Engine) Close() error {
+	close(e.stop)
 	e.Manager.Close()
 	e.NodeHost.Close()
 	return nil
@@ -192,50 +207,6 @@ func (e *Engine) getHeader(header *regattapb.ResponseHeader, shardID uint64) *re
 	return header
 }
 
-func (e *Engine) NodeDeleted(info raftio.NodeInfo) {
-	if info.ReplicaID == e.cfg.NodeID {
-		e.LogReader.NodeDeleted(info)
-	}
-}
-
-func (e *Engine) NodeReady(info raftio.NodeInfo) {
-	if info.ReplicaID == e.cfg.NodeID {
-		e.LogReader.NodeReady(info)
-	}
-}
-
-func (e *Engine) LeaderUpdated(info raftio.LeaderInfo) {
-	e.Cluster.Notify()
-}
-
-func (e *Engine) NodeUnloaded(info raftio.NodeInfo) {
-	e.Cluster.Notify()
-}
-
-func (e *Engine) MembershipChanged(info raftio.NodeInfo) {
-	e.Cluster.Notify()
-}
-
-func (e *Engine) NodeHostShuttingDown() {
-	e.Cluster.Notify()
-}
-
-func (e *Engine) ConnectionEstablished(info raftio.ConnectionInfo) {}
-func (e *Engine) ConnectionFailed(info raftio.ConnectionInfo)      {}
-func (e *Engine) SendSnapshotStarted(info raftio.SnapshotInfo)     {}
-func (e *Engine) SendSnapshotCompleted(info raftio.SnapshotInfo)   {}
-func (e *Engine) SendSnapshotAborted(info raftio.SnapshotInfo)     {}
-func (e *Engine) SnapshotReceived(info raftio.SnapshotInfo)        {}
-func (e *Engine) SnapshotRecovered(info raftio.SnapshotInfo)       {}
-func (e *Engine) SnapshotCreated(info raftio.SnapshotInfo)         {}
-func (e *Engine) SnapshotCompacted(info raftio.SnapshotInfo)       {}
-func (e *Engine) LogCompacted(info raftio.EntryInfo) {
-	if info.ReplicaID == e.cfg.NodeID {
-		e.LogReader.LogCompacted(info)
-	}
-}
-func (e *Engine) LogDBCompacted(info raftio.EntryInfo) {}
-
 func (e *Engine) clusterInfo() cluster.Info {
 	info := cluster.Info{
 		NodeID:        e.cfg.NodeID,
@@ -252,27 +223,27 @@ func (e *Engine) clusterInfo() cluster.Info {
 	return info
 }
 
-func createNodeHost(cfg Config, sel raftio.ISystemEventListener, rel raftio.IRaftEventListener) (*dragonboat.NodeHost, error) {
+func createNodeHost(e *Engine) (*dragonboat.NodeHost, error) {
 	nhc := config.NodeHostConfig{
-		WALDir:              cfg.WALDir,
-		NodeHostDir:         cfg.NodeHostDir,
-		RTTMillisecond:      cfg.RTTMillisecond,
-		RaftAddress:         cfg.RaftAddress,
-		ListenAddress:       cfg.ListenAddress,
+		WALDir:              e.cfg.WALDir,
+		NodeHostDir:         e.cfg.NodeHostDir,
+		RTTMillisecond:      e.cfg.RTTMillisecond,
+		RaftAddress:         e.cfg.RaftAddress,
+		ListenAddress:       e.cfg.ListenAddress,
 		EnableMetrics:       true,
-		MaxReceiveQueueSize: cfg.MaxReceiveQueueSize,
-		MaxSendQueueSize:    cfg.MaxSendQueueSize,
-		SystemEventListener: sel,
-		RaftEventListener:   rel,
+		MaxReceiveQueueSize: e.cfg.MaxReceiveQueueSize,
+		MaxSendQueueSize:    e.cfg.MaxSendQueueSize,
+		SystemEventListener: e,
+		RaftEventListener:   e,
 	}
 
-	if cfg.LogDBImplementation == Tan {
+	if e.cfg.LogDBImplementation == Tan {
 		nhc.Expert.LogDBFactory = tan.Factory
 	}
 	nhc.Expert.LogDB = buildLogDBConfig()
 
-	if cfg.FS != nil {
-		nhc.Expert.FS = cfg.FS
+	if e.cfg.FS != nil {
+		nhc.Expert.FS = e.cfg.FS
 	}
 
 	err := nhc.Prepare()
