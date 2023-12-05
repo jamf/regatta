@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/url"
 	"runtime"
@@ -17,6 +18,7 @@ import (
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattaserver"
+	"github.com/jamf/regatta/storage"
 	"github.com/jamf/regatta/storage/table"
 	dbl "github.com/lni/dragonboat/v4/logger"
 	"github.com/spf13/viper"
@@ -34,7 +36,7 @@ func init() {
 	grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
 }
 
-func createAPIServer() *regattaserver.RegattaServer {
+func createAPIServer() (*regattaserver.RegattaServer, error) {
 	addr, secure, net := resolveUrl(viper.GetString("api.address"))
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
@@ -44,17 +46,17 @@ func createAPIServer() *regattaserver.RegattaServer {
 	if secure {
 		c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
 		if err != nil {
-			log.Panicf("cannot load certificate: %v", err)
+			return nil, fmt.Errorf("cannot load certificate: %w", err)
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
 			MinVersion:     tls.VersionTLS12,
 			GetCertificate: c.GetCertificate,
 		})))
 	}
-	return regattaserver.NewServer(addr, net, opts...)
+	return regattaserver.NewServer(addr, net, opts...), nil
 }
 
-func createMaintenanceServer() *regattaserver.RegattaServer {
+func createMaintenanceServer() (*regattaserver.RegattaServer, error) {
 	addr, secure, net := resolveUrl(viper.GetString("maintenance.address"))
 	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
@@ -63,7 +65,7 @@ func createMaintenanceServer() *regattaserver.RegattaServer {
 	if secure {
 		c, err := cert.New(viper.GetString("maintenance.cert-filename"), viper.GetString("maintenance.key-filename"))
 		if err != nil {
-			log.Panicf("cannot load maintenance certificate: %v", err)
+			return nil, fmt.Errorf("cannot load maintenance certificate: %w", err)
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
 			MinVersion:     tls.VersionTLS12,
@@ -71,7 +73,7 @@ func createMaintenanceServer() *regattaserver.RegattaServer {
 		})))
 	}
 	// Create regatta maintenance server
-	return regattaserver.NewServer(addr, net, opts...)
+	return regattaserver.NewServer(addr, net, opts...), nil
 }
 
 func resolveUrl(urlStr string) (addr string, secure bool, network string) {
@@ -144,6 +146,17 @@ func parseInitialMembers(members map[string]string) (map[uint64]string, error) {
 		initialMembers[kUint] = v
 	}
 	return initialMembers, nil
+}
+
+func parseLogDBImplementation(impl string) (storage.LogDBImplementation, error) {
+	switch impl {
+	case "pebble":
+		return storage.Pebble, nil
+	case "tan":
+		return storage.Tan, nil
+	default:
+		return storage.Pebble, fmt.Errorf("unknown logdb impl: %s", impl)
+	}
 }
 
 var dbLoggerOnce sync.Once
