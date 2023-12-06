@@ -118,6 +118,7 @@ type Cluster struct {
 	keyListeners    listenerStore
 	prefixListeners listenerStore
 	msgs            chan Message
+	not             chan struct{}
 	stop            chan struct{}
 	resolver        resolver
 	addrs           []string
@@ -125,7 +126,10 @@ type Cluster struct {
 
 func (c *Cluster) Notify() {
 	c.shardView.update(toShardViewList(c.infoF().ShardInfoList))
-	_ = c.ml.UpdateNode(500 * time.Millisecond)
+	select {
+	case c.not <- struct{}{}:
+	default:
+	}
 }
 
 func (c *Cluster) NotifyJoin(node *memberlist.Node) {
@@ -167,6 +171,7 @@ func (c *Cluster) Start(join []string) {
 	} else {
 		c.log.Infof("fast joined %d nodes", n)
 	}
+	go c.notify()
 }
 
 // dispatch receives a message and forwards it to the listener responsible for the given
@@ -189,6 +194,19 @@ func (c *Cluster) dispatch() {
 				}
 			}
 			c.prefixListeners.mu.RUnlock()
+		case <-c.stop:
+			return
+		}
+	}
+}
+
+func (c *Cluster) notify() {
+	for {
+		select {
+		case <-c.not:
+			if err := c.ml.UpdateNode(500 * time.Millisecond); err != nil {
+				c.log.Warnf("unable to update node: %v", err)
+			}
 		case <-c.stop:
 			return
 		}
@@ -285,6 +303,7 @@ func New(bindAddr, advAddr string, f getClusterInfo) (*Cluster, error) {
 		log:             log,
 		infoF:           f,
 		shardView:       newView(),
+		not:             make(chan struct{}, 1),
 		stop:            make(chan struct{}),
 		msgs:            make(chan Message, 1),
 		keyListeners:    listenerStore{listeners: map[string]*listener{}},
