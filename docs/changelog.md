@@ -6,6 +6,13 @@ nav_order: 999
 
 # Changelog
 
+## v0.3.2
+A bugfix release, fixes critical issue in replication server TLS handling.
+
+### Bugfixes
+* Fix replication server TLS.
+
+---
 ## v0.3.1
 A bugfix release, with small improvements.
 

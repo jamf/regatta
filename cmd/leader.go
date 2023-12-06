@@ -280,12 +280,12 @@ func createReplicationServer(log *zap.Logger) (*regattaserver.RegattaServer, err
 		}
 		cp := x509.NewCertPool()
 		cp.AppendCertsFromPEM(caBytes)
-		grpc.Creds(credentials.NewTLS(&tls.Config{
+		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
 			ClientAuth:     tls.RequireAndVerifyClientCert,
 			ClientCAs:      cp,
 			MinVersion:     tls.VersionTLS12,
 			GetCertificate: c.GetCertificate,
-		}))
+		})))
 	}
 	// Create regatta replication server
 	return regattaserver.NewServer(addr, net, opts...), nil
