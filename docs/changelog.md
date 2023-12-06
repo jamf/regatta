@@ -6,6 +6,17 @@ nav_order: 999
 
 # Changelog
 
+## v0.3.1
+A bugfix release, with small improvements.
+
+### Improvements
+* Improve startup logging and failure reporting.
+
+### Bugfixes
+* Fix `rest.address` handling.
+* Fix race-conditions in Raft events handling.
+
+---
 ## v0.3.0
 Release brings a brand-new Cluster API as well as ability to listen over plain or unix socket connection.
 
