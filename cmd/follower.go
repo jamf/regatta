@@ -89,7 +89,9 @@ func follower(_ *cobra.Command, _ []string) error {
 	engineLog := logger.Named("engine")
 	setupDragonboatLogger(engineLog)
 
-	autoSetMaxprocs(log)
+	if err := autoSetMaxprocs(log); err != nil {
+		return err
+	}
 
 	// Check signals
 	shutdown := make(chan os.Signal, 1)
@@ -220,7 +222,8 @@ func follower(_ *cobra.Command, _ []string) error {
 		}
 
 		// Create REST server
-		hs := regattaserver.NewRESTServer(viper.GetString("rest.address"), viper.GetDuration("rest.read-timeout"))
+		addr, _, _ := resolveUrl(viper.GetString("rest.address"))
+		hs := regattaserver.NewRESTServer(addr, viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("REST listenAndServe failed: %v", err)

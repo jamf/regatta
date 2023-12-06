@@ -5,13 +5,16 @@
 package cmd
 
 import (
+	"fmt"
+
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 )
 
-func autoSetMaxprocs(log *zap.SugaredLogger) {
+func autoSetMaxprocs(log *zap.SugaredLogger) error {
 	_, err := maxprocs.Set(maxprocs.Logger(log.Infof))
 	if err != nil {
-		log.Panicf("maxprocs: failed to set GOMAXPROCS: %v", err)
+		return fmt.Errorf("maxprocs: failed to set GOMAXPROCS: %w", err)
 	}
+	return nil
 }

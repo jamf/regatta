@@ -84,7 +84,9 @@ func leader(_ *cobra.Command, _ []string) error {
 	engineLog := logger.Named("engine")
 	setupDragonboatLogger(engineLog)
 
-	autoSetMaxprocs(log)
+	if err := autoSetMaxprocs(log); err != nil {
+		return err
+	}
 
 	// Check signals
 	shutdown := make(chan os.Signal, 1)
