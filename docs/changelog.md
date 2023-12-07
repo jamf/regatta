@@ -6,6 +6,13 @@ nav_order: 999
 
 # Changelog
 
+## v0.3.3 (unreleased)
+
+### Bugfixes
+* Fix `KV/DeleteRange` `Count` erroneously returning `1` if no key was deleted.
+* Fix `KV/DeleteRange` `PrevKV` panicking when previous key did not exist.
+
+---
 ## v0.3.2
 A bugfix release, fixes critical issue in replication server TLS handling.
 
