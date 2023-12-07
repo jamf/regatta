@@ -29,11 +29,13 @@ func Test_handlePut(t *testing.T) {
 
 	// Make the PUT.
 	req := &regattapb.RequestOp_Put{
-		Key:   []byte("key_1"),
-		Value: []byte("value_1"),
+		Key:    []byte("key_1"),
+		Value:  []byte("value_1"),
+		PrevKv: true,
 	}
-	_, err = handlePut(c, req)
+	res, err := handlePut(c, req)
 	r.NoError(err)
+	r.Equal(&regattapb.ResponseOp_Put{}, res)
 	r.NoError(c.Commit())
 
 	// Make the PUT update.
@@ -42,7 +44,9 @@ func Test_handlePut(t *testing.T) {
 		Value:  []byte("value_2"),
 		PrevKv: true,
 	}
-	res, err := handlePut(c, req)
+
+	c.batch = db.NewBatch()
+	res, err = handlePut(c, req)
 	r.NoError(err)
 	r.Equal(&regattapb.ResponseOp_Put{PrevKv: &regattapb.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")}}, res)
 	r.NoError(c.Commit())

@@ -52,6 +52,16 @@ func Test_handleDelete(t *testing.T) {
 	r.Equal(false, iter.Valid())
 	r.NoError(iter.Close())
 
+	// Assert deleting non-existent key returns count 0.
+	c.batch = db.NewBatch()
+	res, err = handleDelete(c, &regattapb.RequestOp_DeleteRange{
+		Key:   []byte("key_1"),
+		Count: true,
+	})
+	r.NoError(err)
+	r.Equal(&regattapb.ResponseOp_DeleteRange{Deleted: 0, PrevKvs: nil}, res)
+	r.NoError(c.Commit())
+
 	// Check the system keys.
 	index, err := readLocalIndex(db, sysLocalIndex)
 	r.NoError(err)

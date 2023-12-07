@@ -4,9 +4,7 @@ package fsm
 
 import (
 	"bytes"
-	"errors"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/jamf/regatta/regattapb"
 )
 
@@ -76,13 +74,11 @@ func handleDelete(ctx *updateContext, del *regattapb.RequestOp_DeleteRange) (*re
 				return nil, err
 			}
 			rng, err := singleLookup(ctx.batch, &regattapb.RequestOp_Range{Key: del.Key, CountOnly: del.Count && !del.PrevKv})
-			if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+			if err != nil {
 				return nil, err
 			}
-			if !errors.Is(err, pebble.ErrNotFound) {
-				resp.Deleted = 1
-				resp.PrevKvs = rng.Kvs
-			}
+			resp.Deleted = rng.Count
+			resp.PrevKvs = rng.Kvs
 		}
 		if err := ctx.batch.Delete(keyBuf.Bytes(), nil); err != nil {
 			return nil, err

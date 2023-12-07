@@ -50,10 +50,7 @@ func handleTxnOps(ctx *updateContext, req []*regattapb.RequestOp) ([]*regattapb.
 		case *regattapb.RequestOp_RequestRange:
 			response, err := lookup(ctx.batch, o.RequestRange)
 			if err != nil {
-				if !errors.Is(err, pebble.ErrNotFound) {
-					return nil, err
-				}
-				response = &regattapb.ResponseOp_Range{}
+				return nil, err
 			}
 			results = append(results, wrapResponseOp(response))
 		case *regattapb.RequestOp_RequestPut:
@@ -67,7 +64,6 @@ func handleTxnOps(ctx *updateContext, req []*regattapb.RequestOp) ([]*regattapb.
 			if err != nil {
 				return nil, err
 			}
-
 			results = append(results, wrapResponseOp(response))
 		}
 	}
