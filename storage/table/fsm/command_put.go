@@ -3,9 +3,6 @@
 package fsm
 
 import (
-	"errors"
-
-	"github.com/cockroachdb/pebble"
 	"github.com/jamf/regatta/regattapb"
 )
 
@@ -40,10 +37,10 @@ func handlePut(ctx *updateContext, put *regattapb.RequestOp_Put) (*regattapb.Res
 			return nil, err
 		}
 		rng, err := singleLookup(ctx.batch, &regattapb.RequestOp_Range{Key: put.Key})
-		if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+		if err != nil {
 			return nil, err
 		}
-		if !errors.Is(err, pebble.ErrNotFound) {
+		if len(rng.Kvs) == 1 {
 			resp.PrevKv = rng.Kvs[0]
 		}
 	}
