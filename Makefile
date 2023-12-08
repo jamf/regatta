@@ -4,7 +4,7 @@ CGO_ENABLED ?= 1
 REPOSITORY = regatta
 
 .PHONY: all
-all: check test build
+all: build
 
 .PHONY: run
 run: build
