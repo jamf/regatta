@@ -2,7 +2,7 @@ module github.com/jamf/regatta
 
 go 1.21
 
-toolchain go1.21.3
+toolchain go1.21.5
 
 require (
 	github.com/VictoriaMetrics/metrics v1.25.3
