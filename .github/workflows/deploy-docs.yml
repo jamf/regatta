@@ -41,7 +41,7 @@ jobs:
         BUNDLE_GEMFILE: ./docs/Gemfile
         JEKYLL_ENV: production
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v2
+      uses: actions/upload-pages-artifact@v3
 
   # Deployment job
   deploy:
