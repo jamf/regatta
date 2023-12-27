@@ -30,15 +30,17 @@ func New(cfg Config) (*Engine, error) {
 		stop:     make(chan struct{}),
 	}
 
-	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to bootstrap gossip cluster: %w", err)
-	}
-
 	nh, err := createNodeHost(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start raft nodehost: %w", err)
 	}
+	e.NodeHost = nh
+
+	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bootstrap gossip cluster: %w", err)
+	}
+	e.Cluster = clst
 
 	manager := table.NewManager(
 		nh,
@@ -55,8 +57,6 @@ func New(cfg Config) (*Engine, error) {
 	} else {
 		e.LogReader = &logreader.Simple{LogQuerier: nh}
 	}
-	e.NodeHost = nh
-	e.Cluster = clst
 	e.Manager = manager
 	return e, nil
 }
@@ -213,12 +213,10 @@ func (e *Engine) clusterInfo() cluster.Info {
 		RaftAddress:   e.cfg.RaftAddress,
 		ClientAddress: e.cfg.ClientAddress,
 	}
-	if e.NodeHost != nil {
-		info.NodeHostID = e.NodeHost.ID()
-		if nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption); nhi != nil {
-			info.ShardInfoList = nhi.ShardInfoList
-			info.LogInfo = nhi.LogInfo
-		}
+	info.NodeHostID = e.NodeHost.ID()
+	if nhi := e.NodeHost.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption); nhi != nil {
+		info.ShardInfoList = nhi.ShardInfoList
+		info.LogInfo = nhi.LogInfo
 	}
 	return info
 }
