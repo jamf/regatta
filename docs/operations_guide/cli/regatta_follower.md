@@ -15,7 +15,8 @@ regatta follower [flags]
 ### Options
 
 ```
-      --api.address string                                    API server address. (default "http://127.0.0.1:8443")
+      --api.address string                                    API server address. The address the server listens on. (default "http://0.0.0.0:8443")
+      --api.advertise-address string                          Advertise API server address, used for NAT traversal. (default "http://127.0.0.1:8443")
       --api.cert-filename string                              Path to the API server certificate.
       --api.key-filename string                               Path to the API server private key file.
       --dev-mode                                              Development mode enabled (verbose logging, human-friendly log format).

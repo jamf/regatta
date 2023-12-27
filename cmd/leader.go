@@ -49,7 +49,7 @@ func init() {
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Whether replication API is enabled.")
 	leaderCmd.PersistentFlags().Uint64("replication.max-send-message-size-bytes", regattaserver.DefaultMaxGRPCSize, `The target maximum size of single replication message allowed to send.
 Under some circumstances, a larger message could be sent. Followers should be able to accept slightly larger messages.`)
-	leaderCmd.PersistentFlags().String("replication.address", "http://127.0.0.1:8444", "Replication API server address.")
+	leaderCmd.PersistentFlags().String("replication.address", "http://0.0.0.0:8444", "Replication API server address. The address the server listens on.")
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "", "Path to the API server CA cert file.")
@@ -104,7 +104,7 @@ func leader(_ *cobra.Command, _ []string) error {
 
 	engine, err := storage.New(storage.Config{
 		Log:                 engineLog.Sugar(),
-		ClientAddress:       viper.GetString("api.address"),
+		ClientAddress:       viper.GetString("api.advertise-address"),
 		NodeID:              viper.GetUint64("raft.node-id"),
 		InitialMembers:      initialMembers,
 		WALDir:              viper.GetString("raft.wal-dir"),
