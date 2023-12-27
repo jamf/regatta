@@ -197,6 +197,9 @@ func follower(_ *cobra.Command, _ []string) error {
 			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
 				Cluster: engine,
 			})
+			if viper.GetBool("maintenance.enabled") {
+				regattapb.RegisterMaintenanceServer(regatta, &regattaserver.ResetServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
+			}
 			// Start server
 			go func() {
 				if err := regatta.ListenAndServe(); err != nil {
@@ -204,21 +207,6 @@ func follower(_ *cobra.Command, _ []string) error {
 				}
 			}()
 			defer regatta.Shutdown()
-		}
-
-		if viper.GetBool("maintenance.enabled") {
-			maintenance, err := createMaintenanceServer()
-			if err != nil {
-				return fmt.Errorf("failed to create Maintenance server: %w", err)
-			}
-			regattapb.RegisterMaintenanceServer(maintenance, &regattaserver.ResetServer{Tables: engine})
-			// Start server
-			go func() {
-				if err := maintenance.ListenAndServe(); err != nil {
-					log.Errorf("grpc listenAndServe failed: %v", err)
-				}
-			}()
-			defer maintenance.Shutdown()
 		}
 
 		// Create REST server

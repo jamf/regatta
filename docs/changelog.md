@@ -6,10 +6,16 @@ nav_order: 999
 
 # Changelog
 
-## v0.3.3 (unreleased)
+## v0.4.0 (unreleased)
+
+### Breaking changes
+* Remove maintenance server port, the API is now available on standard API port. It could still though be secured by a separate API token.
 
 ### Features
 * Added `api.advertise-address` option to split address advertised to clients from the listen address.
+* Removed `maintenance.address` config option.
+* Removed `maintenance.cert-filename` config option.
+* Removed `maintenance.key-filename` config option.
 
 ### Bugfixes
 * Fix `KV/DeleteRange` `Count` erroneously returning `1` if no key was deleted.

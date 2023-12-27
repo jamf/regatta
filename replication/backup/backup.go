@@ -60,7 +60,6 @@ type Manifest struct {
 // ManifestTable a backup table descriptor.
 type ManifestTable struct {
 	Name     string `json:"name"`
-	Type     string `json:"type"`
 	FileName string `json:"file_name"`
 	MD5      string `json:"md5"`
 }
@@ -102,7 +101,7 @@ func (b *Backup) ensureDefaults() {
 func (b *Backup) Backup() (Manifest, error) {
 	b.ensureDefaults()
 
-	mc := regattapb.NewMetadataClient(b.Conn)
+	mc := regattapb.NewClusterClient(b.Conn)
 	sc := regattapb.NewMaintenanceClient(b.Conn)
 
 	manifest := Manifest{
@@ -117,19 +116,19 @@ func (b *Backup) Backup() (Manifest, error) {
 		return manifest, err
 	}
 
-	meta, err := mc.Get(ctx, &regattapb.MetadataRequest{})
+	status, err := mc.Status(ctx, &regattapb.StatusRequest{})
 	if err != nil {
 		return manifest, err
 	}
 
-	b.Log.Infof("going to backup %v", meta.Tables)
-	for _, t := range meta.Tables {
-		b.Log.Infof("backing up table '%s'", t.Name)
-		stream, err := sc.Backup(ctx, &regattapb.BackupRequest{Table: []byte(t.Name)})
+	b.Log.Infof("starting backup")
+	for t := range status.Tables {
+		b.Log.Infof("backing up table '%s'", t)
+		stream, err := sc.Backup(ctx, &regattapb.BackupRequest{Table: []byte(t)})
 		if err != nil {
 			return manifest, err
 		}
-		fName := fmt.Sprintf("%s.bak", t.Name)
+		fName := fmt.Sprintf("%s.bak", t)
 		sf, err := os.Create(filepath.Join(b.Dir, fName))
 		if err != nil {
 			return manifest, err
@@ -147,12 +146,11 @@ func (b *Backup) Backup() (Manifest, error) {
 		}
 
 		manifest.Tables = append(manifest.Tables, ManifestTable{
-			Name:     t.Name,
-			Type:     t.Type.String(),
+			Name:     t,
 			FileName: fName,
 			MD5:      hex.EncodeToString(hash.Sum(nil)),
 		})
-		b.Log.Infof("backed up table '%s'", t.Name)
+		b.Log.Infof("backed up table '%s'", t)
 	}
 	sort.Sort(manifestTables(manifest.Tables))
 	manifest.Finished = b.clock.Now()

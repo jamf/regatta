@@ -102,9 +102,6 @@ At least one reachable Regatta instance is required to successfully bootstrap th
 
 	// Maintenance flags
 	maintenanceFlagSet.Bool("maintenance.enabled", true, "Whether maintenance API is enabled.")
-	maintenanceFlagSet.String("maintenance.address", "http://127.0.0.1:8445", "Replication API server address.")
-	maintenanceFlagSet.String("maintenance.cert-filename", "", "Path to the API server certificate.")
-	maintenanceFlagSet.String("maintenance.key-filename", "", "Path to the API server private key file.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
 }
 
