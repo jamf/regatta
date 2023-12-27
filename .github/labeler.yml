@@ -1,11 +1,17 @@
 code:
-- "**/**.go"
+- changed-files:
+  - any-glob-to-any-file: "**/**.go"
 docs:
-- "docs/**"
-- "README.md"
+- changed-files:
+  - any-glob-to-any-file: ["docs/**", "README.md"]
+  - all-globs-to-all-files: "!docs/proposals/**"
+  - all-globs-to-all-files: "!docs/changelog.md"
 proto:
-- "proto/**"
+- changed-files:
+  - any-glob-to-any-file: "proto/**"
 changelog:
-- "docs/changelog.md"
+- changed-files:
+  - any-glob-to-any-file: "docs/changelog.md"
 proposal:
-- "docs/proposals/**"
+- changed-files:
+  - any-glob-to-any-file: "docs/proposals/**"
