@@ -56,26 +56,6 @@ func createAPIServer() (*regattaserver.RegattaServer, error) {
 	return regattaserver.NewServer(addr, net, opts...), nil
 }
 
-func createMaintenanceServer() (*regattaserver.RegattaServer, error) {
-	addr, secure, net := resolveUrl(viper.GetString("maintenance.address"))
-	opts := []grpc.ServerOption{
-		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor, grpc_auth.StreamServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
-		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor, grpc_auth.UnaryServerInterceptor(authFunc(viper.GetString("maintenance.token")))),
-	}
-	if secure {
-		c, err := cert.New(viper.GetString("maintenance.cert-filename"), viper.GetString("maintenance.key-filename"))
-		if err != nil {
-			return nil, fmt.Errorf("cannot load maintenance certificate: %w", err)
-		}
-		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: c.GetCertificate,
-		})))
-	}
-	// Create regatta maintenance server
-	return regattaserver.NewServer(addr, net, opts...), nil
-}
-
 func resolveUrl(urlStr string) (addr string, secure bool, network string) {
 	u, err := url.Parse(urlStr)
 	if err != nil {

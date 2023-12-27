@@ -22,10 +22,7 @@ regatta follower [flags]
       --dev-mode                                              Development mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                  help for follower
       --log-level string                                      Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")
-      --maintenance.address string                            Replication API server address. (default "http://127.0.0.1:8445")
-      --maintenance.cert-filename string                      Path to the API server certificate.
       --maintenance.enabled                                   Whether maintenance API is enabled. (default true)
-      --maintenance.key-filename string                       Path to the API server private key file.
       --maintenance.token string                              Token to check for maintenance API access, if left empty (default) no token is checked.
       --memberlist.address string                             Address is the address for the gossip service to bind to and listen on. Both UDP and TCP ports are used by the gossip service.
                                                               The local gossip service should be able to receive gossip service related messages by binding to and listening on this address. BindAddress is usually in the format of IP:Port, Hostname:Port or DNS Name:Port. (default "0.0.0.0:7432")

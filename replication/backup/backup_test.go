@@ -5,6 +5,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,11 +17,10 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
-	"github.com/jamf/regatta/storage/table"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/vfs"
+	"github.com/jamf/regatta/storage"
+	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -57,7 +57,6 @@ func TestBackup_Backup(t *testing.T) {
 				Tables: []ManifestTable{
 					{
 						Name:     "regatta-test",
-						Type:     "REPLICATED",
 						FileName: "regatta-test.bak",
 						MD5:      "d41d8cd98f00b204e9800998ecf8427e",
 					},
@@ -76,13 +75,11 @@ func TestBackup_Backup(t *testing.T) {
 				Tables: []ManifestTable{
 					{
 						Name:     "regatta-test",
-						Type:     "REPLICATED",
 						FileName: "regatta-test.bak",
 						MD5:      "d41d8cd98f00b204e9800998ecf8427e",
 					},
 					{
 						Name:     "regatta-test2",
-						Type:     "REPLICATED",
 						FileName: "regatta-test2.bak",
 						MD5:      "d41d8cd98f00b204e9800998ecf8427e",
 					},
@@ -111,13 +108,11 @@ func TestBackup_Backup(t *testing.T) {
 				Tables: []ManifestTable{
 					{
 						Name:     "regatta-test",
-						Type:     "REPLICATED",
 						FileName: "regatta-test.bak",
 						MD5:      "5cc50dc8f85f6ab733c9cff534a398dd",
 					},
 					{
 						Name:     "regatta-test2",
-						Type:     "REPLICATED",
 						FileName: "regatta-test2.bak",
 						MD5:      "df74e3ebc3b31f884245cf0efb3c9b6e",
 					},
@@ -150,23 +145,14 @@ func TestBackup_Backup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 
-			nh, nodes, err := startRaftNode()
-			r.NoError(err)
-			defer nh.Close()
-			tm := table.NewManager(nh, nodes, table.Config{
-				NodeID: 1,
-				Table:  table.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
-				Meta:   table.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
-			})
-			r.NoError(tm.Start())
-			r.NoError(tm.WaitUntilReady())
-			defer tm.Close()
+			e := newTestEngine(t)
+			defer e.Close()
 
 			for name, data := range tt.tableData {
-				r.NoError(tm.CreateTable(name))
+				r.NoError(e.CreateTable(name))
 				time.Sleep(1 * time.Second)
 				for _, req := range data {
-					tbl, err := tm.GetTable(name)
+					tbl, err := e.GetTable(name)
 					r.NoError(err)
 					func() {
 						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -177,7 +163,7 @@ func TestBackup_Backup(t *testing.T) {
 				}
 			}
 
-			srv := startBackupServer(tm)
+			srv := startBackupServer(e)
 			conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
@@ -241,19 +227,10 @@ func TestBackup_Restore(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 
-			nh, nodes, err := startRaftNode()
-			r.NoError(err)
-			defer nh.Close()
-			tm := table.NewManager(nh, nodes, table.Config{
-				NodeID: 1,
-				Table:  table.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
-				Meta:   table.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
-			})
-			r.NoError(tm.Start())
-			r.NoError(tm.WaitUntilReady())
-			defer tm.Close()
+			e := newTestEngine(t)
+			defer e.Close()
 
-			srv := startBackupServer(tm)
+			srv := startBackupServer(e)
 			conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
@@ -330,30 +307,44 @@ func TestBackup_ensureDefaults(t *testing.T) {
 	}
 }
 
-func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
-	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	nhc := config.NodeHostConfig{
-		WALDir:         "wal",
-		NodeHostDir:    "dragonboat",
-		RTTMillisecond: 1,
-		RaftAddress:    testNodeAddress,
+func newTestConfig(t *testing.T) storage.Config {
+	fs := lvfs.NewMem()
+	raftPort := getTestPort()
+	gossipPort := getTestPort()
+	return storage.Config{
+		Log:            zaptest.NewLogger(t).Sugar(),
+		NodeID:         1,
+		InitialMembers: map[uint64]string{1: fmt.Sprintf("127.0.0.1:%d", raftPort)},
+		WALDir:         "/wal",
+		NodeHostDir:    "/nh",
+		RTTMillisecond: 5,
+		RaftAddress:    fmt.Sprintf("127.0.0.1:%d", raftPort),
+		Gossip:         storage.GossipConfig{BindAddress: fmt.Sprintf("127.0.0.1:%d", gossipPort), InitialMembers: []string{fmt.Sprintf("127.0.0.1:%d", gossipPort)}},
+		Table:          storage.TableConfig{FS: wrapFS(fs), TableCacheSize: 1024, ElectionRTT: 10, HeartbeatRTT: 1},
+		Meta:           storage.MetaConfig{ElectionRTT: 10, HeartbeatRTT: 1},
+		FS:             fs,
 	}
-	_ = nhc.Prepare()
-	nhc.Expert.FS = vfs.NewMem()
-	nhc.Expert.Engine.ExecShards = 1
-	nhc.Expert.LogDB.Shards = 1
-	nh, err := dragonboat.NewNodeHost(nhc)
-	if err != nil {
-		return nil, nil, err
-	}
-	return nh, map[uint64]string{1: testNodeAddress}, nil
 }
 
-func startBackupServer(manager *table.Manager) *regattaserver.RegattaServer {
+func newTestEngine(t *testing.T) *storage.Engine {
+	e, err := storage.New(newTestConfig(t))
+	require.NoError(t, err)
+	require.NoError(t, e.Start())
+	require.NoError(t, e.WaitUntilReady())
+	t.Cleanup(func() {
+		defer func() { recover() }()
+		require.NoError(t, e.Close())
+	})
+	return e
+}
+
+func startBackupServer(manager *storage.Engine) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, "tcp")
-	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
-	regattapb.RegisterMaintenanceServer(server, &regattaserver.BackupServer{Tables: manager})
+	regattapb.RegisterClusterServer(server, &regattaserver.ClusterServer{Cluster: manager})
+	regattapb.RegisterMaintenanceServer(server, &regattaserver.BackupServer{AuthFunc: func(ctx context.Context) (context.Context, error) {
+		return ctx, nil
+	}, Tables: manager})
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
@@ -371,4 +362,106 @@ func getTestPort() int {
 		_ = l.Close()
 	}()
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+// wrapFS creates a new pebble/vfs.FS instance.
+func wrapFS(fs lvfs.FS) pvfs.FS {
+	return &pebbleFSAdapter{fs}
+}
+
+// pebbleFSAdapter is a wrapper struct that implements the pebble/vfs.FS interface.
+type pebbleFSAdapter struct {
+	fs lvfs.FS
+}
+
+// GetDiskUsage ...
+func (p *pebbleFSAdapter) GetDiskUsage(path string) (pvfs.DiskUsage, error) {
+	du, err := p.fs.GetDiskUsage(path)
+	return pvfs.DiskUsage{
+		AvailBytes: du.AvailBytes,
+		TotalBytes: du.TotalBytes,
+		UsedBytes:  du.UsedBytes,
+	}, err
+}
+
+// Create ...
+func (p *pebbleFSAdapter) Create(name string) (pvfs.File, error) {
+	return p.fs.Create(name)
+}
+
+// Link ...
+func (p *pebbleFSAdapter) Link(oldname, newname string) error {
+	return p.fs.Link(oldname, newname)
+}
+
+// Open ...
+func (p *pebbleFSAdapter) Open(name string, opts ...pvfs.OpenOption) (pvfs.File, error) {
+	f, err := p.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		opt.Apply(f)
+	}
+	return f, nil
+}
+
+// OpenDir ...
+func (p *pebbleFSAdapter) OpenDir(name string) (pvfs.File, error) {
+	return p.fs.OpenDir(name)
+}
+
+// Remove ...
+func (p *pebbleFSAdapter) Remove(name string) error {
+	return p.fs.Remove(name)
+}
+
+// RemoveAll ...
+func (p *pebbleFSAdapter) RemoveAll(name string) error {
+	return p.fs.RemoveAll(name)
+}
+
+// Rename ...
+func (p *pebbleFSAdapter) Rename(oldname, newname string) error {
+	return p.fs.Rename(oldname, newname)
+}
+
+// ReuseForWrite ...
+func (p *pebbleFSAdapter) ReuseForWrite(oldname, newname string) (pvfs.File, error) {
+	return p.fs.ReuseForWrite(oldname, newname)
+}
+
+// MkdirAll ...
+func (p *pebbleFSAdapter) MkdirAll(dir string, perm os.FileMode) error {
+	return p.fs.MkdirAll(dir, perm)
+}
+
+// Lock ...
+func (p *pebbleFSAdapter) Lock(name string) (io.Closer, error) {
+	return p.fs.Lock(name)
+}
+
+// List ...
+func (p *pebbleFSAdapter) List(dir string) ([]string, error) {
+	return p.fs.List(dir)
+}
+
+// Stat ...
+func (p *pebbleFSAdapter) Stat(name string) (os.FileInfo, error) {
+	return p.fs.Stat(name)
+}
+
+// PathBase ...
+func (p *pebbleFSAdapter) PathBase(path string) string {
+	return p.fs.PathBase(path)
+}
+
+// PathJoin ...
+func (p *pebbleFSAdapter) PathJoin(elem ...string) string {
+	return p.fs.PathJoin(elem...)
+}
+
+// PathDir ...
+func (p *pebbleFSAdapter) PathDir(path string) string {
+	return p.fs.PathDir(path)
 }

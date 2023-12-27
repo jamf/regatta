@@ -20,10 +20,15 @@ import (
 // ResetServer implements some Maintenance service methods from proto/regatta.proto.
 type ResetServer struct {
 	regattapb.UnimplementedMaintenanceServer
-	Tables TableService
+	Tables   TableService
+	AuthFunc func(ctx context.Context) (context.Context, error)
 }
 
 func (m *ResetServer) Reset(ctx context.Context, req *regattapb.ResetRequest) (*regattapb.ResetResponse, error) {
+	ctx, err := m.AuthFunc(ctx)
+	if err != nil {
+		return nil, err
+	}
 	reset := func(name string) error {
 		t, err := m.Tables.GetTable(name)
 		if err != nil {
@@ -53,8 +58,7 @@ func (m *ResetServer) Reset(ctx context.Context, req *regattapb.ResetRequest) (*
 	if len(req.Table) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "table must be set")
 	}
-	err := reset(string(req.Table))
-	if err != nil {
+	if err := reset(string(req.Table)); err != nil {
 		return nil, err
 	}
 	return &regattapb.ResetResponse{}, nil
@@ -63,16 +67,20 @@ func (m *ResetServer) Reset(ctx context.Context, req *regattapb.ResetRequest) (*
 // BackupServer implements some Maintenance service methods from proto/regatta.proto.
 type BackupServer struct {
 	regattapb.UnimplementedMaintenanceServer
-	Tables TableService
+	Tables   TableService
+	AuthFunc func(ctx context.Context) (context.Context, error)
 }
 
 func (m *BackupServer) Backup(req *regattapb.BackupRequest, srv regattapb.Maintenance_BackupServer) error {
+	ctx, err := m.AuthFunc(srv.Context())
+	if err != nil {
+		return err
+	}
 	table, err := m.Tables.GetTable(string(req.Table))
 	if err != nil {
 		return err
 	}
 
-	ctx := srv.Context()
 	if _, ok := ctx.Deadline(); !ok {
 		dctx, cancel := context.WithTimeout(srv.Context(), 1*time.Hour)
 		defer cancel()
