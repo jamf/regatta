@@ -8,6 +8,9 @@ nav_order: 999
 
 ## v0.3.3 (unreleased)
 
+### Features
+* Added `api.advertise-address` option to split address advertised to clients from the listen address.
+
 ### Bugfixes
 * Fix `KV/DeleteRange` `Count` erroneously returning `1` if no key was deleted.
 * Fix `KV/DeleteRange` `PrevKV` panicking when previous key did not exist.

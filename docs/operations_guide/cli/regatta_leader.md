@@ -15,7 +15,8 @@ regatta leader [flags]
 ### Options
 
 ```
-      --api.address string                             API server address. (default "http://127.0.0.1:8443")
+      --api.address string                             API server address. The address the server listens on. (default "http://0.0.0.0:8443")
+      --api.advertise-address string                   Advertise API server address, used for NAT traversal. (default "http://127.0.0.1:8443")
       --api.cert-filename string                       Path to the API server certificate.
       --api.key-filename string                        Path to the API server private key file.
       --dev-mode                                       Development mode enabled (verbose logging, human-friendly log format).
@@ -69,7 +70,7 @@ regatta leader [flags]
       --raft.wal-dir string                            WALDir is the directory used for storing the WAL of Raft entries. 
                                                        It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
                                                        Leave WALDir to have zero value will have everything stored in NodeHostDir.
-      --replication.address string                     Replication API server address. (default "http://127.0.0.1:8444")
+      --replication.address string                     Replication API server address. The address the server listens on. (default "http://0.0.0.0:8444")
       --replication.ca-filename string                 Path to the API server CA cert file.
       --replication.cert-filename string               Path to the API server certificate.
       --replication.enabled                            Whether replication API is enabled. (default true)

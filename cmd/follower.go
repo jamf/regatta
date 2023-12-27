@@ -109,7 +109,7 @@ func follower(_ *cobra.Command, _ []string) error {
 
 	engine, err := storage.New(storage.Config{
 		Log:                 engineLog.Sugar(),
-		ClientAddress:       viper.GetString("api.address"),
+		ClientAddress:       viper.GetString("api.advertise-address"),
 		NodeID:              viper.GetUint64("raft.node-id"),
 		InitialMembers:      initialMembers,
 		WALDir:              viper.GetString("raft.wal-dir"),

@@ -28,7 +28,8 @@ func init() {
 	rootFlagSet.String("log-level", "INFO", "Log level: DEBUG/INFO/WARN/ERROR.")
 
 	// API flags
-	apiFlagSet.String("api.address", "http://127.0.0.1:8443", "API server address.")
+	apiFlagSet.String("api.address", "http://0.0.0.0:8443", "API server address. The address the server listens on.")
+	apiFlagSet.String("api.advertise-address", "http://127.0.0.1:8443", "Advertise API server address, used for NAT traversal.")
 	apiFlagSet.String("api.cert-filename", "", "Path to the API server certificate.")
 	apiFlagSet.String("api.key-filename", "", "Path to the API server private key file.")
 
