@@ -199,6 +199,8 @@ service Cluster {
 message MemberListRequest {}
 
 message MemberListResponse {
+  // cluster is a name of the cluster.
+  string cluster = 1;
   // members is a list of all members associated with the cluster.
   repeated Member members = 2;
 }

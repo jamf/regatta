@@ -5,6 +5,7 @@ package cluster
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ import (
 
 func TestSingleNodeCluster(t *testing.T) {
 	address := getTestBindAddress()
-	cluster, err := New(address, "", func() Info { return Info{} })
+	cluster, err := New(address, "", "", "", func() Info { return Info{} })
 	require.NoError(t, err)
 	cluster.Start([]string{address})
 	require.Equal(t, 1, len(cluster.Nodes()))
@@ -28,7 +29,7 @@ func TestMultiNodeCluster(t *testing.T) {
 	t.Log("start 3 node cluster")
 	for i := 0; i < 3; i++ {
 		address := getTestBindAddress()
-		cluster, err := New(address, address, func() Info {
+		cluster, err := New(address, address, "", strconv.Itoa(i), func() Info {
 			return Info{
 				NodeHostID:  util.RandString(64),
 				NodeID:      uint64(i),

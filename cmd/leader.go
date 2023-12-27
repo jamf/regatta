@@ -120,6 +120,8 @@ func leader(_ *cobra.Command, _ []string) error {
 			BindAddress:      viper.GetString("memberlist.address"),
 			AdvertiseAddress: viper.GetString("memberlist.advertise-address"),
 			InitialMembers:   viper.GetStringSlice("memberlist.members"),
+			ClusterName:      viper.GetString("memberlist.cluster-name"),
+			NodeName:         viper.GetString("memberlist.node-name"),
 		},
 		Table: storage.TableConfig{
 			FS:                 vfs.Default,

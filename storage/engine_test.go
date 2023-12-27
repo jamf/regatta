@@ -793,7 +793,7 @@ func newTestEngine(t *testing.T, cfg Config) *Engine {
 	require.NoError(t, err)
 	e.NodeHost = nh
 	e.LogReader = &logreader.Cached{LogQuerier: nh}
-	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, func() cluster.Info {
+	e.Cluster, err = cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, "", "", func() cluster.Info {
 		return cluster.Info{}
 	})
 	require.NoError(t, err)

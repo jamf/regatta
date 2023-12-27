@@ -95,6 +95,9 @@ The local gossip service should be able to receive gossip service related messag
 Gossip services running on remote Regatta instances will use AdvertiseAddress to exchange gossip service related messages. AdvertiseAddress is in the format of IP:Port, Hostname:Port or DNS Name:Port.`)
 	memberlistFlagSet.StringSlice("memberlist.members", []string{""}, `Seed is a list of AdvertiseAddress of remote Regatta instances. Local Regatta instance will try to contact all of them to bootstrap the gossip service. 
 At least one reachable Regatta instance is required to successfully bootstrap the gossip service. Each seed address is in the format of IP:Port, Hostname:Port or DNS Name:Port.`)
+	memberlistFlagSet.String("memberlist.cluster-name", "default", `Cluster name, propagated in Memberlist API responses as well as used as used as a label when forming the gossip cluster.
+All nodes of the cluster MUST set this to the same value. If changing it is advisable to turn off all the nodes and then startup with the new value.`)
+	memberlistFlagSet.String("memberlist.node-name", "", "Node name override, MUST be unique in a cluster, if not specified random stable UUID will be used instead.")
 
 	// Storage flags
 	storageFlagSet.Int64("storage.block-cache-size", 16*1024*1024, "Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory.")

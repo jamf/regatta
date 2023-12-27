@@ -110,6 +110,7 @@ type getClusterInfo func() Info
 
 // Cluster holds information about the memberlist cluster and active listeners.
 type Cluster struct {
+	name            string
 	ml              *memberlist.Memberlist
 	infoF           getClusterInfo
 	shardView       *shardView
@@ -296,10 +297,11 @@ func (c *Cluster) Close() error {
 }
 
 // New configures and creates a new memberlist. To connect the node to the cluster, see (*Cluster).Start.
-func New(bindAddr, advAddr string, f getClusterInfo) (*Cluster, error) {
+func New(bindAddr, advAddr, clusterName, nodeName string, f getClusterInfo) (*Cluster, error) {
 	info := f()
 	log := zap.S().Named("memberlist")
 	cluster := &Cluster{
+		name:            clusterName,
 		log:             log,
 		infoF:           f,
 		shardView:       newView(),
@@ -313,7 +315,8 @@ func New(bindAddr, advAddr string, f getClusterInfo) (*Cluster, error) {
 
 	mcfg := memberlist.DefaultLANConfig()
 	mcfg.LogOutput = &loggerAdapter{log: log.WithOptions(zap.AddCallerSkip(4))}
-	mcfg.Name = fmt.Sprintf("%s/%d", info.NodeHostID, info.NodeID)
+	mcfg.Label = clusterName
+	mcfg.Name = nodeName
 	mcfg.Events = cluster
 
 	host, port, err := net.SplitHostPort(bindAddr)
@@ -372,6 +375,11 @@ func (c *Cluster) Nodes() []Node {
 		ret[i] = toNode(member)
 	}
 	return ret
+}
+
+// Name returns human-readable cluster name.
+func (c *Cluster) Name() string {
+	return c.name
 }
 
 type Node struct {
