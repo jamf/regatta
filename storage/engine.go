@@ -36,7 +36,11 @@ func New(cfg Config) (*Engine, error) {
 	}
 	e.NodeHost = nh
 
-	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, e.clusterInfo)
+	name := cfg.Gossip.NodeName
+	if name == "" {
+		name = nh.ID()
+	}
+	clst, err := cluster.New(cfg.Gossip.BindAddress, cfg.Gossip.AdvertiseAddress, cfg.Gossip.ClusterName, name, e.clusterInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap gossip cluster: %w", err)
 	}
@@ -144,7 +148,7 @@ func (e *Engine) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb
 func (e *Engine) MemberList(ctx context.Context, r *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
 	return withDefaultTimeout(ctx, r, func(ctx context.Context, r *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
 		nodes := e.Cluster.Nodes()
-		res := &regattapb.MemberListResponse{Members: make([]*regattapb.Member, len(nodes))}
+		res := &regattapb.MemberListResponse{Cluster: e.Cluster.Name(), Members: make([]*regattapb.Member, len(nodes))}
 		for i, node := range nodes {
 			res.Members[i] = &regattapb.Member{
 				Id:         strconv.FormatUint(node.NodeID, 10),

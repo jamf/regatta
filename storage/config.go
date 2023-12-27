@@ -23,6 +23,8 @@ type GossipConfig struct {
 	BindAddress      string
 	AdvertiseAddress string
 	InitialMembers   []string
+	ClusterName      string
+	NodeName         string
 }
 
 type Config struct {

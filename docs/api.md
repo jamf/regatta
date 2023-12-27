@@ -503,6 +503,7 @@ It is allowed to modify the same key several times within one txn (the result wi
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| cluster | [string](#string) |  | cluster is a name of the cluster. |
 | members | [Member](#regatta-v1-Member) | repeated | members is a list of all members associated with the cluster. |
 
 

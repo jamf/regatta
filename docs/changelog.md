@@ -12,6 +12,9 @@ nav_order: 999
 * Remove maintenance server port, the API is now available on standard API port. It could still though be secured by a separate API token.
 
 ### Features
+* Added `memberlist.cluster-name` and `memberlist.node-name` options.
+  * Both help identifying cluster and nodes in CLuster API responses.
+  * Cluster name setting prevents accidental pairing of multiple clusters running in the same network. (with different cluster name setting)
 * Added `api.advertise-address` option to split address advertised to clients from the listen address.
 * Removed `maintenance.address` config option.
 * Removed `maintenance.cert-filename` config option.
