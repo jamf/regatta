@@ -17,11 +17,9 @@ import (
 )
 
 // defaultOpts default GRPC server options
-// * Use shared buffer pool.
 // * Allow for earlier keepalives.
 // * Allow keepalives without stream.
 var defaultOpts = []grpc.ServerOption{
-	grpc.RecvBufferPool(grpc.NewSharedBufferPool()),
 	grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 30 * time.Second, PermitWithoutStream: true}),
 }
 
