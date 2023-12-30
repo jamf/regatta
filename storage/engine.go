@@ -12,12 +12,12 @@ import (
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/util/iter"
 	"github.com/jamf/regatta/version"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/plugin/tan"
 	"go.uber.org/zap"
-	protobuf "google.golang.org/protobuf/proto"
 )
 
 const defaultQueryTimeout = 5 * time.Second
@@ -104,6 +104,25 @@ func (e *Engine) Range(ctx context.Context, req *regattapb.RangeRequest) (*regat
 	}
 	rng.Header = e.getHeader(nil, t.ClusterID)
 	return rng, nil
+}
+
+func (e *Engine) IterateRange(ctx context.Context, req *regattapb.RangeRequest) (iter.Seq[*regattapb.RangeResponse], error) {
+	t, err := e.Manager.GetTable(string(req.Table))
+	if err != nil {
+		return nil, err
+	}
+	it, err := t.Iterator(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return iter.Map(it, func(s *regattapb.ResponseOp_Range) *regattapb.RangeResponse {
+		return &regattapb.RangeResponse{
+			Header: e.getHeader(nil, t.ClusterID),
+			Kvs:    s.Kvs,
+			More:   s.More,
+			Count:  s.Count,
+		}
+	}), nil
 }
 
 func (e *Engine) Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error) {
@@ -267,7 +286,7 @@ func buildLogDBConfig() config.LogDBConfig {
 	return cfg
 }
 
-func withDefaultTimeout[R protobuf.Message, S protobuf.Message](ctx context.Context, req R, f func(context.Context, R) (S, error)) (S, error) {
+func withDefaultTimeout[R any, S any](ctx context.Context, req R, f func(context.Context, R) (S, error)) (S, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		dctx, cancel := context.WithTimeout(ctx, defaultQueryTimeout)
 		defer cancel()

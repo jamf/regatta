@@ -8,6 +8,7 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/util/iter"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftpb"
 )
@@ -17,6 +18,7 @@ type KVService interface {
 	Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error)
 	Delete(ctx context.Context, req *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error)
 	Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error)
+	IterateRange(ctx context.Context, req *regattapb.RangeRequest) (iter.Seq[*regattapb.RangeResponse], error)
 }
 
 type SnapshotService interface {
