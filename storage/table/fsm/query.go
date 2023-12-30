@@ -93,39 +93,12 @@ func lookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regattapb.Re
 	return singleLookup(reader, req)
 }
 
-func iterator(reader pebble.Reader, req *regattapb.RequestOp_Range) (iter.Seq[*regattapb.ResponseOp_Range], error) {
-	opts, err := iterOptionsForBounds(req.Key, req.RangeEnd)
-	if err != nil {
-		return nil, err
-	}
-	fill, sf := iterFuncsFromReq(req)
-	return iterate(reader, opts, int(req.Limit), fill, sf), nil
-}
-
 func rangeLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regattapb.ResponseOp_Range, error) {
-	opts, err := iterOptionsForBounds(req.Key, req.RangeEnd)
+	it, err := iterate(reader, req)
 	if err != nil {
 		return nil, err
 	}
-	fill, sf := iterFuncsFromReq(req)
-	iterFunc := iterate(reader, opts, int(req.Limit), fill, sf)
-	var res *regattapb.ResponseOp_Range
-	iterFunc(func(opRange *regattapb.ResponseOp_Range) bool {
-		res = opRange
-		return false
-	})
-	return res, nil
-}
-
-func iterFuncsFromReq(req *regattapb.RequestOp_Range) (fillEntriesFunc, sizeEntriesFunc) {
-	switch {
-	case req.KeysOnly:
-		return addKeyOnly, sizeKeyOnly
-	case req.CountOnly:
-		return addCountOnly, sizeCountOnly
-	default:
-		return addKVPair, sizeKVPair
-	}
+	return iter.First(it), nil
 }
 
 func singleLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regattapb.ResponseOp_Range, error) {
@@ -162,87 +135,6 @@ func singleLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regatt
 		Kvs:   kvs,
 		Count: 1,
 	}, nil
-}
-
-// fillEntriesFunc fills proto.RangeResponse response.
-type fillEntriesFunc func(key, value []byte, response *regattapb.ResponseOp_Range)
-
-// sizeEntriesFunc estimates entry size.
-type sizeEntriesFunc func(key, value []byte) uint64
-
-// iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
-// Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
-func iterate(reader pebble.Reader, opts *pebble.IterOptions, limit int, f fillEntriesFunc, s sizeEntriesFunc) iter.Seq[*regattapb.ResponseOp_Range] {
-	return func(yield func(*regattapb.ResponseOp_Range) bool) {
-		iter := reader.NewIter(opts)
-		defer func() {
-			_ = iter.Close()
-		}()
-		response := &regattapb.ResponseOp_Range{}
-		// If no results found yield and end immediately.
-		if !iter.First() {
-			yield(response)
-			return
-		}
-		i := 0
-		for {
-			k, err := key.DecodeBytes(iter.Key())
-			if err != nil {
-				panic(err)
-			}
-			if i == limit && limit != 0 || (uint64(response.SizeVT())+s(k.Key, iter.Value())) >= maxRangeSize {
-				response.More = true
-				if !yield(response) {
-					return
-				}
-				response = &regattapb.ResponseOp_Range{}
-			}
-			i++
-			f(k.Key, iter.Value(), response)
-			if !iter.Next() {
-				yield(response)
-				return
-			}
-		}
-	}
-
-}
-
-// addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
-func addKVPair(key, value []byte, response *regattapb.ResponseOp_Range) {
-	kv := &regattapb.KeyValue{Key: make([]byte, len(key)), Value: make([]byte, len(value))}
-	copy(kv.Key, key)
-	copy(kv.Value, value)
-	response.Kvs = append(response.Kvs, kv)
-	response.Count = int64(len(response.Kvs))
-}
-
-// sizeKVPair takes the full pair size into consideration.
-func sizeKVPair(key, value []byte) uint64 {
-	return uint64(len(key) + len(value))
-}
-
-// addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
-func addKeyOnly(key, _ []byte, response *regattapb.ResponseOp_Range) {
-	kv := &regattapb.KeyValue{Key: make([]byte, len(key))}
-	copy(kv.Key, key)
-	response.Kvs = append(response.Kvs, kv)
-	response.Count++
-}
-
-// sizeKeyOnly takes only the key into consideration.
-func sizeKeyOnly(key, _ []byte) uint64 {
-	return uint64(len(key))
-}
-
-// addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
-func addCountOnly(_, _ []byte, response *regattapb.ResponseOp_Range) {
-	response.Count++
-}
-
-// sizeCountOnly for count the size remains constant.
-func sizeCountOnly(_, _ []byte) uint64 {
-	return uint64(0)
 }
 
 // IteratorRequest returns open pebble.Iterator it is an API consumer responsibility to close it.

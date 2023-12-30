@@ -8,6 +8,40 @@ import (
 
 type Seq[V any] func(yield func(V) bool)
 
+func Collect[T any](seq Seq[T]) (res []T) {
+	seq(func(t T) bool {
+		res = append(res, t)
+		return true
+	})
+	return
+}
+
+func Consume[T any](seq Seq[T], fn func(T)) {
+	seq(func(t T) bool {
+		fn(t)
+		return true
+	})
+}
+
+func From[T any](in ...T) Seq[T] {
+	return func(yield func(T) bool) {
+		for _, item := range in {
+			if !yield(item) {
+				return
+			}
+		}
+	}
+}
+
+func First[T any](seq Seq[T]) T {
+	var res T
+	seq(func(t T) bool {
+		res = t
+		return false
+	})
+	return res
+}
+
 func Map[S, R any](seq Seq[S], fn func(S) R) Seq[R] {
 	return func(yield func(R) bool) {
 		seq(func(v S) bool {

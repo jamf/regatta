@@ -8,21 +8,27 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/util/iter"
 )
 
 // MockStorage implements trivial storage for testing purposes.
 type MockStorage struct {
-	rangeResponse       regattapb.RangeResponse
-	putResponse         regattapb.PutResponse
-	deleteRangeResponse regattapb.DeleteRangeResponse
-	txnResponse         regattapb.TxnResponse
-	rangeError          error
-	putError            error
-	deleteError         error
+	rangeResponse        regattapb.RangeResponse
+	iterateRangeResponse iter.Seq[*regattapb.RangeResponse]
+	putResponse          regattapb.PutResponse
+	deleteRangeResponse  regattapb.DeleteRangeResponse
+	txnResponse          regattapb.TxnResponse
+	rangeError           error
+	putError             error
+	deleteError          error
 }
 
 func (s *MockStorage) Range(_ context.Context, _ *regattapb.RangeRequest) (*regattapb.RangeResponse, error) {
 	return &s.rangeResponse, s.rangeError
+}
+
+func (s *MockStorage) IterateRange(_ context.Context, _ *regattapb.RangeRequest) (iter.Seq[*regattapb.RangeResponse], error) {
+	return s.iterateRangeResponse, s.rangeError
 }
 
 func (s *MockStorage) Put(_ context.Context, _ *regattapb.PutRequest) (*regattapb.PutResponse, error) {

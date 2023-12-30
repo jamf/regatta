@@ -23,38 +23,38 @@ func TestMap(t *testing.T) {
 		{
 			name: "empty",
 			args: args[int, string]{
-				seq: ofSlice([]int{}),
+				seq: From[int](),
 				fn: func(i int) string {
 					return strconv.Itoa(i)
 				},
 			},
-			want: ofSlice([]string{}),
+			want: From[string](),
 		},
 		{
 			name: "single item",
 			args: args[int, string]{
-				seq: ofSlice([]int{1}),
+				seq: From(1),
 				fn: func(i int) string {
 					return strconv.Itoa(i)
 				},
 			},
-			want: ofSlice([]string{"1"}),
+			want: From("1"),
 		},
 		{
 			name: "multiple items",
 			args: args[int, string]{
-				seq: ofSlice([]int{1, 2, 3, 4, 5}),
+				seq: From(1, 2, 3, 4, 5),
 				fn: func(i int) string {
 					return strconv.Itoa(i)
 				},
 			},
-			want: ofSlice([]string{"1", "2", "3", "4", "5"}),
+			want: From("1", "2", "3", "4", "5"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Map(tt.args.seq, tt.args.fn)
-			require.Equal(t, collect(tt.want), collect(got))
+			require.Equal(t, Collect(tt.want), Collect(got))
 		})
 	}
 }
@@ -72,23 +72,23 @@ func TestPull(t *testing.T) {
 		{
 			name: "empty",
 			args: args[int]{
-				seq: ofSlice([]int{}),
+				seq: From[int](),
 			},
-			want: ofSlice([]int{}),
+			want: From[int](),
 		},
 		{
 			name: "single item",
 			args: args[int]{
-				seq: ofSlice([]int{1}),
+				seq: From(1),
 			},
-			want: ofSlice([]int{1}),
+			want: From(1),
 		},
 		{
 			name: "multiple items",
 			args: args[int]{
-				seq: ofSlice([]int{1, 2, 3, 4, 5}),
+				seq: From(1, 2, 3, 4, 5),
 			},
-			want: ofSlice([]int{1, 2, 3, 4, 5}),
+			want: From(1, 2, 3, 4, 5),
 		},
 	}
 	for _, tt := range tests {
@@ -103,25 +103,7 @@ func TestPull(t *testing.T) {
 				}
 				items = append(items, i)
 			}
-			require.Equal(t, collect(tt.want), items)
+			require.Equal(t, Collect(tt.want), items)
 		})
-	}
-}
-
-func collect[T any](seq Seq[T]) (res []T) {
-	seq(func(t T) bool {
-		res = append(res, t)
-		return true
-	})
-	return
-}
-
-func ofSlice[T any](in []T) Seq[T] {
-	return func(yield func(T) bool) {
-		for _, item := range in {
-			if !yield(item) {
-				return
-			}
-		}
 	}
 }
