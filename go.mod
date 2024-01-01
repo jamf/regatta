@@ -18,7 +18,7 @@ require (
 	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/planetscale/vtprotobuf v0.5.0
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/common v0.45.0
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/spf13/cobra v1.8.0
