@@ -4,13 +4,17 @@ package regattaserver
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/util/iter"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -26,7 +30,7 @@ var (
 	table2Value2 = []byte("table_2/value_2")
 )
 
-func TestKVServer_Get(t *testing.T) {
+func TestKVServer_Range(t *testing.T) {
 	tests := []struct {
 		name          string
 		rangeRequest  *regattapb.RangeRequest
@@ -239,33 +243,6 @@ func TestKVServer_Get(t *testing.T) {
 	}
 }
 
-func TestKVServer_Parallel(t *testing.T) {
-	kv := KVServer{Storage: &MockStorage{}}
-	for i := 0; i < 100; i++ {
-		t.Run("Run parallel reads/writes", func(t *testing.T) {
-			t.Parallel()
-			r := require.New(t)
-
-			t.Log("Put kv")
-			_, err := kv.Put(context.Background(), &regattapb.PutRequest{
-				Table: table1Name,
-				Key:   key1Name,
-				Value: table1Value1,
-			})
-			r.NoError(err, "Failed to put kv")
-
-			t.Log("Get kv")
-			_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
-				Table: table1Name,
-				Key:   key1Name,
-			})
-			if err != nil && err.Error() != status.Errorf(codes.NotFound, "key not found").Error() {
-				r.NoError(err, "Failed to get value")
-			}
-		})
-	}
-}
-
 func TestKVServer_RangeNotFound(t *testing.T) {
 	r := require.New(t)
 
@@ -319,7 +296,7 @@ func TestKVServer_RangeNotFound(t *testing.T) {
 	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
 }
 
-func TestKVServer_RangeInvalidArgument(t *testing.T) {
+func TestKVServer_RangeError(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
 		Storage: &MockStorage{},
@@ -355,6 +332,16 @@ func TestKVServer_RangeInvalidArgument(t *testing.T) {
 		CountOnly: true,
 	})
 	r.EqualError(err, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time").Error())
+
+	t.Log("Get unknown error")
+	kv = KVServer{
+		Storage: &MockStorage{rangeError: fmt.Errorf("unknown")},
+	}
+	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   []byte("foo"),
+	})
+	r.EqualError(err, status.Errorf(codes.Internal, "unknown").Error())
 }
 
 func TestKVServer_RangeUnimplemented(t *testing.T) {
@@ -396,7 +383,154 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
 }
 
-func TestKVServer_PutInvalidArgument(t *testing.T) {
+func TestKVServer_IterateRangeError(t *testing.T) {
+	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
+
+	t.Log("Get with empty table name")
+	err := kv.IterateRange(&regattapb.RangeRequest{
+		Table: []byte{},
+		Key:   key1Name,
+	}, nil)
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
+
+	t.Log("Get with empty key name")
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   []byte{},
+	}, nil)
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "key must be set").Error())
+
+	t.Log("Get with negative limit")
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   key1Name,
+		Limit: -1,
+	}, nil)
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "limit must be a positive number").Error())
+
+	t.Log("Get with both CountOnly and KeysOnly")
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table:     table1Name,
+		Key:       key1Name,
+		KeysOnly:  true,
+		CountOnly: true,
+	}, nil)
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "keys_only and count_only must not be set at the same time").Error())
+
+	t.Log("Get kv from non-existing table")
+	kv.Storage = &MockStorage{iterateRangeError: errors.ErrTableNotFound}
+	srv := &mockIterateRangeServer{}
+	srv.On("Context").Return(context.Background())
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: []byte("non_existing_table"),
+		Key:   key1Name,
+	}, srv)
+	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
+
+	t.Log("Get unknown error")
+	kv.Storage = &MockStorage{iterateRangeError: fmt.Errorf("unknown")}
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   []byte("foo"),
+	}, srv)
+	r.EqualError(err, status.Errorf(codes.Internal, "unknown").Error())
+
+	t.Log("Get unknown send error")
+	kv.Storage = &MockStorage{iterateRangeResponse: iter.From(&regattapb.RangeResponse{})}
+
+	srv.On("Send", mock.Anything).Return(fmt.Errorf("uknown send error"))
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   []byte("foo"),
+	}, srv)
+	r.EqualError(err, status.Errorf(codes.Internal, "uknown send error").Error())
+}
+
+func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
+	a := assert.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
+
+	t.Log("Get kv with unimplemented min_mod_revision")
+	err := kv.IterateRange(&regattapb.RangeRequest{
+		Table:          table1Name,
+		Key:            key1Name,
+		MinModRevision: 1,
+	}, nil)
+	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented").Error())
+
+	t.Log("Get kv with unimplemented max_mod_revision")
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table:          table1Name,
+		Key:            key1Name,
+		MaxModRevision: 1,
+	}, nil)
+	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented").Error())
+
+	t.Log("Get kv with unimplemented min_create_revision")
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table:             table1Name,
+		Key:               key1Name,
+		MinCreateRevision: 1,
+	}, nil)
+	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_create_revision not implemented").Error())
+
+	t.Log("Get kv with unimplemented max_create_revision")
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table:             table1Name,
+		Key:               key1Name,
+		MaxCreateRevision: 1,
+	}, nil)
+	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
+}
+
+func TestKVServer_IterateRange(t *testing.T) {
+	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
+
+	t.Log("IterateRange single message")
+	kv.Storage = &MockStorage{iterateRangeResponse: iter.From(&regattapb.RangeResponse{})}
+	srv := &mockIterateRangeServer{}
+	srv.On("Context").Return(context.Background())
+	srv.On("Send", mock.AnythingOfType("*regattapb.RangeResponse")).Return(nil).Once()
+	err := kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   key1Name,
+	}, srv)
+	r.NoError(err)
+
+	t.Log("IterateRange multi messages")
+	kv.Storage = &MockStorage{iterateRangeResponse: iter.From(&regattapb.RangeResponse{}, &regattapb.RangeResponse{}, &regattapb.RangeResponse{})}
+	srv = &mockIterateRangeServer{}
+	srv.On("Context").Return(context.Background())
+	srv.On("Send", mock.AnythingOfType("*regattapb.RangeResponse")).Return(nil).Times(3)
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   key1Name,
+	}, srv)
+	r.NoError(err)
+
+	t.Log("IterateRange canceled context")
+	kv.Storage = &MockStorage{iterateRangeResponse: iter.From(&regattapb.RangeResponse{}, &regattapb.RangeResponse{}, &regattapb.RangeResponse{})}
+	srv = &mockIterateRangeServer{}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	cancelFunc()
+	srv.On("Context").Return(ctx)
+	srv.On("Send", mock.AnythingOfType("*regattapb.RangeResponse")).Return(nil).Times(0)
+	err = kv.IterateRange(&regattapb.RangeRequest{
+		Table: table1Name,
+		Key:   key1Name,
+	}, srv)
+	r.NoError(err)
+}
+
+func TestKVServer_PutError(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
 		Storage: &MockStorage{},
@@ -426,9 +560,17 @@ func TestKVServer_PutInvalidArgument(t *testing.T) {
 		Value: table1Value1,
 	})
 	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
+
+	t.Log("Put unknown error")
+	kv.Storage = &MockStorage{putError: fmt.Errorf("unknown")}
+	_, err = kv.Put(context.Background(), &regattapb.PutRequest{
+		Table: table1Name,
+		Key:   []byte("foo"),
+	})
+	r.EqualError(err, status.Errorf(codes.Internal, "unknown").Error())
 }
 
-func TestKVServer_DeleteRangeInvalidArgument(t *testing.T) {
+func TestKVServer_DeleteRangeError(t *testing.T) {
 	r := require.New(t)
 	kv := KVServer{
 		Storage: &MockStorage{},
@@ -455,6 +597,14 @@ func TestKVServer_DeleteRangeInvalidArgument(t *testing.T) {
 		Key:   key1Name,
 	})
 	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
+
+	t.Log("Delete unknown error")
+	kv.Storage = &MockStorage{deleteError: fmt.Errorf("unknown")}
+	_, err = kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
+		Table: table1Name,
+		Key:   []byte("foo"),
+	})
+	r.EqualError(err, status.Errorf(codes.Internal, "unknown").Error())
 }
 
 func TestKVServer_DeleteRange(t *testing.T) {
@@ -471,6 +621,53 @@ func TestKVServer_DeleteRange(t *testing.T) {
 	})
 	r.NoError(err)
 	r.Equal(int64(1), drresp.GetDeleted())
+}
+
+func TestKVServer_TxnError(t *testing.T) {
+	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
+
+	t.Log("Txn with empty table name")
+	_, err := kv.Txn(context.Background(), &regattapb.TxnRequest{
+		Table: []byte{},
+	})
+	r.EqualError(err, status.Errorf(codes.InvalidArgument, "table must be set").Error())
+
+	t.Log("Txn with non-existing table")
+	kv.Storage = &MockStorage{txnError: errors.ErrTableNotFound}
+	_, err = kv.Txn(context.Background(), &regattapb.TxnRequest{
+		Table: []byte("non_existing_table"),
+	})
+	r.EqualError(err, status.Errorf(codes.NotFound, "table not found").Error())
+
+	t.Log("Txn unknown error")
+	kv.Storage = &MockStorage{txnError: fmt.Errorf("unknown")}
+	_, err = kv.Txn(context.Background(), &regattapb.TxnRequest{
+		Table: table1Name,
+	})
+	r.EqualError(err, status.Errorf(codes.Internal, "unknown").Error())
+}
+
+func TestKVServer_Txn(t *testing.T) {
+	r := require.New(t)
+	kv := KVServer{
+		Storage: &MockStorage{},
+	}
+
+	t.Log("Txn with correct params")
+	_, err := kv.Txn(context.Background(), &regattapb.TxnRequest{
+		Table: table1Name,
+		Success: []*regattapb.RequestOp{
+			{
+				Request: &regattapb.RequestOp_RequestRange{
+					RequestRange: &regattapb.RequestOp_Range{},
+				},
+			},
+		},
+	})
+	r.NoError(err)
 }
 
 func TestReadonlyKVServer_Put(t *testing.T) {
@@ -537,4 +734,36 @@ func TestReadonlyKVServer_Txn(t *testing.T) {
 		},
 	})
 	r.NoError(err)
+}
+
+type mockIterateRangeServer struct {
+	mock.Mock
+}
+
+func (m *mockIterateRangeServer) Send(response *regattapb.RangeResponse) error {
+	return m.Mock.Called(response).Error(0)
+}
+
+func (m *mockIterateRangeServer) SetHeader(md metadata.MD) error {
+	return m.Mock.Called(md).Error(0)
+}
+
+func (m *mockIterateRangeServer) SendHeader(md metadata.MD) error {
+	return m.Mock.Called(md).Error(0)
+}
+
+func (m *mockIterateRangeServer) SetTrailer(md metadata.MD) {
+	m.Mock.Called(md)
+}
+
+func (m *mockIterateRangeServer) Context() context.Context {
+	return m.Mock.Called().Get(0).(context.Context)
+}
+
+func (m *mockIterateRangeServer) SendMsg(mes any) error {
+	return m.Mock.Called(mes).Error(0)
+}
+
+func (m *mockIterateRangeServer) RecvMsg(mes any) error {
+	return m.Mock.Called(mes).Error(0)
 }

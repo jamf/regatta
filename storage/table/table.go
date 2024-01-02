@@ -164,7 +164,7 @@ func (t *ActiveTable) Delete(ctx context.Context, req *regattapb.DeleteRangeRequ
 
 func (t *ActiveTable) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	// Do not propose read-only transactions through the log
-	if isReadonlyTransaction(req) {
+	if req.IsReadonly() {
 		return readTable[*regattapb.TxnResponse](t, ctx, true, req)
 	}
 
@@ -195,21 +195,6 @@ func (t *ActiveTable) Txn(ctx context.Context, req *regattapb.TxnRequest) (*rega
 		Responses: txr.Responses,
 		Header:    &regattapb.ResponseHeader{Revision: txr.Revision},
 	}, nil
-}
-
-func isReadonlyTransaction(req *regattapb.TxnRequest) bool {
-	for _, op := range req.Success {
-		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
-			return false
-		}
-	}
-
-	for _, op := range req.Failure {
-		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
-			return false
-		}
-	}
-	return true
 }
 
 // Iterator returns open pebble.Iterator it is an API consumer responsibility to close it.

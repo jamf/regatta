@@ -9,6 +9,103 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFrom(t *testing.T) {
+	type args struct {
+		items []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{
+			name: "empty",
+			args: args{items: []int{}},
+		},
+		{
+			name: "single item",
+			args: args{items: []int{1}},
+			want: []int{1},
+		},
+		{
+			name: "multiple items",
+			args: args{items: []int{1, 2, 3}},
+			want: []int{1, 2, 3},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, Collect(From(tt.args.items...)))
+		})
+	}
+}
+
+func TestConsume(t *testing.T) {
+	type args struct {
+		items []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{
+			name: "empty",
+			args: args{items: []int{}},
+		},
+		{
+			name: "single item",
+			args: args{items: []int{1}},
+			want: []int{1},
+		},
+		{
+			name: "multiple items",
+			args: args{items: []int{1, 2, 3}},
+			want: []int{1, 2, 3},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := 0
+			Consume(From(tt.args.items...), func(item int) {
+				require.Equal(t, tt.want[i], item)
+				i++
+			})
+		})
+	}
+}
+
+func TestFirst(t *testing.T) {
+	type args struct {
+		items []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "empty",
+			args: args{items: []int{}},
+		},
+		{
+			name: "single item",
+			args: args{items: []int{1}},
+			want: 1,
+		},
+		{
+			name: "multiple items",
+			args: args{items: []int{1, 2, 3}},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, First(From(tt.args.items...)))
+		})
+	}
+}
+
 func TestMap(t *testing.T) {
 	type args[S any, R any] struct {
 		seq Seq[S]

@@ -185,23 +185,8 @@ func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *regattapb.DeleteRan
 // It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
 // Readonly transactions allowed using follower API.
 func (r *ReadonlyKVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
-	if isReadonlyTransaction(req) {
+	if req.IsReadonly() {
 		return r.KVServer.Txn(ctx, req)
 	}
 	return nil, status.Error(codes.Unimplemented, "writable Txn not implemented for follower")
-}
-
-func isReadonlyTransaction(req *regattapb.TxnRequest) bool {
-	for _, op := range req.Success {
-		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
-			return false
-		}
-	}
-
-	for _, op := range req.Failure {
-		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
-			return false
-		}
-	}
-	return true
 }

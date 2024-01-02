@@ -19,8 +19,10 @@ type MockStorage struct {
 	deleteRangeResponse  regattapb.DeleteRangeResponse
 	txnResponse          regattapb.TxnResponse
 	rangeError           error
+	iterateRangeError    error
 	putError             error
 	deleteError          error
+	txnError             error
 }
 
 func (s *MockStorage) Range(_ context.Context, _ *regattapb.RangeRequest) (*regattapb.RangeResponse, error) {
@@ -28,7 +30,7 @@ func (s *MockStorage) Range(_ context.Context, _ *regattapb.RangeRequest) (*rega
 }
 
 func (s *MockStorage) IterateRange(_ context.Context, _ *regattapb.RangeRequest) (iter.Seq[*regattapb.RangeResponse], error) {
-	return s.iterateRangeResponse, s.rangeError
+	return s.iterateRangeResponse, s.iterateRangeError
 }
 
 func (s *MockStorage) Put(_ context.Context, _ *regattapb.PutRequest) (*regattapb.PutResponse, error) {
@@ -40,7 +42,7 @@ func (s *MockStorage) Delete(_ context.Context, _ *regattapb.DeleteRangeRequest)
 }
 
 func (s *MockStorage) Txn(_ context.Context, _ *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
-	return &s.txnResponse, s.deleteError
+	return &s.txnResponse, s.txnError
 }
 
 type MockTableService struct {
