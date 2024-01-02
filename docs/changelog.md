@@ -10,6 +10,7 @@ nav_order: 999
 
 ### Breaking changes
 * Remove maintenance server port, the API is now available on standard API port. It could still though be secured by a separate API token.
+* Replaced `clusterID` with `shard_id` in metric label names.
 
 ### Features
 * Added `memberlist.cluster-name` and `memberlist.node-name` options.

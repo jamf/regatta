@@ -27,18 +27,35 @@ func TestFSM_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	defer inFile.Close()
 	require.NoError(t, err)
-	require.NoError(t, testutil.CollectAndCompare(p, inFile,
+	lint, err := testutil.CollectAndLint(p,
 		appliedIndexMetricName,
 		tableCacheHitsMetricName,
 		tableCacheMissesMetricName,
 		tableCacheSizeMetricName,
-		tableCacheCountMetricName,
+		tableCacheItemsCountMetricName,
 		filterHitsMetricName,
 		filterMissesMetricName,
 		readAmpMetricName,
 		writeAmpMetricName,
 		bytesInMetricName,
-		compactionCountMetricName,
+		diskUsageMetricName,
+		compactionMetricName,
+		compactionDebtMetricName,
+	)
+	require.NoError(t, err)
+	require.Empty(t, lint)
+	require.NoError(t, testutil.CollectAndCompare(p, inFile,
+		appliedIndexMetricName,
+		tableCacheHitsMetricName,
+		tableCacheMissesMetricName,
+		tableCacheSizeMetricName,
+		tableCacheItemsCountMetricName,
+		filterHitsMetricName,
+		filterMissesMetricName,
+		readAmpMetricName,
+		writeAmpMetricName,
+		bytesInMetricName,
+		compactionMetricName,
 		compactionDebtMetricName,
 	))
 }

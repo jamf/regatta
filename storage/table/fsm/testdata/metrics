@@ -1,49 +1,56 @@
 # HELP regatta_applied_index Regatta table applied index
 # TYPE regatta_applied_index gauge
-regatta_applied_index{clusterID="1",table="test"} 0
-# HELP regatta_table_storage_cache_count Regatta table storage block/table cache items count
-# TYPE regatta_table_storage_cache_count gauge
-regatta_table_storage_cache_count{clusterID="1",table="test",type="block"} 0
-regatta_table_storage_cache_count{clusterID="1",table="test",type="table"} 0
+regatta_applied_index{shard_id="1",table="test"} 0
+# HELP regatta_table_storage_cache_items Regatta table storage block/table cache items count
+# TYPE regatta_table_storage_cache_items gauge
+regatta_table_storage_cache_items{shard_id="1",table="test",type="block"} 0
+regatta_table_storage_cache_items{shard_id="1",table="test",type="table"} 0
 # HELP regatta_table_storage_cache_hits Regatta table storage block/table cache hits
 # TYPE regatta_table_storage_cache_hits gauge
-regatta_table_storage_cache_hits{clusterID="1",table="test",type="block"} 0
-regatta_table_storage_cache_hits{clusterID="1",table="test",type="table"} 0
+regatta_table_storage_cache_hits{shard_id="1",table="test",type="block"} 0
+regatta_table_storage_cache_hits{shard_id="1",table="test",type="table"} 0
 # HELP regatta_table_storage_cache_misses Regatta table storage block/table cache misses
 # TYPE regatta_table_storage_cache_misses gauge
-regatta_table_storage_cache_misses{clusterID="1",table="test",type="block"} 0
-regatta_table_storage_cache_misses{clusterID="1",table="test",type="table"} 0
+regatta_table_storage_cache_misses{shard_id="1",table="test",type="block"} 0
+regatta_table_storage_cache_misses{shard_id="1",table="test",type="table"} 0
 # HELP regatta_table_storage_cache_size_bytes Regatta table storage block/table cache size in bytes
 # TYPE regatta_table_storage_cache_size_bytes gauge
-regatta_table_storage_cache_size_bytes{clusterID="1",table="test",type="block"} 0
-regatta_table_storage_cache_size_bytes{clusterID="1",table="test",type="table"} 0
-# HELP regatta_table_storage_compaction_count Regatta table storage compaction count by kind
-# TYPE regatta_table_storage_compaction_count gauge
-regatta_table_storage_compaction_count{clusterID="1",kind="default",table="test"} 0
-regatta_table_storage_compaction_count{clusterID="1",kind="delete",table="test"} 0
-regatta_table_storage_compaction_count{clusterID="1",kind="elision",table="test"} 0
-regatta_table_storage_compaction_count{clusterID="1",kind="move",table="test"} 0
-regatta_table_storage_compaction_count{clusterID="1",kind="multilevel",table="test"} 0
-regatta_table_storage_compaction_count{clusterID="1",kind="read",table="test"} 0
-regatta_table_storage_compaction_count{clusterID="1",kind="total",table="test"} 0
+regatta_table_storage_cache_size_bytes{shard_id="1",table="test",type="block"} 0
+regatta_table_storage_cache_size_bytes{shard_id="1",table="test",type="table"} 0
+# HELP regatta_table_storage_compaction Regatta table storage compaction count by kind
+# TYPE regatta_table_storage_compaction summary
+regatta_table_storage_compaction_sum{kind="default",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="default",shard_id="1",table="test"} 2
+regatta_table_storage_compaction_sum{kind="delete",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="delete",shard_id="1",table="test"} 2
+regatta_table_storage_compaction_sum{kind="elision",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="elision",shard_id="1",table="test"} 2
+regatta_table_storage_compaction_sum{kind="move",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="move",shard_id="1",table="test"} 2
+regatta_table_storage_compaction_sum{kind="multilevel",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="multilevel",shard_id="1",table="test"} 2
+regatta_table_storage_compaction_sum{kind="read",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="read",shard_id="1",table="test"} 2
+regatta_table_storage_compaction_sum{kind="total",shard_id="1",table="test"} 0
+regatta_table_storage_compaction_count{kind="total",shard_id="1",table="test"} 2
 # HELP regatta_table_storage_compaction_debt_bytes Regatta table storage compaction debt in bytes
 # TYPE regatta_table_storage_compaction_debt_bytes gauge
-regatta_table_storage_compaction_debt_bytes{clusterID="1",table="test"} 0
+regatta_table_storage_compaction_debt_bytes{shard_id="1",table="test"} 0
 # HELP regatta_table_storage_disk_usage_bytes Regatta table storage estimated disk usage, including temp files and WAL
 # TYPE regatta_table_storage_disk_usage_bytes gauge
-regatta_table_storage_disk_usage_bytes{clusterID="1",table="test"} 2374
+regatta_table_storage_disk_usage_bytes{shard_id="1",table="test"} 2374
 # HELP regatta_table_storage_filter_hits Regatta table storage bloom filter hits
 # TYPE regatta_table_storage_filter_hits gauge
-regatta_table_storage_filter_hits{clusterID="1",table="test"} 0
+regatta_table_storage_filter_hits{shard_id="1",table="test"} 0
 # HELP regatta_table_storage_filter_misses Regatta table storage bloom filter misses
 # TYPE regatta_table_storage_filter_misses gauge
-regatta_table_storage_filter_misses{clusterID="1",table="test"} 0
+regatta_table_storage_filter_misses{shard_id="1",table="test"} 0
 # HELP regatta_table_storage_read_amp Regatta table storage read amplification
 # TYPE regatta_table_storage_read_amp gauge
-regatta_table_storage_read_amp{clusterID="1",table="test"} 0
+regatta_table_storage_read_amp{shard_id="1",table="test"} 0
 # HELP regatta_table_storage_total_bytes_in Regatta table storage total bytes in
 # TYPE regatta_table_storage_total_bytes_in gauge
-regatta_table_storage_total_bytes_in{clusterID="1",table="test"} 0
+regatta_table_storage_total_bytes_in{shard_id="1",table="test"} 0
 # HELP regatta_table_storage_total_write_amp Regatta table storage total write amplification
 # TYPE regatta_table_storage_total_write_amp gauge
-regatta_table_storage_total_write_amp{clusterID="1",table="test"} 0
+regatta_table_storage_total_write_amp{shard_id="1",table="test"} 0

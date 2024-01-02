@@ -11,19 +11,19 @@ import (
 )
 
 const (
-	appliedIndexMetricName     = "regatta_applied_index"
-	tableCacheHitsMetricName   = "regatta_table_storage_cache_hits"
-	tableCacheMissesMetricName = "regatta_table_storage_cache_misses"
-	tableCacheSizeMetricName   = "regatta_table_storage_cache_size_bytes"
-	tableCacheCountMetricName  = "regatta_table_storage_cache_count"
-	filterHitsMetricName       = "regatta_table_storage_filter_hits"
-	filterMissesMetricName     = "regatta_table_storage_filter_misses"
-	diskUsageMetricName        = "regatta_table_storage_disk_usage_bytes"
-	readAmpMetricName          = "regatta_table_storage_read_amp"
-	writeAmpMetricName         = "regatta_table_storage_total_write_amp"
-	bytesInMetricName          = "regatta_table_storage_total_bytes_in"
-	compactionCountMetricName  = "regatta_table_storage_compaction_count"
-	compactionDebtMetricName   = "regatta_table_storage_compaction_debt_bytes"
+	appliedIndexMetricName         = "regatta_applied_index"
+	tableCacheHitsMetricName       = "regatta_table_storage_cache_hits"
+	tableCacheMissesMetricName     = "regatta_table_storage_cache_misses"
+	tableCacheSizeMetricName       = "regatta_table_storage_cache_size_bytes"
+	tableCacheItemsCountMetricName = "regatta_table_storage_cache_items"
+	filterHitsMetricName           = "regatta_table_storage_filter_hits"
+	filterMissesMetricName         = "regatta_table_storage_filter_misses"
+	diskUsageMetricName            = "regatta_table_storage_disk_usage_bytes"
+	readAmpMetricName              = "regatta_table_storage_read_amp"
+	writeAmpMetricName             = "regatta_table_storage_total_write_amp"
+	bytesInMetricName              = "regatta_table_storage_total_bytes_in"
+	compactionMetricName           = "regatta_table_storage_compaction"
+	compactionDebtMetricName       = "regatta_table_storage_compaction_debt_bytes"
 )
 
 type metrics struct {
@@ -38,7 +38,7 @@ type metrics struct {
 	readAmplification       prometheus.Gauge
 	totalWriteAmplification prometheus.Gauge
 	totalBytesIn            prometheus.Gauge
-	compactCount            *prometheus.GaugeVec
+	compactCount            *prometheus.SummaryVec
 	compactDebt             prometheus.Gauge
 	applied                 atomic.Uint64
 	collected               *pebble.Metrics
@@ -51,8 +51,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: appliedIndexMetricName,
 				Help: "Regatta table applied index",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -61,8 +61,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: tableCacheHitsMetricName,
 				Help: "Regatta table storage block/table cache hits",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			}, []string{"type"},
 		),
@@ -71,8 +71,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: tableCacheMissesMetricName,
 				Help: "Regatta table storage block/table cache misses",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			}, []string{"type"},
 		),
@@ -81,18 +81,18 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: tableCacheSizeMetricName,
 				Help: "Regatta table storage block/table cache size in bytes",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			}, []string{"type"},
 		),
 		cacheCount: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: tableCacheCountMetricName,
+				Name: tableCacheItemsCountMetricName,
 				Help: "Regatta table storage block/table cache items count",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			}, []string{"type"},
 		),
@@ -101,8 +101,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: filterHitsMetricName,
 				Help: "Regatta table storage bloom filter hits",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -111,8 +111,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: filterMissesMetricName,
 				Help: "Regatta table storage bloom filter misses",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -121,8 +121,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: diskUsageMetricName,
 				Help: "Regatta table storage estimated disk usage, including temp files and WAL",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -131,8 +131,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: readAmpMetricName,
 				Help: "Regatta table storage read amplification",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -141,8 +141,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: writeAmpMetricName,
 				Help: "Regatta table storage total write amplification",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -151,18 +151,18 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: bytesInMetricName,
 				Help: "Regatta table storage total bytes in",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
-		compactCount: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: compactionCountMetricName,
+		compactCount: prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name: compactionMetricName,
 				Help: "Regatta table storage compaction count by kind",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			}, []string{"kind"},
 		),
@@ -171,8 +171,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				Name: compactionDebtMetricName,
 				Help: "Regatta table storage compaction debt in bytes",
 				ConstLabels: map[string]string{
-					"table":     tableName,
-					"clusterID": fmt.Sprintf("%d", clusterID),
+					"table":    tableName,
+					"shard_id": fmt.Sprintf("%d", clusterID),
 				},
 			},
 		),
@@ -214,13 +214,13 @@ func (p *metrics) Collect(ch chan<- prometheus.Metric) {
 	p.totalBytesIn.Collect(ch)
 
 	compact := p.collected.Compact
-	p.compactCount.With(prometheus.Labels{"kind": "total"}).Set(float64(compact.Count))
-	p.compactCount.With(prometheus.Labels{"kind": "default"}).Set(float64(compact.DefaultCount))
-	p.compactCount.With(prometheus.Labels{"kind": "delete"}).Set(float64(compact.DeleteOnlyCount))
-	p.compactCount.With(prometheus.Labels{"kind": "elision"}).Set(float64(compact.ElisionOnlyCount))
-	p.compactCount.With(prometheus.Labels{"kind": "move"}).Set(float64(compact.MoveCount))
-	p.compactCount.With(prometheus.Labels{"kind": "read"}).Set(float64(compact.ReadCount))
-	p.compactCount.With(prometheus.Labels{"kind": "multilevel"}).Set(float64(compact.MultiLevelCount))
+	p.compactCount.With(prometheus.Labels{"kind": "total"}).Observe(float64(compact.Count))
+	p.compactCount.With(prometheus.Labels{"kind": "default"}).Observe(float64(compact.DefaultCount))
+	p.compactCount.With(prometheus.Labels{"kind": "delete"}).Observe(float64(compact.DeleteOnlyCount))
+	p.compactCount.With(prometheus.Labels{"kind": "elision"}).Observe(float64(compact.ElisionOnlyCount))
+	p.compactCount.With(prometheus.Labels{"kind": "move"}).Observe(float64(compact.MoveCount))
+	p.compactCount.With(prometheus.Labels{"kind": "read"}).Observe(float64(compact.ReadCount))
+	p.compactCount.With(prometheus.Labels{"kind": "multilevel"}).Observe(float64(compact.MultiLevelCount))
 	p.compactCount.Collect(ch)
 
 	p.compactDebt.Set(float64(compact.EstimatedDebt))
