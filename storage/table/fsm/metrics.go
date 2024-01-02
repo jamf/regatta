@@ -10,6 +10,22 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	appliedIndexMetricName     = "regatta_applied_index"
+	tableCacheHitsMetricName   = "regatta_table_storage_cache_hits"
+	tableCacheMissesMetricName = "regatta_table_storage_cache_misses"
+	tableCacheSizeMetricName   = "regatta_table_storage_cache_size_bytes"
+	tableCacheCountMetricName  = "regatta_table_storage_cache_count"
+	filterHitsMetricName       = "regatta_table_storage_filter_hits"
+	filterMissesMetricName     = "regatta_table_storage_filter_misses"
+	diskUsageMetricName        = "regatta_table_storage_disk_usage_bytes"
+	readAmpMetricName          = "regatta_table_storage_read_amp"
+	writeAmpMetricName         = "regatta_table_storage_total_write_amp"
+	bytesInMetricName          = "regatta_table_storage_total_bytes_in"
+	compactionCountMetricName  = "regatta_table_storage_compaction_count"
+	compactionDebtMetricName   = "regatta_table_storage_compaction_debt_bytes"
+)
+
 type metrics struct {
 	appliedIndex            prometheus.Gauge
 	cacheHits               *prometheus.GaugeVec
@@ -32,7 +48,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 	return &metrics{
 		appliedIndex: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_applied_index",
+				Name: appliedIndexMetricName,
 				Help: "Regatta table applied index",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -42,7 +58,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		cacheHits: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_cache_hits",
+				Name: tableCacheHitsMetricName,
 				Help: "Regatta table storage block/table cache hits",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -52,7 +68,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		cacheMisses: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_cache_misses",
+				Name: tableCacheMissesMetricName,
 				Help: "Regatta table storage block/table cache misses",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -62,7 +78,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		cacheSize: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_cache_size_bytes",
+				Name: tableCacheSizeMetricName,
 				Help: "Regatta table storage block/table cache size in bytes",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -72,7 +88,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		cacheCount: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_cache_count",
+				Name: tableCacheCountMetricName,
 				Help: "Regatta table storage block/table cache items count",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -82,7 +98,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		filterHits: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_filter_hits",
+				Name: filterHitsMetricName,
 				Help: "Regatta table storage bloom filter hits",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -92,7 +108,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		filterMisses: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_filter_misses",
+				Name: filterMissesMetricName,
 				Help: "Regatta table storage bloom filter misses",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -102,7 +118,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		diskSpaceUsageBytes: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_disk_usage_bytes",
+				Name: diskUsageMetricName,
 				Help: "Regatta table storage estimated disk usage, including temp files and WAL",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -112,7 +128,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		readAmplification: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_read_amp",
+				Name: readAmpMetricName,
 				Help: "Regatta table storage read amplification",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -122,7 +138,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		totalWriteAmplification: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_total_write_amp",
+				Name: writeAmpMetricName,
 				Help: "Regatta table storage total write amplification",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -132,7 +148,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		totalBytesIn: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_total_bytes_in",
+				Name: bytesInMetricName,
 				Help: "Regatta table storage total bytes in",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -142,7 +158,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		compactCount: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_compaction_count",
+				Name: compactionCountMetricName,
 				Help: "Regatta table storage compaction count by kind",
 				ConstLabels: map[string]string{
 					"table":     tableName,
@@ -152,7 +168,7 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 		),
 		compactDebt: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "regatta_table_storage_compaction_debt_bytes",
+				Name: compactionDebtMetricName,
 				Help: "Regatta table storage compaction debt in bytes",
 				ConstLabels: map[string]string{
 					"table":     tableName,
