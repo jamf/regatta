@@ -25,10 +25,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	KV_Range_FullMethodName       = "/regatta.v1.KV/Range"
-	KV_Put_FullMethodName         = "/regatta.v1.KV/Put"
-	KV_DeleteRange_FullMethodName = "/regatta.v1.KV/DeleteRange"
-	KV_Txn_FullMethodName         = "/regatta.v1.KV/Txn"
+	KV_Range_FullMethodName        = "/regatta.v1.KV/Range"
+	KV_IterateRange_FullMethodName = "/regatta.v1.KV/IterateRange"
+	KV_Put_FullMethodName          = "/regatta.v1.KV/Put"
+	KV_DeleteRange_FullMethodName  = "/regatta.v1.KV/DeleteRange"
+	KV_Txn_FullMethodName          = "/regatta.v1.KV/Txn"
 )
 
 // KVClient is the client API for KV service.
@@ -37,6 +38,8 @@ const (
 type KVClient interface {
 	// Range gets the keys in the range from the key-value store.
 	Range(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*RangeResponse, error)
+	// IterateRange gets the keys in the range from the key-value store.
+	IterateRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (KV_IterateRangeClient, error)
 	// Put puts the given key into the key-value store.
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
 	// DeleteRange deletes the given range from the key-value store.
@@ -63,6 +66,38 @@ func (c *kVClient) Range(ctx context.Context, in *RangeRequest, opts ...grpc.Cal
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *kVClient) IterateRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (KV_IterateRangeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &KV_ServiceDesc.Streams[0], KV_IterateRange_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &kVIterateRangeClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KV_IterateRangeClient interface {
+	Recv() (*RangeResponse, error)
+	grpc.ClientStream
+}
+
+type kVIterateRangeClient struct {
+	grpc.ClientStream
+}
+
+func (x *kVIterateRangeClient) Recv() (*RangeResponse, error) {
+	m := new(RangeResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *kVClient) Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error) {
@@ -98,6 +133,8 @@ func (c *kVClient) Txn(ctx context.Context, in *TxnRequest, opts ...grpc.CallOpt
 type KVServer interface {
 	// Range gets the keys in the range from the key-value store.
 	Range(context.Context, *RangeRequest) (*RangeResponse, error)
+	// IterateRange gets the keys in the range from the key-value store.
+	IterateRange(*RangeRequest, KV_IterateRangeServer) error
 	// Put puts the given key into the key-value store.
 	Put(context.Context, *PutRequest) (*PutResponse, error)
 	// DeleteRange deletes the given range from the key-value store.
@@ -116,6 +153,9 @@ type UnimplementedKVServer struct {
 
 func (UnimplementedKVServer) Range(context.Context, *RangeRequest) (*RangeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Range not implemented")
+}
+func (UnimplementedKVServer) IterateRange(*RangeRequest, KV_IterateRangeServer) error {
+	return status.Errorf(codes.Unimplemented, "method IterateRange not implemented")
 }
 func (UnimplementedKVServer) Put(context.Context, *PutRequest) (*PutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
@@ -155,6 +195,27 @@ func _KV_Range_Handler(srv interface{}, ctx context.Context, dec func(interface{
 		return srv.(KVServer).Range(ctx, req.(*RangeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _KV_IterateRange_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RangeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KVServer).IterateRange(m, &kVIterateRangeServer{stream})
+}
+
+type KV_IterateRangeServer interface {
+	Send(*RangeResponse) error
+	grpc.ServerStream
+}
+
+type kVIterateRangeServer struct {
+	grpc.ServerStream
+}
+
+func (x *kVIterateRangeServer) Send(m *RangeResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _KV_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -235,7 +296,13 @@ var KV_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KV_Txn_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "IterateRange",
+			Handler:       _KV_IterateRange_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "regatta.proto",
 }
 

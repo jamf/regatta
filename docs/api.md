@@ -416,6 +416,12 @@ KV for handling the read/put requests
 
 Range gets the keys in the range from the key-value store.
 
+## IterateRange
+> **rpc** IterateRange([RangeRequest](#rangerequest))
+    [RangeResponse](#rangeresponse)
+
+IterateRange gets the keys in the range from the key-value store.
+
 ## Put
 > **rpc** Put([PutRequest](#putrequest))
     [PutResponse](#putresponse)

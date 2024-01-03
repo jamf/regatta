@@ -98,7 +98,7 @@ func TestSM_Open(t *testing.T) {
 	}
 }
 
-func TestSMReOpen(t *testing.T) {
+func TestFSM_ReOpen(t *testing.T) {
 	r := require.New(t)
 	fs := vfs.NewMem()
 	const testIndex uint64 = 10

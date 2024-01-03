@@ -44,6 +44,7 @@ grpcurl -insecure "-d={
 To query key-value pairs in a given range, supply the `key` and `range_end` fields.
 All pairs whose keys belong to the right-open interval `[key, range_end)` will be returned.
 
+If table is smaller tha 4MB in size:
 ```bash
 grpcurl -insecure "-d={
     \"table\": \"$(echo -n "regatta-test" | base64)\",
@@ -51,9 +52,18 @@ grpcurl -insecure "-d={
     \"range_end\": \"$(echo -n "key_20" | base64)\"}" \
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
+For the larger tables use a streaming method:
+```bash
+grpcurl -insecure "-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"key\": \"$(echo -n "key_1" | base64)\",
+    \"range_end\": \"$(echo -n "key_20" | base64)\"}" \
+    127.0.0.1:8443 regatta.v1.KV/IterateRange
+```
 
 `range_end` set to `\0` lists every key-value pair with a key greater than or equal to the provided `key`.
 
+If table is smaller tha 4MB in size:
 ```bash
 grpcurl -insecure "-d={
     \"table\": \"$(echo -n "regatta-test" | base64)\",
@@ -61,9 +71,18 @@ grpcurl -insecure "-d={
     \"range_end\": \"$(echo -n "\0" | base64)\"}" \
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
+For the larger tables use a streaming method:
+```bash
+grpcurl -insecure "-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"key\": \"$(echo -n "key_1" | base64)\",
+    \"range_end\": \"$(echo -n "\0" | base64)\"}" \
+    127.0.0.1:8443 regatta.v1.KV/IterateRange
+```
 
 `key` set to `\0` lists every key-value pair with a key smaller than the provided `range_end`.
 
+If table is smaller tha 4MB in size:
 ```bash
 grpcurl -insecure "-d={
     \"table\": \"$(echo -n "regatta-test" | base64)\",
@@ -71,17 +90,34 @@ grpcurl -insecure "-d={
     \"range_end\": \"$(echo -n "key_1" | base64)\"}" \
     127.0.0.1:8443 regatta.v1.KV/Range
 ```
+For the larger tables use a streaming method:
+```bash
+grpcurl -insecure "-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"key\": \"$(echo -n "\0" | base64)\",
+    \"range_end\": \"$(echo -n "key_1" | base64)\"}" \
+    127.0.0.1:8443 regatta.v1.KV/IterateRange
+```
 
 ## List all key-value pairs
 
 When `key` and `range_end` are both set to `\0`, then all key-value pairs are returned.
 
+If table is smaller tha 4MB in size:
 ```bash
 grpcurl -insecure "-d={
     \"table\": \"$(echo -n "regatta-test" | base64)\",
     \"key\": \"$(echo -n "\0" | base64)\",
     \"range_end\": \"$(echo -n "\0" | base64)\"}" \
     127.0.0.1:8443 regatta.v1.KV/Range
+```
+For the larger tables use a streaming method:
+```bash
+grpcurl -insecure "-d={
+    \"table\": \"$(echo -n "regatta-test" | base64)\",
+    \"key\": \"$(echo -n "\0" | base64)\",
+    \"range_end\": \"$(echo -n "\0" | base64)\"}" \
+    127.0.0.1:8443 regatta.v1.KV/IterateRange
 ```
 
 ## Get keys only

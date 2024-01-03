@@ -10,8 +10,10 @@ nav_order: 999
 
 ### Breaking changes
 * Remove maintenance server port, the API is now available on standard API port. It could still though be secured by a separate API token.
+* Replaced `clusterID` with `shard_id` in metric label names.
 
 ### Features
+* Added new `regatta.v1.KV/IterateRange` API.
 * Added `memberlist.cluster-name` and `memberlist.node-name` options.
   * Both help identifying cluster and nodes in CLuster API responses.
   * Cluster name setting prevents accidental pairing of multiple clusters running in the same network. (with different cluster name setting)

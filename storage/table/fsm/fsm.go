@@ -227,6 +227,9 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 	case *regattapb.RequestOp_Range:
 		db := p.pebble.Load()
 		return lookup(db, req)
+	case IteratorRequest:
+		db := p.pebble.Load()
+		return iterate(db, req.RangeOp)
 	case SnapshotRequest:
 		snapshot := p.pebble.Load().NewSnapshot()
 		defer snapshot.Close()

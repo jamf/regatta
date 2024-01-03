@@ -10,6 +10,7 @@ import (
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/fsm"
 	"github.com/jamf/regatta/storage/table/key"
+	"github.com/jamf/regatta/util/iter"
 	"github.com/lni/dragonboat/v4/client"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 )
@@ -163,7 +164,7 @@ func (t *ActiveTable) Delete(ctx context.Context, req *regattapb.DeleteRangeRequ
 
 func (t *ActiveTable) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
 	// Do not propose read-only transactions through the log
-	if isReadonlyTransaction(req) {
+	if req.IsReadonly() {
 		return readTable[*regattapb.TxnResponse](t, ctx, true, req)
 	}
 
@@ -196,19 +197,15 @@ func (t *ActiveTable) Txn(ctx context.Context, req *regattapb.TxnRequest) (*rega
 	}, nil
 }
 
-func isReadonlyTransaction(req *regattapb.TxnRequest) bool {
-	for _, op := range req.Success {
-		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
-			return false
-		}
-	}
-
-	for _, op := range req.Failure {
-		if _, ok := op.Request.(*regattapb.RequestOp_RequestRange); !ok {
-			return false
-		}
-	}
-	return true
+// Iterator returns open pebble.Iterator it is an API consumer responsibility to close it.
+func (t *ActiveTable) Iterator(ctx context.Context, req *regattapb.RangeRequest) (iter.Seq[*regattapb.ResponseOp_Range], error) {
+	return readTable[iter.Seq[*regattapb.ResponseOp_Range]](t, ctx, req.Linearizable, fsm.IteratorRequest{RangeOp: &regattapb.RequestOp_Range{
+		Key:       req.Key,
+		RangeEnd:  req.RangeEnd,
+		Limit:     req.Limit,
+		KeysOnly:  req.KeysOnly,
+		CountOnly: req.CountOnly,
+	}})
 }
 
 // Snapshot streams snapshot to the provided writer.

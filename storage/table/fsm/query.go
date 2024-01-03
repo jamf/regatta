@@ -10,6 +10,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
+	"github.com/jamf/regatta/util/iter"
 	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
@@ -93,27 +94,11 @@ func lookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regattapb.Re
 }
 
 func rangeLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regattapb.ResponseOp_Range, error) {
-	opts, err := iterOptionsForBounds(req.Key, req.RangeEnd)
+	it, err := iterate(reader, req)
 	if err != nil {
 		return nil, err
 	}
-	iter := reader.NewIter(opts)
-	defer func() {
-		_ = iter.Close()
-	}()
-	fill, sf := iterFuncsFromReq(req)
-	return iterate(iter, int(req.Limit), fill, sf)
-}
-
-func iterFuncsFromReq(req *regattapb.RequestOp_Range) (fillEntriesFunc, sizeEntriesFunc) {
-	switch {
-	case req.KeysOnly:
-		return addKeyOnly, sizeKeyOnly
-	case req.CountOnly:
-		return addCountOnly, sizeCountOnly
-	default:
-		return addKVPair, sizeKVPair
-	}
+	return iter.First(it), nil
 }
 
 func singleLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regattapb.ResponseOp_Range, error) {
@@ -152,68 +137,9 @@ func singleLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regatt
 	}, nil
 }
 
-// fillEntriesFunc fills proto.RangeResponse response.
-type fillEntriesFunc func(key, value []byte, response *regattapb.ResponseOp_Range)
-
-// sizeEntriesFunc estimates entry size.
-type sizeEntriesFunc func(key, value []byte) uint64
-
-// iterate until the provided pebble.Iterator is no longer valid or the limit is reached.
-// Apply a function on the key/value pair in every iteration filling proto.RangeResponse.
-func iterate(iter *pebble.Iterator, limit int, f fillEntriesFunc, s sizeEntriesFunc) (*regattapb.ResponseOp_Range, error) {
-	response := &regattapb.ResponseOp_Range{}
-	i := 0
-	for iter.First(); iter.Valid(); iter.Next() {
-		k, err := key.DecodeBytes(iter.Key())
-		if err != nil {
-			return nil, err
-		}
-
-		if i == limit && limit != 0 || (uint64(response.SizeVT())+s(k.Key, iter.Value())) >= maxRangeSize {
-			response.More = iter.Next()
-			break
-		}
-		i++
-		f(k.Key, iter.Value(), response)
-	}
-	return response, nil
-}
-
-// addKVPair adds a key/value pair from the provided iterator to the proto.RangeResponse.
-func addKVPair(key, value []byte, response *regattapb.ResponseOp_Range) {
-	kv := &regattapb.KeyValue{Key: make([]byte, len(key)), Value: make([]byte, len(value))}
-	copy(kv.Key, key)
-	copy(kv.Value, value)
-	response.Kvs = append(response.Kvs, kv)
-	response.Count++
-}
-
-// sizeKVPair takes the full pair size into consideration.
-func sizeKVPair(key, value []byte) uint64 {
-	return uint64(len(key) + len(value))
-}
-
-// addKeyOnly adds a key from the provided iterator to the proto.RangeResponse.
-func addKeyOnly(key, _ []byte, response *regattapb.ResponseOp_Range) {
-	kv := &regattapb.KeyValue{Key: make([]byte, len(key))}
-	copy(kv.Key, key)
-	response.Kvs = append(response.Kvs, kv)
-	response.Count++
-}
-
-// sizeKeyOnly takes only the key into consideration.
-func sizeKeyOnly(key, _ []byte) uint64 {
-	return uint64(len(key))
-}
-
-// addCountOnly increments number of keys from the provided iterator to the proto.RangeResponse.
-func addCountOnly(_, _ []byte, response *regattapb.ResponseOp_Range) {
-	response.Count++
-}
-
-// sizeCountOnly for count the size remains constant.
-func sizeCountOnly(_, _ []byte) uint64 {
-	return uint64(0)
+// IteratorRequest returns open pebble.Iterator it is an API consumer responsibility to close it.
+type IteratorRequest struct {
+	RangeOp *regattapb.RequestOp_Range
 }
 
 // SnapshotRequest to write Command snapshot into provided writer.
