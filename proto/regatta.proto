@@ -11,6 +11,7 @@ option go_package = "./regattapb";
 package regatta.v1;
 
 import "mvcc.proto";
+import "google/protobuf/struct.proto";
 
 // KV for handling the read/put requests
 service KV {
@@ -234,7 +235,10 @@ message TableStatus {
   uint64 raftAppliedIndex = 7;
 }
 
-message StatusRequest {}
+message StatusRequest {
+  // config controls if the configuration values should be fetched as well.
+  bool config = 4;
+}
 
 message StatusResponse {
   // id is the member ID of this member.
@@ -245,6 +249,8 @@ message StatusResponse {
   string info = 3;
   // tables is a status of tables of the responding member.
   map<string, TableStatus> tables = 4;
+  // config the node configuration values.
+  google.protobuf.Struct config = 5;
   // errors contains alarm/health information and status.
   repeated string errors = 8;
 }

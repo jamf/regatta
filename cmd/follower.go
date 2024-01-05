@@ -198,6 +198,7 @@ func follower(_ *cobra.Command, _ []string) error {
 			})
 			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
 				Cluster: engine,
+				Config:  viperConfigReader,
 			})
 			if viper.GetBool("maintenance.enabled") {
 				regattapb.RegisterMaintenanceServer(regatta, &regattaserver.ResetServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})

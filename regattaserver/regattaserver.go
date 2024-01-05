@@ -36,6 +36,8 @@ type ClusterService interface {
 	Status(context.Context, *regattapb.StatusRequest) (*regattapb.StatusResponse, error)
 }
 
+type ConfigService func() map[string]any
+
 type LogReaderService interface {
 	QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error)
 }
