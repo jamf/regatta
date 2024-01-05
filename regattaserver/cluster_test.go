@@ -4,6 +4,7 @@ package regattaserver
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/jamf/regatta/regattapb"
@@ -35,6 +36,25 @@ func TestClusterServer_Status(t *testing.T) {
 	cluster.On("Status", mock.Anything, mock.Anything).Return(&regattapb.StatusResponse{}, nil)
 	_, err := cs.Status(context.Background(), &regattapb.StatusRequest{})
 	r.NoError(err)
+
+	t.Log("Get status with config")
+	cs.Config = func() map[string]any {
+		return map[string]any{
+			"string": "bar",
+			"int":    1,
+			"nested": map[string]any{
+				"string": "foo",
+				"slice":  []string{"foo"},
+			},
+		}
+	}
+	st, err := cs.Status(context.Background(), &regattapb.StatusRequest{Config: true})
+	r.NoError(err)
+	want, err := json.Marshal(cs.Config())
+	r.NoError(err)
+	got, err := st.Config.MarshalJSON()
+	r.NoError(err)
+	r.JSONEq(string(want), string(got))
 }
 
 type mockCLusterService struct {
