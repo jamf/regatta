@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"runtime"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -152,4 +153,20 @@ func setupDragonboatLogger(logger *zap.Logger) {
 		dbl.GetLogger("tan").SetLevel(dbl.INFO)
 		dbl.GetLogger("settings").SetLevel(dbl.INFO)
 	})
+}
+
+var secretConfigs = []string{
+	"maintenance.token",
+}
+
+func viperConfigReader() map[string]any {
+	res := make(map[string]any)
+	for _, key := range viper.AllKeys() {
+		if slices.Contains(secretConfigs, key) {
+			res[key] = "**********"
+		} else {
+			res[key] = viper.Get(key)
+		}
+	}
+	return res
 }
