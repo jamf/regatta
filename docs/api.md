@@ -607,6 +607,11 @@ It is allowed to modify the same key several times within one txn (the result wi
 ### StatusRequest
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| config | [bool](#bool) |  | config controls if the configuration values should be fetched as well. |
+
+
 
 
 
@@ -621,6 +626,7 @@ It is allowed to modify the same key several times within one txn (the result wi
 | version | [string](#string) |  | version is the semver version used by the responding member. |
 | info | [string](#string) |  | info is the additional server info. |
 | tables | [StatusResponse.TablesEntry](#regatta-v1-StatusResponse-TablesEntry) | repeated | tables is a status of tables of the responding member. |
+| config | [google.protobuf.Struct](#google-protobuf-Struct) |  | config the node configuration values. |
 | errors | [string](#string) | repeated | errors contains alarm/health information and status. |
 
 
