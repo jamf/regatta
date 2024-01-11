@@ -11,6 +11,10 @@ nav_order: 999
 ### Improvements
 * Server now reports transient errors for requests that could be potentially retried as `codes.Unavailable`.
 
+### Bugfixes
+* Fixed the default timeout of `KV/IterateRange` operation.
+
+
 ---
 ## v0.4.0
 
