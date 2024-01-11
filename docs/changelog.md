@@ -6,7 +6,13 @@ nav_order: 999
 
 # Changelog
 
-## v0.4.0 (unreleased)
+## v0.4.1 (unreleased)
+
+### Improvements
+* Server now reports transient errors for requests that could be potentially retried as `codes.Unavailable`.
+
+---
+## v0.4.0
 
 ### Breaking changes
 * Remove maintenance server port, the API is now available on standard API port. It could still though be secured by a separate API token.

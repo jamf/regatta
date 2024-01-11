@@ -4,11 +4,17 @@ package errors
 
 import (
 	"errors"
+
+	"github.com/lni/dragonboat/v4"
 )
 
+// IsSafeToRetry returns true for transient errors
+// for operations that client could attempt to retry using the same arguments.
+func IsSafeToRetry(err error) bool {
+	return dragonboat.IsTempError(err)
+}
+
 var (
-	// ErrKeyNotFound returned when the key is not found.
-	ErrKeyNotFound = errors.New("key not found")
 	// ErrTableNotFound returned when the table is not found.
 	ErrTableNotFound = errors.New("table not found")
 	// ErrEmptyKey returned when the key is not provided.
