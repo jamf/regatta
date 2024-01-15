@@ -111,7 +111,7 @@ func (e *Engine) IterateRange(ctx context.Context, req *regattapb.RangeRequest) 
 	if err != nil {
 		return nil, err
 	}
-	it, err := t.Iterator(ctx, req)
+	it, err := withDefaultTimeout(ctx, req, t.Iterator)
 	if err != nil {
 		return nil, err
 	}

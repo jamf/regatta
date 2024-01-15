@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/jamf/regatta/regattapb"
+	serrors "github.com/jamf/regatta/storage/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -21,7 +22,10 @@ type ClusterServer struct {
 func (c *ClusterServer) MemberList(ctx context.Context, req *regattapb.MemberListRequest) (*regattapb.MemberListResponse, error) {
 	res, err := c.Cluster.MemberList(ctx, req)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	return res, nil
 }
@@ -41,7 +45,10 @@ func (c *ClusterServer) Status(ctx context.Context, req *regattapb.StatusRequest
 		res.Config = &st
 	}
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	return res, nil
 }

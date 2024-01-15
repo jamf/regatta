@@ -50,7 +50,10 @@ func (s *KVServer) Range(ctx context.Context, req *regattapb.RangeRequest) (*reg
 		if errors.Is(err, serrors.ErrTableNotFound) {
 			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	return val, nil
 }
@@ -85,7 +88,10 @@ func (s *KVServer) IterateRange(req *regattapb.RangeRequest, srv regattapb.KV_It
 		if errors.Is(err, serrors.ErrTableNotFound) {
 			return status.Error(codes.NotFound, "table not found")
 		}
-		return status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return status.Error(codes.Unavailable, err.Error())
+		}
+		return status.Error(codes.FailedPrecondition, err.Error())
 	}
 	pull, stop := iter.Pull(r)
 	defer stop()
@@ -120,7 +126,10 @@ func (s *KVServer) Put(ctx context.Context, req *regattapb.PutRequest) (*regatta
 		if errors.Is(err, serrors.ErrTableNotFound) {
 			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	return r, nil
 }
@@ -140,7 +149,10 @@ func (s *KVServer) DeleteRange(ctx context.Context, req *regattapb.DeleteRangeRe
 		if errors.Is(err, serrors.ErrTableNotFound) {
 			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	return r, nil
 }
@@ -159,7 +171,10 @@ func (s *KVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regatta
 		if errors.Is(err, serrors.ErrTableNotFound) {
 			return nil, status.Error(codes.NotFound, "table not found")
 		}
-		return nil, status.Error(codes.Internal, err.Error())
+		if serrors.IsSafeToRetry(err) {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	return r, nil
 }
