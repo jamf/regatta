@@ -39,11 +39,14 @@ func init() {
 	leaderCmd.PersistentFlags().AddFlagSet(memberlistFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
+	leaderCmd.PersistentFlags().AddFlagSet(tablesFlagSet)
 	leaderCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Tables flags
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names.")
 	leaderCmd.PersistentFlags().StringSlice("tables.delete", nil, "Delete Regatta tables with given names.")
+	_ = leaderCmd.PersistentFlags().MarkHidden("tables.names")
+	_ = leaderCmd.PersistentFlags().MarkHidden("tables.delete")
 
 	// Replication flags
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Whether replication API is enabled.")
@@ -194,6 +197,9 @@ func leader(_ *cobra.Command, _ []string) error {
 				Cluster: engine,
 				Config:  viperConfigReader,
 			})
+			if viper.GetBool("tables.enabled") {
+				regattapb.RegisterTablesServer(regatta, &regattaserver.TablesServer{Tables: engine, AuthFunc: authFunc(viper.GetString("tables.token"))})
+			}
 			if viper.GetBool("maintenance.enabled") {
 				regattapb.RegisterMaintenanceServer(regatta, &regattaserver.BackupServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
 			}
@@ -213,7 +219,7 @@ func leader(_ *cobra.Command, _ []string) error {
 				return fmt.Errorf("failed to create Replication server: %w", err)
 			}
 			ls := regattaserver.NewLogServer(
-				engine.Manager,
+				engine,
 				engine.LogReader,
 				logger,
 				viper.GetUint64("replication.max-send-message-size-bytes"),

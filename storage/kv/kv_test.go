@@ -57,7 +57,10 @@ type store interface {
 
 func fillData(store store, data map[string]string) {
 	for k, v := range data {
-		_, _ = store.Set(k, v, 0)
+		_, err := store.Set(k, v, 0)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -699,6 +702,7 @@ func newRaftStore() *RaftStore {
 			CheckQuorum:        true,
 			SnapshotEntries:    10000,
 			CompactionOverhead: 5000,
+			WaitReady:          true,
 		}
 
 		err = nh.StartConcurrentReplica(map[uint64]string{1: testNodeAddress}, false, NewLFSM(), cc)
@@ -709,12 +713,12 @@ func newRaftStore() *RaftStore {
 		ready := make(chan struct{})
 		go func() {
 			for {
-				i := nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
-				if i.ShardInfoList[0].LeaderID == cc.ReplicaID {
+				_, _, ok, _ := nh.GetLeaderID(cc.ReplicaID)
+				if ok {
 					close(ready)
 					return
 				}
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
 		}()
 

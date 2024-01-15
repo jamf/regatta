@@ -157,6 +157,7 @@ func setupDragonboatLogger(logger *zap.Logger) {
 
 var secretConfigs = []string{
 	"maintenance.token",
+	"tables.token",
 }
 
 func viperConfigReader() map[string]any {

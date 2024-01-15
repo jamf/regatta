@@ -29,6 +29,8 @@ type TableService interface {
 	GetTables() ([]table.Table, error)
 	GetTable(name string) (table.ActiveTable, error)
 	Restore(name string, reader io.Reader) error
+	CreateTable(name string) error
+	DeleteTable(name string) error
 }
 
 type ClusterService interface {

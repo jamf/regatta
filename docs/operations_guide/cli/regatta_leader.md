@@ -82,8 +82,8 @@ regatta leader [flags]
       --rest.read-timeout duration                     Maximum duration for reading the entire request. (default 5s)
       --storage.block-cache-size int                   Shared block cache size in bytes, the cache is used to hold uncompressed blocks of data in memory. (default 16777216)
       --storage.table-cache-size int                   Shared table cache size, the cache is used to hold handles to open SSTs. (default 1024)
-      --tables.delete strings                          Delete Regatta tables with given names.
-      --tables.names strings                           Create Regatta tables with given names.
+      --tables.enabled                                 Whether tables API is enabled. (default true)
+      --tables.token string                            Token to check for tables API access, if left empty (default) no token is checked.
 ```
 
 ### SEE ALSO
