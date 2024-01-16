@@ -22,7 +22,7 @@ type TablesServer struct {
 }
 
 func (t *TablesServer) Create(ctx context.Context, req *regattapb.CreateTableRequest) (*regattapb.CreateTableResponse, error) {
-	ctx, err := t.AuthFunc(ctx)
+	_, err := t.AuthFunc(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (t *TablesServer) Create(ctx context.Context, req *regattapb.CreateTableReq
 }
 
 func (t *TablesServer) Delete(ctx context.Context, req *regattapb.DeleteTableRequest) (*regattapb.DeleteTableResponse, error) {
-	ctx, err := t.AuthFunc(ctx)
+	_, err := t.AuthFunc(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (t *TablesServer) Delete(ctx context.Context, req *regattapb.DeleteTableReq
 }
 
 func (t *TablesServer) List(ctx context.Context, _ *regattapb.ListTablesRequest) (*regattapb.ListTablesResponse, error) {
-	ctx, err := t.AuthFunc(ctx)
+	_, err := t.AuthFunc(ctx)
 	if err != nil {
 		return nil, err
 	}

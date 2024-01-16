@@ -24,11 +24,11 @@ const defaultQueryTimeout = 5 * time.Second
 
 func New(cfg Config) (*Engine, error) {
 	e := &Engine{
-		cfg:      cfg,
-		log:      cfg.Log,
-		eventsCh: make(chan any, 1),
-		stop:     make(chan struct{}),
+		cfg:  cfg,
+		log:  cfg.Log,
+		stop: make(chan struct{}),
 	}
+	e.events = &events{eventsCh: make(chan any, 1), engine: e}
 
 	nh, err := createNodeHost(e)
 	if err != nil {
@@ -70,7 +70,7 @@ type Engine struct {
 	*table.Manager
 	cfg       Config
 	log       *zap.SugaredLogger
-	eventsCh  chan any
+	events    *events
 	stop      chan struct{}
 	LogReader logreader.Interface
 	Cluster   *cluster.Cluster
@@ -82,7 +82,7 @@ func (e *Engine) Start() error {
 	if err := e.Manager.Start(); err != nil {
 		return err
 	}
-	go e.dispatchEvents()
+	go e.events.dispatchEvents()
 	return nil
 }
 
@@ -254,8 +254,8 @@ func createNodeHost(e *Engine) (*dragonboat.NodeHost, error) {
 		EnableMetrics:       true,
 		MaxReceiveQueueSize: e.cfg.MaxReceiveQueueSize,
 		MaxSendQueueSize:    e.cfg.MaxSendQueueSize,
-		SystemEventListener: e,
-		RaftEventListener:   e,
+		SystemEventListener: e.events,
+		RaftEventListener:   e.events,
 	}
 
 	if e.cfg.LogDBImplementation == Tan {
