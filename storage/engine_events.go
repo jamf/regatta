@@ -9,12 +9,12 @@ import (
 func (e *Engine) dispatchEvents() {
 	for {
 		select {
-		case <-e.stop:
-			return
 		case evt := <-e.eventsCh:
 			e.log.Infof("raft: %T %+v", evt, evt)
 			switch ev := evt.(type) {
-			case leaderUpdated, nodeUnloaded, membershipChanged, nodeHostShuttingDown:
+			case nodeHostShuttingDown:
+				return
+			case leaderUpdated, nodeUnloaded, membershipChanged:
 				e.Cluster.Notify()
 			case nodeReady:
 				if ev.ReplicaID == e.cfg.NodeID && e.LogCache != nil {
