@@ -3,8 +3,10 @@
 package regattaserver
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 
 	"github.com/jamf/regatta/regattapb"
@@ -76,6 +78,9 @@ func (t *TablesServer) List(ctx context.Context, _ *regattapb.ListTablesRequest)
 			Id:   strconv.FormatUint(table.ClusterID, 10),
 		}
 	}
+	slices.SortFunc(resp.Tables, func(a, b *regattapb.TableInfo) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 	return resp, nil
 }
 

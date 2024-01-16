@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/google/uuid"
@@ -95,6 +96,23 @@ func newInMemTestEngine(t *testing.T, tables ...string) *storage.Engine {
 	require.NoError(t, e.WaitUntilReady())
 	for _, tableName := range tables {
 		require.NoError(t, e.CreateTable(tableName))
+		at, err := e.GetTable(tableName)
+		require.NoError(t, err)
+		after := time.After(10 * time.Second)
+	outer:
+		for {
+			select {
+			case <-after:
+				t.FailNow()
+				return nil
+			default:
+				_, _, ok, _ := e.GetLeaderID(at.ClusterID)
+				if ok {
+					break outer
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
 	}
 	t.Cleanup(func() {
 		_ = e.Close()
