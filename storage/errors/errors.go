@@ -37,7 +37,6 @@ var (
 	ErrUnknownResultType = errors.New("unknown result type")
 
 	ErrTableExists             = errors.New("table already exists")
-	ErrTableNotExist           = errors.New("table does not exist")
 	ErrManagerClosed           = errors.New("manager closed")
 	ErrLeaseNotAcquired        = errors.New("lease not acquired")
 	ErrNodeHostInfoUnavailable = errors.New("nodehost info unavailable")

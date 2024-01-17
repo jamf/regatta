@@ -164,7 +164,7 @@ func leader(_ *cobra.Command, _ []string) error {
 		tNames := viper.GetStringSlice("tables.names")
 		for _, table := range tNames {
 			log.Debugf("creating table %s", table)
-			if err := engine.CreateTable(table); err != nil {
+			if _, err := engine.CreateTable(table); err != nil {
 				if errors.Is(err, serrors.ErrTableExists) {
 					log.Infof("table %s already exist, skipping creation", table)
 				} else {

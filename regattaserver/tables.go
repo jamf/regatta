@@ -29,14 +29,11 @@ func (t *TablesServer) Create(ctx context.Context, req *regattapb.CreateTableReq
 	if len(req.Name) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "name must be set")
 	}
-	if err := t.Tables.CreateTable(req.Name); err != nil {
+	table, err := t.Tables.CreateTable(req.Name)
+	if err != nil {
 		if errors.Is(err, serrors.ErrTableExists) {
 			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		}
-		return nil, status.Errorf(codes.FailedPrecondition, err.Error())
-	}
-	table, err := t.Tables.GetTable(req.Name)
-	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, err.Error())
 	}
 	return &regattapb.CreateTableResponse{Id: strconv.FormatUint(table.ClusterID, 10)}, nil
@@ -51,7 +48,7 @@ func (t *TablesServer) Delete(ctx context.Context, req *regattapb.DeleteTableReq
 		return nil, status.Errorf(codes.InvalidArgument, "name must be set")
 	}
 	if err := t.Tables.DeleteTable(req.Name); err != nil {
-		if errors.Is(err, serrors.ErrTableNotExist) {
+		if errors.Is(err, serrors.ErrTableNotFound) {
 			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		}
 		return nil, status.Errorf(codes.FailedPrecondition, err.Error())

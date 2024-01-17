@@ -756,15 +756,13 @@ func TestNew(t *testing.T) {
 }
 
 func createTable(t *testing.T, e *Engine) {
-	require.NoError(t, e.CreateTable(testTableName))
+	tab, err := e.CreateTable(testTableName)
+	require.NoError(t, err)
 	require.Eventually(t, func() bool {
-		tab, err := e.GetTable(testTableName)
-		if err != nil {
-			return false
-		}
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		_, err = tab.LocalIndex(c, true)
+		active := tab.AsActive(e)
+		_, err := active.LocalIndex(c, true)
 		return err == nil
 	}, 1*time.Second, 10*time.Millisecond)
 }

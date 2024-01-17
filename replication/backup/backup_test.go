@@ -149,7 +149,8 @@ func TestBackup_Backup(t *testing.T) {
 			defer e.Close()
 
 			for name, data := range tt.tableData {
-				r.NoError(e.CreateTable(name))
+				_, err := e.CreateTable(name)
+				r.NoError(err)
 				time.Sleep(1 * time.Second)
 				for _, req := range data {
 					tbl, err := e.GetTable(name)

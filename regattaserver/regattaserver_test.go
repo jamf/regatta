@@ -95,8 +95,7 @@ func newInMemTestEngine(t *testing.T, tables ...string) *storage.Engine {
 	require.NoError(t, e.Start())
 	require.NoError(t, e.WaitUntilReady())
 	for _, tableName := range tables {
-		require.NoError(t, e.CreateTable(tableName))
-		at, err := e.GetTable(tableName)
+		at, err := e.CreateTable(tableName)
 		require.NoError(t, err)
 		after := time.After(10 * time.Second)
 	outer:
