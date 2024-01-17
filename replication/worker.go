@@ -15,6 +15,7 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
+	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/client"
@@ -23,6 +24,8 @@ import (
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TODO make configurable.
@@ -36,9 +39,11 @@ const (
 	resultLeaderAhead
 	resultFollowerLagging
 	resultFollowerTailing
+	resultTableNotExists
 )
 
 type workerFactory struct {
+	reconcileInterval time.Duration
 	pollInterval      time.Duration
 	leaseInterval     time.Duration
 	logTimeout        time.Duration
@@ -144,6 +149,10 @@ func (w *worker) Start() {
 				t.Reset(w.pollInterval)
 				idx, sess, err := w.tableState()
 				if err != nil {
+					if errors.Is(err, serrors.ErrTableNotFound) {
+						w.log.Debugf("table not found: %v", err)
+						continue
+					}
 					w.log.Errorf("cannot query leader index: %v", err)
 					continue
 				}
@@ -153,17 +162,15 @@ func (w *worker) Start() {
 					continue
 				}
 				result, err := w.do(idx, sess)
-				if err != nil {
-					if errors.Is(err, context.DeadlineExceeded) {
-						w.log.Warnf("unable to read leader log in time: %v", err)
-					} else {
-						w.log.Warnf("unknown worker error: %v", err)
-					}
-					continue
-				}
 				switch result {
+				case resultTableNotExists:
+					w.log.Infof("the leader table dissapeared ... backing off")
+					// Give reconciler time to clean up the table.
+					t.Reset(2 * w.reconcileInterval)
 				case resultLeaderBehind:
 					w.log.Errorf("the leader log is behind ... backing off")
+					// Give leader time to catch up.
+					t.Reset(10 * w.pollInterval)
 				case resultLeaderAhead:
 					if w.recoverySemaphore.TryAcquire(1) {
 						func() {
@@ -181,6 +188,17 @@ func (w *worker) Start() {
 				case resultFollowerLagging:
 					// Trigger next loop immediately.
 					t.Reset(50 * time.Millisecond)
+				case resultFollowerTailing:
+					continue
+				case resultUnknown:
+					if err != nil {
+						if errors.Is(err, context.DeadlineExceeded) {
+							w.log.Warnf("unable to read leader log in time: %v", err)
+						} else {
+							w.log.Warnf("unknown worker error: %v", err)
+						}
+						continue
+					}
 				}
 			case <-w.closer:
 				return
@@ -212,6 +230,9 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 	defer cancel()
 	stream, err := w.logClient.Replicate(ctx, replicateRequest, grpc.WaitForReady(true))
 	if err != nil {
+		if c, ok := status.FromError(err); ok && c.Code() == codes.Unavailable {
+			return resultTableNotExists, fmt.Errorf("could not open log stream: %w", err)
+		}
 		return resultUnknown, fmt.Errorf("could not open log stream: %w", err)
 	}
 	var applied uint64
@@ -221,6 +242,9 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 			return resultUnknown, nil
 		}
 		if err != nil {
+			if c, ok := status.FromError(err); ok && c.Code() == codes.Unavailable {
+				return resultTableNotExists, fmt.Errorf("error reading replication stream: %w", err)
+			}
 			return resultUnknown, fmt.Errorf("error reading replication stream: %w", err)
 		}
 
