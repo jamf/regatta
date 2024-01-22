@@ -5,8 +5,10 @@ package regattaserver
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jamf/regatta/regattapb"
+	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util/iter"
 	"google.golang.org/grpc/codes"
@@ -204,4 +206,63 @@ func (r *ReadonlyKVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (
 		return r.KVServer.Txn(ctx, req)
 	}
 	return nil, status.Error(codes.Unimplemented, "writable Txn not implemented for follower")
+}
+
+func NewForwardingKVServer(storage KVService, client regattapb.KVClient, q *storage.IndexNotificationQueue) *ForwardingKVServer {
+	return &ForwardingKVServer{
+		KVServer: KVServer{Storage: storage},
+		client:   client,
+		q:        q,
+	}
+}
+
+// ForwardingKVServer .
+type ForwardingKVServer struct {
+	KVServer
+	client regattapb.KVClient
+	q      *storage.IndexNotificationQueue
+}
+
+// Put implements proto/regatta.proto KV.Put method.
+func (r *ForwardingKVServer) Put(ctx context.Context, req *regattapb.PutRequest) (*regattapb.PutResponse, error) {
+	put, err := r.client.Put(ctx, req)
+	if err != nil {
+		if s, ok := status.FromError(err); ok {
+			return nil, status.Error(s.Code(), fmt.Sprintf("leader error: %v", s.Err()))
+		}
+		return nil, status.Error(codes.FailedPrecondition, "forward error")
+	}
+
+	return put, <-r.q.Add(ctx, string(req.Table), put.Header.Revision)
+}
+
+// DeleteRange implements proto/regatta.proto KV.DeleteRange method.
+func (r *ForwardingKVServer) DeleteRange(ctx context.Context, req *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
+	del, err := r.client.DeleteRange(ctx, req)
+	if err != nil {
+		if s, ok := status.FromError(err); ok {
+			return nil, status.Error(s.Code(), fmt.Sprintf("leader error: %v", s.Err()))
+		}
+		return nil, status.Error(codes.FailedPrecondition, "forward error")
+	}
+	return del, <-r.q.Add(ctx, string(req.Table), del.Header.Revision)
+}
+
+// Txn processes multiple requests in a single transaction.
+// A txn request increments the revision of the key-value store
+// and generates events with the same revision for every completed request.
+// It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
+// Readonly transactions allowed using follower API.
+func (r *ForwardingKVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
+	if req.IsReadonly() {
+		return r.KVServer.Txn(ctx, req)
+	}
+	txn, err := r.client.Txn(ctx, req)
+	if err != nil {
+		if s, ok := status.FromError(err); ok {
+			return nil, status.Error(s.Code(), fmt.Sprintf("leader error: %v", s.Err()))
+		}
+		return nil, status.Error(codes.FailedPrecondition, "forward error")
+	}
+	return txn, <-r.q.Add(ctx, string(req.Table), txn.Header.Revision)
 }
