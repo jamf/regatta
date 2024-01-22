@@ -19,6 +19,7 @@ var (
 	memberlistFlagSet   = pflag.NewFlagSet("memberlist", pflag.ContinueOnError)
 	storageFlagSet      = pflag.NewFlagSet("storage", pflag.ContinueOnError)
 	maintenanceFlagSet  = pflag.NewFlagSet("maintenance", pflag.ContinueOnError)
+	tablesFlagSet       = pflag.NewFlagSet("tables", pflag.ContinueOnError)
 	experimentalFlagSet = pflag.NewFlagSet("experimental", pflag.ContinueOnError)
 )
 
@@ -106,6 +107,10 @@ All nodes of the cluster MUST set this to the same value. If changing it is advi
 	// Maintenance flags
 	maintenanceFlagSet.Bool("maintenance.enabled", true, "Whether maintenance API is enabled.")
 	maintenanceFlagSet.String("maintenance.token", "", "Token to check for maintenance API access, if left empty (default) no token is checked.")
+
+	// Tables flags
+	tablesFlagSet.Bool("tables.enabled", true, "Whether tables API is enabled.")
+	tablesFlagSet.String("tables.token", "", "Token to check for tables API access, if left empty (default) no token is checked.")
 }
 
 func initConfig(set *pflag.FlagSet) {

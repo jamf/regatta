@@ -4,19 +4,20 @@ package regattaserver
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/jamf/regatta/regattapb"
-	"github.com/jamf/regatta/storage/table"
 	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"go.uber.org/zap/zaptest"
+	"google.golang.org/grpc"
 )
 
 func TestMetadataServer_Get(t *testing.T) {
 	type fields struct {
-		TableManager TableService
+		Tables []string
 	}
 	tests := []struct {
 		name    string
@@ -26,23 +27,12 @@ func TestMetadataServer_Get(t *testing.T) {
 	}{
 		{
 			name: "Get metadata - no tables",
-			fields: fields{
-				TableManager: MockTableService{
-					tables: []table.Table{},
-				},
-			},
 			want: &regattapb.MetadataResponse{Tables: nil},
 		},
 		{
 			name: "Get metadata - single table",
 			fields: fields{
-				TableManager: MockTableService{
-					tables: []table.Table{
-						{
-							Name: "foo",
-						},
-					},
-				},
+				Tables: []string{"foo"},
 			},
 			want: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
 				{
@@ -54,43 +44,25 @@ func TestMetadataServer_Get(t *testing.T) {
 		{
 			name: "Get metadata - multiple tables",
 			fields: fields{
-				TableManager: MockTableService{
-					tables: []table.Table{
-						{
-							Name: "foo",
-						},
-						{
-							Name: "bar",
-						},
-					},
-				},
+				Tables: []string{"foo", "bar"},
 			},
 			want: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
-				{
-					Name: "foo",
-					Type: regattapb.Table_REPLICATED,
-				},
 				{
 					Name: "bar",
 					Type: regattapb.Table_REPLICATED,
 				},
-			}},
-		},
-		{
-			name: "Get metadata - deadline exceeded",
-			fields: fields{
-				TableManager: MockTableService{
-					error: context.DeadlineExceeded,
+				{
+					Name: "foo",
+					Type: regattapb.Table_REPLICATED,
 				},
-			},
-			wantErr: status.Errorf(codes.Unavailable, "unknown err %v", context.DeadlineExceeded),
+			}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			m := &MetadataServer{
-				Tables: tt.fields.TableManager,
+				Tables: newInMemTestEngine(t, tt.fields.Tables...),
 			}
 			got, err := m.Get(context.TODO(), &regattapb.MetadataRequest{})
 			if tt.wantErr != nil {
@@ -152,6 +124,122 @@ func TestEntryToCommand(t *testing.T) {
 				r.Equal(tt.wantCmd.Kv.Value, gotCmd.Kv.Value)
 				r.Equal(tt.wantCmd.Kv.Key, gotCmd.Kv.Key)
 			}
+		})
+	}
+}
+
+type captureSnapshotStream struct {
+	grpc.ServerStream
+	chunks []*regattapb.SnapshotChunk
+}
+
+func (c *captureSnapshotStream) Context() context.Context {
+	return context.TODO()
+}
+
+func (c *captureSnapshotStream) Send(chunk *regattapb.SnapshotChunk) error {
+	c.chunks = append(c.chunks, chunk)
+	return nil
+}
+
+func TestSnapshotServer_Stream(t *testing.T) {
+	type fields struct {
+		Tables []string
+	}
+	type args struct {
+		req *regattapb.SnapshotRequest
+	}
+	tests := []struct {
+		name            string
+		fields          fields
+		args            args
+		wantErr         require.ErrorAssertionFunc
+		wantChunksCount int
+	}{
+		{
+			name:    "table not exist",
+			args:    args{req: &regattapb.SnapshotRequest{Table: table1Name}},
+			wantErr: require.Error,
+		},
+		{
+			name:            "snapshot",
+			fields:          fields{Tables: []string{string(table1Name)}},
+			args:            args{req: &regattapb.SnapshotRequest{Table: table1Name}},
+			wantErr:         require.NoError,
+			wantChunksCount: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &SnapshotServer{
+				Tables: newInMemTestEngine(t, tt.fields.Tables...),
+			}
+			capture := &captureSnapshotStream{}
+			tt.wantErr(t, s.Stream(tt.args.req, capture), fmt.Sprintf("Stream(%v)", tt.args.req))
+			require.Equal(t, tt.wantChunksCount, len(capture.chunks))
+		})
+	}
+}
+
+type captureLogStream struct {
+	grpc.ServerStream
+	ctx    context.Context
+	stream []*regattapb.ReplicateResponse
+}
+
+func (c *captureLogStream) Context() context.Context {
+	return c.ctx
+}
+
+func (c *captureLogStream) Send(r *regattapb.ReplicateResponse) error {
+	c.stream = append(c.stream, r)
+	return nil
+}
+
+func TestLogServer_Replicate(t *testing.T) {
+	type fields struct {
+		Tables         []string
+		maxMessageSize uint64
+	}
+	type args struct {
+		req *regattapb.ReplicateRequest
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "table not exist",
+			args:    args{req: &regattapb.ReplicateRequest{Table: table1Name}},
+			wantErr: require.Error,
+		},
+		{
+			name:    "zero index",
+			args:    args{req: &regattapb.ReplicateRequest{Table: table1Name}},
+			wantErr: require.Error,
+		},
+		{
+			name:    "stream",
+			fields:  fields{Tables: []string{string(table1Name)}},
+			args:    args{req: &regattapb.ReplicateRequest{Table: table1Name, LeaderIndex: 1}},
+			wantErr: require.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			te := newInMemTestEngine(t, tt.fields.Tables...)
+			l := &LogServer{
+				Tables:         te,
+				LogReader:      te.LogReader,
+				Log:            zaptest.NewLogger(t).Sugar(),
+				maxMessageSize: tt.fields.maxMessageSize,
+			}
+			ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
+			defer cancel()
+			stream := &captureLogStream{ctx: ctx}
+			tt.wantErr(t, l.Replicate(tt.args.req, stream), fmt.Sprintf("Replicate(%v)", tt.args.req))
 		})
 	}
 }

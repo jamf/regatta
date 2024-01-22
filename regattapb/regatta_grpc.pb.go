@@ -436,3 +436,179 @@ var Cluster_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "regatta.proto",
 }
+
+const (
+	Tables_Create_FullMethodName = "/regatta.v1.Tables/Create"
+	Tables_Delete_FullMethodName = "/regatta.v1.Tables/Delete"
+	Tables_List_FullMethodName   = "/regatta.v1.Tables/List"
+)
+
+// TablesClient is the client API for Tables service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type TablesClient interface {
+	// Create a table. All followers will automatically replicate the table.
+	// This procedure is available only in the leader cluster.
+	Create(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error)
+	// Delete a table. All followers will automatically delete the table.
+	// This procedure is available only in the leader cluster.
+	Delete(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error)
+	// Get names of all the tables present in the cluster.
+	// This procedure is available in both leader and follower clusters.
+	List(ctx context.Context, in *ListTablesRequest, opts ...grpc.CallOption) (*ListTablesResponse, error)
+}
+
+type tablesClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewTablesClient(cc grpc.ClientConnInterface) TablesClient {
+	return &tablesClient{cc}
+}
+
+func (c *tablesClient) Create(ctx context.Context, in *CreateTableRequest, opts ...grpc.CallOption) (*CreateTableResponse, error) {
+	out := new(CreateTableResponse)
+	err := c.cc.Invoke(ctx, Tables_Create_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tablesClient) Delete(ctx context.Context, in *DeleteTableRequest, opts ...grpc.CallOption) (*DeleteTableResponse, error) {
+	out := new(DeleteTableResponse)
+	err := c.cc.Invoke(ctx, Tables_Delete_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tablesClient) List(ctx context.Context, in *ListTablesRequest, opts ...grpc.CallOption) (*ListTablesResponse, error) {
+	out := new(ListTablesResponse)
+	err := c.cc.Invoke(ctx, Tables_List_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TablesServer is the server API for Tables service.
+// All implementations must embed UnimplementedTablesServer
+// for forward compatibility
+type TablesServer interface {
+	// Create a table. All followers will automatically replicate the table.
+	// This procedure is available only in the leader cluster.
+	Create(context.Context, *CreateTableRequest) (*CreateTableResponse, error)
+	// Delete a table. All followers will automatically delete the table.
+	// This procedure is available only in the leader cluster.
+	Delete(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error)
+	// Get names of all the tables present in the cluster.
+	// This procedure is available in both leader and follower clusters.
+	List(context.Context, *ListTablesRequest) (*ListTablesResponse, error)
+	mustEmbedUnimplementedTablesServer()
+}
+
+// UnimplementedTablesServer must be embedded to have forward compatible implementations.
+type UnimplementedTablesServer struct {
+}
+
+func (UnimplementedTablesServer) Create(context.Context, *CreateTableRequest) (*CreateTableResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+}
+func (UnimplementedTablesServer) Delete(context.Context, *DeleteTableRequest) (*DeleteTableResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedTablesServer) List(context.Context, *ListTablesRequest) (*ListTablesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
+}
+func (UnimplementedTablesServer) mustEmbedUnimplementedTablesServer() {}
+
+// UnsafeTablesServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to TablesServer will
+// result in compilation errors.
+type UnsafeTablesServer interface {
+	mustEmbedUnimplementedTablesServer()
+}
+
+func RegisterTablesServer(s grpc.ServiceRegistrar, srv TablesServer) {
+	s.RegisterService(&Tables_ServiceDesc, srv)
+}
+
+func _Tables_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TablesServer).Create(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tables_Create_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TablesServer).Create(ctx, req.(*CreateTableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tables_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TablesServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tables_Delete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TablesServer).Delete(ctx, req.(*DeleteTableRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tables_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTablesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TablesServer).List(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tables_List_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TablesServer).List(ctx, req.(*ListTablesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Tables_ServiceDesc is the grpc.ServiceDesc for Tables service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Tables_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "regatta.v1.Tables",
+	HandlerType: (*TablesServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Create",
+			Handler:    _Tables_Create_Handler,
+		},
+		{
+			MethodName: "Delete",
+			Handler:    _Tables_Delete_Handler,
+		},
+		{
+			MethodName: "List",
+			Handler:    _Tables_List_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "regatta.proto",
+}

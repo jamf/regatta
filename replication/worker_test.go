@@ -27,11 +27,12 @@ func Test_worker_do(t *testing.T) {
 	defer srv.Shutdown()
 
 	t.Log("create tables")
-	r.NoError(leaderTM.CreateTable("test"))
-	r.NoError(followerTM.CreateTable("test"))
+	_, err := leaderTM.CreateTable("test")
+	r.NoError(err)
+	_, err = followerTM.CreateTable("test")
+	r.NoError(err)
 
 	var at table.ActiveTable
-	var err error
 	t.Log("load some data")
 	r.Eventually(func() bool {
 		at, err = leaderTM.GetTable("test")
@@ -117,7 +118,8 @@ func Test_worker_do(t *testing.T) {
 	err = leaderTM.DeleteTable("test")
 	r.NoError(err)
 	t.Log("create empty table test")
-	r.NoError(leaderTM.CreateTable("test"))
+	_, err = leaderTM.CreateTable("test")
+	r.NoError(err)
 
 	t.Log("load some data")
 	r.Eventually(func() bool {
@@ -166,8 +168,10 @@ func Test_worker_recover(t *testing.T) {
 	defer srv.Shutdown()
 
 	t.Log("create tables")
-	r.NoError(leaderTM.CreateTable("test"))
-	r.NoError(leaderTM.CreateTable("test2"))
+	_, err := leaderTM.CreateTable("test")
+	r.NoError(err)
+	_, err = leaderTM.CreateTable("test2")
+	r.NoError(err)
 
 	var at table.ActiveTable
 	t.Log("load some data")
@@ -178,7 +182,7 @@ func Test_worker_recover(t *testing.T) {
 	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, err := at.Put(ctx, &regattapb.PutRequest{
+	_, err = at.Put(ctx, &regattapb.PutRequest{
 		Key:   []byte("foo"),
 		Value: []byte("bar"),
 	})

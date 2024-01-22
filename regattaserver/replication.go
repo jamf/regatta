@@ -4,10 +4,12 @@ package regattaserver
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/jamf/regatta/regattapb"
@@ -41,6 +43,9 @@ func (m *MetadataServer) Get(context.Context, *regattapb.MetadataRequest) (*rega
 		resp.Tables = append(resp.Tables, &regattapb.Table{
 			Type: regattapb.Table_REPLICATED,
 			Name: tab.Name,
+		})
+		slices.SortFunc(resp.Tables, func(a, b *regattapb.Table) int {
+			return cmp.Compare(a.Name, b.Name)
 		})
 	}
 	return resp, nil

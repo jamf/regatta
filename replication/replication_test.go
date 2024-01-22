@@ -136,7 +136,8 @@ func TestManager_reconcileTables(t *testing.T) {
 	m := NewManager(followerTM, followerNH, conn, Config{})
 
 	t.Log("create table")
-	r.NoError(leaderTM.CreateTable("test"))
+	_, err = leaderTM.CreateTable("test")
+	r.NoError(err)
 	r.NoError(m.reconcileTables())
 	r.Eventually(func() bool {
 		_, err := followerTM.GetTable("test")
@@ -144,7 +145,8 @@ func TestManager_reconcileTables(t *testing.T) {
 	}, 10*time.Second, 200*time.Millisecond, "table not created in time")
 
 	t.Log("create another table")
-	r.NoError(leaderTM.CreateTable("test2"))
+	_, err = leaderTM.CreateTable("test2")
+	r.NoError(err)
 	r.NoError(m.reconcileTables())
 	r.Eventually(func() bool {
 		_, err := followerTM.GetTable("test2")

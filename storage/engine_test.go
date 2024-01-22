@@ -756,15 +756,13 @@ func TestNew(t *testing.T) {
 }
 
 func createTable(t *testing.T, e *Engine) {
-	require.NoError(t, e.CreateTable(testTableName))
+	tab, err := e.CreateTable(testTableName)
+	require.NoError(t, err)
 	require.Eventually(t, func() bool {
-		tab, err := e.GetTable(testTableName)
-		if err != nil {
-			return false
-		}
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		_, err = tab.LocalIndex(c, true)
+		active := tab.AsActive(e)
+		_, err := active.LocalIndex(c, true)
 		return err == nil
 	}, 1*time.Second, 10*time.Millisecond)
 }
@@ -788,7 +786,8 @@ func newTestConfig() Config {
 }
 
 func newTestEngine(t *testing.T, cfg Config) *Engine {
-	e := &Engine{cfg: cfg, eventsCh: make(chan any, 1), stop: make(chan struct{}), log: zaptest.NewLogger(t).Sugar()}
+	e := &Engine{cfg: cfg, stop: make(chan struct{}), log: zaptest.NewLogger(t).Sugar()}
+	e.events = &events{eventsCh: make(chan any, 1), engine: e}
 	nh, err := createNodeHost(e)
 	require.NoError(t, err)
 	e.NodeHost = nh

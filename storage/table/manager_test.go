@@ -36,7 +36,8 @@ func TestManager_CreateTable(t *testing.T) {
 	r.NoError(tm.WaitUntilReady())
 
 	t.Log("create table")
-	r.NoError(tm.CreateTable(testTableName))
+	_, err := tm.CreateTable(testTableName)
+	r.NoError(err)
 
 	t.Log("get table")
 	tab, err := tm.GetTable(testTableName)
@@ -45,7 +46,8 @@ func TestManager_CreateTable(t *testing.T) {
 	r.Greater(tab.ClusterID, tableIDsRangeStart)
 
 	t.Log("create existing table")
-	r.ErrorIs(tm.CreateTable(testTableName), serrors.ErrTableExists)
+	_, err = tm.CreateTable(testTableName)
+	r.ErrorIs(err, serrors.ErrTableExists)
 
 	ts, err := tm.GetTables()
 	r.NoError(err)
@@ -65,7 +67,8 @@ func TestManager_DeleteTable(t *testing.T) {
 	r.NoError(tm.WaitUntilReady())
 
 	t.Log("create table")
-	r.NoError(tm.CreateTable(testTableName))
+	_, err := tm.CreateTable(testTableName)
+	r.NoError(err)
 
 	t.Log("get table")
 	tab, err := tm.GetTable(testTableName)
@@ -123,7 +126,8 @@ func TestManager_LeaseTable(t *testing.T) {
 	require.NoError(t, tm.Start())
 	defer tm.Close()
 	require.NoError(t, tm.WaitUntilReady())
-	require.NoError(t, tm.CreateTable(existingTable))
+	_, err := tm.CreateTable(existingTable)
+	require.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -171,9 +175,11 @@ func TestManager_ReturnTable(t *testing.T) {
 	require.NoError(t, tm.Start())
 	defer tm.Close()
 	require.NoError(t, tm.WaitUntilReady())
-	require.NoError(t, tm.CreateTable(existingTable))
+	_, err := tm.CreateTable(existingTable)
+	require.NoError(t, err)
 
-	require.NoError(t, tm.CreateTable(leasedTable))
+	_, err = tm.CreateTable(leasedTable)
+	require.NoError(t, err)
 	require.NoError(t, tm.LeaseTable(leasedTable, 60*time.Second))
 
 	for _, tt := range tests {
@@ -218,7 +224,8 @@ func TestManager_GetTable(t *testing.T) {
 	require.NoError(t, tm.Start())
 	defer tm.Close()
 	require.NoError(t, tm.WaitUntilReady())
-	require.NoError(t, tm.CreateTable(existingTable))
+	_, err := tm.CreateTable(existingTable)
+	require.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -242,7 +249,8 @@ func TestManager_Restore(t *testing.T) {
 	require.NoError(t, tm.Start())
 	defer tm.Close()
 	require.NoError(t, tm.WaitUntilReady())
-	require.NoError(t, tm.CreateTable(existingTable))
+	_, err := tm.CreateTable(existingTable)
+	require.NoError(t, err)
 
 	tab, err := tm.GetTable(existingTable)
 	require.NoError(t, err)

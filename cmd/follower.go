@@ -39,6 +39,7 @@ func init() {
 	followerCmd.PersistentFlags().AddFlagSet(memberlistFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(storageFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(maintenanceFlagSet)
+	followerCmd.PersistentFlags().AddFlagSet(tablesFlagSet)
 	followerCmd.PersistentFlags().AddFlagSet(experimentalFlagSet)
 
 	// Replication flags
@@ -202,6 +203,9 @@ func follower(_ *cobra.Command, _ []string) error {
 			})
 			if viper.GetBool("maintenance.enabled") {
 				regattapb.RegisterMaintenanceServer(regatta, &regattaserver.ResetServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
+			}
+			if viper.GetBool("tables.enabled") {
+				regattapb.RegisterTablesServer(regatta, &regattaserver.ReadonlyTablesServer{TablesServer: regattaserver.TablesServer{Tables: engine, AuthFunc: authFunc(viper.GetString("tables.token"))}})
 			}
 			// Start server
 			go func() {

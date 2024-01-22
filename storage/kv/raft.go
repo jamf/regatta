@@ -173,9 +173,7 @@ func (r *RaftStore) Delete(key string, ver uint64) error {
 }
 
 func (r *RaftStore) Exists(key string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
-	defer cancel()
-	ok, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryExist{Key: key})
+	ok, err := r.NodeHost.StaleRead(r.ClusterID, QueryExist{Key: key})
 	if err != nil {
 		return false, err
 	}
@@ -183,9 +181,7 @@ func (r *RaftStore) Exists(key string) (bool, error) {
 }
 
 func (r *RaftStore) Get(key string) (Pair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
-	defer cancel()
-	val, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryKey{Key: key})
+	val, err := r.NodeHost.StaleRead(r.ClusterID, QueryKey{Key: key})
 	if err != nil {
 		return Pair{}, err
 	}
@@ -193,9 +189,7 @@ func (r *RaftStore) Get(key string) (Pair, error) {
 }
 
 func (r *RaftStore) GetAll(pattern string) ([]Pair, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
-	defer cancel()
-	val, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryAll{Pattern: pattern})
+	val, err := r.NodeHost.StaleRead(r.ClusterID, QueryAll{Pattern: pattern})
 	if err != nil {
 		return nil, err
 	}
@@ -203,9 +197,7 @@ func (r *RaftStore) GetAll(pattern string) ([]Pair, error) {
 }
 
 func (r *RaftStore) GetAllValues(pattern string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
-	defer cancel()
-	val, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryAllValues{Pattern: pattern})
+	val, err := r.NodeHost.StaleRead(r.ClusterID, QueryAllValues{Pattern: pattern})
 	if err != nil {
 		return nil, err
 	}
@@ -213,9 +205,7 @@ func (r *RaftStore) GetAllValues(pattern string) ([]string, error) {
 }
 
 func (r *RaftStore) List(filePath string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
-	defer cancel()
-	val, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryList{Path: filePath})
+	val, err := r.NodeHost.StaleRead(r.ClusterID, QueryList{Path: filePath})
 	if err != nil {
 		return nil, err
 	}
@@ -223,9 +213,7 @@ func (r *RaftStore) List(filePath string) ([]string, error) {
 }
 
 func (r *RaftStore) ListDir(filePath string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), proposalTimeout)
-	defer cancel()
-	val, err := r.NodeHost.SyncRead(ctx, r.ClusterID, QueryListDir{Path: filePath})
+	val, err := r.NodeHost.StaleRead(r.ClusterID, QueryListDir{Path: filePath})
 	if err != nil {
 		return nil, err
 	}

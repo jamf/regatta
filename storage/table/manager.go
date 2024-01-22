@@ -160,15 +160,15 @@ func (m *Manager) ReturnTable(name string) (bool, error) {
 	return true, nil
 }
 
-func (m *Manager) CreateTable(name string) error {
+func (m *Manager) CreateTable(name string) (Table, error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	created, err := m.createTable(name)
 	if err != nil {
-		return err
+		return Table{}, err
 	}
 
-	return m.startTable(created.Name, created.ClusterID)
+	return created, m.startTable(created.Name, created.ClusterID)
 }
 
 func (m *Manager) createTable(name string) (Table, error) {
@@ -204,6 +204,9 @@ func (m *Manager) DeleteTable(name string) error {
 	storeName := storedTableName(name)
 	tab, err := m.store.Get(storeName)
 	if err != nil {
+		if errors.Is(err, kv.ErrNotExist) {
+			return serrors.ErrTableNotFound
+		}
 		return err
 	}
 

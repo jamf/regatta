@@ -5,6 +5,7 @@ package replication
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -55,6 +56,7 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 		tm:                tm,
 		metadataClient:    regattapb.NewMetadataClient(conn),
 		factory: &workerFactory{
+			reconcileInterval: cfg.ReconcileInterval,
 			pollInterval:      cfg.Workers.PollInterval,
 			leaseInterval:     cfg.Workers.LeaseInterval,
 			logTimeout:        cfg.Workers.LogRPCTimeout,
@@ -73,7 +75,6 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 		},
 		workers: struct {
 			registry map[string]*worker
-			mtx      sync.RWMutex
 			wg       sync.WaitGroup
 		}{
 			registry: make(map[string]*worker),
@@ -91,7 +92,6 @@ type Manager struct {
 	factory           *workerFactory
 	workers           struct {
 		registry map[string]*worker
-		mtx      sync.RWMutex
 		wg       sync.WaitGroup
 	}
 	log    *zap.SugaredLogger
@@ -119,18 +119,19 @@ func (m *Manager) Start() {
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
-			if err := m.reconcileTables(); err != nil {
-				m.log.Errorf("failed to reconcile tables: %v", err)
-			}
-			if err := m.reconcileWorkers(); err != nil {
-				m.log.Errorf("failed to reconcile replication workers: %v", err)
-			}
 			select {
 			case <-t.C:
-				continue
 			case <-m.closer:
 				m.log.Info("replication stopped")
 				return
+			}
+			if err := m.reconcileTables(); err != nil {
+				m.log.Errorf("failed to reconcile tables: %v", err)
+				continue
+			}
+			if err := m.reconcileWorkers(); err != nil {
+				m.log.Errorf("failed to reconcile replication workers: %v", err)
+				continue
 			}
 		}
 	}()
@@ -143,8 +144,37 @@ func (m *Manager) reconcileTables() error {
 	if err != nil {
 		return err
 	}
-	for _, tabs := range response.GetTables() {
-		if err := m.tm.CreateTable(tabs.Name); err != nil && !errors.Is(err, serrors.ErrTableExists) {
+	leaderTables := response.GetTables()
+	followerTables, err := m.tm.GetTables()
+	if err != nil {
+		return err
+	}
+	var toCreate, toDelete []string
+
+	for _, ft := range followerTables {
+		if !slices.ContainsFunc(leaderTables, func(lt *regattapb.Table) bool {
+			return ft.Name == lt.Name
+		}) {
+			toDelete = append(toDelete, ft.Name)
+		}
+	}
+
+	for _, ft := range leaderTables {
+		if !slices.ContainsFunc(followerTables, func(lt table.Table) bool {
+			return ft.Name == lt.Name
+		}) {
+			toCreate = append(toCreate, ft.Name)
+		}
+	}
+
+	for _, name := range toDelete {
+		if err := m.tm.DeleteTable(name); err != nil && !errors.Is(err, serrors.ErrTableNotFound) {
+			return err
+		}
+	}
+
+	for _, name := range toCreate {
+		if _, err := m.tm.CreateTable(name); err != nil && !errors.Is(err, serrors.ErrTableExists) {
 			return err
 		}
 	}
@@ -163,19 +193,18 @@ func (m *Manager) reconcileWorkers() error {
 		}
 	}
 
-	m.workers.mtx.RLock()
-	defer m.workers.mtx.RUnlock()
-	for name, worker := range m.workers.registry {
-		found := false
-		for _, tbl := range tbs {
-			if tbl.Name == name {
-				found = true
-				break
-			}
+	var toStop []*worker
+
+	for name, w := range m.workers.registry {
+		if !slices.ContainsFunc(tbs, func(t table.Table) bool {
+			return t.Name == name
+		}) {
+			toStop = append(toStop, w)
 		}
-		if !found {
-			m.stopWorker(worker)
-		}
+	}
+
+	for _, w := range toStop {
+		m.stopWorker(w)
 	}
 	return nil
 }
@@ -190,16 +219,11 @@ func (m *Manager) Close() {
 }
 
 func (m *Manager) hasWorker(name string) bool {
-	m.workers.mtx.RLock()
-	defer m.workers.mtx.RUnlock()
 	_, ok := m.workers.registry[name]
 	return ok
 }
 
 func (m *Manager) startWorker(worker *worker) {
-	m.workers.mtx.Lock()
-	defer m.workers.mtx.Unlock()
-
 	m.log.Infof("launching replication for table %s", worker.table)
 	m.workers.registry[worker.table] = worker
 	m.workers.wg.Add(1)
@@ -207,9 +231,6 @@ func (m *Manager) startWorker(worker *worker) {
 }
 
 func (m *Manager) stopWorker(worker *worker) {
-	m.workers.mtx.Lock()
-	defer m.workers.mtx.Unlock()
-
 	m.log.Infof("stopping replication for table %s", worker.table)
 	worker.Close()
 	m.workers.wg.Done()

@@ -444,6 +444,57 @@ and generates events with the same revision for every completed request.
 It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
 
 
+# Tables {#regattav1tables}
+API for managing tables.
+## Create
+> **rpc** Create([CreateTableRequest](#createtablerequest))
+    [CreateTableResponse](#createtableresponse)
+
+Create a table. All followers will automatically replicate the table.
+This procedure is available only in the leader cluster.
+
+## Delete
+> **rpc** Delete([DeleteTableRequest](#deletetablerequest))
+    [DeleteTableResponse](#deletetableresponse)
+
+Delete a table. All followers will automatically delete the table.
+This procedure is available only in the leader cluster.
+
+## List
+> **rpc** List([ListTablesRequest](#listtablesrequest))
+    [ListTablesResponse](#listtablesresponse)
+
+Get names of all the tables present in the cluster.
+This procedure is available in both leader and follower clusters.
+
+
+
+
+
+<a name="regatta-v1-CreateTableRequest"></a>
+### CreateTableRequest
+CreateTableRequest describes the table to be created.
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | Name of the table to be created. |
+| config | [google.protobuf.Struct](#google-protobuf-Struct) |  | config the table configuration values. |
+
+
+
+
+
+
+<a name="regatta-v1-CreateTableResponse"></a>
+### CreateTableResponse
+CreateTableResponse describes the newly created table.
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [string](#string) |  | id the created table. |
+
+
+
 
 
 
@@ -473,6 +524,48 @@ It is allowed to modify the same key several times within one txn (the result wi
 | header | [ResponseHeader](#regatta-v1-ResponseHeader) |  |  |
 | deleted | [int64](#int64) |  | deleted is the number of keys deleted by the delete range request. |
 | prev_kvs | [mvcc.v1.KeyValue](#mvcc-v1-KeyValue) | repeated | if prev_kv is set in the request, the previous key-value pairs will be returned. |
+
+
+
+
+
+
+<a name="regatta-v1-DeleteTableRequest"></a>
+### DeleteTableRequest
+DeleteTableRequest describes the table to be deleted.
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | name of the table to be deleted. |
+
+
+
+
+
+
+<a name="regatta-v1-DeleteTableResponse"></a>
+### DeleteTableResponse
+DeleteTableResponse when the table was successfully deleted.
+
+
+
+
+
+<a name="regatta-v1-ListTablesRequest"></a>
+### ListTablesRequest
+ListTablesRequest requests the list of currently registered tables.
+
+
+
+
+
+<a name="regatta-v1-ListTablesResponse"></a>
+### ListTablesResponse
+FollowerGetTablesResponse contains information about tables stored in the cluster.
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tables | [TableInfo](#regatta-v1-TableInfo) | repeated |  |
 
 
 
@@ -642,6 +735,21 @@ It is allowed to modify the same key several times within one txn (the result wi
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
 | value | [TableStatus](#regatta-v1-TableStatus) |  |  |
+
+
+
+
+
+
+<a name="regatta-v1-TableInfo"></a>
+### TableInfo
+TableInfo describes a single table.
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | name of the table. |
+| id | [string](#string) |  | id of the table. |
+| config | [google.protobuf.Struct](#google-protobuf-Struct) |  | config the table configuration values. |
 
 
 

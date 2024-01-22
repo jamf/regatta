@@ -197,7 +197,6 @@ service Cluster {
 
   // Status gets the status of the member.
   rpc Status(StatusRequest) returns (StatusResponse);
-
 }
 
 message MemberListRequest {}
@@ -253,4 +252,63 @@ message StatusResponse {
   google.protobuf.Struct config = 5;
   // errors contains alarm/health information and status.
   repeated string errors = 8;
+}
+
+
+// API for managing tables.
+service Tables {
+  // Create a table. All followers will automatically replicate the table.
+  // This procedure is available only in the leader cluster.
+  rpc Create(CreateTableRequest) returns (CreateTableResponse);
+
+  // Delete a table. All followers will automatically delete the table.
+  // This procedure is available only in the leader cluster.
+  rpc Delete(DeleteTableRequest) returns (DeleteTableResponse);
+
+  // Get names of all the tables present in the cluster.
+  // This procedure is available in both leader and follower clusters.
+  rpc List(ListTablesRequest) returns (ListTablesResponse);
+}
+
+// CreateTableRequest describes the table to be created.
+message CreateTableRequest {
+  // Name of the table to be created.
+  string name = 1;
+  // config the table configuration values.
+  google.protobuf.Struct config = 5;
+}
+
+// CreateTableResponse describes the newly created table.
+message CreateTableResponse {
+  // id the created table.
+  string id = 1;
+}
+
+// DeleteTableRequest describes the table to be deleted.
+message DeleteTableRequest {
+  // name of the table to be deleted.
+  string name = 1;
+}
+
+// DeleteTableResponse when the table was successfully deleted.
+message DeleteTableResponse {}
+
+// ListTablesRequest requests the list of currently registered tables.
+message ListTablesRequest {}
+
+// TableInfo describes a single table.
+message TableInfo {
+  // name of the table.
+  string name = 1;
+
+  // id of the table.
+  string id = 2;
+
+  // config the table configuration values.
+  google.protobuf.Struct config = 5;
+}
+
+// FollowerGetTablesResponse contains information about tables stored in the cluster.
+message ListTablesResponse {
+  repeated TableInfo tables = 1;
 }
