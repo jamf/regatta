@@ -103,7 +103,8 @@ type TableConfig struct {
 	// TableCacheSize shared table cache size, the cache is used to hold handles to open SSTs.
 	TableCacheSize int
 	// RecoveryType the in-cluster snapshot recovery type.
-	RecoveryType SnapshotRecoveryType
+	RecoveryType         SnapshotRecoveryType
+	AppliedIndexListener func(table string, rev uint64)
 }
 
 type MetaConfig struct {

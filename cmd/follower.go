@@ -197,11 +197,7 @@ func follower(_ *cobra.Command, _ []string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create API server: %w", err)
 			}
-			fkv := regattaserver.NewForwardingKVServer(engine, regattapb.NewKVClient(conn), nQueue)
-			defer func() {
-				_ = conn.Close()
-			}()
-			regattapb.RegisterKVServer(regatta, fkv)
+			regattapb.RegisterKVServer(regatta, regattaserver.NewForwardingKVServer(engine, regattapb.NewKVClient(conn), nQueue))
 			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
 				Cluster: engine,
 				Config:  viperConfigReader,

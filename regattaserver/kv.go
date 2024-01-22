@@ -181,33 +181,6 @@ func (s *KVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regatta
 	return r, nil
 }
 
-// ReadonlyKVServer implements read part of KV service from proto/regatta.proto.
-type ReadonlyKVServer struct {
-	KVServer
-}
-
-// Put implements proto/regatta.proto KV.Put method.
-func (r *ReadonlyKVServer) Put(_ context.Context, _ *regattapb.PutRequest) (*regattapb.PutResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Put not implemented for follower")
-}
-
-// DeleteRange implements proto/regatta.proto KV.DeleteRange method.
-func (r *ReadonlyKVServer) DeleteRange(_ context.Context, _ *regattapb.DeleteRangeRequest) (*regattapb.DeleteRangeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method DeleteRange not implemented for follower")
-}
-
-// Txn processes multiple requests in a single transaction.
-// A txn request increments the revision of the key-value store
-// and generates events with the same revision for every completed request.
-// It is allowed to modify the same key several times within one txn (the result will be the last Op that modified the key).
-// Readonly transactions allowed using follower API.
-func (r *ReadonlyKVServer) Txn(ctx context.Context, req *regattapb.TxnRequest) (*regattapb.TxnResponse, error) {
-	if req.IsReadonly() {
-		return r.KVServer.Txn(ctx, req)
-	}
-	return nil, status.Error(codes.Unimplemented, "writable Txn not implemented for follower")
-}
-
 func NewForwardingKVServer(storage KVService, client regattapb.KVClient, q *storage.IndexNotificationQueue) *ForwardingKVServer {
 	return &ForwardingKVServer{
 		KVServer: KVServer{Storage: storage},
@@ -216,11 +189,15 @@ func NewForwardingKVServer(storage KVService, client regattapb.KVClient, q *stor
 	}
 }
 
-// ForwardingKVServer .
+type propagationQueue interface {
+	Add(ctx context.Context, table string, revision uint64) <-chan error
+}
+
+// ForwardingKVServer forwards the write operations to the leader cluster.
 type ForwardingKVServer struct {
 	KVServer
 	client regattapb.KVClient
-	q      *storage.IndexNotificationQueue
+	q      propagationQueue
 }
 
 // Put implements proto/regatta.proto KV.Put method.

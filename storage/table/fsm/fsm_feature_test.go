@@ -490,14 +490,15 @@ func generateFiles(t *testing.T, version int, inputCommands []*regattapb.Command
 
 func createTestFSM() (*FSM, error) {
 	fsm := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		tableName: "test",
-		dirname:   "/tmp",
-		closed:    false,
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics("test", 1),
+		fs:          vfs.NewMem(),
+		clusterID:   1,
+		nodeID:      1,
+		tableName:   "test",
+		dirname:     "/tmp",
+		closed:      false,
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics("test", 1),
+		appliedFunc: func(applied uint64) {},
 	}
 
 	db, err := rp.OpenDB(fsm.dirname, rp.WithFS(fsm.fs))

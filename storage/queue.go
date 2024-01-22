@@ -19,6 +19,10 @@ type item struct {
 	waitCh   chan error
 }
 
+func (i *item) less(other *item) bool {
+	return cmp.Less(i.revision, other.revision)
+}
+
 type notification struct {
 	table    string
 	revision uint64
@@ -37,7 +41,7 @@ func NewNotificationQueue() *IndexNotificationQueue {
 		notif:  make(chan notification),
 		closed: make(chan struct{}),
 		items: util.NewSyncMap(func(k string) *heap.Heap[*item] {
-			return heap.New(func(e *item, e2 *item) bool { return cmp.Less(e.revision, e2.revision) })
+			return heap.New((*item).less)
 		}),
 	}
 }
@@ -57,6 +61,7 @@ func (q *IndexNotificationQueue) Run() {
 					if elem.ctx.Err() != nil {
 						// Reorder
 						elem.revision = 0
+						elem.waitCh <- elem.ctx.Err()
 					}
 				}
 				h.Fix(0)
