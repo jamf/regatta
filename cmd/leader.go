@@ -226,6 +226,7 @@ func leader(_ *cobra.Command, _ []string) error {
 			)
 			regattapb.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine})
 			regattapb.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine})
+			regattapb.RegisterKVServer(replication, &regattaserver.KVServer{Storage: engine})
 			regattapb.RegisterLogServer(replication, ls)
 			// Start server
 			go func() {
