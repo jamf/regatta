@@ -45,8 +45,8 @@ func init() {
 	// Tables flags
 	leaderCmd.PersistentFlags().StringSlice("tables.names", nil, "Create Regatta tables with given names.")
 	leaderCmd.PersistentFlags().StringSlice("tables.delete", nil, "Delete Regatta tables with given names.")
-	_ = leaderCmd.PersistentFlags().MarkHidden("tables.names")
-	_ = leaderCmd.PersistentFlags().MarkHidden("tables.delete")
+	_ = leaderCmd.PersistentFlags().MarkDeprecated("tables.names", "Use `regatta.v1.Tables/Create` API to create tables instead.")
+	_ = leaderCmd.PersistentFlags().MarkDeprecated("tables.delete", "Use `regatta.v1.Tables/Delete` API to delete tables instead.")
 
 	// Replication flags
 	leaderCmd.PersistentFlags().Bool("replication.enabled", true, "Whether replication API is enabled.")

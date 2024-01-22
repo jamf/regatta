@@ -39,16 +39,14 @@ tar -xf regatta-darwin-amd64.tar
 ./regatta leader \
     --dev-mode \
     --raft.address=127.0.0.1:5012 \
-    --raft.initial-members='1=127.0.0.1:5012' \
-    --tables.names=regatta-test
+    --raft.initial-members='1=127.0.0.1:5012'
 ```
-
 This command will start a Regatta leader cluster with a single instance locally.
 
-{: .note }
-Mind the flags providing certificates and keys for the APIs. For testing purposes,
-[certificate and key present in the repository](https://github.com/jamf/regatta/tree/cfc58f0205484b0c8a24c7cbcc0be8563b7cf6a5/hack)
-can be used.
+Create the `regatta-test` table using the API.
+```bash
+grpcurl -plaintext -d "{\"name\": \"regatta-test\"}" 127.0.0.1:8443 regatta.v1.Tables/Create
+```
 
 ## Pull and run official Docker image
 
@@ -58,21 +56,20 @@ Just execute `docker run` with the following arguments:
 
 ```bash
 docker run \
+    -p 8443:8443 \
     ghcr.io/jamf/regatta:latest \
     leader \
     --dev-mode \
     --raft.address=127.0.0.1:5012 \
-    --raft.initial-members='1=127.0.0.1:5012' \
-    --tables.names=regatta-test
+    --raft.initial-members='1=127.0.0.1:5012'
 ```
 
 This command will start a Regatta leader cluster with a single instance in a Docker container.
 
-{: .note }
-Mind the `--mount` argument mounting the `/hack` directory to the container. This is the default location
-where Regatta looks for certificates and keys for APIs. For testing purposes,
-[certificate and key present in the repository](https://github.com/jamf/regatta/tree/cfc58f0205484b0c8a24c7cbcc0be8563b7cf6a5/hack)
-can be used.
+Create the `regatta-test` table using the API.
+```bash
+grpcurl -plaintext -d "{\"name\": \"regatta-test\"}" 127.0.0.1:8443 regatta.v1.Tables/Create
+```
 
 ## Deploy to Kubernetes from Helm Chart
 

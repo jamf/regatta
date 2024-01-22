@@ -63,9 +63,6 @@ To deploy Regatta follower cluster and connect it to the leader cluster, let's s
 mode: follower
 replicas: 3
 
-# Specify the tables.
-tables: testing-table1,testing-table2
-
 replication:
   # Specify the address of the Regatta leader cluster to asynchronously replicate data from.
   leaderAddress: "leader.regatta.example.com:8444"
