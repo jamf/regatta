@@ -56,7 +56,7 @@ func New(cfg Config) (*Engine, error) {
 		},
 	)
 	if cfg.LogCacheSize > 0 {
-		e.LogCache = &logreader.ShardCache{ShardCacheSize: cfg.LogCacheSize}
+		e.LogCache = logreader.NewShardCache(cfg.LogCacheSize)
 		e.LogReader = &logreader.Cached{LogQuerier: nh, ShardCache: e.LogCache}
 	} else {
 		e.LogReader = &logreader.Simple{LogQuerier: nh}
