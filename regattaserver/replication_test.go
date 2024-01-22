@@ -10,7 +10,6 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/lni/dragonboat/v4/raftpb"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
@@ -154,19 +153,19 @@ func TestSnapshotServer_Stream(t *testing.T) {
 		name            string
 		fields          fields
 		args            args
-		wantErr         assert.ErrorAssertionFunc
+		wantErr         require.ErrorAssertionFunc
 		wantChunksCount int
 	}{
 		{
 			name:    "table not exist",
 			args:    args{req: &regattapb.SnapshotRequest{Table: table1Name}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:            "snapshot",
 			fields:          fields{Tables: []string{string(table1Name)}},
 			args:            args{req: &regattapb.SnapshotRequest{Table: table1Name}},
-			wantErr:         assert.NoError,
+			wantErr:         require.NoError,
 			wantChunksCount: 2,
 		},
 	}
@@ -177,7 +176,7 @@ func TestSnapshotServer_Stream(t *testing.T) {
 			}
 			capture := &captureSnapshotStream{}
 			tt.wantErr(t, s.Stream(tt.args.req, capture), fmt.Sprintf("Stream(%v)", tt.args.req))
-			assert.Equal(t, tt.wantChunksCount, len(capture.chunks))
+			require.Equal(t, tt.wantChunksCount, len(capture.chunks))
 		})
 	}
 }
@@ -209,23 +208,23 @@ func TestLogServer_Replicate(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		wantErr assert.ErrorAssertionFunc
+		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "table not exist",
 			args:    args{req: &regattapb.ReplicateRequest{Table: table1Name}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:    "zero index",
 			args:    args{req: &regattapb.ReplicateRequest{Table: table1Name}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:    "stream",
 			fields:  fields{Tables: []string{string(table1Name)}},
 			args:    args{req: &regattapb.ReplicateRequest{Table: table1Name, LeaderIndex: 1}},
-			wantErr: assert.NoError,
+			wantErr: require.NoError,
 		},
 	}
 	for _, tt := range tests {

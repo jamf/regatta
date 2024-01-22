@@ -97,21 +97,10 @@ func newInMemTestEngine(t *testing.T, tables ...string) *storage.Engine {
 	for _, tableName := range tables {
 		at, err := e.CreateTable(tableName)
 		require.NoError(t, err)
-		after := time.After(10 * time.Second)
-	outer:
-		for {
-			select {
-			case <-after:
-				t.FailNow()
-				return nil
-			default:
-				_, _, ok, _ := e.GetLeaderID(at.ClusterID)
-				if ok {
-					break outer
-				}
-				time.Sleep(5 * time.Millisecond)
-			}
-		}
+		require.Eventually(t, func() bool {
+			_, _, ok, _ := e.GetLeaderID(at.ClusterID)
+			return ok
+		}, 10*time.Second, 5*time.Millisecond, "table did not start in time")
 	}
 	t.Cleanup(func() {
 		_ = e.Close()

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/jamf/regatta/regattapb"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -27,32 +27,32 @@ func TestTablesServer_Create(t *testing.T) {
 		fields  fields
 		args    args
 		want    *regattapb.CreateTableResponse
-		wantErr assert.ErrorAssertionFunc
+		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "allow all - missing table name",
 			fields:  fields{AuthFunc: allowAll},
 			args:    args{req: &regattapb.CreateTableRequest{}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:    "allow all - not existing table",
 			fields:  fields{AuthFunc: allowAll},
 			args:    args{req: &regattapb.CreateTableRequest{Name: "new"}},
-			wantErr: assert.NoError,
+			wantErr: require.NoError,
 			want:    &regattapb.CreateTableResponse{Id: "10001"},
 		},
 		{
 			name:    "allow all - existing table",
 			fields:  fields{AuthFunc: allowAll, Tables: []string{"exists"}},
 			args:    args{req: &regattapb.CreateTableRequest{Name: "exists"}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:    "deny all",
 			fields:  fields{AuthFunc: denyAll},
 			args:    args{req: &regattapb.CreateTableRequest{}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 	}
 	for _, tt := range tests {
@@ -62,10 +62,8 @@ func TestTablesServer_Create(t *testing.T) {
 				AuthFunc: tt.fields.AuthFunc,
 			}
 			got, err := ts.Create(context.TODO(), tt.args.req)
-			if !tt.wantErr(t, err, fmt.Sprintf("Create(%v, %v)", context.TODO(), tt.args.req)) {
-				return
-			}
-			assert.Equalf(t, tt.want, got, "Create(%v, %v)", context.TODO(), tt.args.req)
+			tt.wantErr(t, err, fmt.Sprintf("Create(%v, %v)", context.TODO(), tt.args.req))
+			require.Equalf(t, tt.want, got, "Create(%v, %v)", context.TODO(), tt.args.req)
 		})
 	}
 }
@@ -83,32 +81,32 @@ func TestTablesServer_Delete(t *testing.T) {
 		fields  fields
 		args    args
 		want    *regattapb.DeleteTableResponse
-		wantErr assert.ErrorAssertionFunc
+		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "allow all - missing table name",
 			fields:  fields{AuthFunc: allowAll},
 			args:    args{req: &regattapb.DeleteTableRequest{}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:    "allow all - not existing table",
 			fields:  fields{AuthFunc: allowAll},
 			args:    args{req: &regattapb.DeleteTableRequest{Name: "nonexistent"}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 		{
 			name:    "allow all - existing table",
 			fields:  fields{AuthFunc: allowAll, Tables: []string{"exists"}},
 			args:    args{req: &regattapb.DeleteTableRequest{Name: "exists"}},
-			wantErr: assert.NoError,
+			wantErr: require.NoError,
 			want:    &regattapb.DeleteTableResponse{},
 		},
 		{
 			name:    "deny all",
 			fields:  fields{AuthFunc: denyAll},
 			args:    args{req: &regattapb.DeleteTableRequest{}},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 	}
 	for _, tt := range tests {
@@ -118,10 +116,8 @@ func TestTablesServer_Delete(t *testing.T) {
 				AuthFunc: tt.fields.AuthFunc,
 			}
 			got, err := ts.Delete(context.TODO(), tt.args.req)
-			if !tt.wantErr(t, err, fmt.Sprintf("Delete(%v, %v)", context.TODO(), tt.args.req)) {
-				return
-			}
-			assert.Equalf(t, tt.want, got, "Delete(%v, %v)", context.TODO(), tt.args.req)
+			tt.wantErr(t, err, fmt.Sprintf("Delete(%v, %v)", context.TODO(), tt.args.req))
+			require.Equalf(t, tt.want, got, "Delete(%v, %v)", context.TODO(), tt.args.req)
 		})
 	}
 }
@@ -135,17 +131,17 @@ func TestTablesServer_List(t *testing.T) {
 		name    string
 		fields  fields
 		want    *regattapb.ListTablesResponse
-		wantErr assert.ErrorAssertionFunc
+		wantErr require.ErrorAssertionFunc
 	}{
 		{
 			name:    "allow all",
 			fields:  fields{AuthFunc: allowAll},
-			wantErr: assert.NoError,
+			wantErr: require.NoError,
 		},
 		{
 			name:    "allow all multiple tables",
 			fields:  fields{AuthFunc: allowAll, Tables: []string{"table1", "table2"}},
-			wantErr: assert.NoError,
+			wantErr: require.NoError,
 			want: &regattapb.ListTablesResponse{Tables: []*regattapb.TableInfo{
 				{
 					Name: "table1",
@@ -160,7 +156,7 @@ func TestTablesServer_List(t *testing.T) {
 		{
 			name:    "deny all",
 			fields:  fields{AuthFunc: denyAll},
-			wantErr: assert.Error,
+			wantErr: require.Error,
 		},
 	}
 	for _, tt := range tests {
@@ -170,9 +166,7 @@ func TestTablesServer_List(t *testing.T) {
 				AuthFunc: tt.fields.AuthFunc,
 			}
 			_, err := ts.List(context.TODO(), &regattapb.ListTablesRequest{})
-			if !tt.wantErr(t, err, fmt.Sprintf("List(%v, %v)", context.TODO(), &regattapb.ListTablesRequest{})) {
-				return
-			}
+			tt.wantErr(t, err, fmt.Sprintf("List(%v, %v)", context.TODO(), &regattapb.ListTablesRequest{}))
 		})
 	}
 }
@@ -180,13 +174,13 @@ func TestTablesServer_List(t *testing.T) {
 func TestReadonlyTablesServer_Create(t *testing.T) {
 	ts := &ReadonlyTablesServer{}
 	_, err := ts.Create(context.TODO(), &regattapb.CreateTableRequest{})
-	assert.ErrorIs(t, err, status.Error(codes.Unimplemented, "method Create not implemented for follower"))
+	require.ErrorIs(t, err, status.Error(codes.Unimplemented, "method Create not implemented for follower"))
 }
 
 func TestReadonlyTablesServer_Delete(t *testing.T) {
 	ts := &ReadonlyTablesServer{}
 	_, err := ts.Delete(context.TODO(), &regattapb.DeleteTableRequest{})
-	assert.ErrorIs(t, err, status.Error(codes.Unimplemented, "method Delete not implemented for follower"))
+	require.ErrorIs(t, err, status.Error(codes.Unimplemented, "method Delete not implemented for follower"))
 }
 
 func denyAll(ctx context.Context) (context.Context, error) {
