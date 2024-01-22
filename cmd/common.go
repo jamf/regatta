@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jamf/regatta/cert"
@@ -41,8 +42,14 @@ func createAPIServer() (*regattaserver.RegattaServer, error) {
 	addr, secure, net := resolveUrl(viper.GetString("api.address"))
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			grpc_auth.StreamServerInterceptor(defaultAuthFunc),
+			grpc_prometheus.StreamServerInterceptor,
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_prometheus.UnaryServerInterceptor,
+			grpc_auth.UnaryServerInterceptor(defaultAuthFunc),
+		)),
 	}
 	if secure {
 		c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
@@ -103,6 +110,8 @@ func authFunc(token string) func(ctx context.Context) (context.Context, error) {
 		return ctx, nil
 	}
 }
+
+var defaultAuthFunc = authFunc("")
 
 type tokenCredentials string
 
