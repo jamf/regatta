@@ -22,10 +22,6 @@ type TablesServer struct {
 }
 
 func (t *TablesServer) Create(ctx context.Context, req *regattapb.CreateTableRequest) (*regattapb.CreateTableResponse, error) {
-	_, err := t.AuthFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
 	if len(req.Name) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "name must be set")
 	}
@@ -40,10 +36,6 @@ func (t *TablesServer) Create(ctx context.Context, req *regattapb.CreateTableReq
 }
 
 func (t *TablesServer) Delete(ctx context.Context, req *regattapb.DeleteTableRequest) (*regattapb.DeleteTableResponse, error) {
-	_, err := t.AuthFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
 	if len(req.Name) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "name must be set")
 	}
@@ -57,10 +49,6 @@ func (t *TablesServer) Delete(ctx context.Context, req *regattapb.DeleteTableReq
 }
 
 func (t *TablesServer) List(ctx context.Context, _ *regattapb.ListTablesRequest) (*regattapb.ListTablesResponse, error) {
-	_, err := t.AuthFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
 	ts, err := t.Tables.GetTables()
 	if err != nil {
 		if serrors.IsSafeToRetry(err) {
@@ -79,6 +67,10 @@ func (t *TablesServer) List(ctx context.Context, _ *regattapb.ListTablesRequest)
 		return cmp.Compare(a.Name, b.Name)
 	})
 	return resp, nil
+}
+
+func (t *TablesServer) AuthFuncOverride(ctx context.Context, _ string) (context.Context, error) {
+	return t.AuthFunc(ctx)
 }
 
 type ReadonlyTablesServer struct {

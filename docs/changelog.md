@@ -5,15 +5,27 @@ nav_order: 999
 ---
 
 # Changelog
+## v0.5.0 (unreleased)
 
-## v0.4.1 (unreleased)
+### Highlights
+#### Dynamic tables management
+* Tables now could be managed dynamically during the runtime of the server using newly provided `regatta.v1.Tables` API.
+* Tables API could be secured by an API token using `tables.token` configuration value.
+
+### Deprecations
+* `tables.names` and `tables.delete` configuration values were deprecated and will be removed in future releases.
+
+### Bugfixes
+* Proper authentication of `maintenance.v1.Backup/Restore` API endpoint.
+* When table is deleted in the leader cluster the followers will gracefully handle the situation by deleting the table locally and stopping the replication.
+---
+## v0.4.1
 
 ### Improvements
 * Server now reports transient errors for requests that could be potentially retried as `codes.Unavailable`.
 
 ### Bugfixes
 * Fixed the default timeout of `KV/IterateRange` operation.
-
 
 ---
 ## v0.4.0

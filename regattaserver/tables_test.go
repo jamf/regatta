@@ -153,11 +153,6 @@ func TestTablesServer_List(t *testing.T) {
 				},
 			}},
 		},
-		{
-			name:    "deny all",
-			fields:  fields{AuthFunc: denyAll},
-			wantErr: require.Error,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

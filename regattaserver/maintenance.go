@@ -25,10 +25,6 @@ type ResetServer struct {
 }
 
 func (m *ResetServer) Reset(ctx context.Context, req *regattapb.ResetRequest) (*regattapb.ResetResponse, error) {
-	ctx, err := m.AuthFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
 	reset := func(name string) error {
 		t, err := m.Tables.GetTable(name)
 		if err != nil {
@@ -64,6 +60,10 @@ func (m *ResetServer) Reset(ctx context.Context, req *regattapb.ResetRequest) (*
 	return &regattapb.ResetResponse{}, nil
 }
 
+func (m *ResetServer) AuthFuncOverride(ctx context.Context, _ string) (context.Context, error) {
+	return m.AuthFunc(ctx)
+}
+
 // BackupServer implements some Maintenance service methods from proto/regatta.proto.
 type BackupServer struct {
 	regattapb.UnimplementedMaintenanceServer
@@ -72,10 +72,7 @@ type BackupServer struct {
 }
 
 func (m *BackupServer) Backup(req *regattapb.BackupRequest, srv regattapb.Maintenance_BackupServer) error {
-	ctx, err := m.AuthFunc(srv.Context())
-	if err != nil {
-		return err
-	}
+	ctx := srv.Context()
 	table, err := m.Tables.GetTable(string(req.Table))
 	if err != nil {
 		return err
@@ -147,6 +144,10 @@ func (m *BackupServer) Restore(srv regattapb.Maintenance_RestoreServer) error {
 		return err
 	}
 	return srv.SendAndClose(&regattapb.RestoreResponse{})
+}
+
+func (m *BackupServer) AuthFuncOverride(ctx context.Context, _ string) (context.Context, error) {
+	return m.AuthFunc(ctx)
 }
 
 type backupReader struct {
