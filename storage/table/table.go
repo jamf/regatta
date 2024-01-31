@@ -70,7 +70,7 @@ func proposeTable[S any](t *ActiveTable, ctx context.Context, cmd *regattapb.Com
 		return *new(S), 0, err
 	}
 	pr := &regattapb.CommandResult{}
-	if err := pr.UnmarshalVT(res.Data); err != nil {
+	if err := pr.UnmarshalVTUnsafe(res.Data); err != nil {
 		return *new(S), 0, err
 	}
 	if len(pr.Responses) == 0 {
@@ -187,7 +187,7 @@ func (t *ActiveTable) Txn(ctx context.Context, req *regattapb.TxnRequest) (*rega
 		return nil, err
 	}
 	txr := &regattapb.CommandResult{}
-	if err := txr.UnmarshalVT(res.Data); err != nil {
+	if err := txr.UnmarshalVTUnsafe(res.Data); err != nil {
 		return nil, err
 	}
 	return &regattapb.TxnResponse{

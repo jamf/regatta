@@ -62,7 +62,7 @@ func (c *updateContext) Close() error {
 func parseCommand(c *updateContext, entry sm.Entry) (command, error) {
 	c.index = entry.Index
 	cmd := &regattapb.Command{}
-	if err := cmd.UnmarshalVT(entry.Cmd); err != nil {
+	if err := cmd.UnmarshalVTUnsafe(entry.Cmd); err != nil {
 		return commandDummy{}, err
 	}
 	c.leaderIndex = cmd.LeaderIndex

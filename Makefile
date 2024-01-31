@@ -46,7 +46,7 @@ PROTO_GO_OUTS=regattapb/mvcc.pb.go regattapb/mvcc_vtproto.pb.go \
 proto: $(PROTO_GO_OUTS)
 
 $(PROTO_GO_OUTS): proto/*.proto
-	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+size+pool --go-vtproto_opt=pool=./regattapb.Command --go-vtproto_opt=pool=./regattapb.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=./docs/api.tmpl,api.md
+	protoc -I proto/ --go_out=. --go-grpc_out=. --go-vtproto_out=. --go-vtproto_opt=features=marshal+unmarshal+unmarshal_unsafe+size+pool --go-vtproto_opt=pool=./regattapb.Command --go-vtproto_opt=pool=./regattapb.SnapshotChunk proto/*.proto --doc_out=./docs --doc_opt=./docs/api.tmpl,api.md
 
 # Build the docker image
 .PHONY: docker-build
