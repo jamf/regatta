@@ -82,3 +82,15 @@ func Pull[T any](seq Seq[T]) (iter func() (T, bool), stop func()) {
 			<-yield
 		})
 }
+
+func Contains[T comparable](seq Seq[T], item T) bool {
+	found := false
+	seq(func(t T) bool {
+		if t == item {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}

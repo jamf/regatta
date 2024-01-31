@@ -80,12 +80,13 @@ func TestSM_Open(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
 			p := &FSM{
-				fs:        vfs.NewMem(),
-				clusterID: tt.fields.clusterID,
-				nodeID:    tt.fields.nodeID,
-				dirname:   tt.fields.dirname,
-				log:       zap.NewNop().Sugar(),
-				metrics:   newMetrics(testTable, tt.fields.clusterID),
+				fs:          vfs.NewMem(),
+				clusterID:   tt.fields.clusterID,
+				nodeID:      tt.fields.nodeID,
+				dirname:     tt.fields.dirname,
+				log:         zap.NewNop().Sugar(),
+				metrics:     newMetrics(testTable, tt.fields.clusterID),
+				appliedFunc: func(applied uint64) {},
 			}
 			_, err := p.Open(nil)
 			if tt.wantErr {
@@ -103,12 +104,13 @@ func TestFSM_ReOpen(t *testing.T) {
 	fs := vfs.NewMem()
 	const testIndex uint64 = 10
 	p := &FSM{
-		fs:        fs,
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp/dir",
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics(testTable, 1),
+		fs:          fs,
+		clusterID:   1,
+		nodeID:      1,
+		dirname:     "/tmp/dir",
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics(testTable, 1),
+		appliedFunc: func(applied uint64) {},
 	}
 
 	t.Log("open FSM")
@@ -734,12 +736,13 @@ func equalResult(t *testing.T, want sm.Result, got sm.Result) {
 
 func emptySM() *FSM {
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp/tst",
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics(testTable, 1),
+		fs:          vfs.NewMem(),
+		clusterID:   1,
+		nodeID:      1,
+		dirname:     "/tmp/tst",
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics(testTable, 1),
+		appliedFunc: func(applied uint64) {},
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -777,12 +780,13 @@ func filledSM() *FSM {
 		})
 	}
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp/tst",
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics(testTable, 1),
+		fs:          vfs.NewMem(),
+		clusterID:   1,
+		nodeID:      1,
+		dirname:     "/tmp/tst",
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics(testTable, 1),
+		appliedFunc: func(applied uint64) {},
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -811,12 +815,13 @@ func filledLargeValuesSM() *FSM {
 		}
 	}
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp/tst",
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics(testTable, 1),
+		fs:          vfs.NewMem(),
+		clusterID:   1,
+		nodeID:      1,
+		dirname:     "/tmp/tst",
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics(testTable, 1),
+		appliedFunc: func(applied uint64) {},
 	}
 	_, err := p.Open(nil)
 	if err != nil {
@@ -831,12 +836,13 @@ func filledLargeValuesSM() *FSM {
 
 func filledIndexOnlySM() *FSM {
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp/tst",
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics(testTable, 1),
+		fs:          vfs.NewMem(),
+		clusterID:   1,
+		nodeID:      1,
+		dirname:     "/tmp/tst",
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics(testTable, 1),
+		appliedFunc: func(applied uint64) {},
 	}
 	_, err := p.Open(nil)
 	if err != nil {

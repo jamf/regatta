@@ -15,12 +15,13 @@ import (
 
 func TestFSM_Metrics(t *testing.T) {
 	p := &FSM{
-		fs:        vfs.NewMem(),
-		clusterID: 1,
-		nodeID:    1,
-		dirname:   "/tmp",
-		log:       zap.NewNop().Sugar(),
-		metrics:   newMetrics(testTable, 1),
+		fs:          vfs.NewMem(),
+		clusterID:   1,
+		nodeID:      1,
+		dirname:     "/tmp",
+		log:         zap.NewNop().Sugar(),
+		metrics:     newMetrics(testTable, 1),
+		appliedFunc: func(applied uint64) {},
 	}
 	_, _ = p.Open(nil)
 	inFile, err := os.Open(path.Join("testdata", "metrics"))

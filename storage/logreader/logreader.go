@@ -41,20 +41,15 @@ func (l *Simple) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dr
 }
 
 type ShardCache struct {
-	shardCache     util.SyncMap[uint64, *shard]
-	ShardCacheSize int
+	shardCache *util.SyncMap[uint64, *shard]
 }
 
 func (l *ShardCache) NodeDeleted(shardID uint64) {
 	l.shardCache.Delete(shardID)
 }
 
-func (l *ShardCache) NodeReady(shardID uint64) {
-	l.shardCache.ComputeIfAbsent(shardID, func(shardId uint64) *shard { return &shard{cache: newCache(l.ShardCacheSize)} })
-}
-
 func (l *ShardCache) LogCompacted(shardID uint64) {
-	l.shardCache.Store(shardID, &shard{cache: newCache(l.ShardCacheSize)})
+	l.shardCache.Delete(shardID)
 }
 
 type Cached struct {
@@ -155,4 +150,10 @@ func fixSize(entries []raftpb.Entry, maxSize uint64) []raftpb.Entry {
 		}
 	}
 	return entries
+}
+
+func NewShardCache(size int) *ShardCache {
+	return &ShardCache{shardCache: util.NewSyncMap(func(k uint64) *shard {
+		return &shard{cache: newCache(size)}
+	})}
 }

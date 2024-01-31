@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -532,51 +533,64 @@ func TestKVServer_Txn(t *testing.T) {
 	r.NoError(err)
 }
 
-func TestReadonlyKVServer_Put(t *testing.T) {
+func TestForwardingKVServer_Put(t *testing.T) {
 	r := require.New(t)
-	kv := ReadonlyKVServer{
+	client := &mockClient{}
+	kv := ForwardingKVServer{
 		KVServer: KVServer{
 			Storage: &mockKVService{},
 		},
+		client: client,
+		q:      fakeQueue{},
 	}
-
+	ctx := context.Background()
+	req := &regattapb.PutRequest{
+		Table: table1Name,
+		Key:   key1Name,
+	}
+	client.On("Put", ctx, req, mock.Anything).Return(&regattapb.PutResponse{Header: &regattapb.ResponseHeader{Revision: 1}}, nil)
 	t.Log("Put kv")
-	_, err := kv.Put(context.Background(), &regattapb.PutRequest{
-		Table: table1Name,
-		Key:   key1Name,
-	})
-	r.EqualError(err, status.Errorf(codes.Unimplemented, "method Put not implemented for follower").Error())
+	resp, err := kv.Put(ctx, req)
+	r.NoError(err)
+	r.Equal(uint64(1), resp.Header.Revision)
 }
 
-func TestReadonlyKVServer_DeleteRange(t *testing.T) {
+func TestForwardingKVServer_DeleteRange(t *testing.T) {
 	r := require.New(t)
-	kv := ReadonlyKVServer{
+	client := &mockClient{}
+	kv := ForwardingKVServer{
 		KVServer: KVServer{
 			Storage: &mockKVService{},
 		},
+		client: client,
+		q:      fakeQueue{},
 	}
-
-	t.Log("Delete existing kv")
-	_, err := kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
+	ctx := context.Background()
+	req := &regattapb.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   key1Name,
-	})
-	r.EqualError(err, status.Errorf(codes.Unimplemented, "method DeleteRange not implemented for follower").Error())
+	}
+	client.On("DeleteRange", ctx, req, mock.Anything).Return(&regattapb.DeleteRangeResponse{Header: &regattapb.ResponseHeader{Revision: 1}}, nil)
+	t.Log("Delete existing kv")
+	resp, err := kv.DeleteRange(ctx, req)
+	r.NoError(err)
+	r.Equal(uint64(1), resp.Header.Revision)
 }
 
-func TestReadonlyKVServer_Txn(t *testing.T) {
+func TestForwardingKVServer_Txn(t *testing.T) {
 	r := require.New(t)
 	storage := &mockKVService{}
-	kv := ReadonlyKVServer{
+	client := &mockClient{}
+	kv := ForwardingKVServer{
 		KVServer: KVServer{
 			Storage: storage,
 		},
+		client: client,
+		q:      fakeQueue{},
 	}
 
-	storage.On("Txn", mock.Anything, mock.AnythingOfType("*regattapb.TxnRequest")).Return(&regattapb.TxnResponse{}, nil)
-
-	t.Log("Writable Txn")
-	_, err := kv.Txn(context.Background(), &regattapb.TxnRequest{
+	ctx := context.Background()
+	req := &regattapb.TxnRequest{
 		Success: []*regattapb.RequestOp{
 			{
 				Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{
@@ -584,11 +598,14 @@ func TestReadonlyKVServer_Txn(t *testing.T) {
 				}},
 			},
 		},
-	})
-	r.EqualError(err, status.Errorf(codes.Unimplemented, "writable Txn not implemented for follower").Error())
+	}
+	t.Log("Writable Txn")
+	client.On("Txn", ctx, req, mock.Anything).Return(&regattapb.TxnResponse{Header: &regattapb.ResponseHeader{Revision: 1}}, nil)
+	resp, err := kv.Txn(ctx, req)
+	r.NoError(err)
+	r.Equal(uint64(1), resp.Header.Revision)
 
-	t.Log("Readonly Txn")
-	_, err = kv.Txn(context.Background(), &regattapb.TxnRequest{
+	req = &regattapb.TxnRequest{
 		Table: table1Name,
 		Success: []*regattapb.RequestOp{
 			{
@@ -597,7 +614,11 @@ func TestReadonlyKVServer_Txn(t *testing.T) {
 				}},
 			},
 		},
-	})
+	}
+	ctx = context.Background()
+	storage.On("Txn", ctx, req).Return(&regattapb.TxnResponse{}, nil)
+	t.Log("Readonly Txn")
+	_, err = kv.Txn(ctx, req)
 	r.NoError(err)
 }
 
@@ -661,4 +682,41 @@ func (m *mockIterateRangeServer) SendMsg(mes any) error {
 
 func (m *mockIterateRangeServer) RecvMsg(mes any) error {
 	return m.Mock.Called(mes).Error(0)
+}
+
+type mockClient struct {
+	mock.Mock
+}
+
+func (m *mockClient) Range(ctx context.Context, in *regattapb.RangeRequest, opts ...grpc.CallOption) (*regattapb.RangeResponse, error) {
+	called := m.Mock.Called(ctx, in, opts)
+	return called.Get(0).(*regattapb.RangeResponse), called.Error(1)
+}
+
+func (m *mockClient) IterateRange(ctx context.Context, in *regattapb.RangeRequest, opts ...grpc.CallOption) (regattapb.KV_IterateRangeClient, error) {
+	called := m.Mock.Called(ctx, in, opts)
+	return called.Get(0).(regattapb.KV_IterateRangeClient), called.Error(1)
+}
+
+func (m *mockClient) Put(ctx context.Context, in *regattapb.PutRequest, opts ...grpc.CallOption) (*regattapb.PutResponse, error) {
+	called := m.Mock.Called(ctx, in, opts)
+	return called.Get(0).(*regattapb.PutResponse), called.Error(1)
+}
+
+func (m *mockClient) DeleteRange(ctx context.Context, in *regattapb.DeleteRangeRequest, opts ...grpc.CallOption) (*regattapb.DeleteRangeResponse, error) {
+	called := m.Mock.Called(ctx, in, opts)
+	return called.Get(0).(*regattapb.DeleteRangeResponse), called.Error(1)
+}
+
+func (m *mockClient) Txn(ctx context.Context, in *regattapb.TxnRequest, opts ...grpc.CallOption) (*regattapb.TxnResponse, error) {
+	called := m.Mock.Called(ctx, in, opts)
+	return called.Get(0).(*regattapb.TxnResponse), called.Error(1)
+}
+
+type fakeQueue struct{}
+
+func (f fakeQueue) Add(ctx context.Context, table string, revision uint64) <-chan error {
+	i := make(chan error)
+	close(i)
+	return i
 }

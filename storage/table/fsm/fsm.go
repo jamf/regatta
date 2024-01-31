@@ -86,9 +86,12 @@ func (s *snapshotHeader) snapshotType() SnapshotRecoveryType {
 	return SnapshotRecoveryType(s[6])
 }
 
-func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, tableCache *pebble.TableCache, srt SnapshotRecoveryType) sm.CreateOnDiskStateMachineFunc {
+func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache, tableCache *pebble.TableCache, srt SnapshotRecoveryType, af func(applied uint64)) sm.CreateOnDiskStateMachineFunc {
 	if fs == nil {
 		fs = vfs.Default
+	}
+	if af == nil {
+		af = func(applied uint64) {}
 	}
 	return func(clusterID uint64, nodeID uint64) sm.IOnDiskStateMachine {
 		hostname, _ := os.Hostname()
@@ -105,6 +108,7 @@ func New(tableName, stateMachineDir string, fs vfs.FS, blockCache *pebble.Cache,
 			log:          zap.S().Named("table").Named(tableName),
 			metrics:      newMetrics(tableName, clusterID),
 			recoveryType: srt,
+			appliedFunc:  af,
 		}
 	}
 }
@@ -123,6 +127,7 @@ type FSM struct {
 	tableCache   *pebble.TableCache
 	metrics      *metrics
 	recoveryType SnapshotRecoveryType
+	appliedFunc  func(applied uint64)
 }
 
 func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
@@ -178,6 +183,11 @@ func (p *FSM) Open(_ <-chan struct{}) (uint64, error) {
 		return 0, err
 	}
 	p.metrics.applied.Store(idx)
+	p.appliedFunc(idx)
+	lx, _ := readLocalIndex(db, sysLeaderIndex)
+	if lx != 0 {
+		p.appliedFunc(lx)
+	}
 	return idx, nil
 }
 
@@ -301,6 +311,11 @@ func (p *FSM) Update(updates []sm.Entry) ([]sm.Entry, error) {
 	}
 
 	p.metrics.applied.Store(idx)
+	if ctx.leaderIndex != nil {
+		p.appliedFunc(*ctx.leaderIndex)
+	} else {
+		p.appliedFunc(idx)
+	}
 	return updates, nil
 }
 

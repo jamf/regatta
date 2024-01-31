@@ -9,6 +9,7 @@ import (
 
 	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
+	"github.com/jamf/regatta/util/iter"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/raftio"
 	"github.com/lni/dragonboat/v4/raftpb"
@@ -69,32 +70,30 @@ func TestCached_NodeDeleted(t *testing.T) {
 	}{
 		{
 			name:   "remove existing cache shard",
-			fields: fields{ShardCache: &ShardCache{}},
+			fields: fields{ShardCache: NewShardCache(1)},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   1,
 				ReplicaID: 1,
 			}},
 			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
-				_, ok := s.Load(uint64(1))
-				require.False(t, ok, "unexpected cache shard")
+				require.False(t, iter.Contains(s.Keys(), uint64(1)), "unexpected cache shard")
 			},
 		},
 		{
 			name:   "remove non-existent cache shard",
-			fields: fields{ShardCache: &ShardCache{}},
+			fields: fields{ShardCache: NewShardCache(1)},
 			args: args{info: raftio.NodeInfo{
 				ShardID:   1,
 				ReplicaID: 1,
 			}},
 			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
-				_, ok := s.Load(uint64(1))
-				require.False(t, ok, "unexpected cache shard")
+				require.False(t, iter.Contains(s.Keys(), uint64(1)), "unexpected cache shard")
 			},
 		},
 		{
 			name: "remove existent cache shard from list",
 			fields: fields{ShardCache: func() *ShardCache {
-				c := &ShardCache{}
+				c := NewShardCache(100)
 				for i := 1; i <= 4; i++ {
 					c.shardCache.Store(uint64(i), &shard{})
 				}
@@ -105,8 +104,7 @@ func TestCached_NodeDeleted(t *testing.T) {
 				ReplicaID: 1,
 			}},
 			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
-				_, ok := s.Load(uint64(2))
-				require.False(t, ok, "unexpected cache shard")
+				require.False(t, iter.Contains(s.Keys(), uint64(2)), "unexpected cache shard")
 			},
 		},
 	}
@@ -114,77 +112,7 @@ func TestCached_NodeDeleted(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &Cached{ShardCache: tt.fields.ShardCache}
 			l.NodeDeleted(tt.args.info.ShardID)
-			tt.assert(t, &l.shardCache)
-		})
-	}
-}
-
-func TestCached_NodeReady(t *testing.T) {
-	type fields struct {
-		ShardCache *ShardCache
-	}
-	type args struct {
-		info raftio.NodeInfo
-	}
-	tests := []struct {
-		name   string
-		args   args
-		fields fields
-		assert func(*testing.T, *util.SyncMap[uint64, *shard])
-	}{
-		{
-			name:   "add ready node",
-			fields: fields{ShardCache: &ShardCache{}},
-			args: args{info: raftio.NodeInfo{
-				ShardID:   1,
-				ReplicaID: 1,
-			}},
-			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
-				_, ok := s.Load(uint64(1))
-				require.True(t, ok, "missing cache shard")
-			},
-		},
-		{
-			name: "add existing node",
-			fields: fields{ShardCache: func() *ShardCache {
-				c := &ShardCache{}
-				c.shardCache.Store(uint64(1), &shard{})
-				return c
-			}()},
-			args: args{info: raftio.NodeInfo{
-				ShardID:   1,
-				ReplicaID: 1,
-			}},
-			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
-				_, ok := s.Load(uint64(1))
-				require.True(t, ok, "missing cache shard")
-			},
-		},
-		{
-			name: "add ready node to list",
-			fields: fields{ShardCache: func() *ShardCache {
-				c := &ShardCache{}
-				c.shardCache.Store(uint64(1), &shard{})
-				c.shardCache.Store(uint64(3), &shard{})
-				c.shardCache.Store(uint64(5), &shard{})
-				c.shardCache.Store(uint64(6), &shard{})
-				return c
-			}()},
-			args: args{info: raftio.NodeInfo{
-				ShardID:   2,
-				ReplicaID: 1,
-			}},
-			assert: func(t *testing.T, s *util.SyncMap[uint64, *shard]) {
-				_, ok := s.Load(uint64(2))
-				require.True(t, ok, "missing cache shard")
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := &Cached{ShardCache: tt.fields.ShardCache}
-			l.NodeReady(tt.args.info.ShardID)
-			tt.assert(t, &l.shardCache)
+			tt.assert(t, l.shardCache)
 		})
 	}
 }
@@ -483,10 +411,9 @@ func TestCached_QueryRaftLog(t *testing.T) {
 				tt.on(querier)
 			}
 			l := &Cached{
-				ShardCache: &ShardCache{ShardCacheSize: tt.fields.ShardCacheSize},
+				ShardCache: NewShardCache(tt.fields.ShardCacheSize),
 				LogQuerier: querier,
 			}
-			l.shardCache.ComputeIfAbsent(tt.args.clusterID, func(uint642 uint64) *shard { return &shard{cache: newCache(tt.fields.ShardCacheSize)} })
 			if len(tt.cacheContent) > 0 {
 				v, _ := l.shardCache.
 					Load(tt.args.clusterID)

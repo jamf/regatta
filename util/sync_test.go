@@ -23,7 +23,8 @@ func TestSyncMap_ComputeIfAbsent(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "compute missing key",
+			name:   "compute missing key",
+			fields: fields{m: map[string]string{}},
 			args: args{
 				key: "key",
 				valFunc: func(s string) string {
@@ -151,7 +152,8 @@ func TestSyncMap_Store(t *testing.T) {
 		assert func(*testing.T, *SyncMap[string, string])
 	}{
 		{
-			name: "store into empty map",
+			name:   "store into empty map",
+			fields: fields{m: map[string]string{}},
 			args: args{
 				key: "key",
 				val: "value",

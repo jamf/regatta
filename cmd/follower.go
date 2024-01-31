@@ -108,6 +108,11 @@ func follower(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to parse raft.logdb: %w", err)
 	}
 
+	nQueue := storage.NewNotificationQueue()
+	go nQueue.Run()
+	defer func() {
+		_ = nQueue.Close()
+	}()
 	engine, err := storage.New(storage.Config{
 		Log:                 engineLog.Sugar(),
 		ClientAddress:       viper.GetString("api.advertise-address"),
@@ -129,16 +134,17 @@ func follower(_ *cobra.Command, _ []string) error {
 			NodeName:         viper.GetString("memberlist.node-name"),
 		},
 		Table: storage.TableConfig{
-			FS:                 vfs.Default,
-			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
-			HeartbeatRTT:       viper.GetUint64("raft.heartbeat-rtt"),
-			SnapshotEntries:    viper.GetUint64("raft.snapshot-entries"),
-			CompactionOverhead: viper.GetUint64("raft.compaction-overhead"),
-			MaxInMemLogSize:    viper.GetUint64("raft.max-in-mem-log-size"),
-			DataDir:            viper.GetString("raft.state-machine-dir"),
-			RecoveryType:       toRecoveryType(viper.GetString("raft.snapshot-recovery-type")),
-			BlockCacheSize:     viper.GetInt64("storage.block-cache-size"),
-			TableCacheSize:     viper.GetInt("storage.table-cache-size"),
+			FS:                   vfs.Default,
+			ElectionRTT:          viper.GetUint64("raft.election-rtt"),
+			HeartbeatRTT:         viper.GetUint64("raft.heartbeat-rtt"),
+			SnapshotEntries:      viper.GetUint64("raft.snapshot-entries"),
+			CompactionOverhead:   viper.GetUint64("raft.compaction-overhead"),
+			MaxInMemLogSize:      viper.GetUint64("raft.max-in-mem-log-size"),
+			DataDir:              viper.GetString("raft.state-machine-dir"),
+			RecoveryType:         toRecoveryType(viper.GetString("raft.snapshot-recovery-type")),
+			BlockCacheSize:       viper.GetInt64("storage.block-cache-size"),
+			TableCacheSize:       viper.GetInt("storage.table-cache-size"),
+			AppliedIndexListener: nQueue.Notify,
 		},
 		Meta: storage.MetaConfig{
 			ElectionRTT:        viper.GetUint64("raft.election-rtt"),
@@ -158,15 +164,14 @@ func follower(_ *cobra.Command, _ []string) error {
 	defer engine.Close()
 
 	// Replication
+	conn, err := createReplicationConn()
+	defer func() {
+		_ = conn.Close()
+	}()
+	if err != nil {
+		return fmt.Errorf("cannot create replication conn: %w", err)
+	}
 	{
-		conn, err := createReplicationConn()
-		defer func() {
-			_ = conn.Close()
-		}()
-		if err != nil {
-			return fmt.Errorf("cannot create replication conn: %w", err)
-		}
-
 		d := replication.NewManager(engine.Manager, engine.NodeHost, conn, replication.Config{
 			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
 			Workers: replication.WorkerConfig{
@@ -192,11 +197,7 @@ func follower(_ *cobra.Command, _ []string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create API server: %w", err)
 			}
-			regattapb.RegisterKVServer(regatta, &regattaserver.ReadonlyKVServer{
-				KVServer: regattaserver.KVServer{
-					Storage: engine,
-				},
-			})
+			regattapb.RegisterKVServer(regatta, regattaserver.NewForwardingKVServer(engine, regattapb.NewKVClient(conn), nQueue))
 			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
 				Cluster: engine,
 				Config:  viperConfigReader,

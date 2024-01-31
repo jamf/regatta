@@ -17,12 +17,7 @@ func (e *events) dispatchEvents() {
 		switch ev := evt.(type) {
 		case nodeHostShuttingDown:
 			return
-		case leaderUpdated, nodeUnloaded, membershipChanged:
-			e.engine.Cluster.Notify()
-		case nodeReady:
-			if ev.ReplicaID == e.engine.cfg.NodeID && e.engine.LogCache != nil {
-				e.engine.LogCache.NodeReady(ev.ShardID)
-			}
+		case leaderUpdated, nodeUnloaded, membershipChanged, nodeReady:
 			e.engine.Cluster.Notify()
 		case nodeDeleted:
 			if ev.ReplicaID == e.engine.cfg.NodeID && e.engine.LogCache != nil {
@@ -33,7 +28,6 @@ func (e *events) dispatchEvents() {
 			if ev.ReplicaID == e.engine.cfg.NodeID && e.engine.LogCache != nil {
 				e.engine.LogCache.LogCompacted(ev.ShardID)
 			}
-			e.engine.Cluster.Notify()
 		}
 	}
 }

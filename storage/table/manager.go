@@ -495,14 +495,22 @@ func (m *Manager) startTable(name string, id uint64) error {
 		return m.nh.StartOnDiskReplica(
 			map[uint64]dragonboat.Target{},
 			false,
-			fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
+			fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType), func(applied uint64) {
+				if m.cfg.Table.AppliedIndexListener != nil {
+					m.cfg.Table.AppliedIndexListener(name, applied)
+				}
+			}),
 			tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 		)
 	}
 	return m.nh.StartOnDiskReplica(
 		m.members,
 		false,
-		fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType)),
+		fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType), func(applied uint64) {
+			if m.cfg.Table.AppliedIndexListener != nil {
+				m.cfg.Table.AppliedIndexListener(name, applied)
+			}
+		}),
 		tableRaftConfig(m.cfg.NodeID, id, m.cfg.Table),
 	)
 }
