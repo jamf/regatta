@@ -5,13 +5,8 @@ package proto
 import (
 	"fmt"
 
-	"google.golang.org/grpc/encoding"
 	"google.golang.org/protobuf/proto"
 )
-
-func init() {
-	encoding.RegisterCodec(Codec{})
-}
 
 // Name is the name registered for the proto compressor.
 const Name = "proto"
@@ -23,28 +18,32 @@ type vtprotoMessage interface {
 	UnmarshalVT([]byte) error
 }
 
+type vtprotoUnsafeMessage interface {
+	UnmarshalVTUnsafe([]byte) error
+}
+
 func (Codec) Marshal(v interface{}) ([]byte, error) {
-	vt, ok := v.(vtprotoMessage)
-	if !ok {
-		vv, ok := v.(proto.Message)
-		if !ok {
-			return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message|vtprotoMessage", v)
-		}
-		return proto.Marshal(vv)
+	switch message := v.(type) {
+	case vtprotoMessage:
+		return message.MarshalVT()
+	case proto.Message:
+		return proto.Marshal(message)
+	default:
+		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message|vtprotoMessage", v)
 	}
-	return vt.MarshalVT()
 }
 
 func (Codec) Unmarshal(data []byte, v interface{}) error {
-	vt, ok := v.(vtprotoMessage)
-	if !ok {
-		vv, ok := v.(proto.Message)
-		if !ok {
-			return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message|vtprotoMessage", v)
-		}
-		return proto.Unmarshal(data, vv)
+	switch message := v.(type) {
+	case vtprotoUnsafeMessage:
+		return message.UnmarshalVTUnsafe(data)
+	case vtprotoMessage:
+		return message.UnmarshalVT(data)
+	case proto.Message:
+		return proto.Unmarshal(data, message)
+	default:
+		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message|vtprotoUnsafeMessage|vtprotoMessage", v)
 	}
-	return vt.UnmarshalVT(data)
 }
 
 func (Codec) Name() string {
