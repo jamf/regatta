@@ -29,7 +29,7 @@ func (Codec) Marshal(v interface{}) ([]byte, error) {
 	case proto.Message:
 		return proto.Marshal(message)
 	default:
-		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message|vtprotoMessage", v)
+		return nil, fmt.Errorf("message is %T, want proto.Message|vtprotoMessage", v)
 	}
 }
 
@@ -42,7 +42,7 @@ func (Codec) Unmarshal(data []byte, v interface{}) error {
 	case proto.Message:
 		return proto.Unmarshal(data, message)
 	default:
-		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message|vtprotoUnsafeMessage|vtprotoMessage", v)
+		return fmt.Errorf("message is %T, want proto.Message|vtprotoUnsafeMessage|vtprotoMessage", v)
 	}
 }
 

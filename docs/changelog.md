@@ -14,6 +14,7 @@ nav_order: 999
 
 ### Improvements
 * Improve on API allocations when deserializing gRPC messages.
+* Support `zstd` API compression.
 
 ### Deprecations
 * `tables.names` and `tables.delete` configuration values were deprecated and will be removed in future releases.
