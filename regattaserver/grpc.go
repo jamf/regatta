@@ -10,6 +10,7 @@ import (
 	_ "github.com/jamf/regatta/regattaserver/encoding/gzip"
 	"github.com/jamf/regatta/regattaserver/encoding/proto"
 	_ "github.com/jamf/regatta/regattaserver/encoding/snappy"
+	_ "github.com/jamf/regatta/regattaserver/encoding/zstd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
