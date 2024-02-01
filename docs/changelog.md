@@ -12,6 +12,9 @@ nav_order: 999
 * Tables now could be managed dynamically during the runtime of the server using newly provided `regatta.v1.Tables` API.
 * Tables API could be secured by an API token using `tables.token` configuration value.
 
+### Improvements
+* Improve on API allocations when deserializing gRPC messages.
+
 ### Deprecations
 * `tables.names` and `tables.delete` configuration values were deprecated and will be removed in future releases.
 
