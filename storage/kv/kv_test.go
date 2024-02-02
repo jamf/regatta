@@ -70,12 +70,12 @@ var (
 	_ store = &RaftStore{}
 )
 
-func mapStoreFunc() store {
+func mapStoreFunc(t *testing.T) store {
 	return &MapStore{}
 }
 
-func raftStoreFunc() store {
-	return newRaftStore()
+func raftStoreFunc(t *testing.T) store {
+	return newRaftStore(t)
 }
 
 func TestStore_Exists(t *testing.T) {
@@ -84,7 +84,7 @@ func TestStore_Exists(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		store func() store
+		store func(t *testing.T) store
 		args  args
 		want  bool
 	}{
@@ -128,13 +128,10 @@ func TestStore_Exists(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, testData)
 			got, _ := store.Exists(tt.args.key)
 			r.Equal(tt.want, got)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
@@ -145,7 +142,7 @@ func TestStore_Get(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		store   func() store
+		store   func(t *testing.T) store
 		args    args
 		want    Pair
 		wantErr error
@@ -190,7 +187,7 @@ func TestStore_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, testData)
 			got, err := store.Get(tt.args.key)
 			if tt.wantErr != nil {
@@ -200,10 +197,6 @@ func TestStore_Get(t *testing.T) {
 			r.NoError(err)
 			r.Equal(tt.want.Key, got.Key)
 			r.Equal(tt.want.Value, got.Value)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-				r.GreaterOrEqual(got.Ver, uint64(0))
-			}
 		})
 	}
 }
@@ -215,7 +208,7 @@ func TestStore_GetAll(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		store     func() store
+		store     func(t *testing.T) store
 		want      []Pair
 		wantCount int
 		wantErr   error
@@ -325,7 +318,7 @@ func TestStore_GetAll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, dirTestData)
 			got, err := store.GetAll(tt.args.pattern)
 			if tt.wantErr != nil {
@@ -338,9 +331,6 @@ func TestStore_GetAll(t *testing.T) {
 			} else {
 				r.Equal(tt.want, got)
 			}
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
@@ -352,7 +342,7 @@ func TestStore_GetAllValues(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		store   func() store
+		store   func(t *testing.T) store
 		want    []string
 		wantErr error
 	}{
@@ -422,7 +412,7 @@ func TestStore_GetAllValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, dirTestData)
 			got, err := store.GetAllValues(tt.args.pattern)
 			if tt.wantErr != nil {
@@ -431,9 +421,6 @@ func TestStore_GetAllValues(t *testing.T) {
 			}
 			r.NoError(err)
 			r.Equal(tt.want, got)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
@@ -445,7 +432,7 @@ func TestStore_List(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		store   func() store
+		store   func(t *testing.T) store
 		want    []string
 		wantErr bool
 	}{
@@ -477,7 +464,7 @@ func TestStore_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, dirTestData)
 			got, err := store.List(tt.args.filePath)
 			if tt.wantErr {
@@ -485,9 +472,6 @@ func TestStore_List(t *testing.T) {
 				return
 			}
 			r.Equal(tt.want, got)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
@@ -498,7 +482,7 @@ func TestStore_ListDir(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		store   func() store
+		store   func(t *testing.T) store
 		args    args
 		want    []string
 		wantErr bool
@@ -531,7 +515,7 @@ func TestStore_ListDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, dirTestData)
 			got, err := store.ListDir(tt.args.filePath)
 			if tt.wantErr {
@@ -539,9 +523,6 @@ func TestStore_ListDir(t *testing.T) {
 				return
 			}
 			r.Equal(tt.want, got)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
@@ -556,7 +537,7 @@ func TestStore_Set(t *testing.T) {
 	type args []arg
 	tests := []struct {
 		name  string
-		store func() store
+		store func(t *testing.T) store
 		args  args
 	}{
 		{
@@ -579,7 +560,7 @@ func TestStore_Set(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			for k, v := range testData {
 				set, err := store.Set(k, v, 0)
 				r.NoError(err)
@@ -595,9 +576,6 @@ func TestStore_Set(t *testing.T) {
 				r.NoError(err)
 				r.Equal(set.Key, a.key)
 				r.Equal(set.Value, a.value)
-				if rs, ok := store.(*RaftStore); ok {
-					rs.NodeHost.Close()
-				}
 			}
 		})
 	}
@@ -611,7 +589,7 @@ func TestStore_Delete(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		store   func() store
+		store   func(t *testing.T) store
 		args    args
 		wantErr bool
 	}{
@@ -640,7 +618,7 @@ func TestStore_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := require.New(t)
-			store := tt.store()
+			store := tt.store(t)
 			fillData(store, testData)
 			if tt.args.fetchVersion {
 				val, err := store.Get(tt.args.key)
@@ -663,14 +641,12 @@ func TestStore_Delete(t *testing.T) {
 			all, err := store.GetAllValues("/*/*/*")
 			r.NoError(err)
 			r.Len(all, len(testData)-1)
-			if rs, ok := store.(*RaftStore); ok {
-				rs.NodeHost.Close()
-			}
 		})
 	}
 }
 
-func newRaftStore() *RaftStore {
+func newRaftStore(t *testing.T) *RaftStore {
+	t.Helper()
 	getTestPort := func() int {
 		l, _ := net.Listen("tcp", "127.0.0.1:0")
 		defer l.Close()
@@ -709,28 +685,14 @@ func newRaftStore() *RaftStore {
 		if err != nil {
 			panic(err)
 		}
-
-		ready := make(chan struct{})
-		go func() {
-			for {
-				_, _, ok, _ := nh.GetLeaderID(cc.ReplicaID)
-				if ok {
-					close(ready)
-					return
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-		}()
-
-		// Listen on our channel AND a timeout channel - which ever happens first.
-		select {
-		case <-ready:
-		case <-time.After(30 * time.Second):
-			panic("unable to start test Dragonboat in timeout of 30s")
-		}
-
+		require.Eventually(t, func() bool {
+			_, _, ok, _ := nh.GetLeaderID(cc.ReplicaID)
+			return ok
+		}, 5*time.Second, 10*time.Millisecond)
 		return nh
 	}
 
-	return &RaftStore{NodeHost: startRaftNode(), ClusterID: 1}
+	node := startRaftNode()
+	t.Cleanup(node.Close)
+	return &RaftStore{NodeHost: node, ClusterID: 1}
 }
