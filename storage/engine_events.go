@@ -8,6 +8,7 @@ import (
 
 type events struct {
 	eventsCh chan any
+	stopc    chan struct{}
 	engine   *Engine
 }
 
@@ -16,6 +17,7 @@ func (e *events) dispatchEvents() {
 		e.engine.log.Infof("raft: %T %+v", evt, evt)
 		switch ev := evt.(type) {
 		case nodeHostShuttingDown:
+			close(e.stopc)
 			return
 		case leaderUpdated, nodeUnloaded, membershipChanged, nodeReady:
 			e.engine.Cluster.Notify()
@@ -40,18 +42,25 @@ type leaderUpdated struct {
 }
 
 func (e *events) LeaderUpdated(info raftio.LeaderInfo) {
-	e.eventsCh <- leaderUpdated{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- leaderUpdated{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		Term:      info.Term,
-		LeaderID:  info.LeaderID,
+		LeaderID:  info.LeaderID}:
 	}
 }
 
 type nodeHostShuttingDown struct{}
 
 func (e *events) NodeHostShuttingDown() {
-	e.eventsCh <- nodeHostShuttingDown{}
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- nodeHostShuttingDown{}:
+	}
 }
 
 type nodeUnloaded struct {
@@ -60,9 +69,10 @@ type nodeUnloaded struct {
 }
 
 func (e *events) NodeUnloaded(info raftio.NodeInfo) {
-	e.eventsCh <- nodeUnloaded{
-		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID,
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- nodeUnloaded{ShardID: info.ShardID, ReplicaID: info.ReplicaID}:
 	}
 }
 
@@ -72,9 +82,10 @@ type nodeDeleted struct {
 }
 
 func (e *events) NodeDeleted(info raftio.NodeInfo) {
-	e.eventsCh <- nodeDeleted{
-		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID,
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- nodeDeleted{ShardID: info.ShardID, ReplicaID: info.ReplicaID}:
 	}
 }
 
@@ -84,9 +95,10 @@ type nodeReady struct {
 }
 
 func (e *events) NodeReady(info raftio.NodeInfo) {
-	e.eventsCh <- nodeReady{
-		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID,
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- nodeReady{ShardID: info.ShardID, ReplicaID: info.ReplicaID}:
 	}
 }
 
@@ -96,9 +108,10 @@ type membershipChanged struct {
 }
 
 func (e *events) MembershipChanged(info raftio.NodeInfo) {
-	e.eventsCh <- membershipChanged{
-		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID,
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- membershipChanged{ShardID: info.ShardID, ReplicaID: info.ReplicaID}:
 	}
 }
 
@@ -108,9 +121,10 @@ type connectionEstablished struct {
 }
 
 func (e *events) ConnectionEstablished(info raftio.ConnectionInfo) {
-	e.eventsCh <- connectionEstablished{
-		Address:            info.Address,
-		SnapshotConnection: info.SnapshotConnection,
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- connectionEstablished{Address: info.Address, SnapshotConnection: info.SnapshotConnection}:
 	}
 }
 
@@ -120,9 +134,10 @@ type connectionFailed struct {
 }
 
 func (e *events) ConnectionFailed(info raftio.ConnectionInfo) {
-	e.eventsCh <- connectionFailed{
-		Address:            info.Address,
-		SnapshotConnection: info.SnapshotConnection,
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- connectionFailed{Address: info.Address, SnapshotConnection: info.SnapshotConnection}:
 	}
 }
 
@@ -134,11 +149,14 @@ type sendSnapshotStarted struct {
 }
 
 func (e *events) SendSnapshotStarted(info raftio.SnapshotInfo) {
-	e.eventsCh <- sendSnapshotStarted{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- sendSnapshotStarted{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -150,11 +168,14 @@ type sendSnapshotCompleted struct {
 }
 
 func (e *events) SendSnapshotCompleted(info raftio.SnapshotInfo) {
-	e.eventsCh <- sendSnapshotCompleted{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- sendSnapshotCompleted{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -166,11 +187,14 @@ type sendSnapshotAborted struct {
 }
 
 func (e *events) SendSnapshotAborted(info raftio.SnapshotInfo) {
-	e.eventsCh <- sendSnapshotAborted{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- sendSnapshotAborted{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -182,11 +206,14 @@ type snapshotReceived struct {
 }
 
 func (e *events) SnapshotReceived(info raftio.SnapshotInfo) {
-	e.eventsCh <- snapshotReceived{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- snapshotReceived{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -198,11 +225,14 @@ type snapshotRecovered struct {
 }
 
 func (e *events) SnapshotRecovered(info raftio.SnapshotInfo) {
-	e.eventsCh <- snapshotRecovered{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- snapshotRecovered{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -214,11 +244,14 @@ type snapshotCreated struct {
 }
 
 func (e *events) SnapshotCreated(info raftio.SnapshotInfo) {
-	e.eventsCh <- snapshotCreated{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- snapshotCreated{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -230,11 +263,14 @@ type snapshotCompacted struct {
 }
 
 func (e *events) SnapshotCompacted(info raftio.SnapshotInfo) {
-	e.eventsCh <- snapshotCompacted{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- snapshotCompacted{
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index,
+		Index:     info.Index}:
 	}
 }
 
@@ -244,9 +280,12 @@ type logCompacted struct {
 }
 
 func (e *events) LogCompacted(info raftio.EntryInfo) {
-	e.eventsCh <- logCompacted{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- logCompacted{
 		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID,
+		ReplicaID: info.ReplicaID}:
 	}
 }
 
@@ -256,8 +295,11 @@ type logDBCompacted struct {
 }
 
 func (e *events) LogDBCompacted(info raftio.EntryInfo) {
-	e.eventsCh <- logDBCompacted{
+	select {
+	case <-e.stopc:
+		return
+	case e.eventsCh <- logDBCompacted{
 		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID,
+		ReplicaID: info.ReplicaID}:
 	}
 }
