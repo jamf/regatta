@@ -3,11 +3,11 @@
 package kv
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
@@ -652,9 +652,9 @@ func newRaftStore(t *testing.T) *RaftStore {
 		defer l.Close()
 		return l.Addr().(*net.TCPAddr).Port
 	}
+	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 
 	startRaftNode := func() *dragonboat.NodeHost {
-		testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 		nhc := config.NodeHostConfig{
 			WALDir:         "wal",
 			NodeHostDir:    "dragonboat",
@@ -669,30 +669,20 @@ func newRaftStore(t *testing.T) *RaftStore {
 		if err != nil {
 			panic(err)
 		}
-
-		cc := config.Config{
-			ReplicaID:          1,
-			ShardID:            1,
-			ElectionRTT:        5,
-			HeartbeatRTT:       1,
-			CheckQuorum:        true,
-			SnapshotEntries:    10000,
-			CompactionOverhead: 5000,
-			WaitReady:          true,
-		}
-
-		err = nh.StartConcurrentReplica(map[uint64]string{1: testNodeAddress}, false, NewLFSM(), cc)
-		if err != nil {
-			panic(err)
-		}
-		require.Eventually(t, func() bool {
-			_, _, ok, _ := nh.GetLeaderID(cc.ReplicaID)
-			return ok
-		}, 5*time.Second, 10*time.Millisecond)
 		return nh
 	}
 
 	node := startRaftNode()
 	t.Cleanup(node.Close)
-	return &RaftStore{NodeHost: node, ClusterID: 1}
+	rs := &RaftStore{NodeHost: node, ClusterID: 1}
+	require.NoError(t, rs.Start(RaftConfig{
+		NodeID:             1,
+		ElectionRTT:        5,
+		HeartbeatRTT:       1,
+		SnapshotEntries:    10000,
+		CompactionOverhead: 5000,
+		InitialMembers:     map[uint64]string{1: testNodeAddress},
+	}))
+	require.NoError(t, rs.WaitForLeader(context.Background()))
+	return rs
 }
