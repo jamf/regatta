@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -156,11 +157,11 @@ func leader(_ *cobra.Command, _ []string) error {
 	defer engine.Close()
 
 	go func() {
-		if err := engine.WaitUntilReady(); err != nil {
-			log.Infof("table manager failed to start: %v", err)
+		if err := engine.WaitUntilReady(context.Background()); err != nil {
+			log.Infof("engine failed to start: %v", err)
 			return
 		}
-		log.Info("table manager started")
+		log.Info("engine started")
 		tNames := viper.GetStringSlice("tables.names")
 		for _, table := range tNames {
 			log.Debugf("creating table %s", table)

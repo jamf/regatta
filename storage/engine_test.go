@@ -15,6 +15,7 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
+	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/version"
@@ -94,10 +95,11 @@ func TestEngine_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, tt.fields.cfg)
 			tt.wantErr(t, e.Start())
 			if tt.wantStarted {
-				require.NoError(t, e.WaitUntilReady())
+				require.NoError(t, e.WaitUntilReady(ctx))
 			}
 		})
 	}
@@ -225,9 +227,10 @@ func TestEngine_Range(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
-			require.NoError(t, e.WaitUntilReady())
+			require.NoError(t, e.WaitUntilReady(ctx))
 			tt.prepare(t, e)
 			got, err := e.Range(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
@@ -340,9 +343,10 @@ func TestEngine_Put(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
-			require.NoError(t, e.WaitUntilReady())
+			require.NoError(t, e.WaitUntilReady(ctx))
 			tt.prepare(t, e)
 			got, err := e.Put(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
@@ -457,9 +461,10 @@ func TestEngine_Delete(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
-			require.NoError(t, e.WaitUntilReady())
+			require.NoError(t, e.WaitUntilReady(ctx))
 			tt.prepare(t, e)
 			got, err := e.Delete(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
@@ -613,9 +618,10 @@ func TestEngine_Txn(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
-			require.NoError(t, e.WaitUntilReady())
+			require.NoError(t, e.WaitUntilReady(ctx))
 			tt.prepare(t, e)
 			got, err := e.Txn(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
@@ -678,9 +684,10 @@ func TestEngine_Status(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
-			require.NoError(t, e.WaitUntilReady())
+			require.NoError(t, e.WaitUntilReady(ctx))
 			tt.prepare(t, e)
 			got, err := e.Status(context.Background(), &regattapb.StatusRequest{})
 			tt.wantErr(t, err)
@@ -709,9 +716,10 @@ func TestEngine_MemberList(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := cancellableTestContext(t)
 			e := newTestEngine(t, newTestConfig())
 			require.NoError(t, e.Start())
-			require.NoError(t, e.WaitUntilReady())
+			require.NoError(t, e.WaitUntilReady(ctx))
 			tt.prepare(t, e)
 			got, err := e.MemberList(context.Background(), &regattapb.MemberListRequest{})
 			tt.wantErr(t, err)
@@ -786,8 +794,9 @@ func newTestConfig() Config {
 }
 
 func newTestEngine(t *testing.T, cfg Config) *Engine {
+	t.Helper()
 	e := &Engine{cfg: cfg, stop: make(chan struct{}), log: zaptest.NewLogger(t).Sugar()}
-	e.events = &events{eventsCh: make(chan any, 1), engine: e}
+	e.events = &events{eventsCh: make(chan any, 1), stopc: make(chan struct{}), engine: e}
 	nh, err := createNodeHost(e)
 	require.NoError(t, err)
 	e.NodeHost = nh
@@ -796,7 +805,15 @@ func newTestEngine(t *testing.T, cfg Config) *Engine {
 		return cluster.Info{}
 	})
 	require.NoError(t, err)
-	e.Manager = table.NewManager(nh, cfg.InitialMembers, table.Config{
+	e.tableStore = &kv.RaftStore{
+		NodeHost:  nh,
+		ClusterID: tableStoreID,
+	}
+	e.limiterStore = &kv.RaftStore{
+		NodeHost:  nh,
+		ClusterID: rateLimiterStoreID,
+	}
+	e.Manager = table.NewManager(nh, cfg.InitialMembers, e.tableStore, table.Config{
 		NodeID: cfg.NodeID,
 		Table:  table.TableConfig(cfg.Table),
 		Meta:   table.MetaConfig(cfg.Meta),
@@ -914,4 +931,13 @@ func (p *pebbleFSAdapter) PathJoin(elem ...string) string {
 // PathDir ...
 func (p *pebbleFSAdapter) PathDir(path string) string {
 	return p.fs.PathDir(path)
+}
+
+func cancellableTestContext(t *testing.T) context.Context {
+	if dln, ok := t.Deadline(); ok {
+		ctx, cancel := context.WithDeadline(context.Background(), dln)
+		t.Cleanup(cancel)
+		return ctx
+	}
+	return context.Background()
 }

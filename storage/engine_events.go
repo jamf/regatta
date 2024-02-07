@@ -49,7 +49,8 @@ func (e *events) LeaderUpdated(info raftio.LeaderInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		Term:      info.Term,
-		LeaderID:  info.LeaderID}:
+		LeaderID:  info.LeaderID,
+	}:
 	}
 }
 
@@ -156,7 +157,8 @@ func (e *events) SendSnapshotStarted(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -175,7 +177,8 @@ func (e *events) SendSnapshotCompleted(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -194,7 +197,8 @@ func (e *events) SendSnapshotAborted(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -213,7 +217,8 @@ func (e *events) SnapshotReceived(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -232,7 +237,8 @@ func (e *events) SnapshotRecovered(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -251,7 +257,8 @@ func (e *events) SnapshotCreated(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -270,7 +277,8 @@ func (e *events) SnapshotCompacted(info raftio.SnapshotInfo) {
 		ShardID:   info.ShardID,
 		ReplicaID: info.ReplicaID,
 		From:      info.From,
-		Index:     info.Index}:
+		Index:     info.Index,
+	}:
 	}
 }
 
@@ -285,7 +293,8 @@ func (e *events) LogCompacted(info raftio.EntryInfo) {
 		return
 	case e.eventsCh <- logCompacted{
 		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID}:
+		ReplicaID: info.ReplicaID,
+	}:
 	}
 }
 
@@ -300,6 +309,7 @@ func (e *events) LogDBCompacted(info raftio.EntryInfo) {
 		return
 	case e.eventsCh <- logDBCompacted{
 		ShardID:   info.ShardID,
-		ReplicaID: info.ReplicaID}:
+		ReplicaID: info.ReplicaID,
+	}:
 	}
 }
