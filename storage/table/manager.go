@@ -33,14 +33,17 @@ type store interface {
 	GetAll(pattern string) ([]kv.Pair, error)
 }
 
+type leaderStore interface {
+	HasLeader() bool
+}
+
 const (
 	keyPrefix                 = "/tables/"
 	sequenceKey               = keyPrefix + "sys/idseq"
-	metaFSMClusterID          = 1000
 	tableIDsRangeStart uint64 = 10000
 )
 
-func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) *Manager {
+func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, store store, cfg Config) *Manager {
 	blockCache := pebble.NewCache(cfg.Table.BlockCacheSize)
 	tableCache := pebble.NewTableCache(blockCache, runtime.GOMAXPROCS(-1), cfg.Table.TableCacheSize)
 	return &Manager{
@@ -52,31 +55,18 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, cfg Config) 
 		readyChan:          make(chan struct{}),
 		members:            members,
 		cfg:                cfg,
-		store: &kv.RaftStore{
-			NodeHost:  nh,
-			ClusterID: metaFSMClusterID,
-		},
-		cache: struct {
-			mu     sync.RWMutex
-			tables map[string]ActiveTable
-		}{
-			tables: make(map[string]ActiveTable),
-		},
-		closed:     make(chan struct{}),
-		log:        zap.S().Named("manager"),
-		blockCache: blockCache,
-		tableCache: tableCache,
+		store:              store,
+		closed:             make(chan struct{}),
+		log:                zap.S().Named("manager"),
+		blockCache:         blockCache,
+		tableCache:         tableCache,
 	}
 }
 
 type Manager struct {
-	store store
-	nh    *dragonboat.NodeHost
-	mtx   sync.RWMutex
-	cache struct {
-		mu     sync.RWMutex
-		tables map[string]ActiveTable
-	}
+	store              store
+	nh                 *dragonboat.NodeHost
+	mtx                sync.RWMutex
 	members            map[uint64]string
 	closed             chan struct{}
 	cfg                Config
@@ -218,12 +208,6 @@ func storedTableName(name string) string {
 }
 
 func (m *Manager) GetTable(name string) (ActiveTable, error) {
-	m.cache.mu.RLock()
-	defer m.cache.mu.RUnlock()
-	if t, ok := m.cache.tables[name]; ok {
-		return t, nil
-	}
-
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 	tab, _, err := m.getTableVersion(name)
@@ -263,41 +247,9 @@ func (m *Manager) GetTables() ([]Table, error) {
 	return rtabs, nil
 }
 
-func (m *Manager) Start() error {
-	go func() {
-		t := time.NewTicker(500 * time.Millisecond)
-		defer t.Stop()
-		for {
-			select {
-			case <-m.closed:
-				return
-			case <-t.C:
-				_, _, ok, _ := m.nh.GetLeaderID(metaFSMClusterID)
-				if ok {
-					go m.reconcileLoop()
-					go m.cleanupLoop()
-					close(m.readyChan)
-					return
-				}
-			}
-		}
-	}()
-
-	if m.nh.HasNodeInfo(metaFSMClusterID, m.cfg.NodeID) {
-		return m.nh.StartConcurrentReplica(map[uint64]dragonboat.Target{}, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
-	}
-	return m.nh.StartConcurrentReplica(m.members, false, kv.NewLFSM(), metaRaftConfig(m.cfg.NodeID, m.cfg.Meta))
-}
-
-func (m *Manager) WaitUntilReady() error {
-	for {
-		select {
-		case <-m.readyChan:
-			return nil
-		case <-m.closed:
-			return serrors.ErrManagerClosed
-		}
-	}
+func (m *Manager) Start() {
+	go m.reconcileLoop()
+	go m.cleanupLoop()
 }
 
 func (m *Manager) Close() {
@@ -308,21 +260,25 @@ func (m *Manager) reconcileLoop() {
 	t := time.NewTicker(m.reconcileInterval)
 	defer t.Stop()
 	for {
-		err := m.reconcile()
-		if err != nil {
-			m.log.Errorf("reconcile failed: %v", err)
-		}
 		select {
 		case <-m.closed:
 			return
 		case <-t.C:
-			continue
+			if ls, ok := m.store.(leaderStore); ok {
+				if !ls.HasLeader() {
+					m.log.Warnf("table store does not have a leader")
+					continue
+				}
+			}
+			err := m.reconcile()
+			if err != nil {
+				m.log.Errorf("reconcile failed: %v", err)
+			}
 		}
 	}
 }
 
 func (m *Manager) reconcile() error {
-	// FIXME there is still a distributed race condition across the instances
 	tabs, nhi, err := func() (map[string]Table, *dragonboat.NodeHostInfo, error) {
 		m.mtx.RLock()
 		defer m.mtx.RUnlock()
@@ -340,17 +296,12 @@ func (m *Manager) reconcile() error {
 		return err
 	}
 
-	for _, t := range tabs {
-		m.cacheTable(t)
-	}
-
 	start, stop := diffTables(tabs, nhi.ShardInfoList)
 	for id, tbl := range start {
 		err = m.startTable(tbl.Name, id)
 		if err != nil {
 			return err
 		}
-		m.cacheTable(tbl)
 	}
 
 	for _, tab := range stop {
@@ -358,7 +309,6 @@ func (m *Manager) reconcile() error {
 		if err != nil {
 			return err
 		}
-		m.clearTable(tab)
 	}
 
 	return nil
@@ -368,15 +318,20 @@ func (m *Manager) cleanupLoop() {
 	t := time.NewTicker(m.cleanupInterval)
 	defer t.Stop()
 	for {
-		err := m.cleanup()
-		if err != nil {
-			m.log.Errorf("cleanup failed: %v", err)
-		}
 		select {
 		case <-m.closed:
 			return
 		case <-t.C:
-			continue
+			if ls, ok := m.store.(leaderStore); ok {
+				if !ls.HasLeader() {
+					m.log.Warnf("table store does not have a leader")
+					continue
+				}
+			}
+			err := m.cleanup()
+			if err != nil {
+				m.log.Errorf("cleanup failed: %v", err)
+			}
 		}
 	}
 }
@@ -515,22 +470,6 @@ func (m *Manager) startTable(name string, id uint64) error {
 	)
 }
 
-func (m *Manager) cacheTable(tbl Table) {
-	m.cache.mu.Lock()
-	defer m.cache.mu.Unlock()
-	m.cache.tables[tbl.Name] = tbl.AsActive(m.nh)
-}
-
-func (m *Manager) clearTable(clusterID uint64) {
-	m.cache.mu.Lock()
-	defer m.cache.mu.Unlock()
-	for name, activeTable := range m.cache.tables {
-		if activeTable.ClusterID == clusterID {
-			delete(m.cache.tables, name)
-		}
-	}
-}
-
 type Cleanup struct {
 	Created    time.Time `json:"created"`
 	ClusterID  uint64    `json:"cluster_id"`
@@ -622,7 +561,6 @@ func (m *Manager) Restore(name string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	m.cacheTable(tbl)
 	return nil
 }
 
@@ -759,20 +697,5 @@ func tableRaftConfig(nodeID, clusterID uint64, cfg TableConfig) config.Config {
 		CompactionOverhead:      cfg.CompactionOverhead,
 		MaxInMemLogSize:         cfg.MaxInMemLogSize,
 		SnapshotCompressionType: config.Snappy,
-	}
-}
-
-func metaRaftConfig(nodeID uint64, cfg MetaConfig) config.Config {
-	return config.Config{
-		ReplicaID:           nodeID,
-		ShardID:             metaFSMClusterID,
-		CheckQuorum:         true,
-		PreVote:             true,
-		ElectionRTT:         cfg.ElectionRTT,
-		HeartbeatRTT:        cfg.HeartbeatRTT,
-		SnapshotEntries:     cfg.SnapshotEntries,
-		CompactionOverhead:  cfg.CompactionOverhead,
-		OrderedConfigChange: true,
-		MaxInMemLogSize:     cfg.MaxInMemLogSize,
 	}
 }
