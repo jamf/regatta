@@ -15,9 +15,8 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
+	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/jamf/regatta/storage/table"
-	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -50,9 +49,8 @@ type workerFactory struct {
 	snapshotTimeout   time.Duration
 	maxSnapshotRecv   uint64
 	recoverySemaphore *semaphore.Weighted
-	tm                *table.Manager
 	log               *zap.SugaredLogger
-	nh                *dragonboat.NodeHost
+	engine            *storage.Engine
 	logClient         regattapb.LogClient
 	snapshotClient    regattapb.SnapshotClient
 	metrics           struct {
@@ -113,7 +111,7 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
-				err := w.tm.LeaseTable(w.table, w.leaseInterval*4)
+				err := w.engine.LeaseTable(w.table, w.leaseInterval*4)
 				if err == nil {
 					prev := w.leased.Swap(true)
 					if !prev {
@@ -181,7 +179,7 @@ func (w *worker) Start() {
 						}()
 					} else {
 						w.log.Info("maximum number of recoveries already running")
-						if _, err := w.tm.ReturnTable(w.table); err != nil {
+						if _, err := w.engine.ReturnTable(w.table); err != nil {
 							w.log.Warnf("error returning table: %v", err)
 						}
 					}
@@ -212,7 +210,7 @@ func (w *worker) Close() {
 	close(w.closer)
 	w.wg.Wait()
 
-	ok, err := w.tm.ReturnTable(w.table)
+	ok, err := w.engine.ReturnTable(w.table)
 	if err != nil {
 		w.log.Errorf("returning table failed %v", err)
 	}
@@ -281,7 +279,7 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 }
 
 func (w *worker) tableState() (uint64, *client.Session, error) {
-	t, err := w.tm.GetTable(w.table)
+	t, err := w.engine.GetTable(w.table)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -292,7 +290,7 @@ func (w *worker) tableState() (uint64, *client.Session, error) {
 	if err != nil {
 		return 0, nil, fmt.Errorf("could not get leader index key: %w", err)
 	}
-	return idxRes.Index, w.nh.GetNoOPSession(t.ClusterID), nil
+	return idxRes.Index, w.engine.GetNoOPSession(t.ClusterID), nil
 }
 
 func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.ReplicateCommand, session *client.Session) (uint64, error) {
@@ -313,7 +311,7 @@ func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.Replica
 		if err != nil {
 			return fmt.Errorf("could not marshal command: %w", err)
 		}
-		if _, err := w.nh.SyncPropose(ctx, session, buff[:n]); err != nil {
+		if _, err := w.engine.SyncPropose(ctx, session, buff[:n]); err != nil {
 			return fmt.Errorf("could not propose sequence: %w", err)
 		}
 		w.metrics.replicationFollowerIndex.Set(float64(*seq.LeaderIndex))
@@ -376,7 +374,7 @@ func (w *worker) recover() error {
 		return err
 	}
 	w.log.Info("snapshot stream saved, loading table")
-	err = w.tm.Restore(w.table, sf)
+	err = w.engine.Restore(w.table, sf)
 	if err != nil {
 		return err
 	}

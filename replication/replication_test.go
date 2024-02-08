@@ -15,13 +15,13 @@ import (
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication/snapshot"
-	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/storage"
 	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -78,14 +78,7 @@ func testServer(t *testing.T, regf func(server *grpc.Server)) *grpc.ClientConn {
 func TestManager_reconcile(t *testing.T) {
 	r := require.New(t)
 	t.Log("start follower Raft")
-	followerNH, followerAddresses, err := startRaftNode()
-	r.NoError(err)
-
-	t.Log("create follower table manager")
-	followerTM := table.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
-	r.NoError(followerTM.Start())
-	r.NoError(followerTM.WaitUntilReady())
-	defer followerTM.Close()
+	_, followerEngine := prepareLeaderAndFollowerEngine(t)
 
 	conn := testServer(t, func(server *grpc.Server) {
 		s := testReplicationServer{metaResp: &regattapb.MetadataResponse{Tables: []*regattapb.Table{
@@ -100,7 +93,7 @@ func TestManager_reconcile(t *testing.T) {
 		regattapb.RegisterLogServer(server, s)
 	})
 
-	m := NewManager(followerTM, followerNH, conn, Config{
+	m := NewManager(followerEngine, conn, Config{
 		ReconcileInterval: 250 * time.Millisecond,
 		Workers: WorkerConfig{
 			PollInterval:        10 * time.Millisecond,
@@ -124,39 +117,38 @@ func TestManager_reconcile(t *testing.T) {
 
 func TestManager_reconcileTables(t *testing.T) {
 	r := require.New(t)
-	leaderTM, followerTM, leaderNH, followerNH, closer := prepareLeaderAndFollowerRaft(t)
-	defer closer()
-	srv := startReplicationServer(leaderTM, leaderNH)
+	leaderEngine, followerEngine := prepareLeaderAndFollowerEngine(t)
+	srv := startReplicationServer(leaderEngine)
 	defer srv.Shutdown()
 
 	t.Log("create replicator")
 	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
-	m := NewManager(followerTM, followerNH, conn, Config{})
+	m := NewManager(followerEngine, conn, Config{})
 
 	t.Log("create table")
-	_, err = leaderTM.CreateTable("test")
+	_, err = leaderEngine.CreateTable("test")
 	r.NoError(err)
 	r.NoError(m.reconcileTables())
 	r.Eventually(func() bool {
-		_, err := followerTM.GetTable("test")
+		_, err := followerEngine.GetTable("test")
 		return err == nil
 	}, 10*time.Second, 200*time.Millisecond, "table not created in time")
 
 	t.Log("create another table")
-	_, err = leaderTM.CreateTable("test2")
+	_, err = leaderEngine.CreateTable("test2")
 	r.NoError(err)
 	r.NoError(m.reconcileTables())
 	r.Eventually(func() bool {
-		_, err := followerTM.GetTable("test2")
+		_, err := followerEngine.GetTable("test2")
 		return err == nil
 	}, 10*time.Second, 200*time.Millisecond, "table not created in time")
 
 	t.Log("skip network errors")
 	r.NoError(conn.Close())
 
-	tabs, err := followerTM.GetTables()
+	tabs, err := followerEngine.GetTables()
 	r.NoError(err)
 	r.Len(tabs, 2)
 }
@@ -164,14 +156,7 @@ func TestManager_reconcileTables(t *testing.T) {
 func TestWorker_recover(t *testing.T) {
 	r := require.New(t)
 	t.Log("start follower Raft")
-	followerNH, followerAddresses, err := startRaftNode()
-	r.NoError(err)
-
-	t.Log("create follower table manager")
-	followerTM := table.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
-	r.NoError(followerTM.Start())
-	r.NoError(followerTM.WaitUntilReady())
-	defer followerTM.Close()
+	_, followerEngine := prepareLeaderAndFollowerEngine(t)
 
 	conn := testServer(t, func(server *grpc.Server) {
 		s := testReplicationServer{
@@ -193,7 +178,7 @@ func TestWorker_recover(t *testing.T) {
 		regattapb.RegisterSnapshotServer(server, s)
 	})
 
-	m := NewManager(followerTM, followerNH, conn, Config{
+	m := NewManager(followerEngine, conn, Config{
 		ReconcileInterval: 250 * time.Millisecond,
 		Workers: WorkerConfig{
 			PollInterval:        10 * time.Millisecond,
@@ -207,27 +192,8 @@ func TestWorker_recover(t *testing.T) {
 	m.Start()
 	defer m.Close()
 	r.Eventually(func() bool {
-		return m.factory.nh.HasNodeInfo(10002, 1)
+		return m.factory.engine.HasNodeInfo(10002, 1)
 	}, 10*time.Second, 1*time.Second)
-}
-
-func startRaftNode() (*dragonboat.NodeHost, map[uint64]string, error) {
-	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	nhc := config.NodeHostConfig{
-		WALDir:         "wal",
-		NodeHostDir:    "dragonboat",
-		RTTMillisecond: 1,
-		RaftAddress:    testNodeAddress,
-	}
-	_ = nhc.Prepare()
-	nhc.Expert.FS = vfs.NewMem()
-	nhc.Expert.Engine.ExecShards = 1
-	nhc.Expert.LogDB.Shards = 1
-	nh, err := dragonboat.NewNodeHost(nhc)
-	if err != nil {
-		return nil, nil, err
-	}
-	return nh, map[uint64]string{1: testNodeAddress}, nil
 }
 
 func getTestPort() int {
@@ -236,53 +202,64 @@ func getTestPort() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func tableManagerTestConfig() table.Config {
-	return table.Config{
-		NodeID: 1,
-		Table:  table.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
-		Meta:   table.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
-	}
-}
-
-func prepareLeaderAndFollowerRaft(t *testing.T) (leaderTM *table.Manager, followerTM *table.Manager, leaderNH *dragonboat.NodeHost, followerNH *dragonboat.NodeHost, closer func()) {
+func prepareLeaderAndFollowerEngine(t *testing.T) (leaderTM *storage.Engine, followerTM *storage.Engine) {
+	t.Helper()
 	r := require.New(t)
 	t.Log("start leader Raft")
-	leaderNH, leaderAddresses, err := startRaftNode()
+	leaderAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
+	leaderTM, err := storage.New(storage.Config{
+		FS:             vfs.NewMem(),
+		Log:            zaptest.NewLogger(t).Sugar(),
+		InitialMembers: map[uint64]string{1: leaderAddress},
+		Gossip: storage.GossipConfig{
+			BindAddress: fmt.Sprintf("127.0.0.1:%d", getTestPort()),
+			ClusterName: "leader",
+		},
+		NodeID:         1,
+		RTTMillisecond: 5,
+		RaftAddress:    leaderAddress,
+		Table:          storage.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
+		Meta:           storage.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+	})
 	r.NoError(err)
-
-	t.Log("create leader table manager")
-	leaderTM = table.NewManager(leaderNH, leaderAddresses, tableManagerTestConfig())
 	r.NoError(leaderTM.Start())
-	r.NoError(leaderTM.WaitUntilReady())
 
 	t.Log("start follower Raft")
-	followerNH, followerAddresses, err := startRaftNode()
+	followerAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
+	followerTM, err = storage.New(storage.Config{
+		FS:             vfs.NewMem(),
+		Log:            zaptest.NewLogger(t).Sugar(),
+		InitialMembers: map[uint64]string{1: followerAddress},
+		Gossip: storage.GossipConfig{
+			BindAddress: fmt.Sprintf("127.0.0.1:%d", getTestPort()),
+			ClusterName: "follower",
+		},
+		NodeID:         1,
+		RTTMillisecond: 5,
+		RaftAddress:    followerAddress,
+		Table:          storage.TableConfig{HeartbeatRTT: 1, ElectionRTT: 5, FS: pvfs.NewMem(), MaxInMemLogSize: 1024 * 1024, BlockCacheSize: 1024, TableCacheSize: 1024},
+		Meta:           storage.MetaConfig{HeartbeatRTT: 1, ElectionRTT: 5},
+	})
 	r.NoError(err)
-
-	t.Log("create follower table manager")
-	followerTM = table.NewManager(followerNH, followerAddresses, tableManagerTestConfig())
 	r.NoError(followerTM.Start())
-	r.NoError(followerTM.WaitUntilReady())
 
-	closer = func() {
-		leaderTM.Close()
-		leaderNH.Close()
-		followerTM.Close()
-		followerNH.Close()
-	}
+	t.Cleanup(func() {
+		_ = leaderTM.Close()
+		_ = followerTM.Close()
+	})
 	return
 }
 
-func startReplicationServer(manager *table.Manager, nh *dragonboat.NodeHost) *regattaserver.RegattaServer {
+func startReplicationServer(engine *storage.Engine) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 	server := regattaserver.NewServer(testNodeAddress, "tcp")
-	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: manager})
-	regattapb.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: manager})
+	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: engine})
+	regattapb.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: engine})
 	regattapb.RegisterLogServer(
 		server,
 		regattaserver.NewLogServer(
-			manager,
-			&testLogReader{nh: nh},
+			engine,
+			&testLogReader{nh: engine.NodeHost},
 			zap.NewNop(),
 			1024,
 		),

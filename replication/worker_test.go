@@ -21,21 +21,20 @@ import (
 
 func Test_worker_do(t *testing.T) {
 	r := require.New(t)
-	leaderTM, followerTM, leaderNH, followerNH, closer := prepareLeaderAndFollowerRaft(t)
-	defer closer()
-	srv := startReplicationServer(leaderTM, leaderNH)
+	leaderEngine, followerEngine := prepareLeaderAndFollowerEngine(t)
+	srv := startReplicationServer(leaderEngine)
 	defer srv.Shutdown()
 
 	t.Log("create tables")
-	_, err := leaderTM.CreateTable("test")
+	_, err := leaderEngine.CreateTable("test")
 	r.NoError(err)
-	_, err = followerTM.CreateTable("test")
+	_, err = followerEngine.CreateTable("test")
 	r.NoError(err)
 
 	var at table.ActiveTable
 	t.Log("load some data")
 	r.Eventually(func() bool {
-		at, err = leaderTM.GetTable("test")
+		at, err = leaderEngine.GetTable("test")
 		return err == nil
 	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 
@@ -48,9 +47,8 @@ func Test_worker_do(t *testing.T) {
 	logger, obs := observer.New(zap.DebugLevel)
 	f := &workerFactory{
 		logTimeout:    time.Minute,
-		tm:            followerTM,
+		engine:        followerEngine,
 		logClient:     regattapb.NewLogClient(conn),
-		nh:            followerNH,
 		log:           zap.New(logger).Sugar(),
 		pollInterval:  500 * time.Millisecond,
 		leaseInterval: 500 * time.Millisecond,
@@ -77,7 +75,7 @@ func Test_worker_do(t *testing.T) {
 	r.NoError(err)
 	_, err = w.do(idx, id)
 	r.NoError(err)
-	table, err := followerTM.GetTable("test")
+	table, err := followerEngine.GetTable("test")
 	r.NoError(err)
 
 	func() {
@@ -115,15 +113,15 @@ func Test_worker_do(t *testing.T) {
 	r.NoError(err)
 	r.Equal(idxBefore, idxAfter)
 
-	err = leaderTM.DeleteTable("test")
+	err = leaderEngine.DeleteTable("test")
 	r.NoError(err)
 	t.Log("create empty table test")
-	_, err = leaderTM.CreateTable("test")
+	_, err = leaderEngine.CreateTable("test")
 	r.NoError(err)
 
 	t.Log("load some data")
 	r.Eventually(func() bool {
-		at, err = leaderTM.GetTable("test")
+		at, err = leaderEngine.GetTable("test")
 		return err == nil
 	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 	r.NoError(err)
@@ -162,22 +160,21 @@ func fillData(keyCount int, at table.ActiveTable) error {
 
 func Test_worker_recover(t *testing.T) {
 	r := require.New(t)
-	leaderTM, followerTM, leaderNH, _, closer := prepareLeaderAndFollowerRaft(t)
-	defer closer()
-	srv := startReplicationServer(leaderTM, leaderNH)
+	leaderEngine, followerEngine := prepareLeaderAndFollowerEngine(t)
+	srv := startReplicationServer(leaderEngine)
 	defer srv.Shutdown()
 
 	t.Log("create tables")
-	_, err := leaderTM.CreateTable("test")
+	_, err := leaderEngine.CreateTable("test")
 	r.NoError(err)
-	_, err = leaderTM.CreateTable("test2")
+	_, err = leaderEngine.CreateTable("test2")
 	r.NoError(err)
 
 	var at table.ActiveTable
 	t.Log("load some data")
 	r.Eventually(func() bool {
 		var err error
-		at, err = leaderTM.GetTable("test")
+		at, err = leaderEngine.GetTable("test")
 		return err == nil
 	}, 5*time.Second, 500*time.Millisecond, "table not created in time")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -191,21 +188,21 @@ func Test_worker_recover(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
-	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
+	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 
 	t.Log("recover table from leader")
 	r.NoError(w.recover())
-	tab, err := followerTM.GetTable("test")
+	tab, err := followerEngine.GetTable("test")
 	r.NoError(err)
 	r.Equal("test", tab.Name)
 	ir, err := tab.LeaderIndex(ctx, false)
 	r.NoError(err)
 	r.Greater(ir.Index, uint64(1))
 
-	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, tm: followerTM, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
+	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 	t.Log("recover second table from leader")
 	r.NoError(w.recover())
-	tab, err = followerTM.GetTable("test2")
+	tab, err = followerEngine.GetTable("test2")
 	r.NoError(err)
 	r.Equal("test2", tab.Name)
 }
