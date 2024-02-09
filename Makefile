@@ -8,11 +8,16 @@ all: build
 
 .PHONY: run
 run: build
-	./regatta leader --dev-mode --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' --tables.names=regatta-test --api.address=http://127.0.0.1:8443 --replication.address=https://127.0.0.1:8444 --replication.ca-filename=hack/replication/ca.crt --replication.cert-filename=hack/replication/server.crt --replication.key-filename=hack/replication/server.key
+	./regatta leader --dev-mode --raft.address=127.0.0.1:5012 --raft.initial-members='1=127.0.0.1:5012' \
+ --tables.names=regatta-test --api.address=http://127.0.0.1:8443 --replication.address=https://127.0.0.1:8444 \
+ --replication.ca-filename=hack/replication/ca.crt --replication.cert-filename=hack/replication/server.crt --replication.key-filename=hack/replication/server.key
 
 .PHONY: run-follower
 run-follower: build
-	./regatta follower --dev-mode --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' --memberlist.address=:7433 --api.address=http://127.0.0.1:9443 --maintenance.enabled=false --rest.address=http://127.0.0.1:8080 --replication.leader-address=https://127.0.0.1:8444 --replication.ca-filename=hack/replication/ca.crt --replication.cert-filename=hack/replication/client.crt --replication.key-filename=hack/replication/client.key --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
+	./regatta follower --dev-mode --raft.address=127.0.0.1:6012 --raft.initial-members='1=127.0.0.1:6012' \
+ --memberlist.address=:7433 --api.address=http://127.0.0.1:9443 --maintenance.enabled=false --rest.address=http://127.0.0.1:8080 \
+ --replication.leader-address=https://127.0.0.1:8444 --replication.ca-filename=hack/replication/ca.crt --replication.cert-filename=hack/replication/client.crt --replication.key-filename=hack/replication/client.key \
+ --raft.node-host-dir=/tmp/regatta-follower/raft --raft.state-machine-dir=/tmp/regatta-follower/state-machine
 
 # Run golangci-lint on the code
 .PHONY: check
