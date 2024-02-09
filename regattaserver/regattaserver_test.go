@@ -3,6 +3,7 @@
 package regattaserver
 
 import (
+	"context"
 	"io"
 	"net"
 	"testing"
@@ -93,7 +94,7 @@ func newInMemTestEngine(t *testing.T, tables ...string) *storage.Engine {
 	})
 	require.NoError(t, err)
 	require.NoError(t, e.Start())
-	require.NoError(t, e.WaitUntilReady())
+	require.NoError(t, e.WaitUntilReady(context.Background()))
 	for _, tableName := range tables {
 		at, err := e.CreateTable(tableName)
 		require.NoError(t, err)

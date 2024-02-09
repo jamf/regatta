@@ -10,6 +10,7 @@ import (
 	pvfs "github.com/cockroachdb/pebble/vfs"
 	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/kv"
 	"github.com/lni/dragonboat/v4"
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/vfs"
@@ -30,10 +31,9 @@ func TestManager_CreateTable(t *testing.T) {
 	node, m := startRaftNode(t)
 	defer node.Close()
 
-	tm := NewManager(node, m, minimalTestConfig())
-	r.NoError(tm.Start())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
+	tm.Start()
 	defer tm.Close()
-	r.NoError(tm.WaitUntilReady())
 
 	t.Log("create table")
 	_, err := tm.CreateTable(testTableName)
@@ -60,11 +60,10 @@ func TestManager_DeleteTable(t *testing.T) {
 	node, m := startRaftNode(t)
 	defer node.Close()
 
-	tm := NewManager(node, m, minimalTestConfig())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
 	tm.cleanupGracePeriod = 0
-	r.NoError(tm.Start())
+	tm.Start()
 	defer tm.Close()
-	r.NoError(tm.WaitUntilReady())
 
 	t.Log("create table")
 	_, err := tm.CreateTable(testTableName)
@@ -122,10 +121,9 @@ func TestManager_LeaseTable(t *testing.T) {
 
 	node, m := startRaftNode(t)
 	defer node.Close()
-	tm := NewManager(node, m, minimalTestConfig())
-	require.NoError(t, tm.Start())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
+	tm.Start()
 	defer tm.Close()
-	require.NoError(t, tm.WaitUntilReady())
 	_, err := tm.CreateTable(existingTable)
 	require.NoError(t, err)
 
@@ -171,10 +169,9 @@ func TestManager_ReturnTable(t *testing.T) {
 
 	node, m := startRaftNode(t)
 	defer node.Close()
-	tm := NewManager(node, m, minimalTestConfig())
-	require.NoError(t, tm.Start())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
+	tm.Start()
 	defer tm.Close()
-	require.NoError(t, tm.WaitUntilReady())
 	_, err := tm.CreateTable(existingTable)
 	require.NoError(t, err)
 
@@ -220,10 +217,9 @@ func TestManager_GetTable(t *testing.T) {
 
 	node, m := startRaftNode(t)
 	defer node.Close()
-	tm := NewManager(node, m, minimalTestConfig())
-	require.NoError(t, tm.Start())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
+	tm.Start()
 	defer tm.Close()
-	require.NoError(t, tm.WaitUntilReady())
 	_, err := tm.CreateTable(existingTable)
 	require.NoError(t, err)
 
@@ -245,10 +241,9 @@ func TestManager_Restore(t *testing.T) {
 	const existingTable = "existingTable"
 	node, m := startRaftNode(t)
 	defer node.Close()
-	tm := NewManager(node, m, minimalTestConfig())
-	require.NoError(t, tm.Start())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
+	tm.Start()
 	defer tm.Close()
-	require.NoError(t, tm.WaitUntilReady())
 	_, err := tm.CreateTable(existingTable)
 	require.NoError(t, err)
 
@@ -272,12 +267,11 @@ func TestManager_reconcile(t *testing.T) {
 	defer node.Close()
 
 	const reconcileInterval = 1 * time.Second
-	tm := NewManager(node, m, minimalTestConfig())
+	tm := NewManager(node, m, &kv.MapStore{}, minimalTestConfig())
 	tm.reconcileInterval = reconcileInterval
 
-	r.NoError(tm.Start())
+	tm.Start()
 	defer tm.Close()
-	r.NoError(tm.WaitUntilReady())
 	_, err := tm.createTable(testTableName)
 	r.NoError(err)
 	time.Sleep(reconcileInterval * 3)

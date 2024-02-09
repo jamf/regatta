@@ -8,6 +8,10 @@ nav_order: 999
 ## v0.5.0 (unreleased)
 
 ### Highlights
+#### Follower to leader replication
+* The write API (Put, DeleteRange, Txn) is now available on leader cluster nodes as well.
+* The API provides read after write guarantee by relying on backpropagation from the leader.
+
 #### Dynamic tables management
 * Tables now could be managed dynamically during the runtime of the server using newly provided `regatta.v1.Tables` API.
 * Tables API could be secured by an API token using `tables.token` configuration value.
@@ -15,6 +19,7 @@ nav_order: 999
 ### Improvements
 * Improve on API allocations when deserializing gRPC messages.
 * Support `zstd` API compression.
+* Removed obsolete table manager cache that could have caused hard to debug race conditions.
 
 ### Deprecations
 * `tables.names` and `tables.delete` configuration values were deprecated and will be removed in future releases.
@@ -22,6 +27,7 @@ nav_order: 999
 ### Bugfixes
 * Proper authentication of `maintenance.v1.Backup/Restore` API endpoint.
 * When table is deleted in the leader cluster the followers will gracefully handle the situation by deleting the table locally and stopping the replication.
+* Fixed potential Engine deadlock when shutting down the server.
 ---
 ## v0.4.1
 

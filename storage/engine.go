@@ -10,6 +10,7 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
+	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/util/iter"
@@ -18,9 +19,14 @@ import (
 	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/dragonboat/v4/plugin/tan"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const defaultQueryTimeout = 5 * time.Second
+const (
+	tableStoreID       = 1000
+	rateLimiterStoreID = 1010
+)
 
 func New(cfg Config) (*Engine, error) {
 	e := &Engine{
@@ -28,7 +34,7 @@ func New(cfg Config) (*Engine, error) {
 		log:  cfg.Log,
 		stop: make(chan struct{}),
 	}
-	e.events = &events{eventsCh: make(chan any, 1), engine: e}
+	e.events = &events{eventsCh: make(chan any, 1), stopc: make(chan struct{}), engine: e}
 
 	nh, err := createNodeHost(e)
 	if err != nil {
@@ -45,10 +51,18 @@ func New(cfg Config) (*Engine, error) {
 		return nil, fmt.Errorf("failed to bootstrap gossip cluster: %w", err)
 	}
 	e.Cluster = clst
-
+	e.tableStore = &kv.RaftStore{
+		NodeHost:  nh,
+		ClusterID: tableStoreID,
+	}
+	e.limiterStore = &kv.RaftStore{
+		NodeHost:  nh,
+		ClusterID: rateLimiterStoreID,
+	}
 	manager := table.NewManager(
 		nh,
 		cfg.InitialMembers,
+		e.tableStore,
 		table.Config{
 			NodeID: cfg.NodeID,
 			Table:  table.TableConfig(cfg.Table),
@@ -68,20 +82,42 @@ func New(cfg Config) (*Engine, error) {
 type Engine struct {
 	*dragonboat.NodeHost
 	*table.Manager
-	cfg       Config
-	log       *zap.SugaredLogger
-	events    *events
-	stop      chan struct{}
-	LogReader logreader.Interface
-	Cluster   *cluster.Cluster
-	LogCache  *logreader.ShardCache
+	cfg          Config
+	log          *zap.SugaredLogger
+	events       *events
+	stop         chan struct{}
+	LogReader    logreader.Interface
+	Cluster      *cluster.Cluster
+	LogCache     *logreader.ShardCache
+	tableStore   *kv.RaftStore
+	limiterStore *kv.RaftStore
 }
 
 func (e *Engine) Start() error {
 	e.Cluster.Start(e.cfg.Gossip.InitialMembers)
-	if err := e.Manager.Start(); err != nil {
+	if err := e.tableStore.Start(kv.RaftConfig{
+		NodeID:             e.cfg.NodeID,
+		ElectionRTT:        e.cfg.Meta.ElectionRTT,
+		HeartbeatRTT:       e.cfg.Meta.HeartbeatRTT,
+		SnapshotEntries:    e.cfg.Meta.SnapshotEntries,
+		CompactionOverhead: e.cfg.Meta.CompactionOverhead,
+		MaxInMemLogSize:    e.cfg.Meta.MaxInMemLogSize,
+		InitialMembers:     e.cfg.InitialMembers,
+	}); err != nil {
 		return err
 	}
+	if err := e.limiterStore.Start(kv.RaftConfig{
+		NodeID:             e.cfg.NodeID,
+		ElectionRTT:        e.cfg.Meta.ElectionRTT,
+		HeartbeatRTT:       e.cfg.Meta.HeartbeatRTT,
+		SnapshotEntries:    e.cfg.Meta.SnapshotEntries,
+		CompactionOverhead: e.cfg.Meta.CompactionOverhead,
+		MaxInMemLogSize:    e.cfg.Meta.MaxInMemLogSize,
+		InitialMembers:     e.cfg.InitialMembers,
+	}); err != nil {
+		return err
+	}
+	e.Manager.Start()
 	go e.events.dispatchEvents()
 	return nil
 }
@@ -242,6 +278,17 @@ func (e *Engine) clusterInfo() cluster.Info {
 		info.LogInfo = nhi.LogInfo
 	}
 	return info
+}
+
+func (e *Engine) WaitUntilReady(ctx context.Context) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return e.tableStore.WaitForLeader(ctx)
+	})
+	eg.Go(func() error {
+		return e.limiterStore.WaitForLeader(ctx)
+	})
+	return eg.Wait()
 }
 
 func createNodeHost(e *Engine) (*dragonboat.NodeHost, error) {

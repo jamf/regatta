@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/lni/dragonboat/v4"
+	"github.com/lni/dragonboat/v4/config"
 	dbsm "github.com/lni/dragonboat/v4/statemachine"
 )
 
@@ -241,4 +242,66 @@ func (r *RaftStore) Set(key string, value string, ver uint64) (Pair, error) {
 		return pair, ErrVersionMismatch
 	}
 	return pair, nil
+}
+
+func (r *RaftStore) Start(cfg RaftConfig) error {
+	if r.NodeHost.HasNodeInfo(r.ClusterID, cfg.NodeID) {
+		return r.NodeHost.StartConcurrentReplica(
+			map[uint64]dragonboat.Target{},
+			false,
+			NewLFSM(),
+			kvRaftConfig(cfg.NodeID, r.ClusterID, cfg),
+		)
+	}
+	return r.NodeHost.StartConcurrentReplica(
+		cfg.InitialMembers,
+		false,
+		NewLFSM(),
+		kvRaftConfig(cfg.NodeID, r.ClusterID, cfg),
+	)
+}
+
+func (r *RaftStore) HasLeader() bool {
+	_, _, ok, _ := r.NodeHost.GetLeaderID(r.ClusterID)
+	return ok
+}
+
+func (r *RaftStore) WaitForLeader(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			_, _, ok, _ := r.NodeHost.GetLeaderID(r.ClusterID)
+			if ok {
+				return nil
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+type RaftConfig struct {
+	NodeID             uint64
+	ElectionRTT        uint64
+	HeartbeatRTT       uint64
+	SnapshotEntries    uint64
+	CompactionOverhead uint64
+	MaxInMemLogSize    uint64
+	InitialMembers     map[uint64]dragonboat.Target
+}
+
+func kvRaftConfig(nodeID, clusterID uint64, cfg RaftConfig) config.Config {
+	return config.Config{
+		ReplicaID:           nodeID,
+		ShardID:             clusterID,
+		CheckQuorum:         true,
+		PreVote:             true,
+		ElectionRTT:         cfg.ElectionRTT,
+		HeartbeatRTT:        cfg.HeartbeatRTT,
+		SnapshotEntries:     cfg.SnapshotEntries,
+		CompactionOverhead:  cfg.CompactionOverhead,
+		OrderedConfigChange: true,
+		MaxInMemLogSize:     cfg.MaxInMemLogSize,
+	}
 }

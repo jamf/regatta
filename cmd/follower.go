@@ -172,7 +172,7 @@ func follower(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("cannot create replication conn: %w", err)
 	}
 	{
-		d := replication.NewManager(engine.Manager, engine.NodeHost, conn, replication.Config{
+		d := replication.NewManager(engine, conn, replication.Config{
 			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
 			Workers: replication.WorkerConfig{
 				PollInterval:        viper.GetDuration("replication.poll-interval"),

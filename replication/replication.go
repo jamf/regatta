@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/jamf/regatta/regattapb"
+	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table"
-	"github.com/lni/dragonboat/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -35,7 +35,7 @@ type Config struct {
 }
 
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
-func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientConn, cfg Config) *Manager {
+func NewManager(e *storage.Engine, conn *grpc.ClientConn, cfg Config) *Manager {
 	replicationLog := zap.S().Named("replication")
 
 	replicationIndexGauge := prometheus.NewGaugeVec(
@@ -53,7 +53,7 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 
 	return &Manager{
 		reconcileInterval: cfg.ReconcileInterval,
-		tm:                tm,
+		engine:            e,
 		metadataClient:    regattapb.NewMetadataClient(conn),
 		factory: &workerFactory{
 			reconcileInterval: cfg.ReconcileInterval,
@@ -63,9 +63,8 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 			snapshotTimeout:   cfg.Workers.SnapshotRPCTimeout,
 			maxSnapshotRecv:   cfg.Workers.MaxSnapshotRecv,
 			recoverySemaphore: semaphore.NewWeighted(cfg.Workers.MaxRecoveryInFlight),
-			tm:                tm,
+			engine:            e,
 			log:               replicationLog,
-			nh:                nh,
 			logClient:         regattapb.NewLogClient(conn),
 			snapshotClient:    regattapb.NewSnapshotClient(conn),
 			metrics: struct {
@@ -87,7 +86,7 @@ func NewManager(tm *table.Manager, nh *dragonboat.NodeHost, conn *grpc.ClientCon
 // Manager schedules replication workers.
 type Manager struct {
 	reconcileInterval time.Duration
-	tm                *table.Manager
+	engine            *storage.Engine
 	metadataClient    regattapb.MetadataClient
 	factory           *workerFactory
 	workers           struct {
@@ -111,11 +110,6 @@ func (m *Manager) Collect(metrics chan<- prometheus.Metric) {
 // Start starts the replication manager goroutine, Close will stop it.
 func (m *Manager) Start() {
 	go func() {
-		err := m.tm.WaitUntilReady()
-		if err != nil {
-			m.log.Errorf("manager failed to start: %v", err)
-			return
-		}
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
 		for {
@@ -145,7 +139,7 @@ func (m *Manager) reconcileTables() error {
 		return err
 	}
 	leaderTables := response.GetTables()
-	followerTables, err := m.tm.GetTables()
+	followerTables, err := m.engine.GetTables()
 	if err != nil {
 		return err
 	}
@@ -168,13 +162,13 @@ func (m *Manager) reconcileTables() error {
 	}
 
 	for _, name := range toDelete {
-		if err := m.tm.DeleteTable(name); err != nil && !errors.Is(err, serrors.ErrTableNotFound) {
+		if err := m.engine.DeleteTable(name); err != nil && !errors.Is(err, serrors.ErrTableNotFound) {
 			return err
 		}
 	}
 
 	for _, name := range toCreate {
-		if _, err := m.tm.CreateTable(name); err != nil && !errors.Is(err, serrors.ErrTableExists) {
+		if _, err := m.engine.CreateTable(name); err != nil && !errors.Is(err, serrors.ErrTableExists) {
 			return err
 		}
 	}
@@ -182,7 +176,7 @@ func (m *Manager) reconcileTables() error {
 }
 
 func (m *Manager) reconcileWorkers() error {
-	tbs, err := m.tm.GetTables()
+	tbs, err := m.engine.GetTables()
 	if err != nil {
 		return err
 	}

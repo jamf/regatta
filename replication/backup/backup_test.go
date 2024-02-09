@@ -331,7 +331,7 @@ func newTestEngine(t *testing.T) *storage.Engine {
 	e, err := storage.New(newTestConfig(t))
 	require.NoError(t, err)
 	require.NoError(t, e.Start())
-	require.NoError(t, e.WaitUntilReady())
+	require.NoError(t, e.WaitUntilReady(context.Background()))
 	t.Cleanup(func() {
 		defer func() { recover() }()
 		require.NoError(t, e.Close())
