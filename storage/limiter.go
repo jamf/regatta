@@ -29,17 +29,17 @@ type state struct {
 	Ver       uint64        `json:"-"`
 }
 
-type kvLimiter struct {
+type KVLimiter struct {
 	rs    *kv.RaftStore
 	clock clock.Clock
 	mtx   sync.Mutex
 }
 
-func (k *kvLimiter) prefixKey(key string) string {
+func (k *KVLimiter) prefixKey(key string) string {
 	return fmt.Sprintf("ratelimit/%s", key)
 }
 
-func (k *kvLimiter) getState(key string) (state, error) {
+func (k *KVLimiter) getState(key string) (state, error) {
 	get, err := k.rs.Get(k.prefixKey(key))
 	s := state{}
 	if err != nil {
@@ -55,7 +55,7 @@ func (k *kvLimiter) getState(key string) (state, error) {
 	return s, nil
 }
 
-func (k *kvLimiter) setState(key string, new state, version uint64) (state, error) {
+func (k *KVLimiter) setState(key string, new state, version uint64) (state, error) {
 	b, err := json.Marshal(new)
 	if err != nil {
 		return new, err
@@ -68,22 +68,26 @@ func (k *kvLimiter) setState(key string, new state, version uint64) (state, erro
 	return new, nil
 }
 
-func (k *kvLimiter) WaitFor(ctx context.Context, key string) error {
+func (k *KVLimiter) WaitFor(ctx context.Context, key string) error {
 	for {
 		_, next, ok, _ := k.Take(key)
 		if ok {
 			return nil
 		}
+		t := time.NewTimer(next.Sub(k.clock.Now()))
 		select {
 		case <-ctx.Done():
+			if !t.Stop() {
+				<-t.C
+			}
 			return ctx.Err()
-		case <-time.After(next.Sub(k.clock.Now())):
+		case <-t.C:
 			continue
 		}
 	}
 }
 
-func (k *kvLimiter) Take(key string) (remaining uint64, reset time.Time, ok bool, err error) {
+func (k *KVLimiter) Take(key string) (remaining uint64, reset time.Time, ok bool, err error) {
 	k.mtx.Lock()
 	defer k.mtx.Unlock()
 
@@ -128,7 +132,7 @@ func (k *kvLimiter) Take(key string) (remaining uint64, reset time.Time, ok bool
 	return s.Remaining, next, false, nil
 }
 
-func (k *kvLimiter) Get(key string) (tokens, remaining uint64, err error) {
+func (k *KVLimiter) Get(key string) (tokens, remaining uint64, err error) {
 	k.mtx.Lock()
 	defer k.mtx.Unlock()
 
@@ -139,7 +143,7 @@ func (k *kvLimiter) Get(key string) (tokens, remaining uint64, err error) {
 	return s.Tokens, s.Remaining, nil
 }
 
-func (k *kvLimiter) Set(key string, tokens uint64, interval time.Duration) error {
+func (k *KVLimiter) Reset(key string, tokens uint64, interval time.Duration) error {
 	k.mtx.Lock()
 	defer k.mtx.Unlock()
 
@@ -151,7 +155,7 @@ func (k *kvLimiter) Set(key string, tokens uint64, interval time.Duration) error
 	return err
 }
 
-func (k *kvLimiter) Burst(key string, tokens uint64, interval, validity time.Duration) error {
+func (k *KVLimiter) Burst(key string, tokens uint64, interval, validity time.Duration) error {
 	k.mtx.Lock()
 	defer k.mtx.Unlock()
 

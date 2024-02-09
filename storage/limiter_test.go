@@ -19,13 +19,13 @@ import (
 
 func TestKvLimiter_Basic(t *testing.T) {
 	mc := clock.NewMock()
-	l := &kvLimiter{rs: newRaftStore(t), clock: mc}
+	l := &KVLimiter{rs: newRaftStore(t), clock: mc}
 	tok, rem, err := l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
 
-	err = l.Set("foo", 10, time.Second)
+	err = l.Reset("foo", 10, time.Second)
 	require.NoError(t, err)
 
 	tok, rem, err = l.Get("foo")
@@ -47,13 +47,13 @@ func TestKvLimiter_Basic(t *testing.T) {
 
 func TestKvLimiter_Burst(t *testing.T) {
 	mc := clock.NewMock()
-	l := &kvLimiter{rs: newRaftStore(t), clock: mc}
+	l := &KVLimiter{rs: newRaftStore(t), clock: mc}
 	tok, rem, err := l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
 
-	err = l.Set("foo", 1, time.Second)
+	err = l.Reset("foo", 1, time.Second)
 	require.NoError(t, err)
 
 	tok, rem, err = l.Get("foo")
@@ -86,13 +86,13 @@ func TestKvLimiter_Burst(t *testing.T) {
 }
 
 func TestKvLimiter_WaitFor(t *testing.T) {
-	l := &kvLimiter{rs: newRaftStore(t), clock: clock.New()}
+	l := &KVLimiter{rs: newRaftStore(t), clock: clock.New()}
 	tok, rem, err := l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
 
-	err = l.Set("foo", 1, time.Second)
+	err = l.Reset("foo", 1, time.Second)
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
