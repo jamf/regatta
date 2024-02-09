@@ -39,7 +39,7 @@ func init() {
 }
 
 func createAPIServer() (*regattaserver.RegattaServer, error) {
-	addr, secure, net := resolveUrl(viper.GetString("api.address"))
+	addr, secure, net := resolveURL(viper.GetString("api.address"))
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -64,7 +64,7 @@ func createAPIServer() (*regattaserver.RegattaServer, error) {
 	return regattaserver.NewServer(addr, net, opts...), nil
 }
 
-func resolveUrl(urlStr string) (addr string, secure bool, network string) {
+func resolveURL(urlStr string) (addr string, secure bool, network string) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		log.Panicf("cannot parse address: %v", err)

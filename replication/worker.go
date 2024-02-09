@@ -51,6 +51,7 @@ type workerFactory struct {
 	recoverySemaphore *semaphore.Weighted
 	log               *zap.SugaredLogger
 	engine            *storage.Engine
+	queue             *storage.IndexNotificationQueue
 	logClient         regattapb.LogClient
 	snapshotClient    regattapb.SnapshotClient
 	metrics           struct {
@@ -59,12 +60,31 @@ type workerFactory struct {
 	}
 }
 
+type tableRateLimiter struct {
+	table   string
+	limiter *storage.KVLimiter
+}
+
+func (t tableRateLimiter) Burst(tokens uint64, interval time.Duration, duration time.Duration) error {
+	return t.limiter.Burst(fmt.Sprintf("replication/%s", t.table), tokens, interval, duration)
+}
+
+func (t tableRateLimiter) WaitFor(ctx context.Context) error {
+	return t.limiter.WaitFor(ctx, fmt.Sprintf("replication/%s", t.table))
+}
+
+func (t tableRateLimiter) Reset(tokens uint64, interval time.Duration) error {
+	return t.limiter.Reset(fmt.Sprintf("replication/%s", t.table), tokens, interval)
+}
+
 func (f *workerFactory) create(table string) *worker {
 	return &worker{
 		workerFactory: f,
 		table:         table,
 		closer:        make(chan struct{}),
+		leaseChan:     make(chan bool),
 		log:           f.log.Named(table),
+		limiter:       tableRateLimiter{table: table, limiter: f.engine.Limiter},
 		metrics: struct {
 			replicationLeaderIndex   prometheus.Gauge
 			replicationFollowerIndex prometheus.Gauge
@@ -80,11 +100,13 @@ func (f *workerFactory) create(table string) *worker {
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
 	*workerFactory
-	table   string
-	closer  chan struct{}
-	log     *zap.SugaredLogger
-	leased  atomic.Bool
-	metrics struct {
+	table     string
+	closer    chan struct{}
+	log       *zap.SugaredLogger
+	limiter   tableRateLimiter
+	leased    atomic.Bool
+	leaseChan chan bool
+	metrics   struct {
 		replicationLeaderIndex   prometheus.Gauge
 		replicationFollowerIndex prometheus.Gauge
 		replicationLeased        prometheus.Gauge
@@ -116,14 +138,14 @@ func (w *worker) Start() {
 					prev := w.leased.Swap(true)
 					if !prev {
 						w.log.Info("lease acquired")
+						w.leaseChan <- true
 					}
-					w.metrics.replicationLeased.Set(1)
 				} else {
 					prev := w.leased.Swap(false)
 					if prev {
+						w.leaseChan <- false
 						w.log.Info("lease lost")
 					}
-					w.metrics.replicationLeased.Set(0)
 				}
 			case <-w.closer:
 				return
@@ -137,65 +159,34 @@ func (w *worker) Start() {
 			w.log.Info("replication routine stopped")
 			w.wg.Done()
 		}()
+		for {
+			select {
+			case l := <-w.leaseChan:
+				if l {
+					go w.replicate()
+				}
+			case <-w.closer:
+				return
+			}
+		}
+	}()
 
-		w.log.Info("replication routine started")
-		t := time.NewTicker(w.pollInterval)
+	w.wg.Add(1)
+	go func() {
+		defer func() {
+			w.log.Info("burst calculation routine stopped")
+			w.wg.Done()
+		}()
+
+		w.log.Info("burst calculation routine started")
+		t := time.NewTicker(5 * time.Millisecond)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				t.Reset(w.pollInterval)
-				idx, sess, err := w.tableState()
-				if err != nil {
-					if errors.Is(err, serrors.ErrTableNotFound) {
-						w.log.Debugf("table not found: %v", err)
-						continue
-					}
-					w.log.Errorf("cannot query leader index: %v", err)
-					continue
-				}
-				w.metrics.replicationFollowerIndex.Set(float64(idx))
-				if !w.leased.Load() {
-					w.log.Debug("skipping replication - table not leased")
-					continue
-				}
-				result, err := w.do(idx, sess)
-				switch result {
-				case resultTableNotExists:
-					w.log.Infof("the leader table dissapeared ... backing off")
-					// Give reconciler time to clean up the table.
-					t.Reset(2 * w.reconcileInterval)
-				case resultLeaderBehind:
-					w.log.Errorf("the leader log is behind ... backing off")
-					// Give leader time to catch up.
-					t.Reset(10 * w.pollInterval)
-				case resultLeaderAhead:
-					if w.recoverySemaphore.TryAcquire(1) {
-						func() {
-							defer w.recoverySemaphore.Release(1)
-							if err := w.recover(); err != nil {
-								w.log.Warnf("error in recovering table: %v", err)
-							}
-						}()
-					} else {
-						w.log.Info("maximum number of recoveries already running")
-						if _, err := w.engine.ReturnTable(w.table); err != nil {
-							w.log.Warnf("error returning table: %v", err)
-						}
-					}
-				case resultFollowerLagging:
-					// Trigger next loop immediately.
-					t.Reset(50 * time.Millisecond)
-				case resultFollowerTailing:
-					continue
-				case resultUnknown:
-					if err != nil {
-						if errors.Is(err, context.DeadlineExceeded) {
-							w.log.Warnf("unable to read leader log in time: %v", err)
-						} else {
-							w.log.Warnf("unknown worker error: %v", err)
-						}
-						continue
+				if w.queue.Len(w.table) > 0 {
+					if err := w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second); err != nil {
+						w.log.Errorf("burst limiter failed %v", err)
 					}
 				}
 			case <-w.closer:
@@ -203,6 +194,75 @@ func (w *worker) Start() {
 			}
 		}
 	}()
+}
+
+func (w *worker) replicate() {
+	w.log.Info("replication routine started")
+	_ = w.limiter.Reset(1, w.pollInterval)
+	t := time.NewTicker(1 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			_ = w.limiter.WaitFor(context.TODO())
+			idx, sess, err := w.tableState()
+			if err != nil {
+				if errors.Is(err, serrors.ErrTableNotFound) {
+					w.log.Debugf("table not found: %v", err)
+					continue
+				}
+				w.log.Errorf("cannot query leader index: %v", err)
+				continue
+			}
+			w.metrics.replicationFollowerIndex.Set(float64(idx))
+			result, err := w.do(idx, sess)
+			switch result {
+			case resultTableNotExists:
+				w.log.Infof("the leader table disappeared ... backing off")
+				// Give reconciler time to clean up the table.
+				time.Sleep(2 * w.reconcileInterval)
+			case resultLeaderBehind:
+				w.log.Errorf("the leader log is behind ... backing off")
+				// Give leader time to catch up.
+				time.Sleep(10 * w.pollInterval)
+			case resultLeaderAhead:
+				if w.recoverySemaphore.TryAcquire(1) {
+					func() {
+						defer w.recoverySemaphore.Release(1)
+						if err := w.recover(); err != nil {
+							w.log.Warnf("error in recovering table: %v", err)
+						}
+					}()
+				} else {
+					w.log.Info("maximum number of recoveries already running")
+					if _, err := w.engine.ReturnTable(w.table); err != nil {
+						w.log.Warnf("error returning table: %v", err)
+					}
+				}
+			case resultFollowerLagging:
+				// Burst when lagging behind the leader.
+				_ = w.limiter.Burst(1, 50*time.Millisecond, 5*time.Second)
+			case resultFollowerTailing:
+				continue
+			case resultUnknown:
+				if err != nil {
+					if errors.Is(err, context.DeadlineExceeded) {
+						w.log.Warnf("unable to read leader log in time: %v", err)
+					} else {
+						w.log.Warnf("unknown worker error: %v", err)
+					}
+					continue
+				}
+			}
+		case l := <-w.leaseChan:
+			if !l {
+				w.log.Info("replication routine stopped")
+				return
+			}
+		case <-w.closer:
+			return
+		}
+	}
 }
 
 // Close stops the replication.

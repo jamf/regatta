@@ -35,7 +35,7 @@ type Config struct {
 }
 
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
-func NewManager(e *storage.Engine, conn *grpc.ClientConn, cfg Config) *Manager {
+func NewManager(e *storage.Engine, queue *storage.IndexNotificationQueue, conn *grpc.ClientConn, cfg Config) *Manager {
 	replicationLog := zap.S().Named("replication")
 
 	replicationIndexGauge := prometheus.NewGaugeVec(
@@ -56,6 +56,7 @@ func NewManager(e *storage.Engine, conn *grpc.ClientConn, cfg Config) *Manager {
 		engine:            e,
 		metadataClient:    regattapb.NewMetadataClient(conn),
 		factory: &workerFactory{
+			queue:             queue,
 			reconcileInterval: cfg.ReconcileInterval,
 			pollInterval:      cfg.Workers.PollInterval,
 			leaseInterval:     cfg.Workers.LeaseInterval,

@@ -93,7 +93,7 @@ func TestManager_reconcile(t *testing.T) {
 		regattapb.RegisterLogServer(server, s)
 	})
 
-	m := NewManager(followerEngine, conn, Config{
+	m := NewManager(followerEngine, storage.NewNotificationQueue(), conn, Config{
 		ReconcileInterval: 250 * time.Millisecond,
 		Workers: WorkerConfig{
 			PollInterval:        10 * time.Millisecond,
@@ -125,7 +125,7 @@ func TestManager_reconcileTables(t *testing.T) {
 	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
-	m := NewManager(followerEngine, conn, Config{})
+	m := NewManager(followerEngine, storage.NewNotificationQueue(), conn, Config{})
 
 	t.Log("create table")
 	_, err = leaderEngine.CreateTable("test")
@@ -153,7 +153,7 @@ func TestManager_reconcileTables(t *testing.T) {
 	r.Len(tabs, 2)
 }
 
-func TestWorker_recover(t *testing.T) {
+func TestManager_recover(t *testing.T) {
 	r := require.New(t)
 	t.Log("start follower Raft")
 	_, followerEngine := prepareLeaderAndFollowerEngine(t)
@@ -178,7 +178,7 @@ func TestWorker_recover(t *testing.T) {
 		regattapb.RegisterSnapshotServer(server, s)
 	})
 
-	m := NewManager(followerEngine, conn, Config{
+	m := NewManager(followerEngine, storage.NewNotificationQueue(), conn, Config{
 		ReconcileInterval: 250 * time.Millisecond,
 		Workers: WorkerConfig{
 			PollInterval:        10 * time.Millisecond,
