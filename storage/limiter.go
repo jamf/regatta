@@ -121,7 +121,7 @@ func (k *KVLimiter) Take(key string) (remaining uint64, reset time.Time, ok bool
 	}
 
 	if s.Remaining > 0 {
-		s.Remaining -= 1
+		s.Remaining--
 		s.LastTake = now
 		news, err := k.setState(key, s, s.Ver)
 		if err != nil {

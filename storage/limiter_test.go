@@ -92,7 +92,7 @@ func TestKvLimiter_WaitFor(t *testing.T) {
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
 
-	err = l.Reset("foo", 1, time.Second)
+	require.NoError(t, l.Reset("foo", 1, time.Second))
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 

@@ -40,7 +40,7 @@ func NewNotificationQueue() *IndexNotificationQueue {
 		add:    make(chan *item),
 		notif:  make(chan notification),
 		closed: make(chan struct{}),
-		items: util.NewSyncMap(func(k string) *heap.Heap[*item] {
+		items: util.NewSyncMap(func(_ string) *heap.Heap[*item] {
 			return heap.New((*item).less)
 		}),
 	}
@@ -94,6 +94,11 @@ func (q *IndexNotificationQueue) Run() {
 			}
 		}
 	}
+}
+
+func (q *IndexNotificationQueue) Len(table string) int {
+	h, _ := q.items.Load(table)
+	return h.Len()
 }
 
 func (q *IndexNotificationQueue) Notify(table string, revision uint64) {
