@@ -60,6 +60,18 @@ type workerFactory struct {
 	}
 }
 
+type tableQueue struct {
+	table string
+	queue *storage.IndexNotificationQueue
+}
+
+func (q tableQueue) Len() int {
+	if q.queue == nil {
+		return 0
+	}
+	return q.queue.Len(q.table)
+}
+
 type tableRateLimiter struct {
 	table   string
 	limiter *storage.KVLimiter
@@ -84,6 +96,7 @@ func (f *workerFactory) create(table string) *worker {
 		closer:        make(chan struct{}),
 		leaseChan:     make(chan bool),
 		log:           f.log.Named(table),
+		queue:         tableQueue{table: table, queue: f.queue},
 		limiter:       tableRateLimiter{table: table, limiter: f.engine.Limiter},
 		metrics: struct {
 			replicationLeaderIndex   prometheus.Gauge
@@ -103,6 +116,7 @@ type worker struct {
 	table     string
 	closer    chan struct{}
 	log       *zap.SugaredLogger
+	queue     tableQueue
 	limiter   tableRateLimiter
 	leased    atomic.Bool
 	leaseChan chan bool
@@ -184,7 +198,7 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
-				if w.queue.Len(w.table) > 0 {
+				if w.queue.Len() > 0 {
 					if err := w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second); err != nil {
 						w.log.Errorf("burst limiter failed %v", err)
 					}

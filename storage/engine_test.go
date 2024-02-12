@@ -708,7 +708,7 @@ func TestEngine_MemberList(t *testing.T) {
 			prepare: func(t *testing.T, e *Engine) {},
 			wantErr: require.NoError,
 			assert: func(t *testing.T, resp *regattapb.MemberListResponse) {
-				require.Equal(t, 1, len(resp.Members))
+				require.Len(t, resp.Members, 1)
 			},
 		},
 	}

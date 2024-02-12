@@ -23,6 +23,11 @@ func (i *item) less(other *item) bool {
 	return cmp.Less(i.revision, other.revision)
 }
 
+type reqlen struct {
+	table  string
+	waitCh chan int
+}
+
 type notification struct {
 	table    string
 	revision uint64
@@ -32,6 +37,7 @@ type IndexNotificationQueue struct {
 	items  *util.SyncMap[string, *heap.Heap[*item]]
 	add    chan *item
 	notif  chan notification
+	len    chan reqlen
 	closed chan struct{}
 }
 
@@ -40,6 +46,7 @@ func NewNotificationQueue() *IndexNotificationQueue {
 		add:    make(chan *item),
 		notif:  make(chan notification),
 		closed: make(chan struct{}),
+		len:    make(chan reqlen),
 		items: util.NewSyncMap(func(_ string) *heap.Heap[*item] {
 			return heap.New((*item).less)
 		}),
@@ -92,13 +99,17 @@ func (q *IndexNotificationQueue) Run() {
 					break
 				}
 			}
+		case req := <-q.len:
+			h, _ := q.items.Load(req.table)
+			req.waitCh <- h.Len()
 		}
 	}
 }
 
 func (q *IndexNotificationQueue) Len(table string) int {
-	h, _ := q.items.Load(table)
-	return h.Len()
+	respCh := make(chan int)
+	q.len <- reqlen{table: table, waitCh: respCh}
+	return <-respCh
 }
 
 func (q *IndexNotificationQueue) Notify(table string, revision uint64) {
