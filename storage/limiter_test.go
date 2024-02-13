@@ -31,6 +31,7 @@ func TestKvLimiter_Basic(t *testing.T) {
 	tok, rem, err = l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), tok)
+	require.Equal(t, uint64(10), rem)
 
 	rem, _, ok, err := l.Take("foo")
 	require.NoError(t, err)
@@ -59,6 +60,7 @@ func TestKvLimiter_Burst(t *testing.T) {
 	tok, rem, err = l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), tok)
+	require.Equal(t, uint64(1), rem)
 
 	rem, _, ok, err := l.Take("foo")
 	require.NoError(t, err)
@@ -92,7 +94,7 @@ func TestKvLimiter_WaitFor(t *testing.T) {
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
 
-	err = l.Reset("foo", 1, time.Second)
+	require.NoError(t, l.Reset("foo", 1, time.Second))
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 

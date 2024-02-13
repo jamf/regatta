@@ -172,7 +172,7 @@ func follower(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("cannot create replication conn: %w", err)
 	}
 	{
-		d := replication.NewManager(engine, conn, replication.Config{
+		d := replication.NewManager(engine, nQueue, conn, replication.Config{
 			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
 			Workers: replication.WorkerConfig{
 				PollInterval:        viper.GetDuration("replication.poll-interval"),
@@ -218,7 +218,7 @@ func follower(_ *cobra.Command, _ []string) error {
 		}
 
 		// Create REST server
-		addr, _, _ := resolveUrl(viper.GetString("rest.address"))
+		addr, _, _ := resolveURL(viper.GetString("rest.address"))
 		hs := regattaserver.NewRESTServer(addr, viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -235,7 +235,7 @@ func follower(_ *cobra.Command, _ []string) error {
 }
 
 func createReplicationConn() (*grpc.ClientConn, error) {
-	addr, secure, net := resolveUrl(viper.GetString("replication.leader-address"))
+	addr, secure, net := resolveURL(viper.GetString("replication.leader-address"))
 	var creds grpc.DialOption
 	if secure {
 		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))

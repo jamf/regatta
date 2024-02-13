@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jamf/regatta/regattapb"
+	"github.com/jamf/regatta/storage"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func Test_worker_do(t *testing.T) {
+func TestWorker_do(t *testing.T) {
 	r := require.New(t)
 	leaderEngine, followerEngine := prepareLeaderAndFollowerEngine(t)
 	srv := startReplicationServer(leaderEngine)
@@ -48,6 +49,7 @@ func Test_worker_do(t *testing.T) {
 	f := &workerFactory{
 		logTimeout:    time.Minute,
 		engine:        followerEngine,
+		queue:         storage.NewNotificationQueue(),
 		logClient:     regattapb.NewLogClient(conn),
 		log:           zap.New(logger).Sugar(),
 		pollInterval:  500 * time.Millisecond,
@@ -158,7 +160,7 @@ func fillData(keyCount int, at table.ActiveTable) error {
 	return nil
 }
 
-func Test_worker_recover(t *testing.T) {
+func TestWorker_recover(t *testing.T) {
 	r := require.New(t)
 	leaderEngine, followerEngine := prepareLeaderAndFollowerEngine(t)
 	srv := startReplicationServer(leaderEngine)
@@ -188,7 +190,7 @@ func Test_worker_recover(t *testing.T) {
 	t.Log("create worker")
 	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
-	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
+	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, queue: storage.NewNotificationQueue(), snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 
 	t.Log("recover table from leader")
 	r.NoError(w.recover())
@@ -199,7 +201,7 @@ func Test_worker_recover(t *testing.T) {
 	r.NoError(err)
 	r.Greater(ir.Index, uint64(1))
 
-	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
+	w = &worker{table: "test2", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, queue: storage.NewNotificationQueue(), snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 	t.Log("recover second table from leader")
 	r.NoError(w.recover())
 	tab, err = followerEngine.GetTable("test2")

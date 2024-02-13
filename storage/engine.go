@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/kv"
@@ -25,7 +26,7 @@ import (
 const defaultQueryTimeout = 5 * time.Second
 const (
 	tableStoreID       = 1000
-	rateLimiterStoreID = 1010
+	rateLimiterStoreID = 2000
 )
 
 func New(cfg Config) (*Engine, error) {
@@ -59,7 +60,7 @@ func New(cfg Config) (*Engine, error) {
 		NodeHost:  nh,
 		ClusterID: rateLimiterStoreID,
 	}
-	manager := table.NewManager(
+	e.Manager = table.NewManager(
 		nh,
 		cfg.InitialMembers,
 		e.tableStore,
@@ -69,13 +70,16 @@ func New(cfg Config) (*Engine, error) {
 			Meta:   table.MetaConfig(cfg.Meta),
 		},
 	)
+	e.Limiter = &KVLimiter{
+		rs:    e.limiterStore,
+		clock: clock.New(),
+	}
 	if cfg.LogCacheSize > 0 {
 		e.LogCache = logreader.NewShardCache(cfg.LogCacheSize)
 		e.LogReader = &logreader.Cached{LogQuerier: nh, ShardCache: e.LogCache}
 	} else {
 		e.LogReader = &logreader.Simple{LogQuerier: nh}
 	}
-	e.Manager = manager
 	return e, nil
 }
 
@@ -89,6 +93,7 @@ type Engine struct {
 	LogReader    logreader.Interface
 	Cluster      *cluster.Cluster
 	LogCache     *logreader.ShardCache
+	Limiter      *KVLimiter
 	tableStore   *kv.RaftStore
 	limiterStore *kv.RaftStore
 }
@@ -217,7 +222,7 @@ func (e *Engine) MemberList(ctx context.Context, r *regattapb.MemberListRequest)
 }
 
 func (e *Engine) Status(ctx context.Context, r *regattapb.StatusRequest) (*regattapb.StatusResponse, error) {
-	return withDefaultTimeout(ctx, r, func(ctx context.Context, r *regattapb.StatusRequest) (*regattapb.StatusResponse, error) {
+	return withDefaultTimeout(ctx, r, func(ctx context.Context, _ *regattapb.StatusRequest) (*regattapb.StatusResponse, error) {
 		res := &regattapb.StatusResponse{
 			Id:      strconv.FormatUint(e.cfg.NodeID, 10),
 			Version: version.Version,

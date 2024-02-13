@@ -27,8 +27,7 @@ func TestNotificationQueue(t *testing.T) {
 	q.Notify("foo", 20)
 	chanelClosed(t, w)
 
-	h, _ := q.items.Load("foo")
-	require.Zero(t, h.Len())
+	require.Zero(t, q.Len("foo"))
 }
 
 func TestNotificationQueueTimeout(t *testing.T) {
@@ -46,7 +45,7 @@ func TestNotificationQueueTimeout(t *testing.T) {
 	require.Eventually(t, func() bool {
 		select {
 		case err := <-w:
-			return assert.Error(t, err, context.Canceled)
+			return assert.ErrorIs(t, err, context.Canceled)
 		default:
 			return false
 		}

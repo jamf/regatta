@@ -239,7 +239,7 @@ func leader(_ *cobra.Command, _ []string) error {
 		}
 
 		// Create REST server
-		addr, _, _ := resolveUrl(viper.GetString("rest.address"))
+		addr, _, _ := resolveURL(viper.GetString("rest.address"))
 		hs := regattaserver.NewRESTServer(addr, viper.GetDuration("rest.read-timeout"))
 		go func() {
 			if err := hs.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -256,7 +256,7 @@ func leader(_ *cobra.Command, _ []string) error {
 }
 
 func createReplicationServer(log *zap.Logger) (*regattaserver.RegattaServer, error) {
-	addr, secure, net := resolveUrl(viper.GetString("replication.address"))
+	addr, secure, net := resolveURL(viper.GetString("replication.address"))
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
