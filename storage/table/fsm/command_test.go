@@ -72,15 +72,15 @@ func TestUpdateContext_EnsureIndexed(t *testing.T) {
 	tv := []byte("value")
 	r.NoError(uc.batch.Set(tk, tv, nil))
 
-	r.Equal(false, uc.batch.Indexed())
+	r.False(uc.batch.Indexed())
 
 	r.NoError(uc.EnsureIndexed())
-	r.Equal(true, uc.batch.Indexed())
+	r.True(uc.batch.Indexed())
 	_, _, err = uc.batch.Get(tk)
 	r.NoError(err)
 
 	r.NoError(uc.EnsureIndexed())
-	r.Equal(true, uc.batch.Indexed())
+	r.True(uc.batch.Indexed())
 }
 
 func TestUpdateContext_Commit(t *testing.T) {

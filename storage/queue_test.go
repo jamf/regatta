@@ -4,6 +4,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestNotificationQueueTimeout(t *testing.T) {
 	require.Eventually(t, func() bool {
 		select {
 		case err := <-w:
-			return assert.ErrorIs(t, err, context.Canceled)
+			return errors.Is(err, context.Canceled)
 		default:
 			return false
 		}

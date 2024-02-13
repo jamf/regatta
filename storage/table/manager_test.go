@@ -51,7 +51,7 @@ func TestManager_CreateTable(t *testing.T) {
 
 	ts, err := tm.GetTables()
 	r.NoError(err)
-	r.Equal(1, len(ts))
+	r.Len(ts, 1)
 }
 
 func TestManager_DeleteTable(t *testing.T) {
@@ -94,7 +94,8 @@ func TestManager_DeleteTable(t *testing.T) {
 
 	// FS cleaned
 	files, err := tm.cfg.Table.FS.List("")
-	r.Equal(1, len(files), "FS should contain only a root directory (named after hostname)")
+	r.NoError(err)
+	r.Len(files, 1, "FS should contain only a root directory (named after hostname)")
 }
 
 func TestManager_LeaseTable(t *testing.T) {
@@ -104,18 +105,16 @@ func TestManager_LeaseTable(t *testing.T) {
 		duration time.Duration
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr error
+		name string
+		args args
 	}{
 		{
 			name: "Lease existing table",
 			args: args{name: existingTable},
 		},
 		{
-			name:    "Lease unknown table",
-			args:    args{name: "unknown"},
-			wantErr: serrors.ErrTableNotFound,
+			name: "Lease unknown table",
+			args: args{name: "unknown"},
 		},
 	}
 
@@ -130,9 +129,7 @@ func TestManager_LeaseTable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tm.LeaseTable(tt.args.name, tt.args.duration)
-			if tt.wantErr != nil {
-				require.Error(t, tt.wantErr, err)
-			}
+			require.NoError(t, err)
 		})
 	}
 }
@@ -146,10 +143,9 @@ func TestManager_ReturnTable(t *testing.T) {
 		name string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    bool
-		wantErr error
+		name string
+		args args
+		want bool
 	}{
 		{
 			name: "Return existing table",
@@ -161,9 +157,8 @@ func TestManager_ReturnTable(t *testing.T) {
 			want: true,
 		},
 		{
-			name:    "Return unknown table",
-			args:    args{name: "unknown"},
-			wantErr: serrors.ErrTableNotFound,
+			name: "Return unknown table",
+			args: args{name: "unknown"},
 		},
 	}
 
@@ -182,9 +177,7 @@ func TestManager_ReturnTable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tm.ReturnTable(tt.args.name)
-			if tt.wantErr != nil {
-				require.Error(t, tt.wantErr, err)
-			}
+			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
 		})
 	}

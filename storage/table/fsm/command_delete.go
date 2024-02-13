@@ -113,13 +113,13 @@ func (c commandDeleteBatch) handle(ctx *updateContext) (UpdateResult, *regattapb
 }
 
 func handleDeleteBatch(ctx *updateContext, ops []*regattapb.RequestOp_DeleteRange) ([]*regattapb.ResponseOp_DeleteRange, error) {
-	var results []*regattapb.ResponseOp_DeleteRange
-	for _, op := range ops {
+	results := make([]*regattapb.ResponseOp_DeleteRange, len(ops))
+	for i, op := range ops {
 		res, err := handleDelete(ctx, op)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, res)
+		results[i] = res
 	}
 	return results, nil
 }

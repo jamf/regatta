@@ -651,7 +651,6 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			}
 			return nil
 		}, backOff)
-
 		if err != nil {
 			return err
 		}

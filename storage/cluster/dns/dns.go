@@ -77,7 +77,7 @@ func (s *dnsResolver) Resolve(ctx context.Context, name string, qtype QType) ([]
 		}
 		ips, err := s.resolver.LookupIPAddr(ctx, host)
 		if err != nil {
-			if !dnsIdNotFound(err) {
+			if !dnsIDNotFound(err) {
 				return nil, fmt.Errorf("%w lookup IP addresses %q", err, host)
 			}
 		}
@@ -87,7 +87,7 @@ func (s *dnsResolver) Resolve(ctx context.Context, name string, qtype QType) ([]
 	case SRV, SRVNoA:
 		_, recs, err := s.resolver.LookupSRV(ctx, "", "", host)
 		if err != nil {
-			if !dnsIdNotFound(err) {
+			if !dnsIDNotFound(err) {
 				return nil, fmt.Errorf("%w lookup SRV records %q", err, host)
 			}
 			if len(recs) == 0 {
@@ -109,7 +109,7 @@ func (s *dnsResolver) Resolve(ctx context.Context, name string, qtype QType) ([]
 			// Do A lookup for the domain in SRV answer.
 			resIPs, err := s.resolver.LookupIPAddr(ctx, rec.Target)
 			if err != nil {
-				if !dnsIdNotFound(err) {
+				if !dnsIDNotFound(err) {
 					return nil, fmt.Errorf("%w lookup IP addresses %q", err, host)
 				}
 				if len(resIPs) == 0 {
@@ -131,7 +131,7 @@ func (s *dnsResolver) Resolve(ctx context.Context, name string, qtype QType) ([]
 	return res, nil
 }
 
-func dnsIdNotFound(err error) bool {
+func dnsIDNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
