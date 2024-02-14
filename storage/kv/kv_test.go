@@ -327,7 +327,7 @@ func TestStore_GetAll(t *testing.T) {
 			}
 			r.NoError(err)
 			if tt.wantCount > 0 {
-				r.Equal(tt.wantCount, len(got))
+				r.Len(got, tt.wantCount)
 			} else {
 				r.Equal(tt.want, got)
 			}

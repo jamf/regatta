@@ -34,7 +34,7 @@ func TestRandString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r1 := RandString(tt.args.n)
 			r2 := RandString(tt.args.n)
-			require.False(t, r1 == r2, "should produce different random strings")
+			require.NotEqual(t, r1, r2, "should produce different random strings")
 		})
 	}
 }

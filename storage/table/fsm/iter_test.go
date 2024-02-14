@@ -102,6 +102,7 @@ func Test_iterateBasic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
+			require.NoError(t, err)
 			iter.Consume(tt.args.data, func(kv *regattapb.KeyValue) {
 				kk := mustEncodeKey(key.Key{
 					KeyType: key.TypeUser,
@@ -205,6 +206,7 @@ func Test_iterateLargeDataset(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
+			require.NoError(t, err)
 			iter.Consume(tt.args.data, func(kv *regattapb.KeyValue) {
 				kk := mustEncodeKey(key.Key{
 					KeyType: key.TypeUser,

@@ -49,7 +49,7 @@ func Test_handleDelete(t *testing.T) {
 	// Assert that there are no more user keys left.
 	iter := db.NewIter(allUserKeysOpts())
 	iter.First()
-	r.Equal(false, iter.Valid())
+	r.False(iter.Valid())
 	r.NoError(iter.Close())
 
 	// Assert deleting non-existent key returns count 0.
@@ -109,7 +109,7 @@ func Test_handleDeleteBatch(t *testing.T) {
 
 	// Skip the local index first and assert that there are no more keys in state machine.
 	iter.First()
-	r.Equal(false, iter.Valid())
+	r.False(iter.Valid())
 	r.NoError(iter.Close())
 
 	// Check the system keys.
@@ -162,7 +162,7 @@ func Test_handleDeleteRange(t *testing.T) {
 
 	// Skip the local index first and assert that there are no more keys in state machine.
 	iter.Next()
-	r.Equal(false, iter.Valid())
+	r.False(iter.Valid())
 	r.NoError(iter.Close())
 
 	c.batch = db.NewBatch()
@@ -175,7 +175,7 @@ func Test_handleDeleteRange(t *testing.T) {
 	// Skip the local index first and assert that there are no more keys in state machine.
 	iter = db.NewIter(allUserKeysOpts())
 	iter.First()
-	r.Equal(false, iter.Valid())
+	r.False(iter.Valid())
 	r.NoError(iter.Close())
 
 	// Check the system keys.

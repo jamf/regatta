@@ -77,13 +77,13 @@ func (c commandPutBatch) handle(ctx *updateContext) (UpdateResult, *regattapb.Co
 }
 
 func handlePutBatch(ctx *updateContext, ops []*regattapb.RequestOp_Put) ([]*regattapb.ResponseOp_Put, error) {
-	var results []*regattapb.ResponseOp_Put
-	for _, op := range ops {
+	results := make([]*regattapb.ResponseOp_Put, len(ops))
+	for i, op := range ops {
 		res, err := handlePut(ctx, op)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, res)
+		results[i] = res
 	}
 	return results, nil
 }

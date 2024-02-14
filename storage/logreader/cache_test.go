@@ -17,7 +17,7 @@ func TestCache(t *testing.T) {
 		t.Log("insert 50 entries")
 		c.put(createEntries(1, 50))
 		e, _, _ := c.get(dragonboat.LogRange{FirstIndex: 1, LastIndex: 51})
-		r.Equal(50, len(e))
+		r.Len(e, 50)
 		r.Equal(uint64(1), e[0].Index)
 		r.Equal(uint64(50), e[len(e)-1].Index)
 	}
@@ -26,7 +26,7 @@ func TestCache(t *testing.T) {
 		t.Log("inserting 70 entries evicts old entries")
 		c.put(createEntries(101, 170))
 		e, _, _ := c.get(dragonboat.LogRange{FirstIndex: 1, LastIndex: 171})
-		r.Equal(100, len(e))
+		r.Len(e, 100)
 		r.Equal(uint64(21), e[0].Index)
 		r.Equal(uint64(170), e[len(e)-1].Index)
 	}
@@ -34,7 +34,7 @@ func TestCache(t *testing.T) {
 	{
 		t.Log("get out of range left")
 		e, prep, _ := c.get(dragonboat.LogRange{FirstIndex: 1, LastIndex: 20})
-		r.Equal(0, len(e))
+		r.Empty(e)
 		r.Equal(uint64(1), prep.FirstIndex)
 		r.Equal(uint64(20), prep.LastIndex)
 	}
@@ -42,7 +42,7 @@ func TestCache(t *testing.T) {
 	{
 		t.Log("get out of range right")
 		e, _, app := c.get(dragonboat.LogRange{FirstIndex: 200, LastIndex: 250})
-		r.Equal(0, len(e))
+		r.Empty(e)
 		r.Equal(uint64(200), app.FirstIndex)
 		r.Equal(uint64(250), app.LastIndex)
 	}
@@ -53,7 +53,7 @@ func TestCache(t *testing.T) {
 		t.Log("inserting 20 stale entries does not evict fresher entries")
 		c.put(createEntries(1, 20))
 		e, _, _ := c.get(dragonboat.LogRange{FirstIndex: 1, LastIndex: 171})
-		r.Equal(100, len(e))
+		r.Len(e, 100)
 		r.Equal(uint64(21), e[0].Index)
 		r.Equal(uint64(170), e[len(e)-1].Index)
 	}
@@ -63,7 +63,7 @@ func TestCache(t *testing.T) {
 		fromIndex := uint64(21) // There is an entry with index 21 in the cache - cache must not suggest to look into the log.
 		toIndex := uint64(151)  // There are entries with index larger than 151 - cache must not suggest to look into the log.
 		e, prependIndices, appendIndices := c.get(dragonboat.LogRange{FirstIndex: fromIndex, LastIndex: toIndex})
-		r.Equal(80, len(e))
+		r.Len(e, 80)
 
 		// LogRange defines the right half-open interval.
 		r.Equal(fromIndex, e[0].Index)
@@ -79,7 +79,7 @@ func TestCache(t *testing.T) {
 		fromIndex := uint64(10) // There are no entries with index smaller than 10 - cache MUST suggest to look into the log.
 		toIndex := uint64(51)   // There are entries with index larger than 50 - cache must not suggest to look into the log.
 		e, prependIndices, appendIndices := c.get(dragonboat.LogRange{FirstIndex: fromIndex, LastIndex: toIndex})
-		r.Equal(30, len(e))
+		r.Len(e, 30)
 
 		// LogRange defines the right half-open interval.
 		r.Equal(uint64(21), e[0].Index) // 21 is the smallest index in the cache.
@@ -94,7 +94,7 @@ func TestCache(t *testing.T) {
 		fromIndex := uint64(151) // There are entries with index smaller than 151 - cache must not suggest to look into the log.
 		toIndex := uint64(181)   // There are no entries with index larger than 180 - cache MUST suggest to look into the log.
 		e, prependIndices, appendIndices := c.get(dragonboat.LogRange{FirstIndex: fromIndex, LastIndex: toIndex})
-		r.Equal(20, len(e))
+		r.Len(e, 20)
 
 		// LogRange defines the right half-open interval.
 		r.Equal(uint64(151), e[0].Index)
@@ -109,7 +109,7 @@ func TestCache(t *testing.T) {
 		fromIndex := uint64(10) // There are no entries with index smaller than 10 - cache MUST suggest to look into the log.
 		toIndex := uint64(181)  // There are no entries with index larger than 180 - cache MUST suggest to look into the log.
 		e, prependIndices, appendIndices := c.get(dragonboat.LogRange{FirstIndex: fromIndex, LastIndex: toIndex})
-		r.Equal(100, len(e))
+		r.Len(e, 100)
 
 		// LogRange defines the right half-open interval.
 		r.Equal(uint64(21), e[0].Index)         // Is the smallest index in the cache.

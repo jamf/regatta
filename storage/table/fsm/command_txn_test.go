@@ -242,21 +242,21 @@ func Test_handleTxn(t *testing.T) {
 	succ, res, err = handleTxn(c, []*regattapb.Compare{{Key: []byte("key_1")}}, []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{Key: []byte("key_5"), Value: nil}}}}, nil)
 	r.True(succ)
 	r.NoError(err)
-	r.Equal(1, len(res))
+	r.Len(res, 1)
 	r.Equal(wrapResponseOp(&regattapb.ResponseOp_Put{}), res[0])
 
 	// compare key_5 nil value and associate the key with "value"
 	succ, res, err = handleTxn(c, []*regattapb.Compare{{Key: []byte("key_5"), TargetUnion: &regattapb.Compare_Value{Value: nil}}}, []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestPut{RequestPut: &regattapb.RequestOp_Put{Key: []byte("key_5"), Value: []byte("value"), PrevKv: true}}}}, nil)
 	r.True(succ)
 	r.NoError(err)
-	r.Equal(1, len(res))
+	r.Len(res, 1)
 	r.Equal(wrapResponseOp(&regattapb.ResponseOp_Put{PrevKv: &regattapb.KeyValue{Key: []byte("key_5"), Value: nil}}), res[0])
 
 	// compare key_5 value with "value" and delete keys up to key_4 (non-inclusive)
 	succ, res, err = handleTxn(c, []*regattapb.Compare{{Key: []byte("key_5"), TargetUnion: &regattapb.Compare_Value{Value: []byte("value")}}}, []*regattapb.RequestOp{{Request: &regattapb.RequestOp_RequestDeleteRange{RequestDeleteRange: &regattapb.RequestOp_DeleteRange{Key: []byte("key_1"), RangeEnd: []byte("key_4"), PrevKv: true}}}}, nil)
 	r.True(succ)
 	r.NoError(err)
-	r.Equal(1, len(res))
+	r.Len(res, 1)
 	r.Equal(wrapResponseOp(&regattapb.ResponseOp_DeleteRange{
 		Deleted: 3,
 		PrevKvs: []*regattapb.KeyValue{

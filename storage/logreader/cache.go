@@ -37,7 +37,7 @@ func (c *cache) put(entries []raftpb.Entry) {
 	if len(entries) > c.size {
 		// Consider only the commands with the highest leader index,
 		// which are the ones at the back of the slice.
-		entries = entries[len(entries)-int(c.size):]
+		entries = entries[len(entries)-c.size:]
 	}
 
 	maxIndex := c.largestIndex()

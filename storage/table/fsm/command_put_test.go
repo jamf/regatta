@@ -62,7 +62,7 @@ func Test_handlePut(t *testing.T) {
 
 	// Assert that there are no more user keys.
 	iter.Next()
-	r.Equal(false, iter.Valid())
+	r.False(iter.Valid())
 	r.NoError(iter.Close())
 
 	// Check the system keys.
@@ -112,7 +112,7 @@ func Test_handlePutBatch(t *testing.T) {
 
 		i++
 	}
-	r.Equal(len(ops), i)
+	r.Len(ops, i)
 	r.NoError(iter.Close())
 
 	// Check the system keys.

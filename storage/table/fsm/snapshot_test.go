@@ -177,7 +177,7 @@ func TestFSM_SnapshotStopped(t *testing.T) {
 			_, err = snapf.Seek(0, 0)
 			r.NoError(err)
 
-			startc := make(chan struct{})
+			resultCh := make(chan error)
 			stopc := make(chan struct{})
 			go func() {
 				defer func() {
@@ -186,14 +186,14 @@ func TestFSM_SnapshotStopped(t *testing.T) {
 					_ = snapf.Close()
 				}()
 				t.Log("Recover from snapshot routine started")
-				startc <- struct{}{}
-				err := ep.RecoverFromSnapshot(snapf, stopc)
-				r.Error(err)
-				r.Equal(sm.ErrSnapshotStopped, err)
+				resultCh <- ep.RecoverFromSnapshot(snapf, stopc)
 			}()
-			<-startc
-			time.Sleep(1 * time.Millisecond)
+
+			time.Sleep(10 * time.Millisecond)
 			close(stopc)
+
+			err = <-resultCh
+			r.ErrorIs(err, sm.ErrSnapshotStopped)
 
 			t.Log("Recovery stopped")
 		})

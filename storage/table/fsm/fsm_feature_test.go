@@ -442,10 +442,10 @@ func generateFiles(t *testing.T, version int, inputCommands []*regattapb.Command
 	defer fsm.Close()
 	db := fsm.pebble.Load()
 
-	var inputs []inputRecord
+	inputs := make([]inputRecord, len(inputCommands))
 	for i, cmd := range inputCommands {
 		cmdBytes := mustMarshallProto(cmd)
-		inputs = append(inputs, inputRecord{Cmd: cmdBytes})
+		inputs[i] = inputRecord{Cmd: cmdBytes}
 		_, err := fsm.Update([]sm.Entry{
 			{
 				Index:  uint64(i),
@@ -563,6 +563,6 @@ func testConsistency(t *testing.T, version int) {
 		r.NoError(iter.Error())
 		i++
 	}
-	r.Equal(len(outputRecords), i)
+	r.Len(outputRecords, i)
 	r.NoError(iter.Close())
 }

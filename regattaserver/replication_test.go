@@ -176,7 +176,7 @@ func TestSnapshotServer_Stream(t *testing.T) {
 			}
 			capture := &captureSnapshotStream{}
 			tt.wantErr(t, s.Stream(tt.args.req, capture), fmt.Sprintf("Stream(%v)", tt.args.req))
-			require.Equal(t, tt.wantChunksCount, len(capture.chunks))
+			require.Len(t, capture.chunks, tt.wantChunksCount)
 		})
 	}
 }

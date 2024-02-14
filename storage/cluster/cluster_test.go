@@ -21,7 +21,7 @@ func TestSingleNodeCluster(t *testing.T) {
 	cluster, err := New(address, "", "", "", func() Info { return Info{} })
 	require.NoError(t, err)
 	cluster.Start([]string{address})
-	require.Equal(t, 1, len(cluster.Nodes()))
+	require.Len(t, cluster.Nodes(), 1)
 }
 
 func TestMultiNodeCluster(t *testing.T) {
@@ -57,7 +57,7 @@ func TestMultiNodeCluster(t *testing.T) {
 		require.NoError(t, err)
 		clusters[address] = cluster
 		cluster.Start(keys(clusters))
-		require.Equal(t, i+1, len(cluster.Nodes()))
+		require.Len(t, cluster.Nodes(), i+1)
 	}
 
 	t.Log("all members see the others and has the same view of the world")

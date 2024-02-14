@@ -11,7 +11,6 @@ import (
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util/iter"
 	"github.com/lni/dragonboat/v4"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -116,7 +115,7 @@ func TestKVServer_RangeError(t *testing.T) {
 }
 
 func TestKVServer_RangeUnimplemented(t *testing.T) {
-	a := assert.New(t)
+	r := require.New(t)
 	kv := KVServer{
 		Storage: &mockKVService{},
 	}
@@ -127,7 +126,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 		Key:            key1Name,
 		MinModRevision: 1,
 	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented max_mod_revision")
 	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
@@ -135,7 +134,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 		Key:            key1Name,
 		MaxModRevision: 1,
 	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented min_create_revision")
 	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
@@ -143,7 +142,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 		Key:               key1Name,
 		MinCreateRevision: 1,
 	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_create_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "min_create_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented max_create_revision")
 	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
@@ -151,7 +150,7 @@ func TestKVServer_RangeUnimplemented(t *testing.T) {
 		Key:               key1Name,
 		MaxCreateRevision: 1,
 	})
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
 }
 
 func TestKVServer_IterateRangeError(t *testing.T) {
@@ -238,7 +237,7 @@ func TestKVServer_IterateRangeError(t *testing.T) {
 }
 
 func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
-	a := assert.New(t)
+	r := require.New(t)
 	kv := KVServer{
 		Storage: &mockKVService{},
 	}
@@ -249,7 +248,7 @@ func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
 		Key:            key1Name,
 		MinModRevision: 1,
 	}, nil)
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "min_mod_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented max_mod_revision")
 	err = kv.IterateRange(&regattapb.RangeRequest{
@@ -257,7 +256,7 @@ func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
 		Key:            key1Name,
 		MaxModRevision: 1,
 	}, nil)
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "max_mod_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented min_create_revision")
 	err = kv.IterateRange(&regattapb.RangeRequest{
@@ -265,7 +264,7 @@ func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
 		Key:               key1Name,
 		MinCreateRevision: 1,
 	}, nil)
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "min_create_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "min_create_revision not implemented").Error())
 
 	t.Log("Get kv with unimplemented max_create_revision")
 	err = kv.IterateRange(&regattapb.RangeRequest{
@@ -273,7 +272,7 @@ func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
 		Key:               key1Name,
 		MaxCreateRevision: 1,
 	}, nil)
-	a.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
+	r.EqualError(err, status.Errorf(codes.Unimplemented, "max_create_revision not implemented").Error())
 }
 
 func TestKVServer_IterateRange(t *testing.T) {
