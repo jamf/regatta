@@ -5,11 +5,17 @@ package proto
 import (
 	"fmt"
 
+	"google.golang.org/grpc/encoding"
+	_ "google.golang.org/grpc/encoding/proto" // Blank import to ensure proper replacement of the default codec.
 	"google.golang.org/protobuf/proto"
 )
 
 // Name is the name registered for the proto compressor.
 const Name = "proto"
+
+func init() {
+	encoding.RegisterCodec(Codec{})
+}
 
 type Codec struct{}
 

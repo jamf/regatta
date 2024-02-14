@@ -8,7 +8,7 @@ import (
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	_ "github.com/jamf/regatta/regattaserver/encoding/gzip"
-	"github.com/jamf/regatta/regattaserver/encoding/proto"
+	_ "github.com/jamf/regatta/regattaserver/encoding/proto"
 	_ "github.com/jamf/regatta/regattaserver/encoding/snappy"
 	_ "github.com/jamf/regatta/regattaserver/encoding/zstd"
 	"go.uber.org/zap"
@@ -21,7 +21,6 @@ import (
 // * Allow for earlier keepalives.
 // * Allow keepalives without stream.
 var defaultOpts = []grpc.ServerOption{
-	grpc.ForceServerCodec(proto.Codec{}),
 	grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 30 * time.Second, PermitWithoutStream: true}),
 }
 

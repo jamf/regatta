@@ -5,6 +5,9 @@ parent: Proposals
 nav_order: 0
 ---
 
+Proposal status: Accepted
+{: .label .label-yellow }
+
 ## Summary
 
 Give a brief overview of your proposal.
