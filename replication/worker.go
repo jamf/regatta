@@ -153,12 +153,14 @@ func (w *worker) Start() {
 					if !prev {
 						w.log.Info("lease acquired")
 						w.leaseChan <- true
+						w.metrics.replicationLeased.Set(1)
 					}
 				} else {
 					prev := w.leased.Swap(false)
 					if prev {
 						w.leaseChan <- false
 						w.log.Info("lease lost")
+						w.metrics.replicationLeased.Set(0)
 					}
 				}
 			case <-w.closer:
@@ -219,7 +221,7 @@ func (w *worker) replicate() {
 		select {
 		case <-t.C:
 			_ = w.limiter.WaitFor(context.TODO())
-			idx, sess, err := w.tableState()
+			idx, id, err := w.tableState()
 			if err != nil {
 				if errors.Is(err, serrors.ErrTableNotFound) {
 					w.log.Debugf("table not found: %v", err)
@@ -229,7 +231,7 @@ func (w *worker) replicate() {
 				continue
 			}
 			w.metrics.replicationFollowerIndex.Set(float64(idx))
-			result, err := w.do(idx, sess)
+			result, err := w.do(idx, w.engine.GetNoOPSession(id))
 			switch result {
 			case resultTableNotExists:
 				w.log.Infof("the leader table disappeared ... backing off")
@@ -352,19 +354,19 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 	}
 }
 
-func (w *worker) tableState() (uint64, *client.Session, error) {
+func (w *worker) tableState() (uint64, uint64, error) {
 	t, err := w.engine.GetTable(w.table)
 	if err != nil {
-		return 0, nil, err
+		return 0, 0, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
 	idxRes, err := t.LeaderIndex(ctx, false)
 	if err != nil {
-		return 0, nil, fmt.Errorf("could not get leader index key: %w", err)
+		return 0, 0, fmt.Errorf("could not get leader index key: %w", err)
 	}
-	return idxRes.Index, w.engine.GetNoOPSession(t.ClusterID), nil
+	return idxRes.Index, t.ClusterID, nil
 }
 
 func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.ReplicateCommand, session *client.Session) (uint64, error) {
