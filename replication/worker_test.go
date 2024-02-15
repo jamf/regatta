@@ -46,10 +46,13 @@ func TestWorker_do(t *testing.T) {
 	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	logger, obs := observer.New(zap.DebugLevel)
+	queue := storage.NewNotificationQueue()
+	defer queue.Close()
+	go queue.Run()
 	f := &workerFactory{
 		logTimeout:    time.Minute,
 		engine:        followerEngine,
-		queue:         storage.NewNotificationQueue(),
+		queue:         queue,
 		logClient:     regattapb.NewLogClient(conn),
 		log:           zap.New(logger).Sugar(),
 		pollInterval:  500 * time.Millisecond,
@@ -75,7 +78,7 @@ func TestWorker_do(t *testing.T) {
 	w := f.create("test")
 	idx, id, err := w.tableState()
 	r.NoError(err)
-	_, err = w.do(idx, id)
+	_, err = w.do(idx, f.engine.GetNoOPSession(id))
 	r.NoError(err)
 	table, err := followerEngine.GetTable("test")
 	r.NoError(err)
@@ -108,7 +111,7 @@ func TestWorker_do(t *testing.T) {
 	r.Equal(uint64(0), idx)
 
 	t.Log("do after reset")
-	_, err = w.do(idx, id)
+	_, err = w.do(idx, f.engine.GetNoOPSession(id))
 	r.NoError(err)
 
 	idxAfter, _, err := w.tableState()
@@ -135,7 +138,7 @@ func TestWorker_do(t *testing.T) {
 	r.NoError(err)
 	r.Eventually(func() bool {
 		return obs.FilterMessage("the leader log is behind ... backing off").Len() > 0
-	}, 5*time.Second, 500*time.Millisecond)
+	}, 5*time.Second, 100*time.Millisecond)
 
 	keyCount = 1000
 	r.NoError(fillData(keyCount, at))
@@ -143,7 +146,7 @@ func TestWorker_do(t *testing.T) {
 		idx, id, err = w.tableState()
 		r.NoError(err)
 		return idx > uint64(200)
-	}, 5*time.Second, 500*time.Millisecond)
+	}, 5*time.Second, 100*time.Millisecond)
 }
 
 func fillData(keyCount int, at table.ActiveTable) error {
