@@ -27,8 +27,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TODO make configurable.
-const desiredProposalSize = 256 * 1024
+const (
+	// TODO make configurable.
+	desiredProposalSize = 256 * 1024
+	minTickDelay        = 1 * time.Millisecond
+)
 
 type replicateResult int
 
@@ -39,6 +42,7 @@ const (
 	resultFollowerLagging
 	resultFollowerTailing
 	resultTableNotExists
+	resultBackoff
 )
 
 type workerFactory struct {
@@ -77,12 +81,16 @@ type tableRateLimiter struct {
 	limiter *storage.KVLimiter
 }
 
+func (t tableRateLimiter) Get() (uint64, uint64, bool, error) {
+	return t.limiter.Get(fmt.Sprintf("replication/%s", t.table))
+}
+
 func (t tableRateLimiter) Burst(tokens uint64, interval time.Duration, duration time.Duration) error {
 	return t.limiter.Burst(fmt.Sprintf("replication/%s", t.table), tokens, interval, duration)
 }
 
-func (t tableRateLimiter) WaitFor(ctx context.Context) error {
-	return t.limiter.WaitFor(ctx, fmt.Sprintf("replication/%s", t.table))
+func (t tableRateLimiter) Take() (remaining uint64, reset time.Time, ok bool, err error) {
+	return t.limiter.Take(fmt.Sprintf("replication/%s", t.table))
 }
 
 func (t tableRateLimiter) Reset(tokens uint64, interval time.Duration) error {
@@ -151,14 +159,39 @@ func (w *worker) Start() {
 				if err == nil {
 					prev := w.leased.Swap(true)
 					if !prev {
-						w.log.Info("lease acquired")
-						w.leaseChan <- true
+						w.metrics.replicationLeased.Set(1)
 					}
 				} else {
 					prev := w.leased.Swap(false)
 					if prev {
-						w.leaseChan <- false
-						w.log.Info("lease lost")
+						w.metrics.replicationLeased.Set(0)
+					}
+				}
+			case <-w.closer:
+				return
+			}
+		}
+	}()
+
+	w.wg.Add(1)
+	go func() {
+		defer func() {
+			w.log.Info("stats routine stopped")
+			w.wg.Done()
+		}()
+
+		w.log.Info("stats routine started")
+		t := time.NewTicker(5 * time.Millisecond)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				if idx, _, err := w.tableState(); err == nil {
+					w.metrics.replicationFollowerIndex.Set(float64(idx))
+				}
+				if _, _, burstActive, _ := w.limiter.Get(); !burstActive && w.queue.Len() > 0 {
+					if err := w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second); err != nil {
+						w.log.Errorf("burst limiter failed %v", err)
 					}
 				}
 			case <-w.closer:
@@ -173,34 +206,76 @@ func (w *worker) Start() {
 			w.log.Info("replication routine stopped")
 			w.wg.Done()
 		}()
-		for {
-			select {
-			case l := <-w.leaseChan:
-				if l {
-					go w.replicate()
-				}
-			case <-w.closer:
-				return
-			}
-		}
-	}()
 
-	w.wg.Add(1)
-	go func() {
-		defer func() {
-			w.log.Info("burst calculation routine stopped")
-			w.wg.Done()
-		}()
-
-		w.log.Info("burst calculation routine started")
-		t := time.NewTicker(5 * time.Millisecond)
+		w.log.Info("replication routine started")
+		_ = w.limiter.Reset(1, w.pollInterval)
+		t := time.NewTicker(minTickDelay)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				if w.queue.Len() > 0 {
-					if err := w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second); err != nil {
-						w.log.Errorf("burst limiter failed %v", err)
+				if !w.leased.Load() {
+					w.log.Debug("skipping replication - table not leased")
+					continue
+				}
+				_, reset, _, err := w.limiter.Take()
+				if err != nil {
+					continue
+				}
+				t.Reset(max(minTickDelay, time.Until(reset)))
+				idx, id, err := w.tableState()
+				if err != nil {
+					if errors.Is(err, serrors.ErrTableNotFound) {
+						w.log.Debugf("table not found: %v", err)
+						continue
+					}
+					w.log.Errorf("cannot query leader index: %v", err)
+					continue
+				}
+				result, err := w.do(idx, w.engine.GetNoOPSession(id))
+				switch result {
+				case resultTableNotExists:
+					w.log.Infof("the leader table disappeared ... backing off")
+					// Give reconciler time to clean up the table.
+					<-t.C
+					t.Reset(2 * w.reconcileInterval)
+				case resultLeaderBehind:
+					w.log.Errorf("the leader log is behind ... backing off")
+					// Give leader time to catch up.
+					<-t.C
+					t.Reset(10 * w.pollInterval)
+				case resultBackoff:
+					w.log.Infof("the leader asked for backoff ... backing off")
+					// Give leader time to catch up.
+					<-t.C
+					t.Reset(10 * w.pollInterval)
+				case resultLeaderAhead:
+					if w.recoverySemaphore.TryAcquire(1) {
+						func() {
+							defer w.recoverySemaphore.Release(1)
+							if err := w.recover(); err != nil {
+								w.log.Warnf("error in recovering table: %v", err)
+							}
+						}()
+					} else {
+						w.log.Info("maximum number of recoveries already running")
+						if _, err := w.engine.ReturnTable(w.table); err != nil {
+							w.log.Warnf("error returning table: %v", err)
+						}
+					}
+				case resultFollowerLagging:
+					// Burst when lagging behind the leader.
+					if _, _, burstActive, _ := w.limiter.Get(); !burstActive {
+						_ = w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second)
+					}
+				case resultFollowerTailing:
+				case resultUnknown:
+					if err != nil {
+						if errors.Is(err, context.DeadlineExceeded) {
+							w.log.Warnf("unable to read leader log in time: %v", err)
+						} else {
+							w.log.Warnf("unknown worker error: %v", err)
+						}
 					}
 				}
 			case <-w.closer:
@@ -210,77 +285,9 @@ func (w *worker) Start() {
 	}()
 }
 
-func (w *worker) replicate() {
-	w.log.Info("replication routine started")
-	_ = w.limiter.Reset(1, w.pollInterval)
-	t := time.NewTicker(1 * time.Millisecond)
-	defer t.Stop()
-	for {
-		select {
-		case <-t.C:
-			_ = w.limiter.WaitFor(context.TODO())
-			idx, sess, err := w.tableState()
-			if err != nil {
-				if errors.Is(err, serrors.ErrTableNotFound) {
-					w.log.Debugf("table not found: %v", err)
-					continue
-				}
-				w.log.Errorf("cannot query leader index: %v", err)
-				continue
-			}
-			w.metrics.replicationFollowerIndex.Set(float64(idx))
-			result, err := w.do(idx, sess)
-			switch result {
-			case resultTableNotExists:
-				w.log.Infof("the leader table disappeared ... backing off")
-				// Give reconciler time to clean up the table.
-				time.Sleep(2 * w.reconcileInterval)
-			case resultLeaderBehind:
-				w.log.Errorf("the leader log is behind ... backing off")
-				// Give leader time to catch up.
-				time.Sleep(10 * w.pollInterval)
-			case resultLeaderAhead:
-				if w.recoverySemaphore.TryAcquire(1) {
-					func() {
-						defer w.recoverySemaphore.Release(1)
-						if err := w.recover(); err != nil {
-							w.log.Warnf("error in recovering table: %v", err)
-						}
-					}()
-				} else {
-					w.log.Info("maximum number of recoveries already running")
-					if _, err := w.engine.ReturnTable(w.table); err != nil {
-						w.log.Warnf("error returning table: %v", err)
-					}
-				}
-			case resultFollowerLagging:
-				// Burst when lagging behind the leader.
-				_ = w.limiter.Burst(1, 50*time.Millisecond, 5*time.Second)
-			case resultFollowerTailing:
-				continue
-			case resultUnknown:
-				if err != nil {
-					if errors.Is(err, context.DeadlineExceeded) {
-						w.log.Warnf("unable to read leader log in time: %v", err)
-					} else {
-						w.log.Warnf("unknown worker error: %v", err)
-					}
-					continue
-				}
-			}
-		case l := <-w.leaseChan:
-			if !l {
-				w.log.Info("replication routine stopped")
-				return
-			}
-		case <-w.closer:
-			return
-		}
-	}
-}
-
 // Close stops the replication.
 func (w *worker) Close() {
+	w.log.Info("worker stopped")
 	close(w.closer)
 	w.wg.Wait()
 
@@ -314,8 +321,11 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 			return resultUnknown, nil
 		}
 		if err != nil {
-			if c, ok := status.FromError(err); ok && c.Code() == codes.Unavailable {
-				return resultTableNotExists, fmt.Errorf("error reading replication stream: %w", err)
+			if c, ok := status.FromError(err); ok && c.Code() == codes.NotFound {
+				return resultTableNotExists, fmt.Errorf("error reading replication stream: %w", c.Err())
+			}
+			if c, ok := status.FromError(err); ok && c.Code() == codes.FailedPrecondition {
+				return resultBackoff, fmt.Errorf("error reading replication stream: %w", c.Err())
 			}
 			return resultUnknown, fmt.Errorf("error reading replication stream: %w", err)
 		}
@@ -352,19 +362,19 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 	}
 }
 
-func (w *worker) tableState() (uint64, *client.Session, error) {
+func (w *worker) tableState() (uint64, uint64, error) {
 	t, err := w.engine.GetTable(w.table)
 	if err != nil {
-		return 0, nil, err
+		return 0, 0, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), w.logTimeout)
 	defer cancel()
 	idxRes, err := t.LeaderIndex(ctx, false)
 	if err != nil {
-		return 0, nil, fmt.Errorf("could not get leader index key: %w", err)
+		return 0, 0, fmt.Errorf("could not get leader index key: %w", err)
 	}
-	return idxRes.Index, w.engine.GetNoOPSession(t.ClusterID), nil
+	return idxRes.Index, t.ClusterID, nil
 }
 
 func (w *worker) proposeBatch(ctx context.Context, commands []*regattapb.ReplicateCommand, session *client.Session) (uint64, error) {

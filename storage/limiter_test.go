@@ -3,7 +3,6 @@
 package storage
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -20,18 +19,20 @@ import (
 func TestKvLimiter_Basic(t *testing.T) {
 	mc := clock.NewMock()
 	l := &KVLimiter{rs: newRaftStore(t), clock: mc}
-	tok, rem, err := l.Get("foo")
+	tok, rem, b, err := l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
+	require.False(t, b)
 
 	err = l.Reset("foo", 10, time.Second)
 	require.NoError(t, err)
 
-	tok, rem, err = l.Get("foo")
+	tok, rem, b, err = l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), tok)
 	require.Equal(t, uint64(10), rem)
+	require.False(t, b)
 
 	rem, _, ok, err := l.Take("foo")
 	require.NoError(t, err)
@@ -49,18 +50,20 @@ func TestKvLimiter_Basic(t *testing.T) {
 func TestKvLimiter_Burst(t *testing.T) {
 	mc := clock.NewMock()
 	l := &KVLimiter{rs: newRaftStore(t), clock: mc}
-	tok, rem, err := l.Get("foo")
+	tok, rem, b, err := l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), tok)
 	require.Equal(t, uint64(0), rem)
+	require.False(t, b)
 
 	err = l.Reset("foo", 1, time.Second)
 	require.NoError(t, err)
 
-	tok, rem, err = l.Get("foo")
+	tok, rem, b, err = l.Get("foo")
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), tok)
 	require.Equal(t, uint64(1), rem)
+	require.False(t, b)
 
 	rem, _, ok, err := l.Take("foo")
 	require.NoError(t, err)
@@ -77,6 +80,10 @@ func TestKvLimiter_Burst(t *testing.T) {
 	// (0 + 5 * 5/s) - 1.
 	require.Equal(t, uint64(24), rem)
 
+	_, _, b, err = l.Get("foo")
+	require.NoError(t, err)
+	require.True(t, b)
+
 	// Missed additional burst tick
 	// (24 + 30 * 1/s) - 1
 	mc.Add(30 * time.Second)
@@ -85,25 +92,6 @@ func TestKvLimiter_Burst(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, uint64(53), rem)
-}
-
-func TestKvLimiter_WaitFor(t *testing.T) {
-	l := &KVLimiter{rs: newRaftStore(t), clock: clock.New()}
-	tok, rem, err := l.Get("foo")
-	require.NoError(t, err)
-	require.Equal(t, uint64(0), tok)
-	require.Equal(t, uint64(0), rem)
-
-	require.NoError(t, l.Reset("foo", 1, time.Second))
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer cancel()
-
-	require.NoError(t, l.WaitFor(ctx, "foo"))
-	require.NoError(t, l.WaitFor(ctx, "foo"))
-	require.NoError(t, l.WaitFor(ctx, "foo"))
-	require.NoError(t, l.WaitFor(ctx, "foo"))
-	require.NoError(t, l.WaitFor(ctx, "foo"))
-	require.ErrorIs(t, l.WaitFor(ctx, "foo"), context.DeadlineExceeded)
 }
 
 func newRaftStore(t *testing.T) *kv.RaftStore {

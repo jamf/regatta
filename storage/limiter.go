@@ -3,7 +3,6 @@
 package storage
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -68,25 +67,6 @@ func (k *KVLimiter) setState(key string, new state, version uint64) (state, erro
 	return new, nil
 }
 
-func (k *KVLimiter) WaitFor(ctx context.Context, key string) error {
-	for {
-		_, next, ok, _ := k.Take(key)
-		if ok {
-			return nil
-		}
-		t := time.NewTimer(next.Sub(k.clock.Now()))
-		select {
-		case <-ctx.Done():
-			if !t.Stop() {
-				<-t.C
-			}
-			return ctx.Err()
-		case <-t.C:
-			continue
-		}
-	}
-}
-
 func (k *KVLimiter) Take(key string) (remaining uint64, reset time.Time, ok bool, err error) {
 	k.mtx.Lock()
 	defer k.mtx.Unlock()
@@ -132,15 +112,15 @@ func (k *KVLimiter) Take(key string) (remaining uint64, reset time.Time, ok bool
 	return s.Remaining, next, false, nil
 }
 
-func (k *KVLimiter) Get(key string) (tokens, remaining uint64, err error) {
+func (k *KVLimiter) Get(key string) (tokens, remaining uint64, burst bool, err error) {
 	k.mtx.Lock()
 	defer k.mtx.Unlock()
 
 	s, err := k.getState(key)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, false, err
 	}
-	return s.Tokens, s.Remaining, nil
+	return s.Tokens, s.Remaining, s.Burst.ValidTo.After(k.clock.Now()), nil
 }
 
 func (k *KVLimiter) Reset(key string, tokens uint64, interval time.Duration) error {

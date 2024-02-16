@@ -146,13 +146,22 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 
 	t, err := l.Tables.GetTable(string(req.GetTable()))
 	if err != nil {
-		return status.Errorf(codes.Unavailable, "unable to replicate table '%s': %v", req.GetTable(), err)
+		if errors.Is(err, serrors.ErrTableNotFound) {
+			return status.Error(codes.NotFound, err.Error())
+		}
+		if serrors.IsSafeToRetry(err) {
+			return status.Error(codes.Unavailable, err.Error())
+		}
+		return status.Error(codes.FailedPrecondition, err.Error())
 	}
 
 	ctx := server.Context()
 	appliedIndex, err := t.LocalIndex(ctx, true)
 	if err != nil {
-		return err
+		if serrors.IsSafeToRetry(err) {
+			return status.Error(codes.Unavailable, err.Error())
+		}
+		return status.Error(codes.FailedPrecondition, err.Error())
 	}
 
 	if appliedIndex.Index+1 < req.LeaderIndex {
