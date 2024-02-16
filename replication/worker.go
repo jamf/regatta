@@ -42,6 +42,7 @@ const (
 	resultFollowerLagging
 	resultFollowerTailing
 	resultTableNotExists
+	resultBackoff
 )
 
 type workerFactory struct {
@@ -185,10 +186,7 @@ func (w *worker) Start() {
 		for {
 			select {
 			case <-t.C:
-				idx, _, err := w.tableState()
-				if err != nil {
-					w.log.Errorf("cannot query leader index: %v", err)
-				} else {
+				if idx, _, err := w.tableState(); err == nil {
 					w.metrics.replicationFollowerIndex.Set(float64(idx))
 				}
 				if _, _, burstActive, _ := w.limiter.Get(); !burstActive && w.queue.Len() > 0 {
@@ -239,11 +237,18 @@ func (w *worker) Start() {
 				case resultTableNotExists:
 					w.log.Infof("the leader table disappeared ... backing off")
 					// Give reconciler time to clean up the table.
-					time.Sleep(2 * w.reconcileInterval)
+					<-t.C
+					t.Reset(2 * w.reconcileInterval)
 				case resultLeaderBehind:
 					w.log.Errorf("the leader log is behind ... backing off")
 					// Give leader time to catch up.
-					time.Sleep(10 * w.pollInterval)
+					<-t.C
+					t.Reset(10 * w.pollInterval)
+				case resultBackoff:
+					w.log.Infof("the leader asked for backoff ... backing off")
+					// Give leader time to catch up.
+					<-t.C
+					t.Reset(10 * w.pollInterval)
 				case resultLeaderAhead:
 					if w.recoverySemaphore.TryAcquire(1) {
 						func() {
@@ -282,6 +287,7 @@ func (w *worker) Start() {
 
 // Close stops the replication.
 func (w *worker) Close() {
+	w.log.Info("worker stopped")
 	close(w.closer)
 	w.wg.Wait()
 
@@ -315,8 +321,11 @@ func (w *worker) do(leaderIndex uint64, session *client.Session) (replicateResul
 			return resultUnknown, nil
 		}
 		if err != nil {
-			if c, ok := status.FromError(err); ok && c.Code() == codes.Unavailable {
-				return resultTableNotExists, fmt.Errorf("error reading replication stream: %w", err)
+			if c, ok := status.FromError(err); ok && c.Code() == codes.NotFound {
+				return resultTableNotExists, fmt.Errorf("error reading replication stream: %w", c.Err())
+			}
+			if c, ok := status.FromError(err); ok && c.Code() == codes.FailedPrecondition {
+				return resultBackoff, fmt.Errorf("error reading replication stream: %w", c.Err())
 			}
 			return resultUnknown, fmt.Errorf("error reading replication stream: %w", err)
 		}
