@@ -20,6 +20,7 @@ nav_order: 999
 * Improve on API allocations when deserializing gRPC messages.
 * Support `zstd` API compression.
 * Removed obsolete table manager cache that could have caused hard to debug race conditions.
+* Bump to Go 1.22.
 
 ### Deprecations
 * `tables.names` and `tables.delete` configuration values were deprecated and will be removed in future releases.

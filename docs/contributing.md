@@ -26,7 +26,7 @@ The pull request should be tagged with the label `proposal`.
 
 ## Development prerequisites
 
-* [Go](https://golang.org/) >= 1.21
+* [Go](https://golang.org/) >= 1.22
 * [Protocol Buffer compiler](https://grpc.io/docs/protoc-installation/) >= 3
 * [Go Protocol Buffer compiler plugin](https://pkg.go.dev/github.com/golang/protobuf/protoc-gen-go)
   -- `go install google.golang.org/protobuf/cmd/protoc-gen-go`

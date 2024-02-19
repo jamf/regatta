@@ -147,8 +147,8 @@ func (c *checkpoint) recover(r io.Reader, stopc <-chan struct{}) error {
 			if err != nil {
 				return err
 			}
-			// #nosec G110 -- Tar stream is not compressed
-			if _, err := io.Copy(fileToWrite, tr); err != nil {
+			_, err = io.Copy(fileToWrite, tr) // #nosec G110
+			if err != nil {
 				return err
 			}
 
