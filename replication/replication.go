@@ -12,6 +12,7 @@ import (
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -32,6 +33,12 @@ type WorkerConfig struct {
 type Config struct {
 	ReconcileInterval time.Duration
 	Workers           WorkerConfig
+}
+
+type replicationManagerStore interface {
+	GetAllValues(key string) ([]string, error)
+	Get(key string) (kv.Pair, error)
+	Set(key string, sprintf string, ver uint64) (kv.Pair, error)
 }
 
 // NewManager constructs a new replication Manager out of tables.Manager, dragonboat.NodeHost and replication API grpc.ClientConn.
@@ -65,9 +72,13 @@ func NewManager(e *storage.Engine, queue *storage.IndexNotificationQueue, conn *
 			maxSnapshotRecv:   cfg.Workers.MaxSnapshotRecv,
 			recoverySemaphore: semaphore.NewWeighted(cfg.Workers.MaxRecoveryInFlight),
 			engine:            e,
-			log:               replicationLog,
-			logClient:         regattapb.NewLogClient(conn),
-			snapshotClient:    regattapb.NewSnapshotClient(conn),
+			store: &kv.RaftStore{
+				NodeHost:  e.NodeHost,
+				ClusterID: 2000,
+			},
+			log:            replicationLog,
+			logClient:      regattapb.NewLogClient(conn),
+			snapshotClient: regattapb.NewSnapshotClient(conn),
 			metrics: struct {
 				replicationIndex  *prometheus.GaugeVec
 				replicationLeased *prometheus.GaugeVec
@@ -109,7 +120,21 @@ func (m *Manager) Collect(metrics chan<- prometheus.Metric) {
 }
 
 // Start starts the replication manager goroutine, Close will stop it.
-func (m *Manager) Start() {
+func (m *Manager) Start() error {
+	if rs, ok := m.factory.store.(*kv.RaftStore); ok {
+		err := rs.Start(kv.RaftConfig{
+			NodeID:             m.engine.Config().NodeID,
+			HeartbeatRTT:       5,
+			ElectionRTT:        100,
+			SnapshotEntries:    1000,
+			CompactionOverhead: 100,
+			MaxInMemLogSize:    1024 * 1024,
+			InitialMembers:     m.engine.Config().InitialMembers,
+		})
+		if err != nil {
+			return err
+		}
+	}
 	go func() {
 		t := time.NewTicker(m.reconcileInterval)
 		defer t.Stop()
@@ -130,6 +155,7 @@ func (m *Manager) Start() {
 			}
 		}
 	}()
+	return nil
 }
 
 func (m *Manager) reconcileTables() error {

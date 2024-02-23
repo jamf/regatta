@@ -10,6 +10,7 @@ import (
 
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage"
+	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
@@ -53,6 +54,7 @@ func TestWorker_do(t *testing.T) {
 		logTimeout:    time.Minute,
 		engine:        followerEngine,
 		queue:         queue,
+		store:         &kv.MapStore{},
 		logClient:     regattapb.NewLogClient(conn),
 		log:           zap.New(logger).Sugar(),
 		pollInterval:  500 * time.Millisecond,
