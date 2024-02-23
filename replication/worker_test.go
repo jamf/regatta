@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage"
 	"github.com/jamf/regatta/storage/kv"
@@ -20,6 +21,33 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+func TestTableQueueLenStore(t *testing.T) {
+	r := require.New(t)
+	cl := clock.NewMock()
+	qls := tableQueueLenStore{table: "foo", store: &kv.MapStore{}, id: 1, clock: cl}
+	v, err := qls.Get()
+	r.NoError(err)
+	r.Equal(uint64(0), v)
+	r.NoError(qls.Set(1000))
+	v, err = qls.Get()
+	r.NoError(err)
+	r.Equal(uint64(1000), v)
+	v, err = qls.Max()
+	r.NoError(err)
+	r.Equal(uint64(1000), v)
+	cl.Add(40 * time.Second)
+	v, err = qls.Get()
+	r.NoError(err)
+	r.Equal(uint64(0), v)
+	v, err = qls.Max()
+	r.NoError(err)
+	r.Equal(uint64(0), v)
+	r.NoError(qls.Set(2000))
+	v, err = qls.Max()
+	r.NoError(err)
+	r.Equal(uint64(2000), v)
+}
 
 func TestWorker_do(t *testing.T) {
 	r := require.New(t)

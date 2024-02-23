@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	"github.com/jamf/regatta/storage"
@@ -81,26 +82,27 @@ func (q tableQueue) Len() int {
 }
 
 type tableQueueLenStore struct {
+	clock clock.Clock
 	table string
 	store replicationManagerStore
 	id    uint64
 }
 
-func (t tableQueueLenStore) Max() (uint64, error) {
-	key := fmt.Sprintf("queue/%s/*", t.table)
-	p, err := t.store.GetAllValues(key)
+func (tql tableQueueLenStore) Max() (uint64, error) {
+	key := fmt.Sprintf("queue/%s/*", tql.table)
+	p, err := tql.store.GetAllValues(key)
 	if err != nil {
 		return 0, err
 	}
 	var m uint64
 	for _, s := range p {
 		sep := strings.Split(s, "$")
-		t, err := strconv.ParseUint(sep[0], 10, 64)
+		t, err := strconv.ParseInt(sep[0], 10, 64)
 		if err != nil {
 			return 0, err
 		}
-		pt := time.UnixMilli(int64(t))
-		if time.Since(pt) >= 30*time.Second {
+		pt := time.UnixMilli(t)
+		if tql.clock.Since(pt) >= 30*time.Second {
 			return 0, nil
 		}
 		v, err := strconv.ParseUint(sep[1], 10, 64)
@@ -112,19 +114,19 @@ func (t tableQueueLenStore) Max() (uint64, error) {
 	return m, nil
 }
 
-func (t tableQueueLenStore) Set(i uint64) error {
-	key := fmt.Sprintf("queue/%s/%d", t.table, t.id)
-	p, err := t.store.Get(key)
+func (tql tableQueueLenStore) Set(i uint64) error {
+	key := fmt.Sprintf("queue/%s/%d", tql.table, tql.id)
+	p, err := tql.store.Get(key)
 	if err != nil && !errors.Is(err, kv.ErrNotExist) {
 		return err
 	}
-	_, err = t.store.Set(key, fmt.Sprintf("%d$%d", time.Now().UnixMilli(), i), p.Ver)
+	_, err = tql.store.Set(key, fmt.Sprintf("%d$%d", tql.clock.Now().UnixMilli(), i), p.Ver)
 	return err
 }
 
-func (t tableQueueLenStore) Get() (uint64, error) {
-	key := fmt.Sprintf("queue/%s/%d", t.table, t.id)
-	p, err := t.store.Get(key)
+func (tql tableQueueLenStore) Get() (uint64, error) {
+	key := fmt.Sprintf("queue/%s/%d", tql.table, tql.id)
+	p, err := tql.store.Get(key)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotExist) {
 			return 0, nil
@@ -132,12 +134,12 @@ func (t tableQueueLenStore) Get() (uint64, error) {
 		return 0, err
 	}
 	sep := strings.Split(p.Value, "$")
-	ct, err := strconv.ParseUint(sep[0], 10, 64)
+	ct, err := strconv.ParseInt(sep[0], 10, 64)
 	if err != nil {
 		return 0, err
 	}
-	pt := time.UnixMilli(int64(ct))
-	if time.Since(pt) >= 30*time.Second {
+	pt := time.UnixMilli(ct)
+	if tql.clock.Since(pt) >= 30*time.Second {
 		return 0, nil
 	}
 	v, err := strconv.ParseUint(sep[1], 10, 64)
@@ -155,7 +157,7 @@ func (f *workerFactory) create(table string) *worker {
 		leaseChan:     make(chan bool),
 		log:           f.log.Named(table),
 		queue:         tableQueue{table: table, queue: f.queue},
-		store:         tableQueueLenStore{table: table, store: f.store, id: f.engine.Config().NodeID},
+		store:         tableQueueLenStore{table: table, store: f.store, id: f.engine.Config().NodeID, clock: clock.New()},
 		throttle:      newThrottle(f.pollInterval),
 		immediate:     make(chan time.Time, 1),
 		metrics: struct {
