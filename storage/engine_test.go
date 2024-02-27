@@ -809,10 +809,6 @@ func newTestEngine(t *testing.T, cfg Config) *Engine {
 		NodeHost:  nh,
 		ClusterID: tableStoreID,
 	}
-	e.limiterStore = &kv.RaftStore{
-		NodeHost:  nh,
-		ClusterID: rateLimiterStoreID,
-	}
 	e.Manager = table.NewManager(nh, cfg.InitialMembers, e.tableStore, table.Config{
 		NodeID: cfg.NodeID,
 		Table:  table.TableConfig(cfg.Table),

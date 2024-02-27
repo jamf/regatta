@@ -93,7 +93,9 @@ func TestManager_reconcile(t *testing.T) {
 		regattapb.RegisterLogServer(server, s)
 	})
 
-	m := NewManager(followerEngine, nil, conn, Config{
+	queue := storage.NewNotificationQueue()
+	go queue.Run()
+	m := NewManager(followerEngine, queue, conn, Config{
 		ReconcileInterval: 250 * time.Millisecond,
 		Workers: WorkerConfig{
 			PollInterval:        10 * time.Millisecond,
@@ -178,7 +180,9 @@ func TestManager_recover(t *testing.T) {
 		regattapb.RegisterSnapshotServer(server, s)
 	})
 
-	m := NewManager(followerEngine, nil, conn, Config{
+	queue := storage.NewNotificationQueue()
+	go queue.Run()
+	m := NewManager(followerEngine, queue, conn, Config{
 		ReconcileInterval: 250 * time.Millisecond,
 		Workers: WorkerConfig{
 			PollInterval:        10 * time.Millisecond,
@@ -189,7 +193,7 @@ func TestManager_recover(t *testing.T) {
 			MaxSnapshotRecv:     512,
 		},
 	})
-	m.Start()
+	r.NoError(m.Start())
 	defer m.Close()
 	r.Eventually(func() bool {
 		return m.factory.engine.HasNodeInfo(10002, 1)

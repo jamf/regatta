@@ -9,14 +9,18 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
+	"github.com/jamf/regatta/storage/kv"
 	"github.com/lni/dragonboat/v4/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -54,6 +58,7 @@ type workerFactory struct {
 	maxSnapshotRecv   uint64
 	recoverySemaphore *semaphore.Weighted
 	log               *zap.SugaredLogger
+	store             replicationManagerStore
 	engine            *storage.Engine
 	queue             *storage.IndexNotificationQueue
 	logClient         regattapb.LogClient
@@ -76,25 +81,72 @@ func (q tableQueue) Len() int {
 	return q.queue.Len(q.table)
 }
 
-type tableRateLimiter struct {
-	table   string
-	limiter *storage.KVLimiter
+type tableQueueLenStore struct {
+	clock clock.Clock
+	table string
+	store replicationManagerStore
+	id    uint64
 }
 
-func (t tableRateLimiter) Get() (uint64, uint64, bool, error) {
-	return t.limiter.Get(fmt.Sprintf("replication/%s", t.table))
+func (tql tableQueueLenStore) Max() (uint64, error) {
+	key := fmt.Sprintf("queue/%s/*", tql.table)
+	p, err := tql.store.GetAllValues(key)
+	if err != nil {
+		return 0, err
+	}
+	var m uint64
+	for _, s := range p {
+		sep := strings.Split(s, "$")
+		t, err := strconv.ParseInt(sep[0], 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		pt := time.UnixMilli(t)
+		if tql.clock.Since(pt) >= 30*time.Second {
+			return 0, nil
+		}
+		v, err := strconv.ParseUint(sep[1], 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		m = max(m, v)
+	}
+	return m, nil
 }
 
-func (t tableRateLimiter) Burst(tokens uint64, interval time.Duration, duration time.Duration) error {
-	return t.limiter.Burst(fmt.Sprintf("replication/%s", t.table), tokens, interval, duration)
+func (tql tableQueueLenStore) Set(i uint64) error {
+	key := fmt.Sprintf("queue/%s/%d", tql.table, tql.id)
+	p, err := tql.store.Get(key)
+	if err != nil && !errors.Is(err, kv.ErrNotExist) {
+		return err
+	}
+	_, err = tql.store.Set(key, fmt.Sprintf("%d$%d", tql.clock.Now().UnixMilli(), i), p.Ver)
+	return err
 }
 
-func (t tableRateLimiter) Take() (remaining uint64, reset time.Time, ok bool, err error) {
-	return t.limiter.Take(fmt.Sprintf("replication/%s", t.table))
-}
-
-func (t tableRateLimiter) Reset(tokens uint64, interval time.Duration) error {
-	return t.limiter.Reset(fmt.Sprintf("replication/%s", t.table), tokens, interval)
+func (tql tableQueueLenStore) Get() (uint64, error) {
+	key := fmt.Sprintf("queue/%s/%d", tql.table, tql.id)
+	p, err := tql.store.Get(key)
+	if err != nil {
+		if errors.Is(err, kv.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	sep := strings.Split(p.Value, "$")
+	ct, err := strconv.ParseInt(sep[0], 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	pt := time.UnixMilli(ct)
+	if tql.clock.Since(pt) >= 30*time.Second {
+		return 0, nil
+	}
+	v, err := strconv.ParseUint(sep[1], 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
 }
 
 func (f *workerFactory) create(table string) *worker {
@@ -105,7 +157,9 @@ func (f *workerFactory) create(table string) *worker {
 		leaseChan:     make(chan bool),
 		log:           f.log.Named(table),
 		queue:         tableQueue{table: table, queue: f.queue},
-		limiter:       tableRateLimiter{table: table, limiter: f.engine.Limiter},
+		store:         tableQueueLenStore{table: table, store: f.store, id: f.engine.Config().NodeID, clock: clock.New()},
+		throttle:      newThrottle(f.pollInterval),
+		immediate:     make(chan time.Time, 1),
 		metrics: struct {
 			replicationLeaderIndex   prometheus.Gauge
 			replicationFollowerIndex prometheus.Gauge
@@ -118,6 +172,27 @@ func (f *workerFactory) create(table string) *worker {
 	}
 }
 
+type replicationThrottle struct {
+	intervals [5]time.Duration
+	speed     int
+}
+
+func (t *replicationThrottle) current() time.Duration {
+	return t.intervals[t.speed]
+}
+
+func (t *replicationThrottle) up() {
+	t.speed = min(t.speed+1, len(t.intervals)-1)
+}
+
+func (t *replicationThrottle) down() {
+	t.speed = max(t.speed-1, 0)
+}
+
+func newThrottle(pollInterval time.Duration) replicationThrottle {
+	return replicationThrottle{intervals: [5]time.Duration{pollInterval, pollInterval / 2, pollInterval / 4, pollInterval / 16, pollInterval / 256}}
+}
+
 // worker connects to the log replication service and synchronizes the local state.
 type worker struct {
 	*workerFactory
@@ -125,7 +200,8 @@ type worker struct {
 	closer    chan struct{}
 	log       *zap.SugaredLogger
 	queue     tableQueue
-	limiter   tableRateLimiter
+	store     tableQueueLenStore
+	throttle  replicationThrottle
 	leased    atomic.Bool
 	leaseChan chan bool
 	metrics   struct {
@@ -133,7 +209,8 @@ type worker struct {
 		replicationFollowerIndex prometheus.Gauge
 		replicationLeased        prometheus.Gauge
 	}
-	wg sync.WaitGroup
+	wg        sync.WaitGroup
+	immediate chan time.Time
 }
 
 // Start launches the replication goroutine. To stop it, call worker.Close.
@@ -189,9 +266,16 @@ func (w *worker) Start() {
 				if idx, _, err := w.tableState(); err == nil {
 					w.metrics.replicationFollowerIndex.Set(float64(idx))
 				}
-				if _, _, burstActive, _ := w.limiter.Get(); !burstActive && w.queue.Len() > 0 {
-					if err := w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second); err != nil {
-						w.log.Errorf("burst limiter failed %v", err)
+				if v, _ := w.store.Get(); v != uint64(w.queue.Len()) {
+					err := w.store.Set(uint64(w.queue.Len()))
+					if err != nil {
+						w.log.Errorf("unable to store current replication queue len: %v", err)
+					}
+				}
+				if m, _ := w.store.Max(); m > 0 {
+					select {
+					case w.immediate <- time.Now():
+					default:
 					}
 				}
 			case <-w.closer:
@@ -208,78 +292,78 @@ func (w *worker) Start() {
 		}()
 
 		w.log.Info("replication routine started")
-		_ = w.limiter.Reset(1, w.pollInterval)
-		t := time.NewTicker(minTickDelay)
+		t := time.NewTicker(w.pollInterval)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				if !w.leased.Load() {
-					w.log.Debug("skipping replication - table not leased")
-					continue
-				}
-				_, reset, _, err := w.limiter.Take()
-				if err != nil {
-					continue
-				}
-				t.Reset(max(minTickDelay, time.Until(reset)))
-				idx, id, err := w.tableState()
-				if err != nil {
-					if errors.Is(err, serrors.ErrTableNotFound) {
-						w.log.Debugf("table not found: %v", err)
-						continue
-					}
-					w.log.Errorf("cannot query leader index: %v", err)
-					continue
-				}
-				result, err := w.do(idx, w.engine.GetNoOPSession(id))
-				switch result {
-				case resultTableNotExists:
-					w.log.Infof("the leader table disappeared ... backing off")
-					// Give reconciler time to clean up the table.
-					<-t.C
-					t.Reset(2 * w.reconcileInterval)
-				case resultLeaderBehind:
-					w.log.Errorf("the leader log is behind ... backing off")
-					// Give leader time to catch up.
-					<-t.C
-					t.Reset(10 * w.pollInterval)
-				case resultBackoff:
-					w.log.Infof("the leader asked for backoff ... backing off")
-					// Give leader time to catch up.
-					<-t.C
-					t.Reset(10 * w.pollInterval)
-				case resultLeaderAhead:
-					if w.recoverySemaphore.TryAcquire(1) {
-						func() {
-							defer w.recoverySemaphore.Release(1)
-							if err := w.recover(); err != nil {
-								w.log.Warnf("error in recovering table: %v", err)
-							}
-						}()
-					} else {
-						w.log.Info("maximum number of recoveries already running")
-						if _, err := w.engine.ReturnTable(w.table); err != nil {
-							w.log.Warnf("error returning table: %v", err)
-						}
-					}
-				case resultFollowerLagging:
-					// Burst when lagging behind the leader.
-					if _, _, burstActive, _ := w.limiter.Get(); !burstActive {
-						_ = w.limiter.Burst(1, 5*time.Millisecond, 5*time.Second)
-					}
-				case resultFollowerTailing:
-				case resultUnknown:
-					if err != nil {
-						if errors.Is(err, context.DeadlineExceeded) {
-							w.log.Warnf("unable to read leader log in time: %v", err)
-						} else {
-							w.log.Warnf("unknown worker error: %v", err)
-						}
-					}
-				}
+			case <-w.immediate:
 			case <-w.closer:
 				return
+			}
+
+			if !w.leased.Load() {
+				w.log.Debug("skipping replication - table not leased")
+				continue
+			}
+			t.Reset(w.throttle.current())
+			if u, _ := w.store.Max(); u > 0 {
+				w.throttle.up()
+			} else {
+				w.throttle.down()
+			}
+			idx, id, err := w.tableState()
+			if err != nil {
+				if errors.Is(err, serrors.ErrTableNotFound) {
+					w.log.Debugf("table not found: %v", err)
+					continue
+				}
+				w.log.Errorf("cannot query leader index: %v", err)
+				continue
+			}
+			result, err := w.do(idx, w.engine.GetNoOPSession(id))
+			switch result {
+			case resultTableNotExists:
+				w.log.Infof("the leader table disappeared ... backing off")
+				// Give reconciler time to clean up the table.
+				<-t.C
+				t.Reset(2 * w.reconcileInterval)
+			case resultLeaderBehind:
+				w.log.Errorf("the leader log is behind ... backing off")
+				// Give leader time to catch up.
+				<-t.C
+				t.Reset(10 * w.pollInterval)
+			case resultBackoff:
+				w.log.Infof("the leader asked for backoff ... backing off")
+				// Give leader time to catch up.
+				<-t.C
+				t.Reset(10 * w.pollInterval)
+			case resultLeaderAhead:
+				if w.recoverySemaphore.TryAcquire(1) {
+					func() {
+						defer w.recoverySemaphore.Release(1)
+						if err := w.recover(); err != nil {
+							w.log.Warnf("error in recovering table: %v", err)
+						}
+					}()
+				} else {
+					w.log.Info("maximum number of recoveries already running")
+					if _, err := w.engine.ReturnTable(w.table); err != nil {
+						w.log.Warnf("error returning table: %v", err)
+					}
+				}
+			case resultFollowerLagging:
+				// Burst when lagging behind the leader.
+				w.throttle.up()
+			case resultFollowerTailing:
+			case resultUnknown:
+				if err != nil {
+					if errors.Is(err, context.DeadlineExceeded) {
+						w.log.Warnf("unable to read leader log in time: %v", err)
+					} else {
+						w.log.Warnf("unknown worker error: %v", err)
+					}
+				}
 			}
 		}
 	}()

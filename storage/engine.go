@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/benbjohnson/clock"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/kv"
@@ -56,10 +55,6 @@ func New(cfg Config) (*Engine, error) {
 		NodeHost:  nh,
 		ClusterID: tableStoreID,
 	}
-	e.limiterStore = &kv.RaftStore{
-		NodeHost:  nh,
-		ClusterID: rateLimiterStoreID,
-	}
 	e.Manager = table.NewManager(
 		nh,
 		cfg.InitialMembers,
@@ -70,10 +65,6 @@ func New(cfg Config) (*Engine, error) {
 			Meta:   table.MetaConfig(cfg.Meta),
 		},
 	)
-	e.Limiter = &KVLimiter{
-		rs:    e.limiterStore,
-		clock: clock.New(),
-	}
 	if cfg.LogCacheSize > 0 {
 		e.LogCache = logreader.NewShardCache(cfg.LogCacheSize)
 		e.LogReader = &logreader.Cached{LogQuerier: nh, ShardCache: e.LogCache}
@@ -86,32 +77,19 @@ func New(cfg Config) (*Engine, error) {
 type Engine struct {
 	*dragonboat.NodeHost
 	*table.Manager
-	cfg          Config
-	log          *zap.SugaredLogger
-	events       *events
-	stop         chan struct{}
-	LogReader    logreader.Interface
-	Cluster      *cluster.Cluster
-	LogCache     *logreader.ShardCache
-	Limiter      *KVLimiter
-	tableStore   *kv.RaftStore
-	limiterStore *kv.RaftStore
+	cfg        Config
+	log        *zap.SugaredLogger
+	events     *events
+	stop       chan struct{}
+	LogReader  logreader.Interface
+	Cluster    *cluster.Cluster
+	LogCache   *logreader.ShardCache
+	tableStore *kv.RaftStore
 }
 
 func (e *Engine) Start() error {
 	e.Cluster.Start(e.cfg.Gossip.InitialMembers)
 	if err := e.tableStore.Start(kv.RaftConfig{
-		NodeID:             e.cfg.NodeID,
-		ElectionRTT:        e.cfg.Meta.ElectionRTT,
-		HeartbeatRTT:       e.cfg.Meta.HeartbeatRTT,
-		SnapshotEntries:    e.cfg.Meta.SnapshotEntries,
-		CompactionOverhead: e.cfg.Meta.CompactionOverhead,
-		MaxInMemLogSize:    e.cfg.Meta.MaxInMemLogSize,
-		InitialMembers:     e.cfg.InitialMembers,
-	}); err != nil {
-		return err
-	}
-	if err := e.limiterStore.Start(kv.RaftConfig{
 		NodeID:             e.cfg.NodeID,
 		ElectionRTT:        e.cfg.Meta.ElectionRTT,
 		HeartbeatRTT:       e.cfg.Meta.HeartbeatRTT,
@@ -290,10 +268,11 @@ func (e *Engine) WaitUntilReady(ctx context.Context) error {
 	eg.Go(func() error {
 		return e.tableStore.WaitForLeader(ctx)
 	})
-	eg.Go(func() error {
-		return e.limiterStore.WaitForLeader(ctx)
-	})
 	return eg.Wait()
+}
+
+func (e *Engine) Config() Config {
+	return e.cfg
 }
 
 func createNodeHost(e *Engine) (*dragonboat.NodeHost, error) {
