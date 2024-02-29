@@ -21,6 +21,8 @@ import (
 	_ "google.golang.org/grpc/encoding/proto"
 )
 
+const replicationStoreID = 2000
+
 type WorkerConfig struct {
 	PollInterval        time.Duration
 	LeaseInterval       time.Duration
@@ -74,7 +76,7 @@ func NewManager(e *storage.Engine, queue *storage.IndexNotificationQueue, conn *
 			engine:            e,
 			store: &kv.RaftStore{
 				NodeHost:  e.NodeHost,
-				ClusterID: 2000,
+				ClusterID: replicationStoreID,
 			},
 			log:            replicationLog,
 			logClient:      regattapb.NewLogClient(conn),
