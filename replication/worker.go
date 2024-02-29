@@ -33,8 +33,9 @@ import (
 
 const (
 	// TODO make configurable.
-	desiredProposalSize = 256 * 1024
-	minTickDelay        = 1 * time.Millisecond
+	desiredProposalSize   = 256 * 1024
+	queueLenCheckInterval = 50 * time.Millisecond
+	metricsCheckInterval  = 5 * time.Second
 )
 
 type replicateResult int
@@ -258,14 +259,17 @@ func (w *worker) Start() {
 		}()
 
 		w.log.Info("stats routine started")
-		t := time.NewTicker(5 * time.Millisecond)
-		defer t.Stop()
+		tq := time.NewTicker(queueLenCheckInterval)
+		defer tq.Stop()
+		tidx := time.NewTicker(metricsCheckInterval)
+		defer tidx.Stop()
 		for {
 			select {
-			case <-t.C:
+			case <-tidx.C:
 				if idx, _, err := w.tableState(); err == nil {
 					w.metrics.replicationFollowerIndex.Set(float64(idx))
 				}
+			case <-tq.C:
 				if v, _ := w.store.Get(); v != uint64(w.queue.Len()) {
 					err := w.store.Set(uint64(w.queue.Len()))
 					if err != nil {
