@@ -14,15 +14,15 @@ import (
 	"sync"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/storage"
 	"github.com/jamf/regatta/storage/table"
 	dbl "github.com/lni/dragonboat/v4/logger"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -32,24 +32,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var histogramBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
+var (
+	apiBuckets  = []float64{.0001, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 30}
+	grpcmetrics = grpcprom.NewServerMetrics(grpcprom.WithServerHandlingTimeHistogram(grpcprom.WithHistogramBuckets(apiBuckets)))
+)
 
 func init() {
-	grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(histogramBuckets))
+	prometheus.DefaultRegisterer.MustRegister(grpcmetrics)
 }
 
-func createAPIServer() (*regattaserver.RegattaServer, error) {
+func createAPIServer(reg func(grpc.ServiceRegistrar)) (*regattaserver.RegattaServer, error) {
 	addr, secure, net := resolveURL(viper.GetString("api.address"))
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_auth.StreamServerInterceptor(defaultAuthFunc),
-			grpc_prometheus.StreamServerInterceptor,
-		)),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_prometheus.UnaryServerInterceptor,
-			grpc_auth.UnaryServerInterceptor(defaultAuthFunc),
-		)),
+		grpc.ChainStreamInterceptor(
+			auth.StreamServerInterceptor(defaultAuthFunc),
+			grpcmetrics.StreamServerInterceptor(),
+		),
+		grpc.ChainUnaryInterceptor(
+			grpcmetrics.UnaryServerInterceptor(),
+			auth.UnaryServerInterceptor(defaultAuthFunc),
+		),
 	}
 	if secure {
 		c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
@@ -61,7 +64,10 @@ func createAPIServer() (*regattaserver.RegattaServer, error) {
 			GetCertificate: c.GetCertificate,
 		})))
 	}
-	return regattaserver.NewServer(addr, net, opts...), nil
+	server := regattaserver.NewServer(addr, net, opts...)
+	reg(server)
+	grpcmetrics.InitializeMetrics(server.Server)
+	return server, nil
 }
 
 func resolveURL(urlStr string) (addr string, secure bool, network string) {
@@ -100,7 +106,7 @@ func authFunc(token string) func(ctx context.Context) (context.Context, error) {
 		}
 	}
 	return func(ctx context.Context) (context.Context, error) {
-		t, err := grpc_auth.AuthFromMD(ctx, "bearer")
+		t, err := auth.AuthFromMD(ctx, "bearer")
 		if err != nil {
 			return ctx, err
 		}

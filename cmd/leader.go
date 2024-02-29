@@ -14,9 +14,7 @@ import (
 	"syscall"
 
 	"github.com/cockroachdb/pebble/vfs"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattapb"
@@ -27,8 +25,8 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -187,22 +185,23 @@ func leader(_ *cobra.Command, _ []string) error {
 	{
 		// Create regatta API server
 		{
-			regatta, err := createAPIServer()
+			regatta, err := createAPIServer(func(r grpc.ServiceRegistrar) {
+				regattapb.RegisterKVServer(r, &regattaserver.KVServer{
+					Storage: engine,
+				})
+				regattapb.RegisterClusterServer(r, &regattaserver.ClusterServer{
+					Cluster: engine,
+					Config:  viperConfigReader,
+				})
+				if viper.GetBool("tables.enabled") {
+					regattapb.RegisterTablesServer(r, &regattaserver.TablesServer{Tables: engine, AuthFunc: authFunc(viper.GetString("tables.token"))})
+				}
+				if viper.GetBool("maintenance.enabled") {
+					regattapb.RegisterMaintenanceServer(r, &regattaserver.BackupServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
+				}
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create API server: %w", err)
-			}
-			regattapb.RegisterKVServer(regatta, &regattaserver.KVServer{
-				Storage: engine,
-			})
-			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
-				Cluster: engine,
-				Config:  viperConfigReader,
-			})
-			if viper.GetBool("tables.enabled") {
-				regattapb.RegisterTablesServer(regatta, &regattaserver.TablesServer{Tables: engine, AuthFunc: authFunc(viper.GetString("tables.token"))})
-			}
-			if viper.GetBool("maintenance.enabled") {
-				regattapb.RegisterMaintenanceServer(regatta, &regattaserver.BackupServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
 			}
 			// Start server
 			go func() {
@@ -215,20 +214,22 @@ func leader(_ *cobra.Command, _ []string) error {
 
 		if viper.GetBool("replication.enabled") {
 			// Load replication API certificate
-			replication, err := createReplicationServer(logger.Named("server.replication"))
+			replication, err := createReplicationServer(logger.Named("server.replication"), func(r grpc.ServiceRegistrar) {
+				ls := regattaserver.NewLogServer(
+					engine,
+					engine.LogReader,
+					logger,
+					viper.GetUint64("replication.max-send-message-size-bytes"),
+				)
+				regattapb.RegisterMetadataServer(r, &regattaserver.MetadataServer{Tables: engine})
+				regattapb.RegisterSnapshotServer(r, &regattaserver.SnapshotServer{Tables: engine})
+				regattapb.RegisterKVServer(r, &regattaserver.KVServer{Storage: engine})
+				regattapb.RegisterLogServer(r, ls)
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create Replication server: %w", err)
 			}
-			ls := regattaserver.NewLogServer(
-				engine,
-				engine.LogReader,
-				logger,
-				viper.GetUint64("replication.max-send-message-size-bytes"),
-			)
-			regattapb.RegisterMetadataServer(replication, &regattaserver.MetadataServer{Tables: engine})
-			regattapb.RegisterSnapshotServer(replication, &regattaserver.SnapshotServer{Tables: engine})
-			regattapb.RegisterKVServer(replication, &regattaserver.KVServer{Storage: engine})
-			regattapb.RegisterLogServer(replication, ls)
+
 			// Start server
 			go func() {
 				if err := replication.ListenAndServe(); err != nil {
@@ -255,17 +256,18 @@ func leader(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func createReplicationServer(log *zap.Logger) (*regattaserver.RegattaServer, error) {
+func createReplicationServer(log *zap.Logger, reg func(r grpc.ServiceRegistrar)) (*regattaserver.RegattaServer, error) {
 	addr, secure, net := resolveURL(viper.GetString("replication.address"))
+	lopts := []logging.Option{logging.WithLogOnEvents(logging.FinishCall), logging.WithLevels(codeToLevel)}
 	opts := []grpc.ServerOption{
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_prometheus.StreamServerInterceptor,
-			grpc_zap.StreamServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
-		)),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_prometheus.UnaryServerInterceptor,
-			grpc_zap.UnaryServerInterceptor(log, grpc_zap.WithDecider(logDeciderFunc)),
-		)),
+		grpc.ChainStreamInterceptor(
+			grpcmetrics.StreamServerInterceptor(),
+			logging.StreamServerInterceptor(interceptorLogger(log), lopts...),
+		),
+		grpc.ChainUnaryInterceptor(
+			grpcmetrics.UnaryServerInterceptor(),
+			logging.UnaryServerInterceptor(interceptorLogger(log), lopts...),
+		),
 	}
 	if secure {
 		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
@@ -286,10 +288,59 @@ func createReplicationServer(log *zap.Logger) (*regattaserver.RegattaServer, err
 		})))
 	}
 	// Create regatta replication server
-	return regattaserver.NewServer(addr, net, opts...), nil
+	server := regattaserver.NewServer(addr, net, opts...)
+	reg(server)
+	grpcmetrics.InitializeMetrics(server.Server)
+	return server, nil
 }
 
-func logDeciderFunc(_ string, err error) bool {
-	st, _ := status.FromError(err)
-	return st != nil
+func codeToLevel(code codes.Code) logging.Level {
+	switch code {
+	case codes.OK, codes.NotFound, codes.Canceled, codes.AlreadyExists, codes.InvalidArgument, codes.Unauthenticated:
+		return logging.LevelDebug
+	case codes.DeadlineExceeded, codes.PermissionDenied, codes.ResourceExhausted, codes.FailedPrecondition, codes.Aborted,
+		codes.OutOfRange, codes.Unavailable:
+		return logging.LevelWarn
+	case codes.Unknown, codes.Unimplemented, codes.Internal, codes.DataLoss:
+		return logging.LevelError
+	default:
+		return logging.LevelError
+	}
+}
+
+func interceptorLogger(l *zap.Logger) logging.Logger {
+	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
+		f := make([]zap.Field, 0, len(fields)/2)
+
+		for i := 0; i < len(fields); i += 2 {
+			key := fields[i]
+			value := fields[i+1]
+
+			switch v := value.(type) {
+			case string:
+				f = append(f, zap.String(key.(string), v))
+			case int:
+				f = append(f, zap.Int(key.(string), v))
+			case bool:
+				f = append(f, zap.Bool(key.(string), v))
+			default:
+				f = append(f, zap.Any(key.(string), v))
+			}
+		}
+
+		logger := l.WithOptions(zap.AddCallerSkip(1)).With(f...)
+
+		switch lvl {
+		case logging.LevelDebug:
+			logger.Debug(msg)
+		case logging.LevelInfo:
+			logger.Info(msg)
+		case logging.LevelWarn:
+			logger.Warn(msg)
+		case logging.LevelError:
+			logger.Error(msg)
+		default:
+			panic(fmt.Sprintf("unknown level %v", lvl))
+		}
+	})
 }
