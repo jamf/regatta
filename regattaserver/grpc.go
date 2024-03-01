@@ -6,7 +6,6 @@ import (
 	"net"
 	"time"
 
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	_ "github.com/jamf/regatta/regattaserver/encoding/gzip"
 	_ "github.com/jamf/regatta/regattaserver/encoding/proto"
 	_ "github.com/jamf/regatta/regattaserver/encoding/snappy"
@@ -20,16 +19,18 @@ import (
 // defaultOpts default GRPC server options
 // * Allow for earlier keepalives.
 // * Allow keepalives without stream.
+// * Allow for handlers to return before shutting down.
 var defaultOpts = []grpc.ServerOption{
 	grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 30 * time.Second, PermitWithoutStream: true}),
+	grpc.WaitForHandlers(true),
 }
 
 // RegattaServer is server where gRPC services can be registered in.
 type RegattaServer struct {
-	addr       string
-	network    string
-	grpcServer *grpc.Server
-	log        *zap.SugaredLogger
+	*grpc.Server
+	addr    string
+	network string
+	log     *zap.SugaredLogger
 }
 
 // NewServer returns initialized gRPC server.
@@ -38,8 +39,8 @@ func NewServer(addr, network string, opts ...grpc.ServerOption) *RegattaServer {
 	rs.addr = addr
 	rs.network = network
 	rs.log = zap.S().Named("server")
-	rs.grpcServer = grpc.NewServer(append(defaultOpts, opts...)...)
-	reflection.Register(rs.grpcServer)
+	rs.Server = grpc.NewServer(append(defaultOpts, opts...)...)
+	reflection.Register(rs.Server)
 	return rs
 }
 
@@ -54,19 +55,13 @@ func (s *RegattaServer) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	// This should be called after all APIs were already registered
-	grpc_prometheus.Register(s.grpcServer)
-	return s.grpcServer.Serve(l)
+	return s.Server.Serve(l)
 }
 
 // Shutdown stops underlying gRPC server.
 func (s *RegattaServer) Shutdown() {
 	s.log.Infof("stopping gRPC on: %s", s.addr)
-	s.grpcServer.GracefulStop()
+	s.Server.GracefulStop()
+	s.Server.Stop()
 	s.log.Infof("stopped gRPC on: %s", s.addr)
-}
-
-// RegisterService implements grpc.ServiceRegistrar interface so internals of this type does not need to be exposed.
-func (s *RegattaServer) RegisterService(desc *grpc.ServiceDesc, impl interface{}) {
-	s.grpcServer.RegisterService(desc, impl)
 }

@@ -193,21 +193,23 @@ func follower(_ *cobra.Command, _ []string) error {
 		{
 			// Create regatta API server
 			// Create server
-			regatta, err := createAPIServer()
+			regatta, err := createAPIServer(func(r grpc.ServiceRegistrar) {
+				regattapb.RegisterKVServer(r, regattaserver.NewForwardingKVServer(engine, regattapb.NewKVClient(conn), nQueue))
+				regattapb.RegisterClusterServer(r, &regattaserver.ClusterServer{
+					Cluster: engine,
+					Config:  viperConfigReader,
+				})
+				if viper.GetBool("maintenance.enabled") {
+					regattapb.RegisterMaintenanceServer(r, &regattaserver.ResetServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
+				}
+				if viper.GetBool("tables.enabled") {
+					regattapb.RegisterTablesServer(r, &regattaserver.ReadonlyTablesServer{TablesServer: regattaserver.TablesServer{Tables: engine, AuthFunc: authFunc(viper.GetString("tables.token"))}})
+				}
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create API server: %w", err)
 			}
-			regattapb.RegisterKVServer(regatta, regattaserver.NewForwardingKVServer(engine, regattapb.NewKVClient(conn), nQueue))
-			regattapb.RegisterClusterServer(regatta, &regattaserver.ClusterServer{
-				Cluster: engine,
-				Config:  viperConfigReader,
-			})
-			if viper.GetBool("maintenance.enabled") {
-				regattapb.RegisterMaintenanceServer(regatta, &regattaserver.ResetServer{Tables: engine, AuthFunc: authFunc(viper.GetString("maintenance.token"))})
-			}
-			if viper.GetBool("tables.enabled") {
-				regattapb.RegisterTablesServer(regatta, &regattaserver.ReadonlyTablesServer{TablesServer: regattaserver.TablesServer{Tables: engine, AuthFunc: authFunc(viper.GetString("tables.token"))}})
-			}
+
 			// Start server
 			go func() {
 				if err := regatta.ListenAndServe(); err != nil {
