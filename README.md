@@ -1,4 +1,5 @@
 # Regatta
+
 [![tag](https://img.shields.io/github/tag/jamf/regatta.svg)](https://github.com/jamf/regatta/releases)
 ![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.20-%23007d9c)
 ![Build Status](https://github.com/jamf/regatta/actions/workflows/test.yml/badge.svg)
@@ -9,17 +10,25 @@
 
 ![Regatta logo](./docs/static/regatta.png "Regatta")
 
-**Regatta** is a distributed, eventually consistent key-value store built for Kubernetes.
-It is designed to distribute data globally in a *hub-and-spoke model* with an emphasis on *high read throughput*.
-It is *fault-tolerant* and able to handle network partitions and node outages gracefully.
+**Regatta** is a distributed ETCD inspired key-value store. Regatta is designed to operate eiter as a standalone node,
+standalone cluster or in Leader - Follower mode suited for distributing data in distant locations. e.g. in different
+cloud regions.
+While Regatta maintains many of ETCD features there are some notable differences:
+
+* Regatta is designed to store much larger (tens of GB) datasets and also provide iterator-like API to query large
+  datasets.
+* Regatta prioritize speed and performance over some more advanced ETCD features like Watch API, or Leases.
+* Regatta support multiple separate keyspaces called tables which operate individually.
 
 ## Production readiness
+
 * Even though Regatta has not yet reached the 1.0 milestone it is ready for a production use.
-* There might be backward incompatible changes introduced until version 1.0, those will always be flagged in the release notes.
+* There might be backward incompatible changes introduced until version 1.0, those will always be flagged in the release
+  notes.
 * Builds for tagged versions are provided in form of binaries in GH release, and Docker images.
 * Tagged releases are suggested for production use, mainline builds should be used only for testing purposes.
 
-## Why?
+## Why you should consider using Regatta?
 
 * You need to distribute data from a single cluster to multiple follower clusters in edge locations.
 * You need a local, persistent, cache within a data center and reads heavily outnumber writes.

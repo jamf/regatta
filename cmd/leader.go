@@ -4,8 +4,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,10 +13,10 @@ import (
 
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
-	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
+	"github.com/jamf/regatta/security"
 	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/spf13/cobra"
@@ -55,6 +53,7 @@ Under some circumstances, a larger message could be sent. Followers should be ab
 	leaderCmd.PersistentFlags().String("replication.cert-filename", "", "Path to the API server certificate.")
 	leaderCmd.PersistentFlags().String("replication.key-filename", "", "Path to the API server private key file.")
 	leaderCmd.PersistentFlags().String("replication.ca-filename", "", "Path to the API server CA cert file.")
+	leaderCmd.PersistentFlags().Bool("replication.client-cert-auth", false, "Replication server client certificate auth enabled. If set to true the `replication.ca-filename` should be provided as well.")
 	leaderCmd.PersistentFlags().Int("replication.log-cache-size", 0, "Size of the replication cache. Size 0 means cache is turned off.")
 }
 
@@ -185,7 +184,7 @@ func leader(_ *cobra.Command, _ []string) error {
 	{
 		// Create regatta API server
 		{
-			regatta, err := createAPIServer(func(r grpc.ServiceRegistrar) {
+			regatta, err := createAPIServer(logger.Named("server.api"), func(r grpc.ServiceRegistrar) {
 				regattapb.RegisterKVServer(r, &regattaserver.KVServer{
 					Storage: engine,
 				})
@@ -270,25 +269,23 @@ func createReplicationServer(log *zap.Logger, reg func(r grpc.ServiceRegistrar))
 		),
 	}
 	if secure {
-		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
-		if err != nil {
-			return nil, fmt.Errorf("cannot load replication certificate: %w", err)
+		ti := security.TLSInfo{
+			CertFile:        viper.GetString("replication.cert-filename"),
+			KeyFile:         viper.GetString("replication.key-filename"),
+			TrustedCAFile:   viper.GetString("replication.ca-filename"),
+			ClientCertAuth:  viper.GetBool("replication.client-cert-auth"),
+			AllowedCN:       viper.GetString("replication.allowed-cn"),
+			AllowedHostname: viper.GetString("replication.allowed-hostname"),
+			Logger:          log.Named("cert").Sugar(),
 		}
-		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
+		cfg, err := ti.ServerConfig()
 		if err != nil {
-			return nil, fmt.Errorf("cannot load clients CA: %w", err)
+			return nil, fmt.Errorf("cannot build tls config: %w", err)
 		}
-		cp := x509.NewCertPool()
-		cp.AppendCertsFromPEM(caBytes)
-		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
-			ClientAuth:     tls.RequireAndVerifyClientCert,
-			ClientCAs:      cp,
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: c.GetCertificate,
-		})))
+		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg)))
 	}
 	// Create regatta replication server
-	server := regattaserver.NewServer(addr, net, opts...)
+	server := regattaserver.NewServer(addr, net, log.Sugar(), opts...)
 	reg(server)
 	grpcmetrics.InitializeMetrics(server.Server)
 	return server, nil
