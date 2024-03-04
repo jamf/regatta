@@ -3,8 +3,6 @@
 package cmd
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,11 +12,11 @@ import (
 	"time"
 
 	"github.com/cockroachdb/pebble/vfs"
-	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication"
+	"github.com/jamf/regatta/security"
 	"github.com/jamf/regatta/storage"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
@@ -48,7 +46,9 @@ func init() {
 	followerCmd.PersistentFlags().Duration("replication.keepalive-timeout", 10*time.Second, "After having pinged for keepalive check, the replication client waits for a duration of Timeout and if no activity is seen even after that the connection is closed.")
 	followerCmd.PersistentFlags().String("replication.cert-filename", "hack/replication/client.crt", "Path to the client certificate.")
 	followerCmd.PersistentFlags().String("replication.key-filename", "hack/replication/client.key", "Path to the client private key file.")
-	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file.")
+	followerCmd.PersistentFlags().String("replication.ca-filename", "hack/replication/ca.crt", "Path to the client CA cert file. The CA file is used to verify server authority.")
+	followerCmd.PersistentFlags().Bool("replication.insecure-skip-verify", false, "InsecureSkipVerify controls whether a client verifies the server's certificate chain and host name. If InsecureSkipVerify is true, crypto/tls accepts any certificate presented by the server and any host name in that certificate.")
+	followerCmd.PersistentFlags().String("replication.server-name", "", "ServerName ensures the cert matches the given host in case of discovery/virtual hosting.")
 	followerCmd.PersistentFlags().Duration("replication.poll-interval", 1*time.Second, "Replication interval in seconds, the leader poll time.")
 	followerCmd.PersistentFlags().Duration("replication.reconcile-interval", 30*time.Second, "Replication interval of tables reconciliation (workers startup/shutdown).")
 	followerCmd.PersistentFlags().Duration("replication.lease-interval", 15*time.Second, "Interval in which the workers re-new their table leases.")
@@ -164,13 +164,13 @@ func follower(_ *cobra.Command, _ []string) error {
 	defer engine.Close()
 
 	// Replication
-	conn, err := createReplicationConn()
-	defer func() {
-		_ = conn.Close()
-	}()
+	conn, err := createReplicationConn(logger)
 	if err != nil {
 		return fmt.Errorf("cannot create replication conn: %w", err)
 	}
+	defer func() {
+		_ = conn.Close()
+	}()
 	{
 		d := replication.NewManager(engine, nQueue, conn, replication.Config{
 			ReconcileInterval: viper.GetDuration("replication.reconcile-interval"),
@@ -193,7 +193,7 @@ func follower(_ *cobra.Command, _ []string) error {
 		{
 			// Create regatta API server
 			// Create server
-			regatta, err := createAPIServer(func(r grpc.ServiceRegistrar) {
+			regatta, err := createAPIServer(logger.Named("server.api"), func(r grpc.ServiceRegistrar) {
 				regattapb.RegisterKVServer(r, regattaserver.NewForwardingKVServer(engine, regattapb.NewKVClient(conn), nQueue))
 				regattapb.RegisterClusterServer(r, &regattaserver.ClusterServer{
 					Cluster: engine,
@@ -236,26 +236,23 @@ func follower(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func createReplicationConn() (*grpc.ClientConn, error) {
+func createReplicationConn(log *zap.Logger) (*grpc.ClientConn, error) {
 	addr, secure, net := resolveURL(viper.GetString("replication.leader-address"))
 	var creds grpc.DialOption
 	if secure {
-		c, err := cert.New(viper.GetString("replication.cert-filename"), viper.GetString("replication.key-filename"))
-		if err != nil {
-			return nil, fmt.Errorf("cannot load certificate: %w", err)
+		ti := security.TLSInfo{
+			CertFile:           viper.GetString("replication.cert-filename"),
+			KeyFile:            viper.GetString("replication.key-filename"),
+			TrustedCAFile:      viper.GetString("replication.ca-filename"),
+			InsecureSkipVerify: viper.GetBool("replication.insecure-skip-verify"),
+			ServerName:         viper.GetString("replication.server-name"),
+			Logger:             log.Named("replication.cert").Sugar(),
 		}
-
-		caBytes, err := os.ReadFile(viper.GetString("replication.ca-filename"))
+		cfg, err := ti.ClientConfig()
 		if err != nil {
-			return nil, fmt.Errorf("cannot load server CA: %w", err)
+			return nil, fmt.Errorf("cannot build tls config: %w", err)
 		}
-		cp := x509.NewCertPool()
-		cp.AppendCertsFromPEM(caBytes)
-		creds = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs:              cp,
-			MinVersion:           tls.VersionTLS12,
-			GetClientCertificate: c.GetClientCertificate,
-		}))
+		creds = grpc.WithTransportCredentials(credentials.NewTLS(cfg))
 	} else {
 		creds = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}

@@ -22,10 +22,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const defaultQueryTimeout = 5 * time.Second
 const (
-	tableStoreID       = 1000
-	rateLimiterStoreID = 2000
+	defaultQueryTimeout = 5 * time.Second
+	tableStoreID        = 1000
 )
 
 func New(cfg Config) (*Engine, error) {
