@@ -256,7 +256,7 @@ func prepareLeaderAndFollowerEngine(t *testing.T) (leaderTM *storage.Engine, fol
 
 func startReplicationServer(engine *storage.Engine) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, "tcp")
+	server := regattaserver.NewServer(testNodeAddress, "tcp", zap.NewNop().Sugar())
 	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: engine})
 	regattapb.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: engine})
 	regattapb.RegisterLogServer(
