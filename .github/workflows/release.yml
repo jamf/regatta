@@ -41,7 +41,7 @@ jobs:
           && mv regatta dist/regatta  \
           && tar -czvf regatta-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz -C dist/ .
     - name: Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: regatta-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
 
