@@ -35,7 +35,7 @@ jobs:
         BUNDLE_GEMFILE: ./docs/Gemfile
     - name: Setup Pages
       id: pages
-      uses: actions/configure-pages@v4
+      uses: actions/configure-pages@v5
     - name: Build with Jekyll
       run: bundle exec jekyll build --source "./docs" --config "./docs/_config.yml" --baseurl "${{ steps.pages.outputs.base_path }}"
       env:
