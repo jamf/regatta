@@ -54,7 +54,7 @@ func NewRESTServer(addr string, readTimeout time.Duration) *RESTServer {
 			resp.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		enc := expfmt.NewEncoder(resp, expfmt.FmtText)
+		enc := expfmt.NewEncoder(resp, expfmt.NewFormat(expfmt.TypeTextPlain))
 		for _, mf := range mfs {
 			if err := enc.Encode(mf); err != nil {
 				resp.WriteHeader(http.StatusInternalServerError)
