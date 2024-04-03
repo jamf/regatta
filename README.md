@@ -1,7 +1,7 @@
 # Regatta
 
 [![tag](https://img.shields.io/github/tag/jamf/regatta.svg)](https://github.com/jamf/regatta/releases)
-![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.20-%23007d9c)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/jamf/regatta)
 ![Build Status](https://github.com/jamf/regatta/actions/workflows/test.yml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/jamf/regatta/badge.svg)](https://coveralls.io/github/jamf/regatta)
 [![Go report](https://goreportcard.com/badge/github.com/jamf/regatta)](https://goreportcard.com/report/github.com/jamf/regatta)

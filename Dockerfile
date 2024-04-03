@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:1.2
-FROM golang:1.22.0-alpine3.19 as builder
+FROM golang:1.22.1-alpine3.19 as builder
 
 RUN apk add --update --no-cache build-base tzdata \
  && addgroup -g 1000 -S regatta && adduser -u 1000 -S regatta -G regatta
@@ -17,7 +17,7 @@ FROM alpine:3.19
 
 ARG VERSION
 LABEL org.opencontainers.image.authors="Regatta Developers <regatta@jamf.com>"
-LABEL org.opencontainers.image.base.name="docker.io/library/alpine:3.18"
+LABEL org.opencontainers.image.base.name="docker.io/library/alpine:3.19"
 LABEL org.opencontainers.image.description="Regatta is a distributed key-value store. It is Kubernetes friendly with emphasis on high read throughput and low operational cost."
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/jamf/regatta"
