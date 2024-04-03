@@ -18,11 +18,6 @@ type TLSInfo struct {
 	CertFile string
 	// KeyFile is the key for the CertFile
 	KeyFile string
-	// ClientCertFile is a _client_ cert for initiating connections when ClientCertAuth is defined. If ClientCertAuth
-	// is true but this value is empty, the CertFile will be used instead.
-	ClientCertFile string
-	// ClientKeyFile is the key for the ClientCertFile.
-	ClientKeyFile string
 
 	TrustedCAFile      string
 	ClientCertAuth     bool
@@ -32,17 +27,8 @@ type TLSInfo struct {
 	ServerName string
 
 	// HandshakeFailure is optionally called when a connection fails to handshake. The
-	// connection will be closed immediately afterwards.
+	// connection will be closed immediately afterward.
 	HandshakeFailure func(*tls.Conn, error)
-
-	// CipherSuites is a list of supported cipher suites.
-	// If empty, Go auto-populates it by default.
-	// Note that cipher suites are prioritized in the given order.
-	CipherSuites []uint16
-
-	// MaxVersion is the maximum TLS version that is acceptable.
-	// If not set, the default used by Go is selected (see tls.Config.MaxVersion).
-	MaxVersion uint16
 
 	// parseFunc exists to simplify testing. Typically, parseFunc
 	// should be left nil. In that case, tls.X509KeyPair will be used.
@@ -60,12 +46,12 @@ type TLSInfo struct {
 	Logger *zap.SugaredLogger
 
 	// EmptyCN indicates that the cert must have empty CN.
-	// If true, ClientConfig() will return an error for a cert with non empty CN.
+	// If true, ClientConfig() will return an error for a cert with non-empty CN.
 	EmptyCN bool
 }
 
 func (t TLSInfo) String() string {
-	return fmt.Sprintf("cert=%s, key=%s, client-cert=%s, client-key=%s, trusted-ca=%s, client-cert-auth=%v", t.CertFile, t.KeyFile, t.ClientCertFile, t.ClientKeyFile, t.TrustedCAFile, t.ClientCertAuth)
+	return fmt.Sprintf("{CertFile: %s KeyFile: %s TrustedCAFile: %s ClientCertAuth: %v}", t.CertFile, t.KeyFile, t.TrustedCAFile, t.ClientCertAuth)
 }
 
 func (t TLSInfo) Empty() bool {
@@ -80,29 +66,13 @@ func (t TLSInfo) baseConfig() (*tls.Config, error) {
 		t.Logger = zap.NewNop().Sugar()
 	}
 
-	_, err := NewCert(t.CertFile, t.KeyFile, t.parseFunc)
-	if err != nil {
+	if _, err := NewCert(t.CertFile, t.KeyFile, t.parseFunc); err != nil {
 		return nil, err
-	}
-
-	if (t.ClientKeyFile == "") != (t.ClientCertFile == "") {
-		return nil, fmt.Errorf("ClientKeyFile and ClientCertFile must both be present or both absent: key: %v, cert: %v]", t.ClientKeyFile, t.ClientCertFile)
-	}
-	if t.ClientCertFile != "" {
-		_, err := NewCert(t.ClientCertFile, t.ClientKeyFile, t.parseFunc)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	cfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
-		MaxVersion: t.MaxVersion,
 		ServerName: t.ServerName,
-	}
-
-	if len(t.CipherSuites) > 0 {
-		cfg.CipherSuites = t.CipherSuites
 	}
 
 	// Client certificates may be verified by either an exact match on the CN,
@@ -135,8 +105,8 @@ func (t TLSInfo) baseConfig() (*tls.Config, error) {
 	}
 
 	// this only reloads certs when there's a client request
-	cfg.GetCertificate = func(clientHello *tls.ClientHelloInfo) (cert *tls.Certificate, err error) {
-		cert, err = NewCert(t.CertFile, t.KeyFile, t.parseFunc)
+	cfg.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		cert, err := NewCert(t.CertFile, t.KeyFile, t.parseFunc)
 		if err != nil {
 			if os.IsNotExist(err) {
 				t.Logger.Warnf(
@@ -152,12 +122,8 @@ func (t TLSInfo) baseConfig() (*tls.Config, error) {
 		}
 		return cert, err
 	}
-	cfg.GetClientCertificate = func(unused *tls.CertificateRequestInfo) (cert *tls.Certificate, err error) {
-		certfile, keyfile := t.CertFile, t.KeyFile
-		if t.ClientCertFile != "" {
-			certfile, keyfile = t.ClientCertFile, t.ClientKeyFile
-		}
-		cert, err = NewCert(certfile, keyfile, t.parseFunc)
+	cfg.GetClientCertificate = func(unused *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		cert, err := NewCert(t.CertFile, t.KeyFile, t.parseFunc)
 		if err != nil {
 			if os.IsNotExist(err) {
 				t.Logger.Warnf(

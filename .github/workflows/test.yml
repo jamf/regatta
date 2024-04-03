@@ -37,7 +37,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Test
       run: |
-        go test -json -cover ./... -coverprofile coverage.out -coverpkg ./cert/...,./log/...,./pebble/...,./regattaserver/...,./replication/...,./storage/...,./util/... | gotestfmt
+        go test -json -cover ./... -coverprofile coverage.out -coverpkg ./log/...,./pebble/...,./regattaserver/...,./replication/...,./storage/...,./security/...,./util/... | gotestfmt
     - name: Coverage track
       uses: coverallsapp/github-action@v2
       with:
