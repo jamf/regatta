@@ -77,27 +77,31 @@ func (t TLSInfo) baseConfig() (*tls.Config, error) {
 
 	// Client certificates may be verified by either an exact match on the CN,
 	// or a more general check of the CN and SANs.
-	var verifyCertificate func(*x509.Certificate) bool
+	var verifyCertificate func(*x509.Certificate) error
 	if t.AllowedCN != "" {
 		if t.AllowedHostname != "" {
 			return nil, fmt.Errorf("AllowedCN and AllowedHostname are mutually exclusive (cn=%q, hostname=%q)", t.AllowedCN, t.AllowedHostname)
 		}
-		verifyCertificate = func(cert *x509.Certificate) bool {
-			return t.AllowedCN == cert.Subject.CommonName
+		verifyCertificate = func(cert *x509.Certificate) error {
+			if t.AllowedCN != cert.Subject.CommonName {
+				return errors.New("client certificate CN verification failed")
+			}
+			return nil
 		}
 	}
 	if t.AllowedHostname != "" {
-		verifyCertificate = func(cert *x509.Certificate) bool {
-			return cert.VerifyHostname(t.AllowedHostname) == nil
+		verifyCertificate = func(cert *x509.Certificate) error {
+			if err := cert.VerifyHostname(t.AllowedHostname); err != nil {
+				return fmt.Errorf("client certificate hostname verification failed: %w", err)
+			}
+			return nil
 		}
 	}
 	if verifyCertificate != nil {
 		cfg.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			for _, chains := range verifiedChains {
 				if len(chains) != 0 {
-					if verifyCertificate(chains[0]) {
-						return nil
-					}
+					return verifyCertificate(chains[0])
 				}
 			}
 			return errors.New("client certificate authentication failed")
@@ -188,6 +192,10 @@ func (t TLSInfo) ServerConfig() (*tls.Config, error) {
 func (t TLSInfo) ClientConfig() (*tls.Config, error) {
 	var cfg *tls.Config
 	var err error
+
+	if t.Logger == nil {
+		t.Logger = zap.NewNop().Sugar()
+	}
 
 	if !t.Empty() {
 		cfg, err = t.baseConfig()

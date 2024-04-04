@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"math/big"
@@ -62,7 +63,7 @@ func TestTLSInfo_ServerConfig(t *testing.T) {
 		{
 			name: "basic server config",
 			creator: func() TLSInfo {
-				cert, key, _ := createValidTLSPairInDir(t.TempDir())
+				cert, key, _ := createValidTLSPairInDir(t.TempDir(), nil)
 				return TLSInfo{
 					CertFile:           cert,
 					KeyFile:            key,
@@ -79,9 +80,27 @@ func TestTLSInfo_ServerConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "no logger config",
+			creator: func() TLSInfo {
+				cert, key, _ := createValidTLSPairInDir(t.TempDir(), nil)
+				return TLSInfo{
+					CertFile:           cert,
+					KeyFile:            key,
+					InsecureSkipVerify: true,
+				}
+			},
+			assert: func(t *testing.T, cfg TLSInfo) {
+				sc, err := cfg.ServerConfig()
+				require.NoError(t, err)
+				cc, err := cfg.ClientConfig()
+				require.NoError(t, err)
+				testConnection(t, sc, cc)
+			},
+		},
+		{
 			name: "empty CN server config",
 			creator: func() TLSInfo {
-				cert, key, _ := createValidTLSPairInDir(t.TempDir())
+				cert, key, _ := createValidTLSPairInDir(t.TempDir(), nil)
 				return TLSInfo{
 					CertFile:           cert,
 					KeyFile:            key,
@@ -99,9 +118,95 @@ func TestTLSInfo_ServerConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "empty CN server config not empty certificate CN",
+			creator: func() TLSInfo {
+				cert, key, _ := createValidTLSPairInDir(t.TempDir(), &x509.Certificate{
+					SerialNumber: big.NewInt(1),
+					DNSNames:     []string{"localhost"},
+					NotBefore:    time.Now(),
+					NotAfter:     time.Now().AddDate(10, 0, 0),
+					Subject: pkix.Name{
+						CommonName: "foo",
+					},
+				})
+				return TLSInfo{
+					CertFile:           cert,
+					KeyFile:            key,
+					InsecureSkipVerify: true,
+					Logger:             zap.NewNop().Sugar(),
+					EmptyCN:            true,
+				}
+			},
+			assert: func(t *testing.T, cfg TLSInfo) {
+				_, err := cfg.ServerConfig()
+				require.NoError(t, err)
+				_, err = cfg.ClientConfig()
+				require.ErrorContains(t, err, "cert has non empty Common Name (foo)")
+			},
+		},
+		{
+			name: "allowed CN server config not empty certificate CN",
+			creator: func() TLSInfo {
+				cert, key, ca := createValidTLSPairInDir(t.TempDir(), &x509.Certificate{
+					SerialNumber: big.NewInt(1),
+					DNSNames:     []string{"localhost"},
+					NotBefore:    time.Now().AddDate(-1, 0, 0),
+					NotAfter:     time.Now().AddDate(1, 0, 0),
+					ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+					KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+					Subject: pkix.Name{
+						CommonName: "foo",
+					},
+				})
+				return TLSInfo{
+					CertFile:      cert,
+					KeyFile:       key,
+					TrustedCAFile: ca,
+					ServerName:    "localhost",
+					Logger:        zap.NewNop().Sugar(),
+					AllowedCN:     "foo",
+				}
+			},
+			assert: func(t *testing.T, cfg TLSInfo) {
+				sc, err := cfg.ServerConfig()
+				require.NoError(t, err)
+				cc, err := cfg.ClientConfig()
+				require.NoError(t, err)
+				testConnection(t, sc, cc)
+			},
+		},
+		{
+			name: "allowed hostname server config not empty certificate hostname",
+			creator: func() TLSInfo {
+				cert, key, ca := createValidTLSPairInDir(t.TempDir(), &x509.Certificate{
+					SerialNumber: big.NewInt(1),
+					DNSNames:     []string{"localhost"},
+					NotBefore:    time.Now().AddDate(-1, 0, 0),
+					NotAfter:     time.Now().AddDate(1, 0, 0),
+					ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+					KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+				})
+				return TLSInfo{
+					CertFile:        cert,
+					KeyFile:         key,
+					TrustedCAFile:   ca,
+					ServerName:      "localhost",
+					Logger:          zap.NewNop().Sugar(),
+					AllowedHostname: "localhost",
+				}
+			},
+			assert: func(t *testing.T, cfg TLSInfo) {
+				sc, err := cfg.ServerConfig()
+				require.NoError(t, err)
+				cc, err := cfg.ClientConfig()
+				require.NoError(t, err)
+				testConnection(t, sc, cc)
+			},
+		},
+		{
 			name: "mTLS config",
 			creator: func() TLSInfo {
-				cert, key, ca := createValidTLSPairInDir(t.TempDir())
+				cert, key, ca := createValidTLSPairInDir(t.TempDir(), nil)
 				return TLSInfo{
 					CertFile:           cert,
 					KeyFile:            key,
@@ -145,6 +250,16 @@ func TestTLSInfo_ServerConfig(t *testing.T) {
 				require.Error(t, err)
 			},
 		},
+		{
+			name: "empty client config",
+			creator: func() TLSInfo {
+				return TLSInfo{}
+			},
+			assert: func(t *testing.T, cfg TLSInfo) {
+				_, err := cfg.ClientConfig()
+				require.NoError(t, err)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -162,7 +277,7 @@ func testConnection(t *testing.T, sc, cc *tls.Config) {
 	l = tls.NewListener(l, sc)
 	hs := &http.Server{
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(200)
+			writer.WriteHeader(http.StatusOK)
 		}),
 		TLSConfig: sc,
 	}
@@ -170,6 +285,7 @@ func testConnection(t *testing.T, sc, cc *tls.Config) {
 	go hs.Serve(l)
 
 	d, err := net.Dial(l.Addr().Network(), l.Addr().String())
+	require.NoError(t, err)
 	conn := tls.Client(d, cc)
 	hc := &http.Client{Transport: &http.Transport{
 		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -179,15 +295,16 @@ func testConnection(t *testing.T, sc, cc *tls.Config) {
 	}}
 	r, err := hc.Get("https://localhost/")
 	require.NoError(t, err)
-	require.Equal(t, 200, r.StatusCode)
+	require.NoError(t, r.Body.Close())
+	require.Equal(t, http.StatusOK, r.StatusCode)
 }
 
-func createValidTLSPairInDir(dir string) (string, string, string) {
+func createValidTLSPairInDir(dir string, template *x509.Certificate) (string, string, string) {
 	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)
 	}
-	template := x509.Certificate{
+	caTemplate := x509.Certificate{
 		SerialNumber:          big.NewInt(1),
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
@@ -196,7 +313,7 @@ func createValidTLSPairInDir(dir string) (string, string, string) {
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
 	}
-	caDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &caKey.PublicKey, caKey)
+	caDER, err := x509.CreateCertificate(rand.Reader, &caTemplate, &caTemplate, &caKey.PublicKey, caKey)
 	if err != nil {
 		panic(err)
 	}
@@ -219,14 +336,16 @@ func createValidTLSPairInDir(dir string) (string, string, string) {
 		panic(err)
 	}
 
-	template = x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		DNSNames:     []string{"localhost"},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().AddDate(10, 0, 0),
+	if template == nil {
+		template = &x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			DNSNames:     []string{"localhost"},
+			NotBefore:    time.Now(),
+			NotAfter:     time.Now().AddDate(10, 0, 0),
+		}
 	}
 
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, ca, &key.PublicKey, caKey)
+	certDER, err := x509.CreateCertificate(rand.Reader, template, ca, &key.PublicKey, caKey)
 	if err != nil {
 		panic(err)
 	}
