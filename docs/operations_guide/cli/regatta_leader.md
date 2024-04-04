@@ -21,7 +21,7 @@ regatta leader [flags]
       --api.allowed-hostname string                            AllowedHostname is an IP address or hostname that must match the TLS certificate provided by a client.
       --api.ca-filename string                                 Path to the API server client auth CA file.
       --api.cert-filename string                               Path to the API server certificate.
-      --api.client-cert-auth api.ca-filename                   API server client certificate auth enabled. If set to true the api.ca-filename should be provided as well.
+      --api.client-cert-auth                                   API server client certificate auth enabled. If set to true the api.ca-filename should be provided as well.
       --api.key-filename string                                Path to the API server private key file.
       --dev-mode                                               Development mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                   help for leader

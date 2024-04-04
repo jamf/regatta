@@ -34,7 +34,7 @@ func init() {
 	apiFlagSet.String("api.cert-filename", "", "Path to the API server certificate.")
 	apiFlagSet.String("api.key-filename", "", "Path to the API server private key file.")
 	apiFlagSet.String("api.ca-filename", "", "Path to the API server client auth CA file.")
-	apiFlagSet.Bool("api.client-cert-auth", false, "API server client certificate auth enabled. If set to true the `api.ca-filename` should be provided as well.")
+	apiFlagSet.Bool("api.client-cert-auth", false, "API server client certificate auth enabled. If set to true the api.ca-filename should be provided as well.")
 	apiFlagSet.String("api.allowed-cn", "", "AllowedCN is a CN which must be provided by a client.")
 	apiFlagSet.String("api.allowed-hostname", "", "AllowedHostname is an IP address or hostname that must match the TLS certificate provided by a client.")
 
