@@ -119,7 +119,7 @@ func TestReaderWriter(t *testing.T) {
 	}})
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
-	conn, err := grpc.DialContext(context.Background(), "",
+	conn, err := grpc.NewClient(":0",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

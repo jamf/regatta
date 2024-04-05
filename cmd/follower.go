@@ -264,7 +264,7 @@ func createReplicationConn(log *zap.Logger) (*grpc.ClientConn, error) {
 		addr = fmt.Sprintf("dns:%s", addr)
 	}
 
-	replConn, err := grpc.Dial(addr, creds,
+	replConn, err := grpc.NewClient(addr, creds,
 		grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip")),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{

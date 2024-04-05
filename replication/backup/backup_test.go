@@ -166,7 +166,7 @@ func TestBackup_Backup(t *testing.T) {
 			}
 
 			srv := startBackupServer(e)
-			conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			path := filepath.Join(t.TempDir(), strings.ReplaceAll(tt.name, " ", "_"))
@@ -233,7 +233,7 @@ func TestBackup_Restore(t *testing.T) {
 			defer e.Close()
 
 			srv := startBackupServer(e)
-			conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			b := &Backup{
