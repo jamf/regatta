@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net/url"
@@ -16,9 +15,9 @@ import (
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
-	"github.com/jamf/regatta/cert"
 	rl "github.com/jamf/regatta/log"
 	"github.com/jamf/regatta/regattaserver"
+	"github.com/jamf/regatta/security"
 	"github.com/jamf/regatta/storage"
 	"github.com/jamf/regatta/storage/table"
 	dbl "github.com/lni/dragonboat/v4/logger"
@@ -41,7 +40,7 @@ func init() {
 	prometheus.DefaultRegisterer.MustRegister(grpcmetrics)
 }
 
-func createAPIServer(reg func(grpc.ServiceRegistrar)) (*regattaserver.RegattaServer, error) {
+func createAPIServer(log *zap.Logger, reg func(grpc.ServiceRegistrar)) (*regattaserver.RegattaServer, error) {
 	addr, secure, net := resolveURL(viper.GetString("api.address"))
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
@@ -55,16 +54,22 @@ func createAPIServer(reg func(grpc.ServiceRegistrar)) (*regattaserver.RegattaSer
 		),
 	}
 	if secure {
-		c, err := cert.New(viper.GetString("api.cert-filename"), viper.GetString("api.key-filename"))
-		if err != nil {
-			return nil, fmt.Errorf("cannot load certificate: %w", err)
+		ti := security.TLSInfo{
+			CertFile:        viper.GetString("api.cert-filename"),
+			KeyFile:         viper.GetString("api.key-filename"),
+			TrustedCAFile:   viper.GetString("api.ca-filename"),
+			ClientCertAuth:  viper.GetBool("api.client-cert-auth"),
+			AllowedCN:       viper.GetString("api.allowed-cn"),
+			AllowedHostname: viper.GetString("api.allowed-hostname"),
+			Logger:          log.Named("cert").Sugar(),
 		}
-		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: c.GetCertificate,
-		})))
+		cfg, err := ti.ServerConfig()
+		if err != nil {
+			return nil, fmt.Errorf("cannot build tls config: %w", err)
+		}
+		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg)))
 	}
-	server := regattaserver.NewServer(addr, net, opts...)
+	server := regattaserver.NewServer(addr, net, log.Sugar(), opts...)
 	reg(server)
 	grpcmetrics.InitializeMetrics(server.Server)
 	return server, nil

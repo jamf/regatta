@@ -20,6 +20,7 @@ import (
 	"github.com/jamf/regatta/storage"
 	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -341,7 +342,7 @@ func newTestEngine(t *testing.T) *storage.Engine {
 
 func startBackupServer(manager *storage.Engine) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, "tcp")
+	server := regattaserver.NewServer(testNodeAddress, "tcp", zap.NewNop().Sugar())
 	regattapb.RegisterClusterServer(server, &regattaserver.ClusterServer{Cluster: manager})
 	regattapb.RegisterMaintenanceServer(server, &regattaserver.BackupServer{AuthFunc: func(ctx context.Context) (context.Context, error) {
 		return ctx, nil

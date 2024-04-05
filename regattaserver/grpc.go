@@ -34,11 +34,11 @@ type RegattaServer struct {
 }
 
 // NewServer returns initialized gRPC server.
-func NewServer(addr, network string, opts ...grpc.ServerOption) *RegattaServer {
+func NewServer(addr, network string, logger *zap.SugaredLogger, opts ...grpc.ServerOption) *RegattaServer {
 	rs := new(RegattaServer)
 	rs.addr = addr
 	rs.network = network
-	rs.log = zap.S().Named("server")
+	rs.log = logger
 	rs.Server = grpc.NewServer(append(defaultOpts, opts...)...)
 	reflection.Register(rs.Server)
 	return rs

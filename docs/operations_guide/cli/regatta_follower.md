@@ -17,7 +17,11 @@ regatta follower [flags]
 ```
       --api.address string                                    API server address. The address the server listens on. (default "http://0.0.0.0:8443")
       --api.advertise-address string                          Advertise API server address, used for NAT traversal. (default "http://127.0.0.1:8443")
+      --api.allowed-cn string                                 AllowedCN is a CN which must be provided by a client.
+      --api.allowed-hostname string                           AllowedHostname is an IP address or hostname that must match the TLS certificate provided by a client.
+      --api.ca-filename string                                Path to the API server client auth CA file.
       --api.cert-filename string                              Path to the API server certificate.
+      --api.client-cert-auth                                  API server client certificate auth enabled. If set to true the api.ca-filename should be provided as well.
       --api.key-filename string                               Path to the API server private key file.
       --dev-mode                                              Development mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                  help for follower
@@ -70,8 +74,9 @@ regatta follower [flags]
       --raft.wal-dir string                                   WALDir is the directory used for storing the WAL of Raft entries. 
                                                               It is recommended to use low latency storage such as NVME SSD with power loss protection to store such WAL data. 
                                                               Leave WALDir to have zero value will have everything stored in NodeHostDir.
-      --replication.ca-filename string                        Path to the client CA cert file. (default "hack/replication/ca.crt")
+      --replication.ca-filename string                        Path to the client CA cert file. The CA file is used to verify server authority. (default "hack/replication/ca.crt")
       --replication.cert-filename string                      Path to the client certificate. (default "hack/replication/client.crt")
+      --replication.insecure-skip-verify                      InsecureSkipVerify controls whether a client verifies the server's certificate chain and host name. If InsecureSkipVerify is true, crypto/tls accepts any certificate presented by the server and any host name in that certificate.
       --replication.keepalive-time duration                   After a duration of this time if the replication client doesn't see any activity it pings the server to see if the transport is still alive. If set below 10s, a minimum value of 10s will be used instead. (default 1m0s)
       --replication.keepalive-timeout duration                After having pinged for keepalive check, the replication client waits for a duration of Timeout and if no activity is seen even after that the connection is closed. (default 10s)
       --replication.key-filename string                       Path to the client private key file. (default "hack/replication/client.key")
@@ -83,6 +88,7 @@ regatta follower [flags]
       --replication.max-snapshot-recv-bytes-per-second uint   Maximum bytes per second received by the snapshot API client, default value 0 means unlimited.
       --replication.poll-interval duration                    Replication interval in seconds, the leader poll time. (default 1s)
       --replication.reconcile-interval duration               Replication interval of tables reconciliation (workers startup/shutdown). (default 30s)
+      --replication.server-name string                        ServerName ensures the cert matches the given host in case of discovery/virtual hosting.
       --replication.snapshot-rpc-timeout duration             The snapshot RPC timeout. (default 1h0m0s)
       --rest.address string                                   REST API server address. (default "http://127.0.0.1:8079")
       --rest.read-timeout duration                            Maximum duration for reading the entire request. (default 5s)

@@ -16,6 +16,11 @@ nav_order: 999
 * Tables now could be managed dynamically during the runtime of the server using newly provided `regatta.v1.Tables` API.
 * Tables API could be secured by an API token using `tables.token` configuration value.
 
+### Security
+* API port now supports mTLS
+* API port mTLS can verify Hostname or CN in presented certificate.
+* Follower to Leader mTLS can now verify Hostname or CN in presented certificate.
+
 ### Improvements
 * Improve on API allocations when deserializing gRPC messages.
 * Support `zstd` API compression.
