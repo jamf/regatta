@@ -64,7 +64,7 @@ func testServer(t *testing.T, regf func(server *grpc.Server)) *grpc.ClientConn {
 	regf(srv)
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
-	conn, err := grpc.DialContext(context.Background(), "",
+	conn, err := grpc.NewClient(":0",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -124,7 +124,7 @@ func TestManager_reconcileTables(t *testing.T) {
 	defer srv.Shutdown()
 
 	t.Log("create replicator")
-	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
 	m := NewManager(followerEngine, nil, conn, Config{})

@@ -76,8 +76,7 @@ func TestRoundTrip(t *testing.T) {
 
 	grpc_testing.RegisterTestServiceServer(s, &testServer{})
 
-	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet",
+	conn, err := grpc.NewClient(":0",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return lis.Dial()
 		}),
@@ -89,7 +88,7 @@ func TestRoundTrip(t *testing.T) {
 	})
 
 	client := grpc_testing.NewTestServiceClient(conn)
-	resp, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{Payload: &grpc_testing.Payload{Body: []byte(message)}})
+	resp, err := client.UnaryCall(context.Background(), &grpc_testing.SimpleRequest{Payload: &grpc_testing.Payload{Body: []byte(message)}})
 	require.NoError(t, err)
 	require.Equal(t, message, string(resp.Payload.Body))
 }

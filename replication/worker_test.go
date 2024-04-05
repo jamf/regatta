@@ -72,7 +72,7 @@ func TestWorker_do(t *testing.T) {
 	r.NoError(fillData(keyCount, at))
 
 	t.Log("create worker")
-	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	logger, obs := observer.New(zap.DebugLevel)
 	queue := storage.NewNotificationQueue()
@@ -221,7 +221,7 @@ func TestWorker_recover(t *testing.T) {
 	r.NoError(err)
 
 	t.Log("create worker")
-	conn, err := grpc.Dial(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 	w := &worker{table: "test", workerFactory: &workerFactory{snapshotTimeout: time.Minute, engine: followerEngine, queue: storage.NewNotificationQueue(), snapshotClient: regattapb.NewSnapshotClient(conn)}, log: zaptest.NewLogger(t).Sugar()}
 

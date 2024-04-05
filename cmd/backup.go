@@ -45,7 +45,7 @@ Backup consists of file per a table in a binary compressed form and a human-read
 			MinVersion: tls.VersionTLS12,
 			RootCAs:    cp,
 		})
-		conn, err := grpc.Dial(viper.GetString("address"), grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(tokenCredentials(viper.GetString("token"))))
+		conn, err := grpc.NewClient(viper.GetString("address"), grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(tokenCredentials(viper.GetString("token"))))
 		if err != nil {
 			return err
 		}
