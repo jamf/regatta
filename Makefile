@@ -24,7 +24,7 @@ run-follower: build
 check: proto
 	@echo "Running check"
 ifeq (, $(shell which golangci-lint))
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${GOPATH}/bin v1.54.1
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${GOPATH}/bin v1.57.2
 endif
 	golangci-lint run
 
@@ -76,4 +76,3 @@ clean:
 .PHONY: serve-docs
 serve-docs:
 	BUNDLE_GEMFILE='./docs/Gemfile' bundle exec jekyll serve --source './docs' --config './docs/_config.yml'
-

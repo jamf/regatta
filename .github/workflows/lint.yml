@@ -31,9 +31,8 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v5
       with:
-        cache: false
         go-version-file: go.mod
     - name: Lint
-      uses: wandera/golangci-lint-action@v4
+      uses: wandera/golangci-lint-action@v5
       with:
-        version: v1.56
+        version: v1.57
