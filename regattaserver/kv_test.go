@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jamf/regatta/raft"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

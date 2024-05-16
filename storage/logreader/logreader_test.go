@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftio"
+	"github.com/jamf/regatta/raft/raftpb"
 	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftio"
-	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

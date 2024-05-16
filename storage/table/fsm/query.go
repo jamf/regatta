@@ -8,10 +8,10 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/jamf/regatta/util/iter"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 const maxRangeSize uint64 = (4 * 1024 * 1024) - 1024 // 4MiB - 1KiB sentinel.

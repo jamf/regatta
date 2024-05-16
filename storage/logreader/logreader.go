@@ -6,10 +6,10 @@ import (
 	"context"
 	"sync"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 )
 
 type Interface interface {

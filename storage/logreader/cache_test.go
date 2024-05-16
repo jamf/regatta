@@ -5,8 +5,8 @@ package logreader
 import (
 	"testing"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	"github.com/stretchr/testify/require"
 )
 

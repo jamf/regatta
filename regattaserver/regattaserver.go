@@ -6,11 +6,11 @@ import (
 	"context"
 	"io"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 )
 
 type KVService interface {

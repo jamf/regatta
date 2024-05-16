@@ -16,12 +16,12 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/table/fsm"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
 	"go.uber.org/zap"
 )
 

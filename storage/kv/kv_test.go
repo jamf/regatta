@@ -9,8 +9,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )

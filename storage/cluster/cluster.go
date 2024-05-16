@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/memberlist"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftio"
 	"github.com/jamf/regatta/storage/cluster/dns"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftio"
 	"go.uber.org/zap"
 )
 

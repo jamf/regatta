@@ -18,6 +18,23 @@ func NewSyncMap[K comparable, V any](defaulter func(K) V) *SyncMap[K, V] {
 	return &SyncMap[K, V]{m: make(map[K]V), defaultFunc: defaulter}
 }
 
+type SyncMapPair[K comparable, V any] struct {
+	Key K
+	Val V
+}
+
+func (s *SyncMap[K, V]) Pairs() iter.Seq[SyncMapPair[K, V]] {
+	return func(yield func(SyncMapPair[K, V]) bool) {
+		s.mtx.RLock()
+		defer s.mtx.RUnlock()
+		for k, v := range s.m {
+			if !yield(SyncMapPair[K, V]{Key: k, Val: v}) {
+				break
+			}
+		}
+	}
+}
+
 func (s *SyncMap[K, V]) Keys() iter.Seq[K] {
 	return func(yield func(K) bool) {
 		s.mtx.RLock()

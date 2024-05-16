@@ -5,7 +5,7 @@ package errors
 import (
 	"errors"
 
-	"github.com/lni/dragonboat/v4"
+	"github.com/jamf/regatta/raft"
 )
 
 // IsSafeToRetry returns true for transient errors

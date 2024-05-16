@@ -8,6 +8,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
+	"github.com/jamf/regatta/raft/plugin/tan"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/cluster"
 	"github.com/jamf/regatta/storage/kv"
@@ -15,9 +18,6 @@ import (
 	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/util/iter"
 	"github.com/jamf/regatta/version"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
-	"github.com/lni/dragonboat/v4/plugin/tan"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )

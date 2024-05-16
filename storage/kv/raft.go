@@ -10,9 +10,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
-	dbsm "github.com/lni/dragonboat/v4/statemachine"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
+	dbsm "github.com/jamf/regatta/raft/statemachine"
 )
 
 const (

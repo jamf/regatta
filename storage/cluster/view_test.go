@@ -5,7 +5,7 @@ package cluster
 import (
 	"testing"
 
-	"github.com/lni/dragonboat/v4"
+	"github.com/jamf/regatta/raft"
 	"github.com/stretchr/testify/assert"
 )
 
