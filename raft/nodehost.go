@@ -12,48 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package dragonboat is a feature complete and highly optimized multi-group Raft
-implementation for providing consensus in distributed systems.
-
-The NodeHost struct is the facade interface for all features provided by the
-dragonboat package. Each NodeHost instance usually runs on a separate server
-managing CPU, storage and network resources used for achieving consensus. Each
-NodeHost manages Raft nodes from different Raft groups known as Raft shards.
-Each Raft shard is identified by its ShardID, it usually consists of
-multiple nodes (also known as replicas) each identified by a ReplicaID value.
-Nodes from the same Raft shard suppose to be distributed on different NodeHost
-instances across the network, this brings fault tolerance for machine and
-network failures as application data stored in the Raft shard will be
-available as long as the majority of its managing NodeHost instances (i.e. its
-underlying servers) are accessible.
-
-Arbitrary number of Raft shards can be launched across the network to
-aggregate distributed processing and storage capacities. Users can also make
-membership change requests to add or remove nodes from selected Raft shard.
-
-User applications can leverage the power of the Raft protocol by implementing
-the IStateMachine or IOnDiskStateMachine component, as defined in
-github.com/jamf/regatta/raft/statemachine. Known as user state machines, each
-IStateMachine or IOnDiskStateMachine instance is in charge of updating, querying
-and snapshotting application data with minimum exposure to the Raft protocol
-itself.
-
-Dragonboat guarantees the linearizability of your I/O when interacting with the
-IStateMachine or IOnDiskStateMachine instances. In plain English, writes (via
-making proposals) to your Raft shard appears to be instantaneous, once a write
-is completed, all later reads (via linearizable read based on Raft's ReadIndex
-protocol) should return the value of that write or a later write. Once a value
-is returned by a linearizable read, all later reads should return the same value
-or the result of a later write.
-
-To strictly provide such guarantee, we need to implement the at-most-once
-semantic. For a client, when it retries the proposal that failed to complete by
-its deadline, it faces the risk of having the same proposal committed and
-applied twice into the user state machine. Dragonboat prevents this by
-implementing the client session concept described in Diego Ongaro's PhD thesis.
-*/
-package dragonboat // github.com/jamf/regatta/raft
+package raft
 
 import (
 	"context"
@@ -1874,9 +1833,6 @@ func (nh *NodeHost) handleListenerEvents() {
 }
 
 func (nh *NodeHost) sendMessage(msg pb.Message) {
-	if nh.isPartitioned() {
-		return
-	}
 	if msg.Type != pb.InstallSnapshot {
 		nh.transport.Send(msg)
 	} else {
@@ -2073,19 +2029,6 @@ func (h *messageHandler) HandleMessageBatch(msg pb.MessageBatch) (uint64, uint64
 	nh := h.nh
 	snapshotCount := uint64(0)
 	msgCount := uint64(0)
-	if nh.isPartitioned() {
-		keep := false
-		// InstallSnapshot is a in-memory local message type that will never be
-		// dropped in production as it will never be sent via networks
-		for _, req := range msg.Requests {
-			if req.Type == pb.InstallSnapshot {
-				keep = true
-			}
-		}
-		if !keep {
-			return 0, 0
-		}
-	}
 	for _, req := range msg.Requests {
 		if req.To == 0 {
 			plog.Panicf("to field not set, %s", req.Type)

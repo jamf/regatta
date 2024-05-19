@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dragonboat
+package raft
 
 // INodeHostRegistry provides APIs for querying data shared between NodeHost
 // instances via gossip.

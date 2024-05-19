@@ -167,7 +167,7 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 	if appliedIndex.Index+1 < req.LeaderIndex {
 		return server.Send(repErrLeaderBehind)
 	}
-	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
+	logRange := raft.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
 	for {
 		if dl, ok := ctx.Deadline(); ok && time.Now().After(dl) {
 			l.Log.Infof("replication passed the deadline, ending stream prematurely")
