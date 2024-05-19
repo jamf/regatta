@@ -281,10 +281,10 @@ func startReplicationServer(engine *storage.Engine) *regattaserver.RegattaServer
 }
 
 type testLogReader struct {
-	nh *dragonboat.NodeHost
+	nh *raft.NodeHost
 }
 
-func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange raft.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
 	// Empty log range should return immediately.
 	if logRange.FirstIndex == logRange.LastIndex {
 		return nil, nil

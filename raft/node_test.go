@@ -298,10 +298,6 @@ func step(nodes []*node) bool {
 					nodeUpdates = append(nodeUpdates, ud)
 					activeNodes = append(activeNodes, node)
 				}
-				// quiesce state
-				if node.qs.newQuiesceState() {
-					node.sendEnterQuiesceMessages()
-				}
 			}
 		}
 	}
@@ -520,22 +516,10 @@ func makeCheckedTestProposal(t *testing.T, session *client.Session,
 	}
 }
 
-func runRaftNodeTest(t *testing.T, quiesce bool, ordered bool,
-	tf func(t *testing.T, nodes []*node,
-		smList []*rsm.StateMachine, router *testRouter, ldb raftio.ILogDB), fs vfs.IFS) {
+func runRaftNodeTest(t *testing.T, ordered bool, tf func(t *testing.T, nodes []*node, smList []*rsm.StateMachine, router *testRouter, ldb raftio.ILogDB), fs vfs.IFS) {
 	defer leaktest.AfterTest(t)()
 	defer cleanupTestDir(fs)
 	nodes, smList, router, ldb := getTestRaftNodes(3, ordered, fs)
-	if quiesce {
-		for idx := range nodes {
-			(nodes[idx]).qs.enabled = true
-		}
-		for _, node := range nodes {
-			if node.qs.quiesced() {
-				t.Errorf("node quiesced on startup")
-			}
-		}
-	}
 	stepNodesUntilThereIsLeader(nodes, smList, router)
 	if len(nodes) != 3 {
 		t.Fatalf("failed to get 3 nodes")
@@ -590,7 +574,7 @@ func TestLastAppliedValueCanBeReturned(t *testing.T) {
 			t.Errorf("unexpected update, %+v", ud)
 		}
 	}
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestLastAppliedValueIsAlwaysOneWayIncreasing(t *testing.T) {
@@ -612,7 +596,7 @@ func TestLastAppliedValueIsAlwaysOneWayIncreasing(t *testing.T) {
 			t.Fatalf("unexpected error %v", err)
 		}
 	}
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestProposalCanBeMadeWithMessageDrops(t *testing.T) {
@@ -644,7 +628,7 @@ func TestProposalCanBeMadeWithMessageDrops(t *testing.T) {
 		closeProposalTestClient(n, nodes, smList, router, session)
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestLeaderIDCanBeQueried(t *testing.T) {
@@ -660,7 +644,7 @@ func TestLeaderIDCanBeQueried(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestMembershipCanBeLocallyRead(t *testing.T) {
@@ -686,7 +670,7 @@ func TestMembershipCanBeLocallyRead(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestConfigChangeOnWitnessWillBeRejected(t *testing.T) {
@@ -700,7 +684,7 @@ func TestConfigChangeOnWitnessWillBeRejected(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestReadOnWitnessWillBeRejected(t *testing.T) {
@@ -714,7 +698,7 @@ func TestReadOnWitnessWillBeRejected(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestMakingProposalOnWitnessNodeWillBeRejected(t *testing.T) {
@@ -729,7 +713,7 @@ func TestMakingProposalOnWitnessNodeWillBeRejected(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestProposingSessionOnWitnessNodeWillBeRejected(t *testing.T) {
@@ -743,7 +727,7 @@ func TestProposingSessionOnWitnessNodeWillBeRejected(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestRequestingSnapshotOnWitnessWillBeRejected(t *testing.T) {
@@ -757,7 +741,7 @@ func TestRequestingSnapshotOnWitnessWillBeRejected(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestProposalWithClientSessionCanBeMade(t *testing.T) {
@@ -780,7 +764,7 @@ func TestProposalWithClientSessionCanBeMade(t *testing.T) {
 		closeProposalTestClient(n, nodes, smList, router, session)
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestProposalWithNotRegisteredClientWillBeRejected(t *testing.T) {
@@ -802,7 +786,7 @@ func TestProposalWithNotRegisteredClientWillBeRejected(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestDuplicatedProposalReturnsTheSameResult(t *testing.T) {
@@ -831,7 +815,7 @@ func TestDuplicatedProposalReturnsTheSameResult(t *testing.T) {
 		closeProposalTestClient(n, nodes, smList, router, session)
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestReproposeRespondedDataWillTimeout(t *testing.T) {
@@ -876,7 +860,7 @@ func TestReproposeRespondedDataWillTimeout(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestProposalsWithIllFormedSessionAreChecked(t *testing.T) {
@@ -911,7 +895,7 @@ func TestProposalsWithIllFormedSessionAreChecked(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestProposalsWithCorruptedSessionWillPanic(t *testing.T) {
@@ -933,195 +917,7 @@ func TestProposalsWithCorruptedSessionWillPanic(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
-}
-
-func TestRaftNodeQuiesceCanBeDisabled(t *testing.T) {
-	fs := vfs.GetTestFS()
-	defer leaktest.AfterTest(t)()
-	// quiesce is disabled by default
-	defer cleanupTestDir(fs)
-	nodes, smList, router, ldb := getTestRaftNodes(3, false, fs)
-	if len(nodes) != 3 {
-		t.Fatalf("failed to get 3 nodes")
-	}
-	for _, node := range nodes {
-		if node.qs.quiesced() {
-			t.Errorf("node quiesced on startup")
-		}
-	}
-	stepNodesUntilThereIsLeader(nodes, smList, router)
-	defer stopNodes(nodes)
-	defer ldb.Close()
-	// need to step more than quiesce.threshold() as the startup
-	// config change messages are going to be recorded as activities
-	for i := uint64(0); i <= nodes[0].qs.threshold()*2; i++ {
-		singleStepNodes(nodes, smList, router)
-	}
-	for _, node := range nodes {
-		if node.qs.quiesced() {
-			t.Errorf("node is quiesced when quiesce is not enabled")
-		}
-	}
-}
-
-func TestNodesCanEnterQuiesce(t *testing.T) {
-	tf := func(t *testing.T, nodes []*node,
-		smList []*rsm.StateMachine, router *testRouter, ldb raftio.ILogDB) {
-		// need to step more than quiesce.threshold() as the startup
-		// config change messages are going to be recorded as activities
-		for i := uint64(0); i <= nodes[0].qs.threshold()*2; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if !node.qs.quiesced() {
-				t.Errorf("node failed to enter quiesced")
-			}
-		}
-		// step more, nodes should stay in quiesce state.
-		for i := uint64(0); i <= nodes[0].qs.threshold()*3; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if !node.qs.quiesced() {
-				t.Errorf("node failed to enter quiesced")
-			}
-		}
-	}
-	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, true, false, tf, fs)
-}
-
-func TestNodesCanExitQuiesceByMakingProposal(t *testing.T) {
-	tf := func(t *testing.T, nodes []*node,
-		smList []*rsm.StateMachine, router *testRouter, ldb raftio.ILogDB) {
-		// need to step more than quiesce.threshold() as the startup
-		// config change messages are going to be recorded as activities
-		for i := uint64(0); i <= nodes[0].qs.threshold()*2; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if !node.qs.quiesced() {
-				t.Errorf("node failed to enter quiesced")
-			}
-		}
-		n := nodes[0]
-		done := false
-		for i := 0; i < 5; i++ {
-			_, ok := getProposalTestClient(n, nodes, smList, router)
-			if ok {
-				done = true
-				break
-			}
-		}
-		if !done {
-			t.Errorf("failed to get proposal client -- didn't exit from quiesce?")
-		}
-		for i := uint64(0); i <= 3; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if node.qs.quiesced() {
-				t.Errorf("node failed to exit from quiesced")
-			}
-		}
-	}
-	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, true, false, tf, fs)
-}
-
-func TestNodesCanExitQuiesceByReadIndex(t *testing.T) {
-	tf := func(t *testing.T, nodes []*node,
-		smList []*rsm.StateMachine, router *testRouter, ldb raftio.ILogDB) {
-		// need to step more than quiesce.threshold() as the startup
-		// config change messages are going to be recorded as activities
-		for i := uint64(0); i <= nodes[0].qs.threshold()*2; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if !node.qs.quiesced() {
-				t.Errorf("node failed to enter quiesced")
-			}
-		}
-		n := nodes[0]
-		rs, err := n.read(10)
-		if err != nil {
-			t.Errorf("failed to read")
-		}
-		var done bool
-		for i := uint64(0); i <= 5; i++ {
-			singleStepNodes(nodes, smList, router)
-			select {
-			case <-rs.ResultC():
-				done = true
-			default:
-			}
-			if done {
-				break
-			}
-		}
-		for _, node := range nodes {
-			if node.qs.quiesced() {
-				t.Errorf("node failed to exit from quiesced")
-			}
-		}
-	}
-	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, true, false, tf, fs)
-}
-
-func TestNodesCanExitQuiesceByConfigChange(t *testing.T) {
-	tf := func(t *testing.T, nodes []*node,
-		smList []*rsm.StateMachine, router *testRouter, ldb raftio.ILogDB) {
-		// need to step more than quiesce.threshold() as the startup
-		// config change messages are going to be recorded as activities
-		for i := uint64(0); i <= nodes[0].qs.threshold()*2; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if !node.qs.quiesced() {
-				t.Errorf("node failed to enter quiesced")
-			}
-		}
-		n := nodes[0]
-		done := false
-		for i := 0; i < 5; i++ {
-			rs, err := n.requestAddNodeWithOrderID(24680, "localhost:12345", 0, 10)
-			if err != nil {
-				t.Errorf("request to add node failed, %v", err)
-			}
-			hasResp := false
-			for i := uint64(0); i < 25; i++ {
-				singleStepNodes(nodes, smList, router)
-				select {
-				case v := <-rs.ResultC():
-					if v.Completed() {
-						done = true
-					}
-					hasResp = true
-				default:
-					continue
-				}
-			}
-			if !hasResp {
-				t.Errorf("config change timeout not fired")
-				return
-			}
-			if done {
-				break
-			}
-		}
-		for i := uint64(0); i < 20; i++ {
-			singleStepNodes(nodes, smList, router)
-		}
-		for _, node := range nodes {
-			if node.qs.quiesced() {
-				t.Errorf("node failed to exit from quiesced")
-			}
-		}
-	}
-	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, true, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestLinearizableReadCanBeMade(t *testing.T) {
@@ -1151,7 +947,7 @@ func TestLinearizableReadCanBeMade(t *testing.T) {
 		mustComplete(rs, t)
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func testNodeCanBeAdded(t *testing.T, fs vfs.IFS) {
@@ -1171,7 +967,7 @@ func testNodeCanBeAdded(t *testing.T, fs vfs.IFS) {
 			}
 		}
 	}
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestNodeCanBeAddedWithMessageDrops(t *testing.T) {
@@ -1203,7 +999,7 @@ func TestNodeCanBeDeleted(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func sliceEqual(s1 []uint64, s2 []uint64) bool {
@@ -1270,7 +1066,7 @@ func TestNodeCanBeAdded2(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestNodeCanBeAddedWhenOrderIsEnforced(t *testing.T) {
@@ -1309,7 +1105,7 @@ func TestNodeCanBeAddedWhenOrderIsEnforced(t *testing.T) {
 			}
 		}
 	}
-	runRaftNodeTest(t, false, true, tf, fs)
+	runRaftNodeTest(t, true, tf, fs)
 }
 
 func TestNodeCanBeDeletedWhenOrderIsEnforced(t *testing.T) {
@@ -1348,7 +1144,7 @@ func TestNodeCanBeDeletedWhenOrderIsEnforced(t *testing.T) {
 			}
 		}
 	}
-	runRaftNodeTest(t, false, true, tf, fs)
+	runRaftNodeTest(t, true, tf, fs)
 }
 
 func getSnapshotFileCount(dir string, fs vfs.IFS) (int, error) {
@@ -1411,7 +1207,7 @@ func TestSnapshotCanBeMade(t *testing.T) {
 			}
 		}
 	}
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestSnapshotCanBeMadeTwice(t *testing.T) {
@@ -1450,7 +1246,7 @@ func TestSnapshotCanBeMadeTwice(t *testing.T) {
 		}
 	}
 	fs := vfs.GetTestFS()
-	runRaftNodeTest(t, false, false, tf, fs)
+	runRaftNodeTest(t, false, tf, fs)
 }
 
 func TestNodesCanBeRestarted(t *testing.T) {

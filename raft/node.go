@@ -108,7 +108,6 @@ type node struct {
 	logReader             *logdb.LogReader
 	snapshotter           *snapshotter
 	mq                    *server.MessageQueue
-	qs                    *quiesceState
 	raftAddress           string
 	config                config.Config
 	currentTick           uint64
@@ -192,12 +191,6 @@ func newNode(peers map[uint64]string,
 		initializedC:          make(chan struct{}),
 		ss:                    snapshotState{},
 		validateTarget:        nhConfig.GetTargetValidator(),
-		qs: &quiesceState{
-			electionTick: config.ElectionRTT * 2,
-			enabled:      config.Quiesce,
-			shardID:      config.ShardID,
-			replicaID:    config.ReplicaID,
-		},
 	}
 	ds := createSM(config.ShardID, config.ReplicaID, stopC)
 	sm := rsm.NewStateMachine(ds, snapshotter, config, rn, snapshotter.fs)
@@ -990,20 +983,6 @@ func isFreeOrderMessage(m pb.Message) bool {
 	return m.Type == pb.Replicate || m.Type == pb.Ping
 }
 
-func (n *node) sendEnterQuiesceMessages() {
-	for replicaID := range n.sm.GetMembership().Addresses {
-		if replicaID != n.replicaID {
-			msg := pb.Message{
-				Type:    pb.Quiesce,
-				From:    n.replicaID,
-				To:      replicaID,
-				ShardID: n.shardID,
-			}
-			n.sendRaftMessage(msg)
-		}
-	}
-}
-
 func (n *node) sendMessages(msgs []pb.Message) {
 	for _, msg := range msgs {
 		if !isFreeOrderMessage(msg) {
@@ -1145,9 +1124,6 @@ func (n *node) stepNode() (pb.Update, bool, error) {
 			return pb.Update{}, false, err
 		}
 		if hasEvent {
-			if n.qs.newQuiesceState() {
-				n.sendEnterQuiesceMessages()
-			}
 			ud, hasUpdate, err := n.getUpdate()
 			if err != nil {
 				return pb.Update{}, false, err
@@ -1295,7 +1271,6 @@ func (n *node) handleProposals() (bool, error) {
 
 func (n *node) handleReadIndex() (bool, error) {
 	if reqs := n.incomingReadIndexes.get(); len(reqs) > 0 {
-		n.qs.record(pb.ReadIndex)
 		ctx := n.pendingReadIndexes.nextCtx()
 		n.pendingReadIndexes.add(ctx, reqs)
 		if err := n.p.ReadIndex(ctx); err != nil {
@@ -1315,7 +1290,6 @@ func (n *node) handleConfigChange() (bool, error) {
 		if !ok {
 			n.configChangeC = nil
 		} else {
-			n.qs.record(pb.ConfigChangeEvent)
 			var cc pb.ConfigChange
 			pb.MustUnmarshal(&cc, req.data)
 			if err := n.p.ProposeConfigChange(cc, req.key); err != nil {
@@ -1336,14 +1310,6 @@ func (n *node) isBusySnapshotting() bool {
 	return snapshotting && n.sm.TaskChanBusy()
 }
 
-func (n *node) recordMessage(m pb.Message) {
-	if (m.Type == pb.Heartbeat || m.Type == pb.HeartbeatResp) && m.Hint > 0 {
-		n.qs.record(pb.ReadIndex)
-	} else {
-		n.qs.record(m.Type)
-	}
-}
-
 func (n *node) handleReceivedMessages() (bool, error) {
 	count := uint64(0)
 	busy := n.isBusySnapshotting()
@@ -1359,7 +1325,6 @@ func (n *node) handleReceivedMessages() (bool, error) {
 			return false, err
 		}
 		if !done {
-			n.recordMessage(m)
 			if err := n.p.Handle(m); err != nil {
 				return false, err
 			}
@@ -1382,8 +1347,6 @@ func (n *node) handleMessage(m pb.Message) (bool, error) {
 		if err := n.tick(m.Hint); err != nil {
 			return false, err
 		}
-	case pb.Quiesce:
-		n.qs.tryEnterQuiesce()
 	case pb.SnapshotStatus:
 		plog.Debugf("%s got ReportSnapshot from %d, rejected %t",
 			n.id(), m.From, m.Reject)
@@ -1561,15 +1524,8 @@ func (n *node) processStreamStatus() bool {
 
 func (n *node) tick(tick uint64) error {
 	n.currentTick++
-	n.qs.tick()
-	if n.qs.quiesced() {
-		if err := n.p.QuiescedTick(); err != nil {
-			return err
-		}
-	} else {
-		if err := n.p.Tick(); err != nil {
-			return err
-		}
+	if err := n.p.Tick(); err != nil {
+		return err
 	}
 	n.pendingSnapshot.tick(tick)
 	n.pendingProposals.tick(tick)
