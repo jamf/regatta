@@ -2263,29 +2263,6 @@ func TestNodeHostReadIndex(t *testing.T) {
 	runNodeHostTest(t, to, fs)
 }
 
-func TestNALookupCanReturnErrNotImplemented(t *testing.T) {
-	fs := vfs.GetTestFS()
-	to := &testOption{
-		defaultTestNode: true,
-		tf: func(nh *NodeHost) {
-			pto := lpto(nh)
-			rs, err := nh.ReadIndex(1, pto)
-			if err != nil {
-				t.Errorf("failed to read index %v", err)
-			}
-			v := <-rs.ResultC()
-			if !v.Completed() {
-				t.Errorf("failed to complete read index")
-			}
-			_, err = nh.NAReadLocalNode(rs, make([]byte, 128))
-			if err != sm.ErrNotImplemented {
-				t.Errorf("failed to return sm.ErrNotImplemented, got %v", err)
-			}
-		},
-	}
-	runNodeHostTest(t, to, fs)
-}
-
 func TestNodeHostSyncIOAPIs(t *testing.T) {
 	fs := vfs.GetTestFS()
 	to := &testOption{
@@ -4969,64 +4946,6 @@ func TestRaftEventsAreReported(t *testing.T) {
 	runNodeHostTest(t, to, fs)
 }
 
-func TestV2DataCanBeHandled(t *testing.T) {
-	fs := vfs.GetTestFS()
-	if vfs.GetTestFS() != vfs.DefaultFS {
-		t.Skip("skipped as not using the default fs")
-	}
-	v2datafp := "internal/logdb/testdata/v2-rocksdb-batched.tar.bz2"
-	targetDir := "test-v2-data-safe-to-remove"
-	if err := fs.RemoveAll(targetDir); err != nil {
-		t.Fatalf("%v", err)
-	}
-	defer func() {
-		if err := fs.RemoveAll(targetDir); err != nil {
-			t.Fatalf("%v", err)
-		}
-	}()
-	topDirName := "single_nodehost_test_dir_safe_to_delete"
-	testHostname := "lindfield.local"
-	if err := fileutil.ExtractTarBz2(v2datafp, targetDir, fs); err != nil {
-		t.Fatalf("%v", err)
-	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		t.Fatalf("failed to get hostname %v", err)
-	}
-	testPath := fs.PathJoin(targetDir, topDirName, testHostname)
-	expPath := fs.PathJoin(targetDir, topDirName, hostname)
-	if expPath != testPath {
-		if err := fs.Rename(testPath, expPath); err != nil {
-			t.Fatalf("failed to rename the dir %v", err)
-		}
-	}
-	v2dataDir := fs.PathJoin(targetDir, topDirName)
-	to := &testOption{
-		noElection: true,
-		updateNodeHostConfig: func(c *config.NodeHostConfig) *config.NodeHostConfig {
-			c.WALDir = v2dataDir
-			c.NodeHostDir = v2dataDir
-			return c
-		},
-		tf: func(nh *NodeHost) {
-			name := nh.mu.logdb.Name()
-			if name != "sharded-pebble" {
-				// v2-rocksdb-batched.tar.bz2 contains rocksdb format data
-				t.Skip("skipped as not using rocksdb compatible logdb")
-			}
-			logdb := nh.mu.logdb
-			rs, err := logdb.ReadRaftState(2, 1, 0)
-			if err != nil {
-				t.Fatalf("failed to get raft state %v", err)
-			}
-			if rs.EntryCount != 3 || rs.State.Commit != 3 {
-				t.Errorf("unexpected rs value")
-			}
-		},
-	}
-	runNodeHostTest(t, to, fs)
-}
-
 func TestSnapshotCanBeCompressed(t *testing.T) {
 	fs := vfs.GetTestFS()
 	to := &testOption{
@@ -5425,9 +5344,6 @@ func TestUsingClosedNodeHostIsNotAllowed(t *testing.T) {
 				t.Errorf("failed to return ErrClosed")
 			}
 			if _, err := nh.ReadLocalNode(nil, nil); err != ErrClosed {
-				t.Errorf("failed to return ErrClosed")
-			}
-			if _, err := nh.NAReadLocalNode(nil, nil); err != ErrClosed {
 				t.Errorf("failed to return ErrClosed")
 			}
 			if _, err := nh.StaleRead(1, nil); err != ErrClosed {

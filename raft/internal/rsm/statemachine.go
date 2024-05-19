@@ -448,20 +448,11 @@ func (s *StateMachine) ReadyToStream() bool {
 	return s.GetLastApplied() >= s.onDiskInitIndex
 }
 
-func (s *StateMachine) tryInjectTestFS() {
-	if nsm, ok := s.sm.(*NativeSM); ok {
-		if odsm, ok := nsm.sm.(*OnDiskStateMachine); ok {
-			odsm.SetTestFS(s.fs)
-		}
-	}
-}
-
 // OpenOnDiskStateMachine opens the on disk state machine.
 func (s *StateMachine) OpenOnDiskStateMachine() (uint64, error) {
 	s.mustBeOnDiskSM()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.tryInjectTestFS()
 	index, err := s.sm.Open()
 	if err != nil {
 		plog.Errorf("%s failed to open on disk SM, %v", s.id(), err)
@@ -509,27 +500,6 @@ func (s *StateMachine) concurrentLookup(query interface{}) (interface{}, error) 
 	return s.sm.ConcurrentLookup(query)
 }
 
-// NALookup queries the local state machine.
-func (s *StateMachine) NALookup(query []byte) ([]byte, error) {
-	if s.Concurrent() {
-		return s.naConcurrentLookup(query)
-	}
-	return s.nalookup(query)
-}
-
-func (s *StateMachine) nalookup(query []byte) ([]byte, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.aborted {
-		return nil, ErrShardClosed
-	}
-	return s.sm.NALookup(query)
-}
-
-func (s *StateMachine) naConcurrentLookup(query []byte) ([]byte, error) {
-	return s.sm.NAConcurrentLookup(query)
-}
-
 // GetMembership returns the membership info maintained by the state machine.
 func (s *StateMachine) GetMembership() pb.Membership {
 	s.mu.RLock()
@@ -572,13 +542,6 @@ func (s *StateMachine) Stream(sink pb.IChunkSink) error {
 // Sync synchronizes state machine's in-core state with that on disk.
 func (s *StateMachine) Sync() error {
 	return s.sync()
-}
-
-// GetHash returns the state machine hash.
-func (s *StateMachine) GetHash() (uint64, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.sm.GetHash()
 }
 
 // GetSessionHash returns the session hash.

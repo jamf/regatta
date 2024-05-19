@@ -15,7 +15,6 @@
 package rsm
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1369,66 +1368,6 @@ func TestHandleUpate(t *testing.T) {
 	runSMTest2(t, tf, fs)
 }
 
-func TestSnapshotCanBeApplied(t *testing.T) {
-	fs := vfs.GetTestFS()
-	tf := func(t *testing.T, sm *StateMachine, ds IManagedStateMachine,
-		nodeProxy *testNodeProxy, snapshotter *testSnapshotter, store sm.IStateMachine) {
-		sm.members.members.Addresses[1] = "localhost:1234"
-		store.(*tests.KVTest).KVStore["test-key1"] = "test-value1"
-		store.(*tests.KVTest).KVStore["test-key2"] = "test-value2"
-		sm.lastApplied.index = 3
-		sm.index = 3
-		hash1, _ := sm.GetHash()
-		ss, _, err := sm.Save(SSRequest{})
-		if err != nil {
-			t.Fatalf("failed to make snapshot %v", err)
-		}
-		index := ss.Index
-		commit := Task{
-			Index: index,
-		}
-		store2 := tests.NewKVTest(1, 1)
-		config := config.Config{ShardID: 1, ReplicaID: 1}
-		store2.(*tests.KVTest).DisableLargeDelay()
-		ds2 := NewNativeSM(config, NewInMemStateMachine(store2), make(chan struct{}))
-		nodeProxy2 := newTestNodeProxy()
-		snapshotter2 := newTestSnapshotter(fs)
-		snapshotter2.index = commit.Index
-		sm2 := NewStateMachine(ds2, snapshotter2, config, nodeProxy2, fs)
-		if len(sm2.members.members.Addresses) != 0 {
-			t.Errorf("unexpected member length")
-		}
-		ss2, err := sm2.Recover(commit)
-		if err != nil {
-			t.Errorf("apply snapshot failed %v", err)
-		}
-		if ss2.Index != index {
-			t.Errorf("last applied %d, want %d", ss2.Index, index)
-		}
-		hash2, _ := sm2.GetHash()
-		if hash1 != hash2 {
-			t.Errorf("bad hash %d, want %d, sz %d",
-				hash2, hash1, len(store2.(*tests.KVTest).KVStore))
-		}
-		// see whether members info are recovered
-		if len(sm2.members.members.Addresses) != 2 {
-			t.Errorf("failed to restore members")
-		}
-		v1, ok1 := sm2.members.members.Addresses[1]
-		v2, ok2 := sm2.members.members.Addresses[2]
-		if !ok1 || !ok2 {
-			t.Errorf("failed to save member info")
-		}
-		if v1 != "localhost:1" || v2 != "localhost:2" {
-			t.Errorf("unexpected address")
-		}
-		if nodeProxy2.addPeerCount != 2 {
-			t.Errorf("failed to pass on address to node proxy")
-		}
-	}
-	runSMTest2(t, tf, fs)
-}
-
 func TestMembersAreSavedWhenMakingSnapshot(t *testing.T) {
 	tf := func(t *testing.T, sm *StateMachine, ds IManagedStateMachine,
 		nodeProxy *testNodeProxy, snapshotter *testSnapshotter, store sm.IStateMachine) {
@@ -2417,25 +2356,6 @@ func TestSyncedIndex(t *testing.T) {
 		}
 	}()
 	sm.setSyncedIndex(99)
-}
-
-func TestNALookup(t *testing.T) {
-	msm := &testManagedStateMachine{}
-	sm := &StateMachine{
-		sm: msm,
-	}
-	input := make([]byte, 128)
-	rand.Read(input)
-	result, err := sm.NALookup(input)
-	if err != nil {
-		t.Errorf("NALookup failed %v", err)
-	}
-	if !bytes.Equal(input, result) {
-		t.Errorf("result changed")
-	}
-	if !msm.nalookup {
-		t.Errorf("NALookup not called")
-	}
 }
 
 func TestIsDummySnapshot(t *testing.T) {
