@@ -100,24 +100,48 @@ var (
 
 // ShardInfo is a record for representing the state of a Raft shard based
 // on the knowledge of the local NodeHost instance.
-type ShardInfo = registry.ShardInfo
+// ShardInfo is a record for representing the state of a Raft shard based
+// on the knowledge of the local NodeHost instance.
+type ShardInfo struct {
+	// Replicas is a map of member replica IDs to their Raft addresses.
+	Replicas map[uint64]string
+	// ShardID is the shard ID of the Raft shard.
+	ShardID uint64
+	// ReplicaID is the replica ID of the Raft replica.
+	ReplicaID uint64
+	// ConfigChangeIndex is the current config change index of the Raft node.
+	// ConfigChangeIndex is Raft Log index of the last applied membership
+	// change entry.
+	ConfigChangeIndex uint64
+	// StateMachineType is the type of the state machine.
+	StateMachineType sm.Type
+	// IsLeader indicates whether this is a leader node.
+	// Deprecated: Use LeaderID and Term instead.
+	IsLeader bool
+	// LeaderID is the replica ID of the current leader
+	LeaderID uint64
+	// Term is the term of the current leader
+	Term uint64
+	// IsNonVoting indicates whether this is a non-voting nonVoting node.
+	IsNonVoting bool
+	// IsWitness indicates whether this is a witness node without actual log.
+	IsWitness bool
+	// Pending is a boolean flag indicating whether details of the shard node
+	// is not available. The Pending flag is set to true usually because the node
+	// has not had anything applied yet.
+	Pending bool
+}
 
 // ShardView is a record for representing the state of a Raft shard based
 // on the knowledge of distributed NodeHost instances as shared by gossip.
-type ShardView = registry.ShardView
-
-// GossipInfo contains details of the gossip service.
-type GossipInfo struct {
-	// AdvertiseAddress is the advertise address used by the gossip service.
-	AdvertiseAddress string
-	// NumOfKnownNodeHosts is the number of current live NodeHost instances known
-	// to the gossip service. Note that the gossip service always knowns the
-	// local NodeHost instance itself. When the NumOfKnownNodeHosts value is 1,
-	// it means the gossip service doesn't know any other NodeHost instance that
-	// is considered as live.
-	NumOfKnownNodeHosts int
-	// Enabled is a boolean flag indicating whether the gossip service is enabled.
-	Enabled bool
+// ShardView is the view of a shard from gossip's point of view at a certain
+// point in time.
+type ShardView struct {
+	ShardID           uint64
+	Replicas          map[uint64]string
+	ConfigChangeIndex uint64
+	LeaderID          uint64
+	Term              uint64
 }
 
 // NodeHostInfo provides info about the NodeHost, including its managed Raft
@@ -128,8 +152,6 @@ type NodeHostInfo struct {
 	// RaftAddress is the public address of the NodeHost used for exchanging Raft
 	// messages, snapshots and other metadata with other NodeHost instances.
 	RaftAddress string
-	// Gossip contains gossip service related information.
-	Gossip GossipInfo
 	// ShardInfo is a list of all Raft shards managed by the NodeHost
 	ShardInfoList []ShardInfo
 	// LogInfo is a list of raftio.NodeInfo values representing all Raft logs
@@ -419,8 +441,8 @@ func (nh *NodeHost) ID() string {
 
 // GetNodeHostRegistry returns the NodeHostRegistry instance that can be used
 // to query NodeHost details shared between NodeHost instances by gossip.
-func (nh *NodeHost) GetNodeHostRegistry() (INodeHostRegistry, bool) {
-	return nh.registry, nh.nhConfig.DefaultNodeRegistryEnabled
+func (nh *NodeHost) GetNodeHostRegistry() INodeHostRegistry {
+	return nh.registry
 }
 
 // StartReplica adds the specified Raft replica node to the NodeHost and starts
@@ -1290,7 +1312,6 @@ func (nh *NodeHost) GetNodeHostInfo(opt NodeHostInfoOption) *NodeHostInfo {
 	nhi := &NodeHostInfo{
 		NodeHostID:    nh.ID(),
 		RaftAddress:   nh.RaftAddress(),
-		Gossip:        nh.getGossipInfo(),
 		ShardInfoList: nh.getShardInfo(),
 	}
 	nh.mu.Lock()
@@ -1306,17 +1327,6 @@ func (nh *NodeHost) GetNodeHostInfo(opt NodeHostInfoOption) *NodeHostInfo {
 		nhi.LogInfo = logInfo
 	}
 	return nhi
-}
-
-func (nh *NodeHost) getGossipInfo() GossipInfo {
-	if r, ok := nh.nodes.(*registry.GossipRegistry); ok {
-		return GossipInfo{
-			Enabled:             true,
-			AdvertiseAddress:    r.AdvertiseAddress(),
-			NumOfKnownNodeHosts: r.NumMembers(),
-		}
-	}
-	return GossipInfo{}
 }
 
 func (nh *NodeHost) propose(s *client.Session,
@@ -1676,21 +1686,7 @@ func (nh *NodeHost) createNodeRegistry() error {
 	validator := nh.nhConfig.GetTargetValidator()
 	// TODO:
 	// more tests here required
-	if nh.nhConfig.DefaultNodeRegistryEnabled {
-		// DefaultNodeRegistryEnabled should not be set if a Expert.NodeRegistryFactory
-		// is also set.
-		if nh.nhConfig.Expert.NodeRegistryFactory != nil {
-			return errors.New("DefaultNodeRegistryEnabled and Expert.NodeRegistryFactory should not both be set")
-		}
-		plog.Infof("DefaultNodeRegistryEnabled: true, use gossip based node registry")
-		r, err := registry.NewGossipRegistry(nh.ID(), nh.getShardInfo,
-			nh.nhConfig, streamConnections, validator)
-		if err != nil {
-			return err
-		}
-		nh.registry = r.GetNodeHostRegistry()
-		nh.nodes = r
-	} else if nh.nhConfig.Expert.NodeRegistryFactory != nil {
+	if nh.nhConfig.Expert.NodeRegistryFactory != nil {
 		plog.Infof("Expert.NodeRegistryFactory was set: using custom registry")
 		r, err := nh.nhConfig.Expert.NodeRegistryFactory.Create(nh.ID(), streamConnections, validator)
 		if err != nil {

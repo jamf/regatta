@@ -201,17 +201,6 @@ func TestGossipMustBeConfiguredWhenDefaultNodeRegistryEnabled(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatalf("invalid config")
 	}
-	c.DefaultNodeRegistryEnabled = true
-	if err := c.Validate(); err == nil {
-		t.Fatalf("unexpectedly considreed as valid config")
-	}
-	c.Gossip = GossipConfig{
-		BindAddress: "localhost:12345",
-		Seed:        []string{"localhost:23456"},
-	}
-	if err := c.Validate(); err != nil {
-		t.Fatalf("invalid config")
-	}
 }
 
 func TestGossipConfigIsEmtpy(t *testing.T) {

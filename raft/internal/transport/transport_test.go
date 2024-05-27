@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
-	"strconv"
+	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -51,18 +50,10 @@ const (
 	testSnapshotIndex = uint64(12345)
 )
 
-const defaultTestPort = 26001
-
 func getTestPort() int {
-	pv := os.Getenv("DRAGONBOAT_TEST_PORT")
-	if len(pv) > 0 {
-		port, err := strconv.Atoi(pv)
-		if err != nil {
-			panic(err)
-		}
-		return port
-	}
-	return defaultTestPort
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }
 
 type dummyTransportEvent struct{}

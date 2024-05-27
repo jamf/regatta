@@ -295,22 +295,6 @@ type NodeHostConfig struct {
 	// restarts. DefaultNodeRegistryEnabled should be set to true when the RaftAddress
 	// value might change after restart.
 	RaftAddress string
-	// DefaultNodeRegistryEnabled indicates that NodeHost instances should be addressed
-	// by their NodeHostID values. This feature is usually used when only dynamic
-	// addresses are available. When enabled, NodeHostID values should be used
-	// as the target parameter when calling NodeHost's StartReplica,
-	// RequestAddReplica, RequestAddNonVoting and RequestAddWitness methods.
-	//
-	// Enabling DefaultNodeRegistryEnabled also enables the internal gossip service,
-	// NodeHostConfig.Gossip must be configured to control the behaviors of the
-	// gossip service.
-	//
-	// Note that once enabled, the DefaultNodeRegistryEnabled setting can not be later
-	// disabled after restarts.
-	//
-	// Please see the godocs of the NodeHostConfig.Gossip field for a detailed
-	// example on how DefaultNodeRegistryEnabled and gossip works.
-	DefaultNodeRegistryEnabled bool
 	// ListenAddress is an optional field in the hostname:port or IP:port address
 	// form used by the transport module to listen on for Raft message and
 	// snapshots. When the ListenAddress field is not set, The transport module
@@ -376,96 +360,6 @@ type NodeHostConfig struct {
 	// commits are not notified, clients are only notified when their proposals
 	// are both committed and applied.
 	NotifyCommit bool
-	// Gossip contains configurations for the gossip service. When the
-	// DefaultNodeRegistryEnabled field is set to true, each NodeHost instance will use
-	// an internal gossip service to exchange knowledges of known NodeHost
-	// instances including their RaftAddress and NodeHostID values. This Gossip
-	// field contains configurations that controls how the gossip service works.
-	//
-	// As an detailed example on how to use the gossip service in the situation
-	// where all available machines have dynamically assigned IPs on reboot -
-	//
-	// Consider that there are three NodeHost instances on three machines, each
-	// of them has a dynamically assigned IP address which will change on reboot.
-	// NodeHostConfig.RaftAddress should be set to the current address that can be
-	// reached by remote NodeHost instance. In this example, we will assume they
-	// are
-	//
-	// 10.0.0.100:24000
-	// 10.0.0.200:24000
-	// 10.0.0.300:24000
-	//
-	// To use these machines, first enable the NodeHostConfig.DefaultNodeRegistryEnabled
-	// field and start the NodeHost instances. The NodeHostID value of each
-	// NodeHost instance can be obtained by calling NodeHost.ID(). Let's say they
-	// are
-	//
-	// "nhid-xxxxx",
-	// "nhid-yyyyy",
-	// "nhid-zzzzz".
-	//
-	// All these NodeHostID are fixed, they will never change after reboots.
-	//
-	// When starting Raft nodes or requesting new nodes to be added, use the above
-	// mentioned NodeHostID values as the target parameters (which are of the
-	// Target type). Let's say we want to start a Raft Node as a part of a three
-	// replica Raft shard, the initialMembers parameter of the StartReplica
-	// method can be set to
-	//
-	// initialMembers := map[uint64]Target {
-	// 	 1: "nhid-xxxxx",
-	//   2: "nhid-yyyyy",
-	//   3: "nhid-zzzzz",
-	// }
-	//
-	// This indicates that node 1 of the shard will be running on the NodeHost
-	// instance identified by the NodeHostID value "nhid-xxxxx", node 2 of the
-	// same shard will be running on the NodeHost instance identified by the
-	// NodeHostID value of "nhid-yyyyy" and so on.
-	//
-	// The internal gossip service exchanges NodeHost details, including their
-	// NodeHostID and RaftAddress values, with all other known NodeHost instances.
-	// Thanks to the nature of gossip, it will eventually allow each NodeHost
-	// instance to be aware of the current details of all NodeHost instances.
-	// As a result, let's say when Raft node 1 wants to send a Raft message to
-	// node 2, it first figures out that node 2 is running on the NodeHost
-	// identified by the NodeHostID value "nhid-yyyyy", RaftAddress information
-	// from the gossip service further shows that "nhid-yyyyy" maps to a machine
-	// currently reachable at 10.0.0.200:24000. Raft messages can thus be
-	// delivered.
-	//
-	// The Gossip field here is used to configure how the gossip service works.
-	// In this example, let's say we choose to use the following configurations
-	// for those three NodeHost instaces.
-	//
-	// GossipConfig {
-	//   BindAddress: "10.0.0.100:24001",
-	//   Seed: []string{10.0.0.200:24001},
-	// }
-	//
-	// GossipConfig {
-	//   BindAddress: "10.0.0.200:24001",
-	//   Seed: []string{10.0.0.300:24001},
-	// }
-	//
-	// GossipConfig {
-	//   BindAddress: "10.0.0.300:24001",
-	//   Seed: []string{10.0.0.100:24001},
-	// }
-	//
-	// For those three machines, the gossip component listens on
-	// "10.0.0.100:24001", "10.0.0.200:24001" and "10.0.0.300:24001" respectively
-	// for incoming gossip messages. The Seed field is a list of known gossip end
-	// points the local gossip service will try to talk to. The Seed field doesn't
-	// need to include all gossip end points, a few well connected nodes in the
-	// gossip network is enough.
-	//
-	// Alternatively, if you wish to use a custom registry but manage it yourself,
-	// the Expert.NodeRegistryFactory field can be set to provide a registry that
-	// implements the raftio.INodeRegistry interface. A registry is simply a common
-	// channel shared between all nodes that allows them to identify each other.
-	Gossip GossipConfig
-
 	// Expert contains options for expert users who are familiar with the internals
 	// of Dragonboat. Users are recommended not to use this field unless
 	// absolutely necessary. It is important to note that any change to this field
@@ -577,20 +471,12 @@ func (c *NodeHostConfig) Validate() error {
 	if c.LogDBFactory != nil && c.Expert.LogDBFactory != nil {
 		return errors.New("both LogDBFactory and Expert.LogDBFactory specified")
 	}
-	if c.DefaultNodeRegistryEnabled && c.Gossip.IsEmpty() {
-		return errors.New("gossip service not configured")
-	}
 	validate := c.GetRaftAddressValidator()
 	if !validate(c.RaftAddress) {
 		return errors.New("invalid NodeHost address")
 	}
 	if len(c.ListenAddress) > 0 && !validate(c.ListenAddress) {
 		return errors.New("invalid ListenAddress")
-	}
-	if !c.Gossip.IsEmpty() {
-		if err := c.Gossip.Validate(); err != nil {
-			return err
-		}
 	}
 	if !c.Expert.Engine.IsEmpty() {
 		if err := c.Expert.Engine.Validate(); err != nil {
@@ -689,7 +575,7 @@ func (c *NodeHostConfig) Prepare() error {
 
 // NodeRegistryEnabled returns a bool indicating if any node registry is enabled.
 func (c *NodeHostConfig) NodeRegistryEnabled() bool {
-	return c.DefaultNodeRegistryEnabled || c.Expert.NodeRegistryFactory != nil
+	return c.Expert.NodeRegistryFactory != nil
 }
 
 // GetListenAddress returns the actual address the transport module is going to

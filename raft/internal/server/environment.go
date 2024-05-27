@@ -417,9 +417,6 @@ func (env *Env) check(cfg config.NodeHostConfig,
 		if s.DeploymentId != 0 && s.DeploymentId != cfg.GetDeploymentID() {
 			return ErrDeploymentIDChanged
 		}
-		if s.AddressByNodeHostId != cfg.DefaultNodeRegistryEnabled {
-			return ErrDefaultNodeRegistryEnabledChanged
-		}
 		if s.BinVer != binVer {
 			if s.BinVer == raftio.LogDBBinVersion &&
 				binVer == raftio.PlainLogDBBinVersion {
@@ -449,17 +446,16 @@ func (env *Env) check(cfg config.NodeHostConfig,
 func (env *Env) createFlagFile(cfg config.NodeHostConfig,
 	dir string, ver uint32, name string) error {
 	s := raftpb.RaftDataStatus{
-		Address:             cfg.RaftAddress,
-		BinVer:              ver,
-		HardHash:            0,
-		LogdbType:           name,
-		Hostname:            env.hostname,
-		DeploymentId:        cfg.GetDeploymentID(),
-		StepWorkerCount:     cfg.Expert.Engine.ExecShards,
-		LogdbShardCount:     cfg.Expert.LogDB.Shards,
-		MaxSessionCount:     settings.Hard.LRUMaxSessionCount,
-		EntryBatchSize:      settings.Hard.LogDBEntryBatchSize,
-		AddressByNodeHostId: cfg.DefaultNodeRegistryEnabled,
+		Address:         cfg.RaftAddress,
+		BinVer:          ver,
+		HardHash:        0,
+		LogdbType:       name,
+		Hostname:        env.hostname,
+		DeploymentId:    cfg.GetDeploymentID(),
+		StepWorkerCount: cfg.Expert.Engine.ExecShards,
+		LogdbShardCount: cfg.Expert.LogDB.Shards,
+		MaxSessionCount: settings.Hard.LRUMaxSessionCount,
+		EntryBatchSize:  settings.Hard.LogDBEntryBatchSize,
 	}
 	return fileutil.CreateFlagFile(dir, flagFilename, &s, env.fs)
 }
