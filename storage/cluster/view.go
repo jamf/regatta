@@ -3,7 +3,7 @@
 package cluster
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 
 	"github.com/jamf/regatta/raft"

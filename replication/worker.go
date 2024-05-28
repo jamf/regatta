@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"strconv"
 	"strings"
@@ -218,7 +218,7 @@ type worker struct {
 func (w *worker) Start() {
 	// Sleep up to reconcile interval to prevent the thundering herd
 	// #nosec G404 -- Weak random number generator can be used because we do not care whether the result can be predicted.
-	time.Sleep(time.Duration(rand.Intn(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
+	time.Sleep(time.Duration(rand.IntN(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
 
 	w.wg.Add(1)
 	go func() {
