@@ -19,7 +19,6 @@ package pebble
 import (
 	"bytes"
 	"fmt"
-	"sync"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/lni/goutils/syncutil"
@@ -152,18 +151,11 @@ type KV struct {
 
 var _ kv.IKVStore = (*KV)(nil)
 
-var pebbleWarning sync.Once
-
 func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 	dir string, walDir string, fs vfs.IFS) (kv.IKVStore, error) {
 	if config.IsEmpty() {
 		panic("invalid LogDBConfig")
 	}
-	pebbleWarning.Do(func() {
-		if fs == vfs.MemStrictFS {
-			plog.Warningf("running in pebble memfs test mode")
-		}
-	})
 	blockSize := int(config.KVBlockSize)
 	writeBufferSize := int(config.KVWriteBufferSize)
 	maxWriteBufferNumber := int(config.KVMaxWriteBufferNumber)

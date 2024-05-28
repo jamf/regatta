@@ -35,9 +35,6 @@ type MemFS = gvfs.MemFS
 // DefaultFS is a vfs instance using underlying OS fs.
 var DefaultFS IFS = gvfs.Default
 
-// MemStrictFS is a vfs instance using memfs.
-var MemStrictFS IFS = gvfs.NewStrictMem()
-
 // File is the file interface returned by IFS.
 type File = gvfs.File
 

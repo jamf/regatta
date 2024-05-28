@@ -53,13 +53,11 @@ import (
 	"github.com/lni/goutils/syncutil"
 
 	"github.com/jamf/regatta/raft/config"
-	"github.com/jamf/regatta/raft/internal/invariants"
 	"github.com/jamf/regatta/raft/internal/registry"
 	"github.com/jamf/regatta/raft/internal/server"
 	"github.com/jamf/regatta/raft/internal/settings"
 	"github.com/jamf/regatta/raft/internal/vfs"
 	"github.com/jamf/regatta/raft/logger"
-	ct "github.com/jamf/regatta/raft/plugin/chan"
 	"github.com/jamf/regatta/raft/raftio"
 	pb "github.com/jamf/regatta/raft/raftpb"
 )
@@ -541,8 +539,6 @@ func create(nhConfig config.NodeHostConfig,
 	var tm config.TransportFactory
 	if nhConfig.Expert.TransportFactory != nil {
 		tm = nhConfig.Expert.TransportFactory
-	} else if invariants.MemfsTest {
-		tm = &ct.ChanTransportFactory{}
 	} else {
 		tm = &DefaultTransportFactory{}
 	}

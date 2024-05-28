@@ -18,7 +18,6 @@ import (
 	"context"
 	"math"
 	"reflect"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,7 +29,6 @@ import (
 	"github.com/jamf/regatta/raft/client"
 	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/raft/internal/id"
-	"github.com/jamf/regatta/raft/internal/invariants"
 	"github.com/jamf/regatta/raft/internal/logdb"
 	"github.com/jamf/regatta/raft/internal/registry"
 	"github.com/jamf/regatta/raft/internal/rsm"
@@ -259,7 +257,6 @@ type NodeHost struct {
 		raft        raftio.IRaftEventListener
 		sys         *sysEventListener
 	}
-	registry     INodeHostRegistry
 	nodes        raftio.INodeRegistry
 	fs           vfs.IFS
 	transport    transport.ITransport
@@ -283,7 +280,6 @@ var firstError = utils.FirstError
 // NewNodeHost creates a new NodeHost instance. In a typical application, it is
 // expected to have one NodeHost on each server.
 func NewNodeHost(nhConfig config.NodeHostConfig) (*NodeHost, error) {
-	logBuildTagsAndVersion()
 	if err := nhConfig.Validate(); err != nil {
 		return nil, err
 	}
@@ -437,12 +433,6 @@ func (nh *NodeHost) RaftAddress() string {
 // RequestAddWitness methods.
 func (nh *NodeHost) ID() string {
 	return nh.id.String()
-}
-
-// GetNodeHostRegistry returns the NodeHostRegistry instance that can be used
-// to query NodeHost details shared between NodeHost instances by gossip.
-func (nh *NodeHost) GetNodeHostRegistry() INodeHostRegistry {
-	return nh.registry
 }
 
 // StartReplica adds the specified Raft replica node to the NodeHost and starts
@@ -2079,21 +2069,6 @@ func (h *messageHandler) HandleSnapshot(shardID uint64,
 		ReplicaID: replicaID,
 		From:      from,
 	})
-}
-
-func logBuildTagsAndVersion() {
-	devstr := "Rel"
-	if DEVVersion {
-		devstr = "Dev"
-	}
-	plog.Infof("go version: %s, %s/%s",
-		runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	plog.Infof("dragonboat version: %d.%d.%d (%s)",
-		DragonboatMajor, DragonboatMinor, DragonboatPatch, devstr)
-	if !invariants.IsSupportedOS() || !invariants.IsSupportedArch() {
-		plog.Warningf("unsupported OS/ARCH %s/%s, don't use for production",
-			runtime.GOOS, runtime.GOARCH)
-	}
 }
 
 func panicNow(err error) {

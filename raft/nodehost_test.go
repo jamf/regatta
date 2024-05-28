@@ -52,7 +52,6 @@ import (
 	"github.com/jamf/regatta/raft/internal/tests"
 	"github.com/jamf/regatta/raft/internal/transport"
 	"github.com/jamf/regatta/raft/internal/vfs"
-	chantrans "github.com/jamf/regatta/raft/plugin/chan"
 	"github.com/jamf/regatta/raft/raftio"
 	pb "github.com/jamf/regatta/raft/raftpb"
 	sm "github.com/jamf/regatta/raft/statemachine"
@@ -778,18 +777,6 @@ func TestAddressValidatorCanBeSet(t *testing.T) {
 		},
 	}
 	runNodeHostTest(t, to, fs)
-}
-
-type chanTransportFactory struct{}
-
-func (*chanTransportFactory) Create(nhConfig config.NodeHostConfig,
-	handler raftio.MessageHandler,
-	chunkHandler raftio.ChunkHandler) raftio.ITransport {
-	return chantrans.NewChanTransport(nhConfig, handler, chunkHandler)
-}
-
-func (tm *chanTransportFactory) Validate(addr string) bool {
-	return addr == nodeHostTestAddr1 || addr == nodeHostTestAddr2
 }
 
 type testRegistry struct {
