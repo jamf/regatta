@@ -15,9 +15,7 @@
 package fileutil
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/bzip2"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -237,7 +235,7 @@ func GetFlagFileContent(dir string,
 	defer func() {
 		err = firstError(err, ws(f.Close()))
 	}()
-	data, err := ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return ws(err)
 	}
@@ -271,53 +269,6 @@ func HasFlagFile(dir string, filename string, fs vfs.IFS) bool {
 // RemoveFlagFile removes the specified flag file.
 func RemoveFlagFile(dir string, filename string, fs vfs.IFS) error {
 	return fs.Remove(fs.PathJoin(dir, filename))
-}
-
-// ExtractTarBz2 extracts files and directories from the specified tar.bz2 file
-// to the specified target directory.
-func ExtractTarBz2(bz2fn string, toDir string, fs vfs.IFS) (err error) {
-	f, err := fs.Open(bz2fn)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = firstError(err, f.Close())
-	}()
-	ts := bzip2.NewReader(f)
-	tarReader := tar.NewReader(ts)
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		switch header.Typeflag {
-		case tar.TypeDir:
-			target := fs.PathJoin(toDir, header.Name)
-			if err := fs.MkdirAll(target, defaultDirFileMode); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := func() error {
-				fp := fs.PathJoin(toDir, header.Name)
-				nf, err := fs.Create(fp)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					err = firstError(err, nf.Close())
-				}()
-				_, err = io.Copy(nf, tarReader)
-				return err
-			}(); err != nil {
-				return err
-			}
-		default:
-			panic("unknown type")
-		}
-	}
 }
 
 // TempFile and the following rand functions are derived from the golang source

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/jamf/regatta/raft/config"
-	"github.com/jamf/regatta/raft/internal/fileutil"
 	pb "github.com/jamf/regatta/raft/raftpb"
 	sm "github.com/jamf/regatta/raft/statemachine"
 )
@@ -32,7 +31,7 @@ func init() {
 
 func TestCountedWriteCanReportTotalWritten(t *testing.T) {
 	cw := countedWriter{
-		w: fileutil.Discard,
+		w: io.Discard,
 	}
 	total := uint64(0)
 	for i := 0; i < 16; i++ {

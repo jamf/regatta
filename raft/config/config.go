@@ -20,17 +20,13 @@ package config
 
 import (
 	"crypto/tls"
-	"net"
 	"path/filepath"
 	"reflect"
-	"strconv"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lni/goutils/netutil"
 	"github.com/lni/goutils/stringutil"
 
-	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/id"
 	"github.com/jamf/regatta/raft/internal/settings"
 	"github.com/jamf/regatta/raft/internal/vfs"
@@ -176,11 +172,6 @@ type Config struct {
 	// existing ndoes without impacting the availability. Extra non-voting nodes
 	// can also be introduced to serve read-only requests.
 	IsNonVoting bool
-	// IsObserver indicates whether this is a non-voting Raft node without voting
-	// power.
-	//
-	// Deprecated: use IsNonVoting instead.
-	IsObserver bool
 	// IsWitness indicates whether this is a witness Raft node without actual log
 	// replication and do not have state machine. It is mentioned in the section
 	// 11.7.2 of Diego Ongaro's thesis.
@@ -230,9 +221,6 @@ func (c *Config) Validate() error {
 	}
 	if c.IsWitness && c.SnapshotEntries > 0 {
 		return errors.New("witness node can not take snapshot")
-	}
-	if c.IsObserver {
-		c.IsNonVoting = true
 	}
 	if c.IsWitness && c.IsNonVoting {
 		return errors.New("witness node can not be a non-voting node")
@@ -318,18 +306,6 @@ type NodeHostConfig struct {
 	// KeyFile is the path of the node key file. This field is ignored when
 	// MutualTLS is false.
 	KeyFile string
-	// LogDBFactory is the factory function used for creating the Log DB instance
-	// used by NodeHost. The default zero value causes the default built-in RocksDB
-	// based Log DB implementation to be used.
-	//
-	// Deprecated: Use NodeHostConfig.Expert.LogDBFactory instead.
-	LogDBFactory LogDBFactoryFunc
-	// RaftRPCFactory is the factory function used for creating the transport
-	// instance for exchanging Raft message between NodeHost instances. The default
-	// zero value causes the built-in TCP based transport to be used.
-	//
-	// Deprecated: Use NodeHostConfig.Expert.TransportFactory instead.
-	RaftRPCFactory RaftRPCFactoryFunc
 	// EnableMetrics determines whether health metrics in Prometheus format should
 	// be enabled.
 	EnableMetrics bool
@@ -417,20 +393,6 @@ type LogDBInfo struct {
 // be notified for the status change of the LogDB.
 type LogDBCallback func(LogDBInfo)
 
-// RaftRPCFactoryFunc is the factory function that creates the transport module
-// instance for exchanging Raft messages between NodeHosts.
-//
-// Deprecated: Use TransportFactory instead.
-type RaftRPCFactoryFunc func(NodeHostConfig,
-	raftio.MessageHandler, raftio.ChunkHandler) raftio.ITransport
-
-// LogDBFactoryFunc is the factory function that creates NodeHost's persistent
-// storage module known as Log DB.
-//
-// Deprecated: Use LogDBFactory instead.
-type LogDBFactoryFunc func(NodeHostConfig,
-	LogDBCallback, []string, []string) (raftio.ILogDB, error)
-
 // Validate validates the NodeHostConfig instance and return an error when
 // the configuration is considered as invalid.
 func (c *NodeHostConfig) Validate() error {
@@ -465,12 +427,6 @@ func (c *NodeHostConfig) Validate() error {
 		c.MaxReceiveQueueSize < settings.EntryNonCmdFieldsSize+1 {
 		return errors.New("MaxReceiveSize value is too small")
 	}
-	if c.RaftRPCFactory != nil && c.Expert.TransportFactory != nil {
-		return errors.New("both TransportFactory and RaftRPCFactory specified")
-	}
-	if c.LogDBFactory != nil && c.Expert.LogDBFactory != nil {
-		return errors.New("both LogDBFactory and Expert.LogDBFactory specified")
-	}
 	validate := c.GetRaftAddressValidator()
 	if !validate(c.RaftAddress) {
 		return errors.New("invalid NodeHost address")
@@ -484,58 +440,6 @@ func (c *NodeHostConfig) Validate() error {
 		}
 	}
 	return nil
-}
-
-type defaultTransport struct {
-	factory RaftRPCFactoryFunc
-}
-
-func (tm *defaultTransport) Create(nhConfig NodeHostConfig,
-	handler raftio.MessageHandler,
-	chunkHandler raftio.ChunkHandler) raftio.ITransport {
-	return tm.factory(nhConfig, handler, chunkHandler)
-}
-
-func (tm *defaultTransport) Validate(addr string) bool {
-	return stringutil.IsValidAddress(addr)
-}
-
-type defaultLogDB struct {
-	factory LogDBFactoryFunc
-}
-
-func (l *defaultLogDB) Create(nhConfig NodeHostConfig,
-	cb LogDBCallback, dirs []string, wals []string) (raftio.ILogDB, error) {
-	return l.factory(nhConfig, cb, dirs, wals)
-}
-
-func (l *defaultLogDB) Name() string {
-	fs := vfs.DefaultFS
-	dir, err := fileutil.TempDir("", "dragonboat-logdb-test", fs)
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := fs.RemoveAll(dir); err != nil {
-			panic(err)
-		}
-	}()
-	nhc := NodeHostConfig{
-		Expert: ExpertConfig{
-			LogDB: GetDefaultLogDBConfig(),
-			FS:    fs,
-		},
-	}
-	ldb, err := l.factory(nhc, nil, []string{dir}, []string{})
-	if err != nil {
-		plog.Panicf("failed to create ldb, %v", err)
-	}
-	defer func() {
-		if err := ldb.Close(); err != nil {
-			panic(err)
-		}
-	}()
-	return ldb.Name()
 }
 
 // Prepare sets the default value for NodeHostConfig.
@@ -561,14 +465,6 @@ func (c *NodeHostConfig) Prepare() error {
 	if c.Expert.LogDB.IsEmpty() {
 		plog.Infof("using default LogDBConfig")
 		c.Expert.LogDB = GetDefaultLogDBConfig()
-	}
-	if c.RaftRPCFactory != nil && c.Expert.TransportFactory == nil {
-		c.Expert.TransportFactory = &defaultTransport{factory: c.RaftRPCFactory}
-		c.RaftRPCFactory = nil
-	}
-	if c.LogDBFactory != nil && c.Expert.LogDBFactory == nil {
-		c.Expert.LogDBFactory = &defaultLogDB{factory: c.LogDBFactory}
-		c.LogDBFactory = nil
 	}
 	return nil
 }
@@ -840,95 +736,7 @@ type ExpertConfig struct {
 	LogDB LogDBConfig
 	// FS is the filesystem instance used in tests.
 	FS IFS
-	// TestGossipProbeInterval defines the probe interval used by the gossip
-	// service in tests.
-	TestGossipProbeInterval time.Duration
 	// NodeRegistryFactory defines a custom node registry function that can be used
-	// instead of a static registry or the built in memberlist gossip mechanism.
+	// instead of a static registry.
 	NodeRegistryFactory NodeRegistryFactory
-}
-
-// GossipConfig contains configurations for the gossip service. Gossip service
-// is a fully distributed networked service for exchanging knowledge on
-// NodeHost instances. When enabled by the NodeHostConfig.DefaultNodeRegistryEnabled
-// field, it is employed to manage NodeHostID to RaftAddress mappings of known
-// NodeHost instances.
-type GossipConfig struct {
-	// BindAddress is the address for the gossip service to bind to and listen on.
-	// Both UDP and TCP ports are used by the gossip service. The local gossip
-	// service should be able to receive gossip service related messages by
-	// binding to and listening on this address. BindAddress is usually in the
-	// format of IP:Port, Hostname:Port or DNS Name:Port.
-	BindAddress string
-	// AdvertiseAddress is the address to advertise to other NodeHost instances
-	// used for NAT traversal. Gossip services running on remote NodeHost
-	// instances will use AdvertiseAddress to exchange gossip service related
-	// messages. AdvertiseAddress is in the format of IP:Port.
-	AdvertiseAddress string
-	// Seed is a list of AdvertiseAddress of remote NodeHost instances. Local
-	// NodeHost instance will try to contact all of them to bootstrap the gossip
-	// service. At least one reachable NodeHost instance is required to
-	// successfully bootstrap the gossip service. Each seed address is in the
-	// format of IP:Port, Hostname:Port or DNS Name:Port.
-	//
-	// It is ok to include seed addresses that are temporarily unreachable, e.g.
-	// when launching the first NodeHost instance in your deployment, you can
-	// include AdvertiseAddresses from other NodeHost instances that you plan to
-	// launch shortly afterwards.
-	Seed []string
-	// Meta is the extra metadata to be included in gossip node's Meta field. It
-	// will be propagated to all other NodeHost instances via gossip.
-	Meta []byte
-}
-
-// IsEmpty returns a boolean flag indicating whether the GossipConfig instance
-// is empty.
-func (g *GossipConfig) IsEmpty() bool {
-	return len(g.BindAddress) == 0 &&
-		len(g.AdvertiseAddress) == 0 && len(g.Seed) == 0
-}
-
-// Validate validates the GossipConfig instance.
-func (g *GossipConfig) Validate() error {
-	if len(g.BindAddress) > 0 && !stringutil.IsValidAddress(g.BindAddress) {
-		return errors.New("invalid GossipConfig.BindAddress")
-	} else if len(g.BindAddress) == 0 {
-		return errors.New("BindAddress not set")
-	}
-	if len(g.AdvertiseAddress) > 0 && !isValidAdvertiseAddress(g.AdvertiseAddress) {
-		return errors.New("invalid GossipConfig.AdvertiseAddress")
-	}
-	if len(g.Seed) == 0 {
-		return errors.New("seed nodes not set")
-	}
-	count := 0
-	for _, v := range g.Seed {
-		if v != g.BindAddress && v != g.AdvertiseAddress {
-			count++
-		}
-		if !stringutil.IsValidAddress(v) {
-			return errors.New("invalid GossipConfig.Seed value")
-		}
-	}
-	if count == 0 {
-		return errors.New("no valid seed node")
-	}
-	return nil
-}
-
-func isValidAdvertiseAddress(addr string) bool {
-	host, sp, err := net.SplitHostPort(addr)
-	if err != nil {
-		return false
-	}
-	port, err := strconv.ParseUint(sp, 10, 16)
-	if err != nil {
-		return false
-	}
-	if port > 65535 {
-		return false
-	}
-	// the memberlist package doesn't allow hostname or DNS name to be used in
-	// advertise address
-	return stringutil.IPV4Regex.MatchString(host)
 }

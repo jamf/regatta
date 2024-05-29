@@ -34,7 +34,6 @@ import (
 	"testing"
 
 	"github.com/jamf/regatta/raft/config"
-	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/server"
 	pb "github.com/jamf/regatta/raft/raftpb"
 )
@@ -75,7 +74,7 @@ func diffu(a, b string) string {
 }
 
 func mustTemp(pre, body string) string {
-	f, err := fileutil.CreateTemp("", pre)
+	f, err := os.CreateTemp("", pre)
 	if err != nil {
 		panic(err)
 	}

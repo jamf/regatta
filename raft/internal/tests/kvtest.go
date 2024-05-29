@@ -33,7 +33,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/tests/kvpb"
 	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/lni/goutils/random"
@@ -195,7 +194,7 @@ func checkExternalFile(files []sm.SnapshotFile, shardID uint64) {
 		panic("FileID value not expected")
 	}
 	wcontent := string(fr.Metadata)
-	content, err := fileutil.ReadFile(fr.Filepath)
+	content, err := os.ReadFile(fr.Filepath)
 	if err != nil {
 		panic(err)
 	}
@@ -272,7 +271,7 @@ func (s *KVTest) RecoverFromSnapshot(r io.Reader,
 	}
 
 	var store KVTest
-	data, err := fileutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}

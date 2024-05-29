@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jamf/regatta/raft/internal/fileutil"
 	sm "github.com/jamf/regatta/raft/statemachine"
 )
 
@@ -80,7 +79,7 @@ func (n *NoOP) RecoverFromSnapshot(r io.Reader,
 	files []sm.SnapshotFile,
 	done <-chan struct{}) error {
 	var sn NoOP
-	data, err := fileutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}

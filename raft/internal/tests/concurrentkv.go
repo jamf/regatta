@@ -26,7 +26,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/tests/kvpb"
 	sm "github.com/jamf/regatta/raft/statemachine"
 )
@@ -183,7 +182,7 @@ func (s *ConcurrentKVTest) RecoverFromSnapshot(r io.Reader,
 	}
 	kvdata := &kvdata{}
 	jsondata := &KVJson{}
-	data, err := fileutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
