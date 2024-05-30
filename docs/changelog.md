@@ -7,6 +7,13 @@ nav_order: 999
 # Changelog
 ## v0.5.1 (unreleased)
 
+### Improvements
+* API server will now by default use fixed number of pre-created worker go routines for stream handling. The behaviour could be overridden by setting `api.stream-workers` config value.
+
+### Security
+* API server max number of concurrent connections can be set by `api.max-concurrent-connections` config value.
+* API server max number of concurrent streams can be set by `api.max-concurrent-streams` config value.
+
 ### Bugfixes
 * Fix storage compaction metrics.
 

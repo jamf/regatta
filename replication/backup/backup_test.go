@@ -166,7 +166,7 @@ func TestBackup_Backup(t *testing.T) {
 			}
 
 			srv := startBackupServer(e)
-			conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(srv.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			path := filepath.Join(t.TempDir(), strings.ReplaceAll(tt.name, " ", "_"))
@@ -233,7 +233,7 @@ func TestBackup_Restore(t *testing.T) {
 			defer e.Close()
 
 			srv := startBackupServer(e)
-			conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(srv.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			r.NoError(err)
 
 			b := &Backup{
@@ -342,13 +342,14 @@ func newTestEngine(t *testing.T) *storage.Engine {
 
 func startBackupServer(manager *storage.Engine) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, "tcp", zap.NewNop().Sugar())
+	l, _ := net.Listen("tcp", testNodeAddress)
+	server := regattaserver.NewServer(l, zap.NewNop().Sugar())
 	regattapb.RegisterClusterServer(server, &regattaserver.ClusterServer{Cluster: manager})
 	regattapb.RegisterMaintenanceServer(server, &regattaserver.BackupServer{AuthFunc: func(ctx context.Context) (context.Context, error) {
 		return ctx, nil
 	}, Tables: manager})
 	go func() {
-		err := server.ListenAndServe()
+		err := server.Serve()
 		if err != nil {
 			panic(err)
 		}

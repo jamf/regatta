@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"runtime"
 	"slices"
@@ -24,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -41,7 +43,7 @@ func init() {
 }
 
 func createAPIServer(log *zap.Logger, reg func(grpc.ServiceRegistrar)) (*regattaserver.RegattaServer, error) {
-	addr, secure, net := resolveURL(viper.GetString("api.address"))
+	addr, secure, nw := resolveURL(viper.GetString("api.address"))
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 60 * time.Second}),
 		grpc.ChainStreamInterceptor(
@@ -49,9 +51,16 @@ func createAPIServer(log *zap.Logger, reg func(grpc.ServiceRegistrar)) (*regatta
 			grpcmetrics.StreamServerInterceptor(),
 		),
 		grpc.ChainUnaryInterceptor(
-			grpcmetrics.UnaryServerInterceptor(),
 			auth.UnaryServerInterceptor(defaultAuthFunc),
+			grpcmetrics.UnaryServerInterceptor(),
 		),
+		grpc.MaxConcurrentStreams(viper.GetUint32("api.max-concurrent-streams")),
+	}
+	workers := viper.GetInt("api.stream-workers")
+	if workers > 0 {
+		opts = append(opts, grpc.NumStreamWorkers(uint32(workers)))
+	} else if workers == 0 {
+		opts = append(opts, grpc.NumStreamWorkers(uint32(runtime.NumCPU()+1)))
 	}
 	if secure {
 		ti := security.TLSInfo{
@@ -69,7 +78,14 @@ func createAPIServer(log *zap.Logger, reg func(grpc.ServiceRegistrar)) (*regatta
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg)))
 	}
-	server := regattaserver.NewServer(addr, net, log.Sugar(), opts...)
+	l, err := net.Listen(nw, addr)
+	if err != nil {
+		return nil, err
+	}
+	if limit := viper.GetUint32("api.max-concurrent-connections"); limit > 0 {
+		l = netutil.LimitListener(l, int(limit))
+	}
+	server := regattaserver.NewServer(l, log.Sugar(), opts...)
 	reg(server)
 	grpcmetrics.InitializeMetrics(server.Server)
 	return server, nil

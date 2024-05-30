@@ -37,6 +37,9 @@ func init() {
 	apiFlagSet.Bool("api.client-cert-auth", false, "API server client certificate auth enabled. If set to true the api.ca-filename should be provided as well.")
 	apiFlagSet.String("api.allowed-cn", "", "AllowedCN is a CN which must be provided by a client.")
 	apiFlagSet.String("api.allowed-hostname", "", "AllowedHostname is an IP address or hostname that must match the TLS certificate provided by a client.")
+	apiFlagSet.Uint32("api.max-concurrent-connections", 0, "Maximum number of allowed concurrent client connections. Default of 0 means no limit.")
+	apiFlagSet.Uint32("api.max-concurrent-streams", 0, "Maximum number of concurrent streams open. Default of 0 means no limit.")
+	apiFlagSet.Int("api.stream-workers", 0, "Number of workers to use to process incoming streams. These workers are pre-started and should reduce an overhead of stack allocation as well as prevent potential overload of a storage layer. Default of 0 means number of CPUs + 1, any negative number will result in unlimited workers.")
 
 	// REST API flags
 	restFlagSet.String("rest.address", "http://127.0.0.1:8079", "REST API server address.")

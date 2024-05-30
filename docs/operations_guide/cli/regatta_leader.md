@@ -23,6 +23,9 @@ regatta leader [flags]
       --api.cert-filename string                               Path to the API server certificate.
       --api.client-cert-auth                                   API server client certificate auth enabled. If set to true the api.ca-filename should be provided as well.
       --api.key-filename string                                Path to the API server private key file.
+      --api.max-concurrent-connections uint32                  Maximum number of allowed concurrent client connections. Default of 0 means no limit.
+      --api.max-concurrent-streams uint32                      Maximum number of concurrent streams open. Default of 0 means no limit.
+      --api.stream-workers int                                 Number of workers to use to process incoming streams. These workers are pre-started and should reduce an overhead of stack allocation as well as prevent potential overload of a storage layer. Default of 0 means number of CPUs + 1, any negative number will result in unlimited workers.
       --dev-mode                                               Development mode enabled (verbose logging, human-friendly log format).
   -h, --help                                                   help for leader
       --log-level string                                       Log level: DEBUG/INFO/WARN/ERROR. (default "INFO")

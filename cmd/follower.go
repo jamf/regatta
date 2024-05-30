@@ -212,7 +212,7 @@ func follower(_ *cobra.Command, _ []string) error {
 
 			// Start server
 			go func() {
-				if err := regatta.ListenAndServe(); err != nil {
+				if err := regatta.Serve(); err != nil {
 					log.Errorf("grpc listenAndServe failed: %v", err)
 				}
 			}()
