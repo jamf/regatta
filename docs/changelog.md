@@ -5,7 +5,12 @@ nav_order: 999
 ---
 
 # Changelog
-## v0.5.0 (unreleased)
+## v0.5.1 (unreleased)
+
+### Bugfixes
+* Fix storage compaction metrics.
+
+## v0.5.0
 
 ### Highlights
 #### Follower to leader replication

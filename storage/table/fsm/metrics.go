@@ -38,7 +38,7 @@ type metrics struct {
 	readAmplification       prometheus.Gauge
 	totalWriteAmplification prometheus.Gauge
 	totalBytesIn            prometheus.Gauge
-	compactCount            *prometheus.SummaryVec
+	compactCount            *prometheus.GaugeVec
 	compactDebt             prometheus.Gauge
 	applied                 atomic.Uint64
 	collected               *pebble.Metrics
@@ -156,8 +156,8 @@ func newMetrics(tableName string, clusterID uint64) *metrics {
 				},
 			},
 		),
-		compactCount: prometheus.NewSummaryVec(
-			prometheus.SummaryOpts{
+		compactCount: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: compactionMetricName,
 				Help: "Regatta table storage compaction count by kind",
 				ConstLabels: map[string]string{
@@ -214,13 +214,13 @@ func (p *metrics) Collect(ch chan<- prometheus.Metric) {
 	p.totalBytesIn.Collect(ch)
 
 	compact := p.collected.Compact
-	p.compactCount.With(prometheus.Labels{"kind": "total"}).Observe(float64(compact.Count))
-	p.compactCount.With(prometheus.Labels{"kind": "default"}).Observe(float64(compact.DefaultCount))
-	p.compactCount.With(prometheus.Labels{"kind": "delete"}).Observe(float64(compact.DeleteOnlyCount))
-	p.compactCount.With(prometheus.Labels{"kind": "elision"}).Observe(float64(compact.ElisionOnlyCount))
-	p.compactCount.With(prometheus.Labels{"kind": "move"}).Observe(float64(compact.MoveCount))
-	p.compactCount.With(prometheus.Labels{"kind": "read"}).Observe(float64(compact.ReadCount))
-	p.compactCount.With(prometheus.Labels{"kind": "multilevel"}).Observe(float64(compact.MultiLevelCount))
+	p.compactCount.With(prometheus.Labels{"kind": "total"}).Set(float64(compact.Count))
+	p.compactCount.With(prometheus.Labels{"kind": "default"}).Set(float64(compact.DefaultCount))
+	p.compactCount.With(prometheus.Labels{"kind": "delete"}).Set(float64(compact.DeleteOnlyCount))
+	p.compactCount.With(prometheus.Labels{"kind": "elision"}).Set(float64(compact.ElisionOnlyCount))
+	p.compactCount.With(prometheus.Labels{"kind": "move"}).Set(float64(compact.MoveCount))
+	p.compactCount.With(prometheus.Labels{"kind": "read"}).Set(float64(compact.ReadCount))
+	p.compactCount.With(prometheus.Labels{"kind": "multilevel"}).Set(float64(compact.MultiLevelCount))
 	p.compactCount.Collect(ch)
 
 	p.compactDebt.Set(float64(compact.EstimatedDebt))
