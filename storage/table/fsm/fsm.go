@@ -344,7 +344,10 @@ func (p *FSM) Close() error {
 func (p *FSM) GetHash() (uint64, error) {
 	db := p.pebble.Load()
 	snap := db.NewSnapshot()
-	iter := snap.NewIter(nil)
+	iter, err := snap.NewIter(nil)
+	if err != nil {
+		return 0, err
+	}
 	defer func() {
 		if err := iter.Close(); err != nil {
 			p.log.Error(err)
@@ -486,7 +489,7 @@ func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
 			logger.Debugf("%s", info)
 		},
 		CompactionEnd: func(info pebble.CompactionInfo) {
-			logger.Debugf("%s", info)
+			logger.Infof("%s", info)
 		},
 		DiskSlow: func(info pebble.DiskSlowInfo) {
 			logger.Warnf("%s", info)

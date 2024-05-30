@@ -46,7 +46,10 @@ func (s *snapshot) prepare() (any, error) {
 
 func (s *snapshot) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
 	snapshot := ctx.(*snapshotContext)
-	iter := snapshot.NewIter(nil)
+	iter, err := snapshot.NewIter(nil)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err := iter.Close(); err != nil {
 			s.fsm.log.Error(err)

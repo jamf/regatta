@@ -87,6 +87,17 @@ func (p *PebbleFS) Open(name string, opts ...pvfs.OpenOption) (pvfs.File, error)
 	return f, nil
 }
 
+func (p *PebbleFS) OpenReadWrite(name string, opts ...pvfs.OpenOption) (pvfs.File, error) {
+	f, err := p.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		opt.Apply(f)
+	}
+	return f, nil
+}
+
 // OpenDir ...
 func (p *PebbleFS) OpenDir(name string) (pvfs.File, error) {
 	return p.fs.OpenDir(name)
