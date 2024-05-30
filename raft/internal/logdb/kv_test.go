@@ -369,12 +369,15 @@ func TestCompactionReleaseStorageSpace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open kv store %v", err)
 	}
-	defer kvs.Close()
 	if err := kvs.BulkRemoveEntries(fk.Key(), lk.Key()); err != nil {
 		t.Fatalf("remove entry failed %v", err)
 	}
 	if err := kvs.CompactEntries(fk.Key(), lk.Key()); err != nil {
 		t.Fatalf("compaction failed %v", err)
+	}
+	// Close to flush pending compactions.
+	if err := kvs.Close(); err != nil {
+		t.Fatalf("failed to close kv store %v", err)
 	}
 	sz, err = getDirSize(RDBTestDirectory, false, fs)
 	if err != nil {

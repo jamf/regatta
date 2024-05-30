@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -4762,7 +4763,7 @@ func testIOErrorIsHandled(t *testing.T, op vfs.Op) {
 			}
 			select {
 			case e := <-nh.engine.ec:
-				if e != vfs.ErrInjected && e.Error() != vfs.ErrInjected.Error() {
+				if e != vfs.ErrInjected && !strings.Contains(e.Error(), vfs.ErrInjected.Error()) {
 					t.Fatalf("failed to return the expected error, %v", e)
 				}
 			default:

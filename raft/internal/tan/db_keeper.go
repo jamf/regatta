@@ -26,9 +26,7 @@ import (
 
 // dbKeeper keeps all tan db instances managed by a tan LogDB.
 type dbKeeper interface {
-	multiplexedLog() bool
 	name(shardID uint64, replicaID uint64) string
-	key(shardID uint64) uint64
 	get(shardID uint64, replicaID uint64) (*db, bool)
 	set(shardID uint64, replicaID uint64, db *db)
 	iterate(f func(*db) error) error
@@ -47,16 +45,8 @@ func newRegularDBKeeper() *regularKeeper {
 	}
 }
 
-func (k *regularKeeper) multiplexedLog() bool {
-	return false
-}
-
 func (k *regularKeeper) name(shardID uint64, replicaID uint64) string {
 	return fmt.Sprintf("node-%d-%d", shardID, replicaID)
-}
-
-func (k *regularKeeper) key(shardID uint64) uint64 {
-	panic("not suppose to be called")
 }
 
 func (k *regularKeeper) get(shardID uint64, replicaID uint64) (*db, bool) {
@@ -79,49 +69,6 @@ func (k *regularKeeper) iterate(f func(*db) error) error {
 	return nil
 }
 
-var _ dbKeeper = (*multiplexedKeeper)(nil)
-
-// multiplexedKeeper divide all raft nodes into groups and assign nodes within
-// the same group to a unique tan db instance. Each raft node is assigned to
-// such a group by a so called key value.
-type multiplexedKeeper struct {
-	dbs map[uint64]*db
-}
-
-func newMultiplexedDBKeeper() *multiplexedKeeper {
-	return &multiplexedKeeper{dbs: make(map[uint64]*db)}
-}
-
-func (k *multiplexedKeeper) multiplexedLog() bool {
-	return true
-}
-
-func (k *multiplexedKeeper) name(shardID uint64, replicaID uint64) string {
-	return fmt.Sprintf("shard-%d", k.key(shardID))
-}
-
-func (k *multiplexedKeeper) key(shardID uint64) uint64 {
-	return shardID % 16
-}
-
-func (k *multiplexedKeeper) get(shardID uint64, replicaID uint64) (*db, bool) {
-	v, ok := k.dbs[k.key(shardID)]
-	return v, ok
-}
-
-func (k *multiplexedKeeper) set(shardID uint64, replicaID uint64, db *db) {
-	k.dbs[k.key(shardID)] = db
-}
-
-func (k *multiplexedKeeper) iterate(f func(*db) error) error {
-	for _, db := range k.dbs {
-		if err := f(db); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // collection owns a collection of tan db instances.
 type collection struct {
 	fs      vfs.FS
@@ -129,26 +76,12 @@ type collection struct {
 	keeper  dbKeeper
 }
 
-func newCollection(dirname string, fs vfs.FS, regular bool) collection {
-	var k dbKeeper
-	if regular {
-		k = newRegularDBKeeper()
-	} else {
-		k = newMultiplexedDBKeeper()
-	}
+func newCollection(dirname string, fs vfs.FS) collection {
 	return collection{
 		fs:      fs,
 		dirname: dirname,
-		keeper:  k,
+		keeper:  newRegularDBKeeper(),
 	}
-}
-
-func (c *collection) multiplexedLog() bool {
-	return c.keeper.multiplexedLog()
-}
-
-func (c *collection) key(shardID uint64) uint64 {
-	return c.keeper.key(shardID)
 }
 
 func (c *collection) getDB(shardID uint64, replicaID uint64) (*db, error) {

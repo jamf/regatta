@@ -25,9 +25,7 @@ import (
 
 	"github.com/cockroachdb/errors/oserror"
 
-	"github.com/jamf/regatta/raft/config"
 	pb "github.com/jamf/regatta/raft/raftpb"
-	"github.com/lni/goutils/leaktest"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -94,63 +92,6 @@ func TestRemoveEntries(t *testing.T) {
 		t.Fatalf("failed to remove all obsolete files")
 	}
 	runTanTest(t, opts, tf, fs)
-}
-
-func TestRemovedEntriesMultiplexedLogSetup(t *testing.T) {
-	defer leaktest.AfterTest(t)()
-	cfg := config.NodeHostConfig{
-		Expert: config.ExpertConfig{FS: vfs.NewMem()},
-	}
-	require.NoError(t, cfg.Prepare())
-	dirs := []string{"db-dir"}
-	ldb, err := CreateLogMultiplexedTan(cfg, nil, dirs, []string{})
-	require.NoError(t, err)
-	defer ldb.Close()
-	for i := uint64(0); i < 16; i++ {
-		updates := []pb.Update{
-			{
-				ShardID:   1,
-				ReplicaID: 1,
-				Snapshot:  pb.Snapshot{Index: i * uint64(100), Term: 10},
-				State:     pb.State{Commit: i * uint64(100), Term: 10},
-				EntriesToSave: []pb.Entry{
-					{Index: i*2 + 1, Term: 10},
-					{Index: i*2 + 2, Term: 10},
-				},
-			},
-			{
-				ShardID:   17,
-				ReplicaID: 1,
-				Snapshot:  pb.Snapshot{Index: i * uint64(200), Term: 20},
-				State:     pb.State{Commit: i * uint64(200), Term: 20},
-				EntriesToSave: []pb.Entry{
-					{Index: i*3 + 1, Term: 20},
-					{Index: i*3 + 2, Term: 20},
-					{Index: i*3 + 3, Term: 20},
-				},
-			},
-		}
-		require.NoError(t, ldb.SaveRaftState(updates, 1))
-		db, err := ldb.collection.getDB(1, 1)
-		require.NoError(t, err)
-		// switchToNewLog() should only be called when db.mu is locked
-		db.mu.Lock()
-		require.NoError(t, db.switchToNewLog())
-		db.mu.Unlock()
-	}
-	db, err := ldb.collection.getDB(1, 1)
-	require.NoError(t, err)
-	current := db.mu.versions.currentVersion()
-	fileCount := len(current.files)
-	// not suppose tp have any log file removed
-	require.NoError(t, ldb.RemoveEntriesTo(1, 1, 32))
-	current = db.mu.versions.currentVersion()
-	require.Equal(t, fileCount, len(current.files))
-	// this should trigger log compaction
-	require.NoError(t, ldb.RemoveEntriesTo(17, 1, 48))
-	current = db.mu.versions.currentVersion()
-	// a log file and an empty log file just created by the last switchToNewLog
-	require.Equal(t, 2, len(current.files))
 }
 
 func TestRemoveAll(t *testing.T) {

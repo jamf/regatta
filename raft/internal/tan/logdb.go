@@ -69,18 +69,6 @@ func (factory) Create(cfg config.NodeHostConfig,
 	return CreateTan(cfg, cb, dirs, wals)
 }
 
-// MultiplexedLogFactory is a LogDB factory instance used for creating an
-// tan DB with multiplexed logs.
-var MultiplexedLogFactory = multiplexLogFactory{}
-
-type multiplexLogFactory struct{}
-
-// Create creates a tan instance that uses multiplexed log files.
-func (multiplexLogFactory) Create(cfg config.NodeHostConfig,
-	cb config.LogDBCallback, dirs []string, wals []string) (raftio.ILogDB, error) {
-	return CreateLogMultiplexedTan(cfg, cb, dirs, wals)
-}
-
 // Name returns the name of the tan instance.
 func (factory) Name() string {
 	return tanLogDBName
@@ -104,21 +92,11 @@ type LogDB struct {
 // be backed by a dedicated log file.
 func CreateTan(cfg config.NodeHostConfig, cb config.LogDBCallback,
 	dirs []string, wals []string) (*LogDB, error) {
-	return createTan(cfg, cb, dirs, wals, true)
-}
-
-// CreateLogMultiplexedTan creates and returns a tan instance that uses
-// multiplexed log files. A multiplexed log allow multiple raft shards to
-// share the same underlying physical log file, this is required when you
-// want to run thousands of raft nodes on the same server without having
-// thousands action log files.
-func CreateLogMultiplexedTan(cfg config.NodeHostConfig, cb config.LogDBCallback,
-	dirs []string, wals []string) (*LogDB, error) {
-	return createTan(cfg, cb, dirs, wals, false)
+	return createTan(cfg, cb, dirs, wals)
 }
 
 func createTan(cfg config.NodeHostConfig, cb config.LogDBCallback,
-	dirs []string, wals []string, singleNodeLog bool) (*LogDB, error) {
+	dirs []string, wals []string) (*LogDB, error) {
 	if cfg.Expert.FS == nil {
 		panic("fs not set")
 	}
@@ -131,7 +109,7 @@ func createTan(cfg config.NodeHostConfig, cb config.LogDBCallback,
 		fs:         cfg.Expert.FS,
 		buffers:    make([][]byte, defaultShards),
 		wgs:        make([]*sync.WaitGroup, defaultShards),
-		collection: newCollection(dirname, cfg.Expert.FS, singleNodeLog),
+		collection: newCollection(dirname, cfg.Expert.FS),
 	}
 	for i := 0; i < len(ldb.buffers); i++ {
 		ldb.buffers[i] = make([]byte, cfg.Expert.LogDB.KVWriteBufferSize)
@@ -256,51 +234,7 @@ func (l *LogDB) GetBootstrapInfo(shardID uint64,
 // SaveRaftState atomically saves the Raft states, log entries and snapshots
 // metadata found in the pb.Update list to the log DB.
 func (l *LogDB) SaveRaftState(updates []pb.Update, shardID uint64) error {
-	if l.collection.multiplexedLog() {
-		return l.concurrentSaveState(updates, shardID)
-	}
 	return l.sequentialSaveState(updates, shardID)
-}
-
-func (l *LogDB) concurrentSaveState(updates []pb.Update, shardID uint64) error {
-	var buf []byte
-	if shardID-1 < uint64(len(l.buffers)) {
-		buf = l.buffers[shardID-1]
-	} else {
-		buf = make([]byte, defaultBufferSize)
-	}
-	syncLog := false
-	var selected *db
-	var usedShardID uint64
-	for idx, ud := range updates {
-		if idx == 0 {
-			usedShardID = l.collection.key(ud.ShardID)
-		} else {
-			if usedShardID != l.collection.key(ud.ShardID) {
-				panic("shard ID changed")
-			}
-		}
-		db, err := l.getDB(ud.ShardID, ud.ReplicaID)
-		if err != nil {
-			return err
-		}
-		if selected == nil {
-			selected = db
-		}
-		sync, err := db.write(ud, buf)
-		if err != nil {
-			return err
-		}
-		if sync {
-			syncLog = true
-		}
-	}
-	if syncLog && selected != nil {
-		if err := selected.sync(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (l *LogDB) sequentialSaveState(updates []pb.Update, shardID uint64) error {

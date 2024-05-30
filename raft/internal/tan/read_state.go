@@ -18,7 +18,9 @@
 
 package tan
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // readState encapsulates the state needed for reading (the current version and
 // list of memtables). Loading the readState is done without grabbing
