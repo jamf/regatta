@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -204,7 +205,7 @@ func leader(_ *cobra.Command, _ []string) error {
 			}
 			// Start server
 			go func() {
-				if err := regatta.ListenAndServe(); err != nil {
+				if err := regatta.Serve(); err != nil {
 					log.Errorf("grpc listenAndServe failed: %v", err)
 				}
 			}()
@@ -231,7 +232,7 @@ func leader(_ *cobra.Command, _ []string) error {
 
 			// Start server
 			go func() {
-				if err := replication.ListenAndServe(); err != nil {
+				if err := replication.Serve(); err != nil {
 					log.Errorf("grpc listenAndServe failed: %v", err)
 				}
 			}()
@@ -256,7 +257,7 @@ func leader(_ *cobra.Command, _ []string) error {
 }
 
 func createReplicationServer(log *zap.Logger, reg func(r grpc.ServiceRegistrar)) (*regattaserver.RegattaServer, error) {
-	addr, secure, net := resolveURL(viper.GetString("replication.address"))
+	addr, secure, nw := resolveURL(viper.GetString("replication.address"))
 	lopts := []logging.Option{logging.WithLogOnEvents(logging.FinishCall), logging.WithLevels(codeToLevel)}
 	opts := []grpc.ServerOption{
 		grpc.ChainStreamInterceptor(
@@ -285,7 +286,11 @@ func createReplicationServer(log *zap.Logger, reg func(r grpc.ServiceRegistrar))
 		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg)))
 	}
 	// Create regatta replication server
-	server := regattaserver.NewServer(addr, net, log.Sugar(), opts...)
+	l, err := net.Listen(nw, addr)
+	if err != nil {
+		return nil, err
+	}
+	server := regattaserver.NewServer(l, log.Sugar(), opts...)
 	reg(server)
 	grpcmetrics.InitializeMetrics(server.Server)
 	return server, nil

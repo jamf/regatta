@@ -124,7 +124,7 @@ func TestManager_reconcileTables(t *testing.T) {
 	defer srv.Shutdown()
 
 	t.Log("create replicator")
-	conn, err := grpc.NewClient(srv.Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(srv.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
 	m := NewManager(followerEngine, nil, conn, Config{})
@@ -256,7 +256,8 @@ func prepareLeaderAndFollowerEngine(t *testing.T) (leaderTM *storage.Engine, fol
 
 func startReplicationServer(engine *storage.Engine) *regattaserver.RegattaServer {
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
-	server := regattaserver.NewServer(testNodeAddress, "tcp", zap.NewNop().Sugar())
+	l, _ := net.Listen("tcp", testNodeAddress)
+	server := regattaserver.NewServer(l, zap.NewNop().Sugar())
 	regattapb.RegisterMetadataServer(server, &regattaserver.MetadataServer{Tables: engine})
 	regattapb.RegisterSnapshotServer(server, &regattaserver.SnapshotServer{Tables: engine})
 	regattapb.RegisterLogServer(
@@ -269,7 +270,7 @@ func startReplicationServer(engine *storage.Engine) *regattaserver.RegattaServer
 		),
 	)
 	go func() {
-		err := server.ListenAndServe()
+		err := server.Serve()
 		if err != nil {
 			panic(err)
 		}

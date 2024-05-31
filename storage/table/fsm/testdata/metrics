@@ -18,21 +18,14 @@ regatta_table_storage_cache_misses{shard_id="1",table="test",type="table"} 0
 regatta_table_storage_cache_size_bytes{shard_id="1",table="test",type="block"} 0
 regatta_table_storage_cache_size_bytes{shard_id="1",table="test",type="table"} 0
 # HELP regatta_table_storage_compaction Regatta table storage compaction count by kind
-# TYPE regatta_table_storage_compaction summary
-regatta_table_storage_compaction_sum{kind="default",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="default",shard_id="1",table="test"} 2
-regatta_table_storage_compaction_sum{kind="delete",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="delete",shard_id="1",table="test"} 2
-regatta_table_storage_compaction_sum{kind="elision",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="elision",shard_id="1",table="test"} 2
-regatta_table_storage_compaction_sum{kind="move",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="move",shard_id="1",table="test"} 2
-regatta_table_storage_compaction_sum{kind="multilevel",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="multilevel",shard_id="1",table="test"} 2
-regatta_table_storage_compaction_sum{kind="read",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="read",shard_id="1",table="test"} 2
-regatta_table_storage_compaction_sum{kind="total",shard_id="1",table="test"} 0
-regatta_table_storage_compaction_count{kind="total",shard_id="1",table="test"} 2
+# TYPE regatta_table_storage_compaction gauge
+regatta_table_storage_compaction{kind="default",shard_id="1",table="test"} 0
+regatta_table_storage_compaction{kind="delete",shard_id="1",table="test"} 0
+regatta_table_storage_compaction{kind="elision",shard_id="1",table="test"} 0
+regatta_table_storage_compaction{kind="move",shard_id="1",table="test"} 0
+regatta_table_storage_compaction{kind="multilevel",shard_id="1",table="test"} 0
+regatta_table_storage_compaction{kind="read",shard_id="1",table="test"} 0
+regatta_table_storage_compaction{kind="total",shard_id="1",table="test"} 0
 # HELP regatta_table_storage_compaction_debt_bytes Regatta table storage compaction debt in bytes
 # TYPE regatta_table_storage_compaction_debt_bytes gauge
 regatta_table_storage_compaction_debt_bytes{shard_id="1",table="test"} 0
