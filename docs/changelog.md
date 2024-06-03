@@ -9,6 +9,7 @@ nav_order: 999
 
 ### Improvements
 * API server will now by default use fixed number of pre-created worker go routines for stream handling. The behaviour could be overridden by setting `api.stream-workers` config value.
+* regatta.v1.KV/IterateRange now uses coroutine instead of full goroutine.
 
 ### Security
 * API server max number of concurrent connections can be set by `api.max-concurrent-connections` config value.
