@@ -51,7 +51,8 @@ func Test_handlePut(t *testing.T) {
 	r.Equal(&regattapb.ResponseOp_Put{PrevKv: &regattapb.KeyValue{Key: []byte("key_1"), Value: []byte("value_1")}}, res)
 	r.NoError(c.Commit())
 
-	iter := db.NewIter(allUserKeysOpts())
+	iter, err := db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 	iter.First()
 
 	k := &key.Key{}
@@ -102,7 +103,8 @@ func Test_handlePutBatch(t *testing.T) {
 		k = &key.Key{}
 	)
 
-	iter := db.NewIter(allUserKeysOpts())
+	iter, err := db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 	for iter.First(); iter.Valid(); iter.Next() {
 		decodeKey(t, iter, k)
 

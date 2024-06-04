@@ -8,16 +8,19 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/jamf/regatta/util/iter"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 const maxRangeSize uint64 = (4 * 1024 * 1024) - 1024 // 4MiB - 1KiB sentinel.
 
 func commandSnapshot(reader pebble.Reader, tableName string, w io.Writer, stopc <-chan struct{}) (uint64, error) {
-	iter := reader.NewIter(nil)
+	iter, err := reader.NewIter(nil)
+	if err != nil {
+		return 0, err
+	}
 	defer iter.Close()
 
 	idx, err := readLocalIndex(reader, sysLocalIndex)
@@ -110,7 +113,10 @@ func singleLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regatt
 		return nil, err
 	}
 
-	iter := reader.NewIter(nil)
+	iter, err := reader.NewIter(nil)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		_ = iter.Close()
 	}()

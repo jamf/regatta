@@ -5,8 +5,8 @@ package logreader
 import (
 	"sort"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 )
 
 type cache struct {
@@ -79,10 +79,10 @@ func findIndex(entries []raftpb.Entry, f func(index uint64) bool) int {
 
 // Get all the entries with the index within the supplied right half-open range dragonboat.LogRange
 // [firstIndex, lastIndex).
-func (c *cache) get(logRange dragonboat.LogRange) ([]raftpb.Entry, dragonboat.LogRange, dragonboat.LogRange) {
+func (c *cache) get(logRange raft.LogRange) ([]raftpb.Entry, raft.LogRange, raft.LogRange) {
 	var (
-		prependIndices = dragonboat.LogRange{}
-		appendIndices  = dragonboat.LogRange{}
+		prependIndices = raft.LogRange{}
+		appendIndices  = raft.LogRange{}
 	)
 
 	if len(c.buffer) == 0 {

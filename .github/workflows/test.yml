@@ -31,13 +31,11 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
-    - name: Install gotestfmt
-      uses: GoTestTools/gotestfmt-action@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Install tparse
+      run: go install github.com/mfridman/tparse@v0.13.3
     - name: Test
       run: |
-        go test -json -cover ./... -coverprofile coverage.out -coverpkg ./log/...,./pebble/...,./regattaserver/...,./replication/...,./storage/...,./security/...,./util/... | gotestfmt
+        set -o pipefail && go test -json -cover ./... -coverprofile coverage.out -coverpkg ./log/...,./pebble/...,./raft/...,./regattaserver/...,./replication/...,./storage/...,./security/...,./util/... | tparse -all
     - name: Coverage track
       uses: coverallsapp/github-action@v2
       with:

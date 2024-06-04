@@ -3,7 +3,7 @@
 package iter
 
 import (
-	"sync"
+	_ "unsafe"
 )
 
 type Seq[V any] func(yield func(V) bool)
@@ -50,37 +50,57 @@ func Map[S, R any](seq Seq[S], fn func(S) R) Seq[R] {
 	}
 }
 
-func Pull[T any](seq Seq[T]) (iter func() (T, bool), stop func()) {
-	next := make(chan struct{})
-	yield := make(chan T)
+type coro struct{}
 
-	go func() {
-		defer close(yield)
+//go:linkname newcoro runtime.newcoro
+func newcoro(func(*coro)) *coro
 
-		_, ok := <-next
-		if !ok {
+//go:linkname coroswitch runtime.coroswitch
+func coroswitch(*coro)
+
+func Pull[V any](seq Seq[V]) (next func() (V, bool), stop func()) {
+	var (
+		v         V
+		ok        bool
+		done      bool
+		yieldNext bool
+	)
+	c := newcoro(func(c *coro) {
+		yield := func(v1 V) bool {
+			if done {
+				return false
+			}
+			if !yieldNext {
+				panic("iter.Pull: yield called again before next")
+			}
+			yieldNext = false
+			v, ok = v1, true
+			coroswitch(c)
+			return !done
+		}
+		seq(yield)
+		var v0 V
+		v, ok = v0, false
+		done = true
+	})
+	next = func() (v1 V, ok1 bool) {
+		if done {
 			return
 		}
-
-		seq(func(v T) bool {
-			yield <- v
-			_, ok := <-next
-			return ok
-		})
-	}()
-
-	return func() (v T, ok bool) {
-			select {
-			case <-yield:
-				return v, false
-			case next <- struct{}{}:
-				v, ok := <-yield
-				return v, ok
-			}
-		}, sync.OnceFunc(func() {
-			close(next)
-			<-yield
-		})
+		if yieldNext {
+			panic("iter.Pull: next called again before yield")
+		}
+		yieldNext = true
+		coroswitch(c)
+		return v, ok
+	}
+	stop = func() {
+		if !done {
+			done = true
+			coroswitch(c)
+		}
+	}
+	return next, stop
 }
 
 func Contains[T comparable](seq Seq[T], item T) bool {

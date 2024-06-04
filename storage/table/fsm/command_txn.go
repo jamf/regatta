@@ -84,7 +84,10 @@ func txnCompare(reader pebble.Reader, compare []*regattapb.Compare) (bool, error
 				if err != nil {
 					return false, err
 				}
-				iter := reader.NewIter(opts)
+				iter, err := reader.NewIter(opts)
+				if err != nil {
+					return false, err
+				}
 				defer func() {
 					_ = iter.Close()
 				}()

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"strconv"
 	"strings"
@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/jamf/regatta/raft/client"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	"github.com/jamf/regatta/storage"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
-	"github.com/lni/dragonboat/v4/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
@@ -218,7 +218,7 @@ type worker struct {
 func (w *worker) Start() {
 	// Sleep up to reconcile interval to prevent the thundering herd
 	// #nosec G404 -- Weak random number generator can be used because we do not care whether the result can be predicted.
-	time.Sleep(time.Duration(rand.Intn(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
+	time.Sleep(time.Duration(rand.IntN(int(w.pollInterval.Milliseconds()))) * time.Millisecond)
 
 	w.wg.Add(1)
 	go func() {

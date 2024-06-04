@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftio"
+	"github.com/jamf/regatta/raft/raftpb"
 	serror "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftio"
-	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -21,9 +21,9 @@ type mockLogQuerier struct {
 	mock.Mock
 }
 
-func (m *mockLogQuerier) GetLogReader(shardID uint64) (dragonboat.ReadonlyLogReader, error) {
+func (m *mockLogQuerier) GetLogReader(shardID uint64) (raft.ReadonlyLogReader, error) {
 	args := m.Called(shardID)
-	return args.Get(0).(dragonboat.ReadonlyLogReader), args.Error(1)
+	return args.Get(0).(raft.ReadonlyLogReader), args.Error(1)
 }
 
 type mockLogReader struct {
@@ -123,7 +123,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 	}
 	type args struct {
 		clusterID uint64
-		logRange  dragonboat.LogRange
+		logRange  raft.LogRange
 		maxSize   uint64
 		timeout   time.Duration
 	}
@@ -145,7 +145,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 1,
 					LastIndex:  1000,
 				},
@@ -167,7 +167,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 0,
 					LastIndex:  1000,
 				},
@@ -186,7 +186,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 100,
 					LastIndex:  1000,
 				},
@@ -209,7 +209,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 100,
 					LastIndex:  1000,
 				},
@@ -233,7 +233,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 100,
 					LastIndex:  1000,
 				},
@@ -257,7 +257,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 100,
 					LastIndex:  1000,
 				},
@@ -281,7 +281,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 100,
 					LastIndex:  1000,
 				},
@@ -305,7 +305,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 501,
 					LastIndex:  1000,
 				},
@@ -330,7 +330,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 5001,
 					LastIndex:  6000,
 				},
@@ -348,7 +348,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 5000,
 					LastIndex:  5001,
 				},
@@ -368,7 +368,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 1,
 					LastIndex:  5000,
 				},
@@ -388,7 +388,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 6000,
 					LastIndex:  7000,
 				},
@@ -434,7 +434,7 @@ func TestCached_QueryRaftLog(t *testing.T) {
 func TestSimple_QueryRaftLog(t *testing.T) {
 	type args struct {
 		clusterID uint64
-		logRange  dragonboat.LogRange
+		logRange  raft.LogRange
 		maxSize   uint64
 		timeout   time.Duration
 	}
@@ -455,7 +455,7 @@ func TestSimple_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 5001,
 					LastIndex:  6000,
 				},
@@ -473,7 +473,7 @@ func TestSimple_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 5000,
 					LastIndex:  5001,
 				},
@@ -493,7 +493,7 @@ func TestSimple_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 1,
 					LastIndex:  5000,
 				},
@@ -513,7 +513,7 @@ func TestSimple_QueryRaftLog(t *testing.T) {
 			args: args{
 				timeout:   30 * time.Second,
 				clusterID: 1,
-				logRange: dragonboat.LogRange{
+				logRange: raft.LogRange{
 					FirstIndex: 6000,
 					LastIndex:  7000,
 				},

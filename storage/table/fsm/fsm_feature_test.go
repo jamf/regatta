@@ -11,9 +11,9 @@ import (
 
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table/key"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -469,7 +469,7 @@ func generateFiles(t *testing.T, version int, inputCommands []*regattapb.Command
 	}
 
 	var outputs []outputRecord
-	iter := db.NewIter(nil)
+	iter, _ := db.NewIter(nil)
 	defer iter.Close()
 	for iter.First(); iter.Valid(); iter.Next() {
 		record := outputRecord{
@@ -555,7 +555,8 @@ func testConsistency(t *testing.T, version int) {
 	r.NoError(json.NewDecoder(outFile).Decode(&outputRecords))
 
 	i := 0
-	iter := db.NewIter(nil)
+	iter, err := db.NewIter(nil)
+	r.NoError(err)
 	defer iter.Close()
 	for iter.First(); iter.Valid(); iter.Next() {
 		r.Equal(outputRecords[i].Key, iter.Key())

@@ -6,13 +6,13 @@ import (
 	"context"
 	"io"
 
+	"github.com/jamf/regatta/raft/client"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/fsm"
 	"github.com/jamf/regatta/storage/table/key"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4/client"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 type raftHandler interface {

@@ -5,13 +5,13 @@ package errors
 import (
 	"errors"
 
-	"github.com/lni/dragonboat/v4"
+	"github.com/jamf/regatta/raft"
 )
 
 // IsSafeToRetry returns true for transient errors
 // for operations that client could attempt to retry using the same arguments.
 func IsSafeToRetry(err error) bool {
-	return dragonboat.IsTempError(err)
+	return raft.IsTempError(err)
 }
 
 var (

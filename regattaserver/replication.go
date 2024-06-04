@@ -12,11 +12,11 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -167,7 +167,7 @@ func (l *LogServer) Replicate(req *regattapb.ReplicateRequest, server regattapb.
 	if appliedIndex.Index+1 < req.LeaderIndex {
 		return server.Send(repErrLeaderBehind)
 	}
-	logRange := dragonboat.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
+	logRange := raft.LogRange{FirstIndex: req.LeaderIndex, LastIndex: appliedIndex.Index + 1}
 	for {
 		if dl, ok := ctx.Deadline(); ok && time.Now().After(dl) {
 			l.Log.Infof("replication passed the deadline, ending stream prematurely")

@@ -21,8 +21,8 @@ func (e errorReader) Get(key []byte) (value []byte, closer io.Closer, err error)
 	return nil, nil, errors.New("error")
 }
 
-func (e errorReader) NewIter(o *pebble.IterOptions) *pebble.Iterator {
-	return &pebble.Iterator{}
+func (e errorReader) NewIter(o *pebble.IterOptions) (*pebble.Iterator, error) {
+	return &pebble.Iterator{}, nil
 }
 
 func (e errorReader) Close() error {
@@ -268,7 +268,8 @@ func Test_handleTxn(t *testing.T) {
 
 	r.NoError(c.Commit())
 
-	iter := db.NewIter(allUserKeysOpts())
+	iter, err := db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 	count := 0
 	for iter.First(); iter.Valid(); iter.Next() {
 		count++

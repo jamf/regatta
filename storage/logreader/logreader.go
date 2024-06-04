@@ -6,21 +6,21 @@ import (
 	"context"
 	"sync"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 )
 
 type Interface interface {
 	// QueryRaftLog for all the entries in a given cluster within the right half-open range
 	// defined by dragonboat.LogRange. MaxSize denotes the maximum cumulative size of the entries,
 	// but this serves only as a hint and the actual size of returned entries may be larger than maxSize.
-	QueryRaftLog(context.Context, uint64, dragonboat.LogRange, uint64) ([]raftpb.Entry, error)
+	QueryRaftLog(context.Context, uint64, raft.LogRange, uint64) ([]raftpb.Entry, error)
 }
 
 type logQuerier interface {
-	GetLogReader(shardID uint64) (dragonboat.ReadonlyLogReader, error)
+	GetLogReader(shardID uint64) (raft.ReadonlyLogReader, error)
 }
 
 type shard struct {
@@ -32,7 +32,7 @@ type Simple struct {
 	LogQuerier logQuerier
 }
 
-func (l *Simple) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+func (l *Simple) QueryRaftLog(ctx context.Context, clusterID uint64, logRange raft.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
 	// Empty log range should return immediately.
 	if logRange.FirstIndex == logRange.LastIndex {
 		return nil, nil
@@ -57,7 +57,7 @@ type Cached struct {
 	*ShardCache
 }
 
-func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange raft.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
 	// Empty log range should return immediately.
 	if logRange.FirstIndex == logRange.LastIndex {
 		return nil, nil
@@ -66,7 +66,7 @@ func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dr
 	// Try to read the commands from the cache first.
 	sh, ok := l.shardCache.Load(clusterID)
 	if !ok {
-		return nil, dragonboat.ErrShardNotReady
+		return nil, raft.ErrShardNotReady
 	}
 	// Lock this shard.
 	sh.mtx.Lock()
@@ -118,7 +118,7 @@ func (l *Cached) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dr
 	return fixSize(cachedEntries, maxSize), nil
 }
 
-func readLog(q logQuerier, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+func readLog(q logQuerier, clusterID uint64, logRange raft.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
 	r, err := q.GetLogReader(clusterID)
 	if err != nil {
 		return nil, err

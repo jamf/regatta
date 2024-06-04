@@ -13,8 +13,8 @@ import (
 
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/storage/errors"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 type checkpointContext struct {

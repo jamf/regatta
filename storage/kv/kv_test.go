@@ -9,8 +9,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -654,7 +654,7 @@ func newRaftStore(t *testing.T) *RaftStore {
 	}
 	testNodeAddress := fmt.Sprintf("127.0.0.1:%d", getTestPort())
 
-	startRaftNode := func() *dragonboat.NodeHost {
+	startRaftNode := func() *raft.NodeHost {
 		nhc := config.NodeHostConfig{
 			WALDir:         "wal",
 			NodeHostDir:    "dragonboat",
@@ -665,7 +665,7 @@ func newRaftStore(t *testing.T) *RaftStore {
 		nhc.Expert.FS = vfs.NewMem()
 		nhc.Expert.Engine.ExecShards = 1
 		nhc.Expert.LogDB.Shards = 1
-		nh, err := dragonboat.NewNodeHost(nhc)
+		nh, err := raft.NewNodeHost(nhc)
 		if err != nil {
 			panic(err)
 		}

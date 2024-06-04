@@ -10,9 +10,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
-	dbsm "github.com/lni/dragonboat/v4/statemachine"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
+	dbsm "github.com/jamf/regatta/raft/statemachine"
 )
 
 const (
@@ -152,7 +152,7 @@ type Update struct {
 }
 
 type RaftStore struct {
-	NodeHost  *dragonboat.NodeHost
+	NodeHost  *raft.NodeHost
 	ClusterID uint64
 }
 
@@ -247,7 +247,7 @@ func (r *RaftStore) Set(key string, value string, ver uint64) (Pair, error) {
 func (r *RaftStore) Start(cfg RaftConfig) error {
 	if r.NodeHost.HasNodeInfo(r.ClusterID, cfg.NodeID) {
 		return r.NodeHost.StartConcurrentReplica(
-			map[uint64]dragonboat.Target{},
+			map[uint64]raft.Target{},
 			false,
 			NewLFSM(),
 			kvRaftConfig(cfg.NodeID, r.ClusterID, cfg),
@@ -288,7 +288,7 @@ type RaftConfig struct {
 	SnapshotEntries    uint64
 	CompactionOverhead uint64
 	MaxInMemLogSize    uint64
-	InitialMembers     map[uint64]dragonboat.Target
+	InitialMembers     map[uint64]raft.Target
 }
 
 func kvRaftConfig(nodeID, clusterID uint64, cfg RaftConfig) config.Config {

@@ -377,6 +377,17 @@ type pebbleFSAdapter struct {
 	fs lvfs.FS
 }
 
+func (p *pebbleFSAdapter) OpenReadWrite(name string, opts ...pvfs.OpenOption) (pvfs.File, error) {
+	f, err := p.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		opt.Apply(f)
+	}
+	return f, nil
+}
+
 // GetDiskUsage ...
 func (p *pebbleFSAdapter) GetDiskUsage(path string) (pvfs.DiskUsage, error) {
 	du, err := p.fs.GetDiskUsage(path)
