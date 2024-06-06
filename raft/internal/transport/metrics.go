@@ -37,27 +37,27 @@ func newTransportMetrics(useMetrics bool,
 	msgCount func() float64, ssCount func() float64) *transportMetrics {
 	tm := &transportMetrics{useMetrics: useMetrics}
 	if useMetrics {
-		name := "dragonboat_transport_message_connections"
+		name := "transport_message_connections"
 		tm.messageConns = metrics.GetOrCreateGauge(name, msgCount)
-		name = "dragonboat_transport_snapshot_connections"
+		name = "transport_snapshot_connections"
 		tm.snapshotConns = metrics.GetOrCreateGauge(name, ssCount)
-		name = "dragonboat_transport_message_send_failure_total"
+		name = "transport_message_send_failure_total"
 		tm.messageDropped = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_message_send_success_total"
+		name = "transport_message_send_success_total"
 		tm.messageSent = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_snapshot_send_failure_total"
+		name = "transport_snapshot_send_failure_total"
 		tm.snapshotDropped = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_snapshot_send_success_total"
+		name = "transport_snapshot_send_success_total"
 		tm.snapshotSent = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_received_message_total"
+		name = "transport_received_message_total"
 		tm.messageReceived = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_received_message_dropped_total"
+		name = "transport_received_message_dropped_total"
 		tm.messageRecvDropped = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_received_snapshot_total"
+		name = "transport_received_snapshot_total"
 		tm.snapshotReceived = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_failed_message_connection_attempt_total"
+		name = "transport_failed_message_connection_attempt_total"
 		tm.messageConnFailed = metrics.GetOrCreateCounter(name)
-		name = "dragonboat_transport_failed_snapshot_connection_attempt_total"
+		name = "transport_failed_snapshot_connection_attempt_total"
 		tm.snapshotConnFailed = metrics.GetOrCreateCounter(name)
 	}
 	return tm

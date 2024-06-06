@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
 	"github.com/jamf/regatta/raft"
@@ -501,18 +500,6 @@ func (m *Manager) stopTable(clusterID uint64) error {
 	}
 	if err := m.nh.StopShard(clusterID); err != nil {
 		return err
-	}
-
-	// Unregister metrics, check dragonboat/v4/event.go for metric names
-	if m.nh.NodeHostConfig().EnableMetrics {
-		label := fmt.Sprintf(`{shardid="%d",replicaid="%d"}`, clusterID, m.cfg.NodeID)
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_campaign_launched_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_campaign_skipped_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_snapshot_rejected_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_replication_rejected_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_proposal_dropped_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_read_index_dropped_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_has_leader%s`, label))
 	}
 	return nil
 }

@@ -205,7 +205,7 @@ func (c *Cluster) notify() {
 	for {
 		select {
 		case <-c.not:
-			if err := c.ml.UpdateNode(500 * time.Millisecond); err != nil {
+			if err := c.ml.UpdateNode(5 * time.Second); err != nil {
 				c.log.Warnf("unable to update node: %v", err)
 			}
 		case <-c.stop:
