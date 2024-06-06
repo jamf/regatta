@@ -36,10 +36,10 @@ import (
 )
 
 var (
-	incomingProposalsMaxLen = settings.Soft.IncomingProposalQueueLength
-	incomingReadIndexMaxLen = settings.Soft.IncomingReadIndexQueueLength
-	syncTaskInterval        = settings.Soft.SyncTaskInterval
-	lazyFreeCycle           = settings.Soft.LazyFreeCycle
+	incomingProposalsMaxLen = settings.IncomingProposalQueueLength
+	incomingReadIndexMaxLen = settings.IncomingReadIndexQueueLength
+	syncTaskInterval        = settings.SyncTaskInterval
+	lazyFreeCycle           = settings.LazyFreeCycle
 )
 
 type pipeline interface {

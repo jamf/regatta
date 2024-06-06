@@ -812,7 +812,7 @@ func (trf *testRegistryFactory) Set(nhid, addr string) {
 
 func (trf *testRegistryFactory) Create(nhid string, streamConnections uint64, v config.TargetValidator) (raftio.INodeRegistry, error) {
 	return &testRegistry{
-		registry.NewNodeRegistry(streamConnections, v),
+		registry.NewNodeRegistry(v),
 		&trf.mu,
 		trf.nodeAddrs,
 	}, nil

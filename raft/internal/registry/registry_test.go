@@ -18,12 +18,10 @@ import (
 	"testing"
 
 	"github.com/lni/goutils/stringutil"
-
-	"github.com/jamf/regatta/raft/internal/settings"
 )
 
 func TestPeerCanBeAdded(t *testing.T) {
-	nodes := NewNodeRegistry(settings.Soft.StreamConnections, nil)
+	nodes := NewNodeRegistry(nil)
 	_, _, err := nodes.Resolve(100, 2)
 	if err == nil {
 		t.Fatalf("error not reported")
@@ -39,7 +37,7 @@ func TestPeerCanBeAdded(t *testing.T) {
 }
 
 func TestPeerAddressCanNotBeUpdated(t *testing.T) {
-	nodes := NewNodeRegistry(settings.Soft.StreamConnections, nil)
+	nodes := NewNodeRegistry(nil)
 	defer func() {
 		if r := recover(); r == nil {
 			t.Fatalf("didn't panic when updating addr")
@@ -50,7 +48,7 @@ func TestPeerAddressCanNotBeUpdated(t *testing.T) {
 }
 
 func TestPeerCanBeRemoved(t *testing.T) {
-	nodes := NewNodeRegistry(settings.Soft.StreamConnections, nil)
+	nodes := NewNodeRegistry(nil)
 	nodes.Add(100, 2, "a2:2")
 	url, _, err := nodes.Resolve(100, 2)
 	if err != nil {
@@ -67,7 +65,7 @@ func TestPeerCanBeRemoved(t *testing.T) {
 }
 
 func TestRemoveShard(t *testing.T) {
-	nodes := NewNodeRegistry(settings.Soft.StreamConnections, nil)
+	nodes := NewNodeRegistry(nil)
 	nodes.Add(100, 2, "a2:2")
 	nodes.Add(100, 3, "a2:3")
 	nodes.Add(200, 2, "a3:2")
@@ -84,7 +82,7 @@ func TestRemoveShard(t *testing.T) {
 
 func testInvalidAddressWillPanic(t *testing.T, addr string) {
 	po := false
-	nodes := NewNodeRegistry(settings.Soft.StreamConnections, stringutil.IsValidAddress)
+	nodes := NewNodeRegistry(stringutil.IsValidAddress)
 	defer func() {
 		if r := recover(); r != nil {
 			po = true

@@ -27,7 +27,6 @@ import (
 
 	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/raft/internal/logdb/kv"
-	"github.com/jamf/regatta/raft/internal/settings"
 	"github.com/jamf/regatta/raft/internal/vfs"
 	pb "github.com/jamf/regatta/raft/raftpb"
 )
@@ -496,10 +495,6 @@ func testDiskCorruptionIsHandled(t *testing.T, wal bool, cut bool, fs vfs.IFS) {
 		}
 		if wal && kvs.Name() != "rocksdb" {
 			t.Skip("test skipped, WAL hardware corruption is not handled")
-		}
-		if wal && kvs.Name() == "rocksdb" &&
-			!settings.Soft.KVTolerateCorruptedTailRecords {
-			t.Skip("test skipped, RocksDBTolerateCorruptedTailRecords disabled")
 		}
 		wb := kvs.GetWriteBatch()
 		defer wb.Destroy()
