@@ -170,7 +170,6 @@ type soft struct {
 
 func getSoftSettings() soft {
 	org := getDefaultSoftSettings()
-	overwriteSoftSettings(&org)
 	return org
 }
 

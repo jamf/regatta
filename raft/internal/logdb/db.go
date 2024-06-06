@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	batchSize = settings.Hard.LogDBEntryBatchSize
+	batchSize = uint64(settings.LogDBEntryBatchSize)
 )
 
 type entryManager interface {

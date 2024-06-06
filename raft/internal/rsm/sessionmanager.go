@@ -17,6 +17,7 @@ package rsm
 import (
 	"io"
 
+	"github.com/jamf/regatta/raft/internal/settings"
 	sm "github.com/jamf/regatta/raft/statemachine"
 )
 
@@ -31,7 +32,7 @@ var _ ILoadable = (*SessionManager)(nil)
 // NewSessionManager returns a new SessionManager instance.
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		lru: newLRUSession(LRUMaxSessionCount),
+		lru: newLRUSession(settings.LRUMaxSessionCount),
 	}
 }
 
