@@ -115,3 +115,33 @@ const (
 	// a snapshot.
 	SnapshotChunkTimeoutTick uint64 = 900
 )
+
+const (
+	LRUMaxSessionCount  = 4096
+	LogDBEntryBatchSize = 48
+)
+
+// BlockFileMagicNumber is the magic number used in block based snapshot files.
+var BlockFileMagicNumber = []byte{0x3F, 0x5B, 0xCB, 0xF1, 0xFA, 0xBA, 0x81, 0x9F}
+
+const (
+	//
+	// RSM
+	//
+
+	// SnapshotHeaderSize defines the snapshot header size in number of bytes.
+	SnapshotHeaderSize uint64 = 1024
+
+	//
+	// transport
+	//
+
+	// UnmanagedDeploymentID is the special deployment ID value used when no user
+	// deployment ID is specified.
+	UnmanagedDeploymentID uint64 = 1
+	// MaxMessageBatchSize is the max size for a single message batch sent between
+	// nodehosts.
+	MaxMessageBatchSize uint64 = LargeEntitySize
+	// SnapshotChunkSize is the snapshot chunk size.
+	SnapshotChunkSize uint64 = 2 * 1024 * 1024
+)
