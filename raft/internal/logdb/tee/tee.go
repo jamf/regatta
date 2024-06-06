@@ -81,7 +81,7 @@ func newKVLogDB(nhConfig config.NodeHostConfig,
 	for _, v := range wals {
 		nwals = append(nwals, filepath.Join(v, subdir))
 	}
-	return logdb.NewLogDB(nhConfig, cb, ndirs, nwals, false, false, f)
+	return logdb.NewLogDB(nhConfig, cb, ndirs, nwals, false, f)
 }
 
 // NewTeeLogDB creates a new LogDB instance backed by a pebble and a tan

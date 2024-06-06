@@ -178,9 +178,6 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 		sz = sz * levelSizeMultiplier
 		lopts = append(lopts, opt)
 	}
-	if inMonkeyTesting {
-		writeBufferSize = 1024 * 1024 * 4
-	}
 	cache := pebble.NewCache(cacheSize)
 	ro := &pebble.IterOptions{}
 	wo := &pebble.WriteOptions{Sync: true}

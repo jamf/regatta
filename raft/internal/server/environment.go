@@ -30,7 +30,6 @@ import (
 	"github.com/jamf/regatta/raft/internal/utils"
 	"github.com/jamf/regatta/raft/internal/vfs"
 	"github.com/jamf/regatta/raft/logger"
-	"github.com/jamf/regatta/raft/raftio"
 	"github.com/jamf/regatta/raft/raftpb"
 )
 
@@ -63,10 +62,6 @@ var (
 	// ErrIncompatibleData indicates that the specified data directory contains
 	// incompatible data.
 	ErrIncompatibleData = errors.New("incompatible LogDB data format")
-	// ErrLogDBBrokenChange indicates that your NodeHost failed to be created as
-	// your code is hit by the LogDB breaking change introduced in v3.0. Set your
-	// NodeHostConfig.LogDBFactory to rocksdb.OpenBatchedLogDB to continue.
-	ErrLogDBBrokenChange = errors.New("using new LogDB on existing Raft Log")
 )
 
 const (
@@ -416,10 +411,6 @@ func (env *Env) check(cfg config.NodeHostConfig,
 			return ErrDeploymentIDChanged
 		}
 		if s.BinVer != binVer {
-			if s.BinVer == raftio.LogDBBinVersion &&
-				binVer == raftio.PlainLogDBBinVersion {
-				return ErrLogDBBrokenChange
-			}
 			plog.Errorf("logdb binary ver changed, %d vs %d", s.BinVer, binVer)
 			return ErrIncompatibleData
 		}

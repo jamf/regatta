@@ -28,7 +28,6 @@ import (
 	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/raft/internal/logdb/kv"
 	"github.com/jamf/regatta/raft/internal/vfs"
-	pb "github.com/jamf/regatta/raft/raftpb"
 )
 
 func TestKVCanBeCreatedAndClosed(t *testing.T) {
@@ -205,75 +204,6 @@ func TestWriteBatchCanBeCleared(t *testing.T) {
 				return nil
 			}); err != nil {
 			t.Fatalf("get value failed %v", err)
-		}
-	}
-	fs := vfs.GetTestFS()
-	runKVTest(t, tf, fs)
-}
-
-func TestHasEntryRecord(t *testing.T) {
-	tf := func(t *testing.T, kvs kv.IKVStore) {
-		has, err := hasEntryRecord(kvs, true)
-		if err != nil {
-			t.Fatalf("hasEntryRecord failed %v", err)
-		}
-		if has {
-			t.Errorf("unexpected result")
-		}
-		has, err = hasEntryRecord(kvs, false)
-		if err != nil {
-			t.Fatalf("hasEntryRecord failed %v", err)
-		}
-		if has {
-			t.Errorf("unexpected result")
-		}
-		eb := pb.EntryBatch{}
-		data, err := eb.Marshal()
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-		k := newKey(entryKeySize, nil)
-		k.SetEntryBatchKey(1, 1, 1)
-		if err := kvs.SaveValue(k.Key(), data); err != nil {
-			t.Fatalf("failed to save entry batch")
-		}
-		has, err = hasEntryRecord(kvs, true)
-		if err != nil {
-			t.Fatalf("hasEntryRecord failed %v", err)
-		}
-		if !has {
-			t.Errorf("unexpected result")
-		}
-		has, err = hasEntryRecord(kvs, false)
-		if err != nil {
-			t.Fatalf("hasEntryRecord failed %v", err)
-		}
-		if has {
-			t.Errorf("unexpected result")
-		}
-		ent := pb.Entry{}
-		data, err = ent.Marshal()
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-		k = newKey(entryKeySize, nil)
-		k.SetEntryKey(1, 1, 1)
-		if err := kvs.SaveValue(k.Key(), data); err != nil {
-			t.Fatalf("failed to save entry batch")
-		}
-		has, err = hasEntryRecord(kvs, true)
-		if err != nil {
-			t.Fatalf("hasEntryRecord failed %v", err)
-		}
-		if !has {
-			t.Errorf("unexpected result")
-		}
-		has, err = hasEntryRecord(kvs, false)
-		if err != nil {
-			t.Fatalf("hasEntryRecord failed %v", err)
-		}
-		if !has {
-			t.Errorf("unexpected result")
 		}
 	}
 	fs := vfs.GetTestFS()

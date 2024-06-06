@@ -58,7 +58,7 @@ type IKVStore interface {
 	// GetValue queries the value specified the input key, the returned value
 	// byte slice is passed to the specified op func.
 	GetValue(key []byte, op func([]byte) error) error
-	// Save value saves the specified key value pair to the underlying key-value
+	// SaveValue saves the specified key value pair to the underlying key-value
 	// pair.
 	SaveValue(key []byte, value []byte) error
 	// DeleteValue deletes the key-value pair specified by the input key.

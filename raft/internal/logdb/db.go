@@ -54,16 +54,11 @@ type db struct {
 	entries entryManager
 }
 
-func hasEntryRecord(kvs kv.IKVStore, batched bool) (bool, error) {
+func hasEntryRecord(kvs kv.IKVStore) (bool, error) {
 	fk := newKey(entryKeySize, nil)
 	lk := newKey(entryKeySize, nil)
-	if !batched {
-		fk.SetEntryKey(0, 0, 0)
-		lk.SetEntryKey(math.MaxUint64, math.MaxUint64, math.MaxUint64)
-	} else {
-		fk.SetEntryBatchKey(0, 0, 0)
-		lk.SetEntryBatchKey(math.MaxUint64, math.MaxUint64, math.MaxUint64)
-	}
+	fk.SetEntryKey(0, 0, 0)
+	lk.SetEntryKey(math.MaxUint64, math.MaxUint64, math.MaxUint64)
 	located := false
 	op := func(key []byte, data []byte) (bool, error) {
 		located = true
@@ -76,7 +71,7 @@ func hasEntryRecord(kvs kv.IKVStore, batched bool) (bool, error) {
 }
 
 func openRDB(config config.LogDBConfig,
-	callback kv.LogDBCallback, dir string, wal string, batched bool,
+	callback kv.LogDBCallback, dir string, wal string,
 	fs vfs.IFS, kvf kv.Factory) (*db, error) {
 	kvs, err := kvf(config, callback, dir, wal, fs)
 	if err != nil {
@@ -84,17 +79,11 @@ func openRDB(config config.LogDBConfig,
 	}
 	cs := newCache()
 	pool := newLogDBKeyPool()
-	var em entryManager
-	if batched {
-		em = newBatchedEntries(cs, pool, kvs)
-	} else {
-		em = newPlainEntries(cs, pool, kvs)
-	}
 	return &db{
 		cs:      cs,
 		keys:    pool,
 		kvs:     kvs,
-		entries: em,
+		entries: newPlainEntries(cs, pool, kvs),
 	}, nil
 }
 
@@ -103,8 +92,7 @@ func (r *db) name() string {
 }
 
 func (r *db) selfCheckFailed() (bool, error) {
-	_, batched := r.entries.(*batchedEntries)
-	return hasEntryRecord(r.kvs, !batched)
+	return hasEntryRecord(r.kvs)
 }
 
 func (r *db) binaryFormat() uint32 {

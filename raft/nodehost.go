@@ -1621,15 +1621,6 @@ func (nh *NodeHost) createLogDB() error {
 	if err := nh.env.CheckNodeHostDir(nh.nhConfig, ver, name); err != nil {
 		return err
 	}
-	if shardedrdb, ok := ldb.(*logdb.ShardedDB); ok {
-		failed, err := shardedrdb.SelfCheckFailed()
-		if err != nil {
-			return err
-		}
-		if failed {
-			return server.ErrLogDBBrokenChange
-		}
-	}
 	plog.Infof("logdb memory limit: %d MBytes",
 		nh.nhConfig.Expert.LogDB.MemorySizeMB())
 	return nil
