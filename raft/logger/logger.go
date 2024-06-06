@@ -19,8 +19,6 @@ package logger
 
 import (
 	"sync"
-
-	"github.com/jamf/regatta/raft/internal/invariants"
 )
 
 // LogLevel is the log level defined in dragonboat.
@@ -71,38 +69,29 @@ func SetLoggerFactory(f Factory) {
 // GetLogger returns the logger for the specified package name. The most common
 // use case for the returned logger is to set its log verbosity level.
 func GetLogger(pkgName string) ILogger {
-	return getILogger(pkgName, false)
+	return getILogger(pkgName)
 }
 
-// GetMonkeyLogger returns a logger that only works in monkey test mode.
-func GetMonkeyLogger(pkgName string) ILogger {
-	return getILogger(pkgName, true)
-}
-
-func getILogger(pkgName string, monkey bool) ILogger {
+func getILogger(pkgName string) ILogger {
 	_loggers.mu.Lock()
 	defer _loggers.mu.Unlock()
 	l, ok := _loggers.loggers[pkgName]
 	if !ok {
-		l = &dragonboatLogger{pkgName: pkgName, monkeyLogger: monkey}
+		l = &dragonboatLogger{pkgName: pkgName}
 		_loggers.loggers[pkgName] = l
 	}
 	return l
 }
 
 type dragonboatLogger struct {
-	logger       ILogger
-	pkgName      string
-	mu           sync.Mutex
-	monkeyLogger bool
+	logger  ILogger
+	pkgName string
+	mu      sync.Mutex
 }
 
 var _ ILogger = (*dragonboatLogger)(nil)
 
 func (d *dragonboatLogger) get() ILogger {
-	if d.monkeyLogger && !invariants.MonkeyTest {
-		return _nullLogger
-	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.logger == nil {
