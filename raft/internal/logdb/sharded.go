@@ -59,14 +59,11 @@ func (sc *shardCallback) callback(busy bool) {
 
 // OpenShardedDB creates a ShardedDB instance.
 func OpenShardedDB(config config.NodeHostConfig, cb config.LogDBCallback,
-	dirs []string, lldirs []string, batched bool, check bool,
+	dirs []string, lldirs []string, check bool,
 	kvf kv.Factory) (*ShardedDB, error) {
 	fs := config.Expert.FS
 	if config.Expert.LogDB.IsEmpty() {
 		panic("config.Expert.LogDB.IsEmpty()")
-	}
-	if check && batched {
-		plog.Panicf("check and batched both set")
 	}
 	shards := make([]*db, 0)
 	closeAll := func(all []*db) {
@@ -86,31 +83,25 @@ func OpenShardedDB(config config.NodeHostConfig, cb config.LogDBCallback,
 			lldir = fs.PathJoin(lldirs[i], fmt.Sprintf("logdb-%d", i))
 		}
 		sc := shardCallback{shard: i, f: cb}
-		db, err := openRDB(config.Expert.LogDB,
-			sc.callback, dir, lldir, batched, fs, kvf)
+		db, err := openRDB(config.Expert.LogDB, sc.callback, dir, lldir, fs, kvf)
 		if err != nil {
 			closeAll(shards)
 			return nil, errors.WithStack(err)
 		}
 		shards = append(shards, db)
 	}
-	if check && !batched {
+	if check {
 		for _, s := range shards {
-			located, err := hasEntryRecord(s.kvs, true)
+			located, err := hasEntryRecord(s.kvs)
 			if err != nil {
 				closeAll(shards)
 				return nil, errors.WithStack(err)
 			}
 			if located {
 				closeAll(shards)
-				return OpenShardedDB(config, cb, dirs, lldirs, true, false, kvf)
+				return OpenShardedDB(config, cb, dirs, lldirs, false, kvf)
 			}
 		}
-	}
-	if batched {
-		plog.Infof("using batched logdb")
-	} else {
-		plog.Infof("using plain logdb")
 	}
 	partitioner := server.NewDoubleFixedPartitioner(config.Expert.Engine.ExecShards,
 		config.Expert.LogDB.Shards)
@@ -140,21 +131,6 @@ func (s *ShardedDB) Name() string {
 // BinaryFormat is the binary format supported by the sharded DB.
 func (s *ShardedDB) BinaryFormat() uint32 {
 	return s.shards[0].binaryFormat()
-}
-
-// SelfCheckFailed runs a self check on all db shards and report whether any
-// failure is observed.
-func (s *ShardedDB) SelfCheckFailed() (bool, error) {
-	for _, shard := range s.shards {
-		failed, err := shard.selfCheckFailed()
-		if err != nil {
-			return false, errors.WithStack(err)
-		}
-		if failed {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // SaveRaftState saves the raft state and logs found in the raft.Update list

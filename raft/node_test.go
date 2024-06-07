@@ -243,7 +243,7 @@ func doGetTestRaftNodes(startID uint64, count int, ordered bool,
 			return rsm.NewNativeSM(cfg, rsm.NewInMemStateMachine(noopSM), done)
 		}
 		// node registry
-		nr := registry.NewNodeRegistry(settings.Soft.StreamConnections, nil)
+		nr := registry.NewNodeRegistry(nil)
 		ch := router.getQ(testShardID, i)
 		nhConfig := config.NodeHostConfig{RTTMillisecond: tickMillisecond}
 		node, err := newNode(peers,

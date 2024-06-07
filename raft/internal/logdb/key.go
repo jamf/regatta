@@ -88,19 +88,6 @@ func (k *Key) SetMaximumKey() {
 	}
 }
 
-// SetEntryBatchKey sets the key value opf the entry batch.
-func (k *Key) SetEntryBatchKey(shardID uint64,
-	replicaID uint64, batchID uint64) {
-	k.useAsEntryKey()
-	k.key[0] = entryBatchKeyHeader[0]
-	k.key[1] = entryBatchKeyHeader[1]
-	k.key[2] = 0
-	k.key[3] = 0
-	binary.BigEndian.PutUint64(k.key[4:], shardID)
-	binary.BigEndian.PutUint64(k.key[12:], replicaID)
-	binary.BigEndian.PutUint64(k.key[20:], batchID)
-}
-
 // SetEntryKey sets the key value to the specified entry key.
 func (k *Key) SetEntryKey(shardID uint64, replicaID uint64, index uint64) {
 	k.useAsEntryKey()

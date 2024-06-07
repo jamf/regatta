@@ -36,7 +36,6 @@ var (
 // usually obtained by calling the GetKey() function of the IContext
 // instance.
 type IReusableKey interface {
-	SetEntryBatchKey(shardID uint64, replicaID uint64, index uint64)
 	// SetEntryKey sets the key to be an entry key for the specified Raft node
 	// with the specified entry index.
 	SetEntryKey(shardID uint64, replicaID uint64, index uint64)
@@ -106,16 +105,7 @@ func NewDefaultLogDB(config config.NodeHostConfig,
 	callback config.LogDBCallback,
 	dirs []string, lldirs []string) (raftio.ILogDB, error) {
 	return NewLogDB(config,
-		callback, dirs, lldirs, false, true, newDefaultKVStore)
-}
-
-// NewDefaultBatchedLogDB creates a Log DB instance using the default KV store
-// implementation with batched entry support.
-func NewDefaultBatchedLogDB(config config.NodeHostConfig,
-	callback config.LogDBCallback,
-	dirs []string, lldirs []string) (raftio.ILogDB, error) {
-	return NewLogDB(config,
-		callback, dirs, lldirs, true, false, newDefaultKVStore)
+		callback, dirs, lldirs, true, newDefaultKVStore)
 }
 
 // NewLogDB creates a Log DB instance based on provided configuration
@@ -123,7 +113,7 @@ func NewDefaultBatchedLogDB(config config.NodeHostConfig,
 // by the provided factory function.
 func NewLogDB(config config.NodeHostConfig,
 	callback config.LogDBCallback, dirs []string, lldirs []string,
-	batched bool, check bool, f kv.Factory) (raftio.ILogDB, error) {
+	check bool, f kv.Factory) (raftio.ILogDB, error) {
 	checkDirs(config.Expert.LogDB.Shards, dirs, lldirs)
 	llDirRequired := len(lldirs) == 1
 	if len(dirs) == 1 {
@@ -134,7 +124,7 @@ func NewLogDB(config config.NodeHostConfig,
 			}
 		}
 	}
-	return OpenShardedDB(config, callback, dirs, lldirs, batched, check, f)
+	return OpenShardedDB(config, callback, dirs, lldirs, check, f)
 }
 
 func checkDirs(numOfShards uint64, dirs []string, lldirs []string) {

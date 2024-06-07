@@ -30,7 +30,6 @@ import (
 	"github.com/jamf/regatta/raft/internal/utils"
 	"github.com/jamf/regatta/raft/internal/vfs"
 	"github.com/jamf/regatta/raft/logger"
-	"github.com/jamf/regatta/raft/raftio"
 	"github.com/jamf/regatta/raft/raftpb"
 )
 
@@ -60,15 +59,9 @@ var (
 	// ErrLockDirectory indicates that obtaining exclusive lock to the data
 	// directory failed.
 	ErrLockDirectory = errors.New("failed to lock data directory")
-	// ErrHardSettingsChanged indicates that hard settings changed.
-	ErrHardSettingsChanged = errors.New("internal/settings/hard.go settings changed")
 	// ErrIncompatibleData indicates that the specified data directory contains
 	// incompatible data.
 	ErrIncompatibleData = errors.New("incompatible LogDB data format")
-	// ErrLogDBBrokenChange indicates that your NodeHost failed to be created as
-	// your code is hit by the LogDB breaking change introduced in v3.0. Set your
-	// NodeHostConfig.LogDBFactory to rocksdb.OpenBatchedLogDB to continue.
-	ErrLogDBBrokenChange = errors.New("using new LogDB on existing Raft Log")
 )
 
 const (
@@ -418,26 +411,8 @@ func (env *Env) check(cfg config.NodeHostConfig,
 			return ErrDeploymentIDChanged
 		}
 		if s.BinVer != binVer {
-			if s.BinVer == raftio.LogDBBinVersion &&
-				binVer == raftio.PlainLogDBBinVersion {
-				return ErrLogDBBrokenChange
-			}
 			plog.Errorf("logdb binary ver changed, %d vs %d", s.BinVer, binVer)
 			return ErrIncompatibleData
-		}
-		if s.HardHash != 0 {
-			if s.HardHash != settings.HardHash(cfg.Expert.Engine.ExecShards,
-				cfg.Expert.LogDB.Shards, settings.Hard.LRUMaxSessionCount,
-				settings.Hard.LogDBEntryBatchSize) {
-				return ErrHardSettingsChanged
-			}
-		} else {
-			if s.StepWorkerCount != cfg.Expert.Engine.ExecShards ||
-				s.LogdbShardCount != cfg.Expert.LogDB.Shards ||
-				s.MaxSessionCount != settings.Hard.LRUMaxSessionCount ||
-				s.EntryBatchSize != settings.Hard.LogDBEntryBatchSize {
-				return ErrHardSettingChanged
-			}
 		}
 	}
 	return nil
@@ -454,8 +429,8 @@ func (env *Env) createFlagFile(cfg config.NodeHostConfig,
 		DeploymentId:    cfg.GetDeploymentID(),
 		StepWorkerCount: cfg.Expert.Engine.ExecShards,
 		LogdbShardCount: cfg.Expert.LogDB.Shards,
-		MaxSessionCount: settings.Hard.LRUMaxSessionCount,
-		EntryBatchSize:  settings.Hard.LogDBEntryBatchSize,
+		MaxSessionCount: settings.LRUMaxSessionCount,
+		EntryBatchSize:  settings.LogDBEntryBatchSize,
 	}
 	return fileutil.CreateFlagFile(dir, flagFilename, &s, env.fs)
 }

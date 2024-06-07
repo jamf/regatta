@@ -31,7 +31,6 @@ import (
 	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/raft/internal/raft"
 	"github.com/jamf/regatta/raft/internal/server"
-	"github.com/jamf/regatta/raft/internal/settings"
 	"github.com/jamf/regatta/raft/internal/utils"
 	"github.com/jamf/regatta/raft/internal/vfs"
 	"github.com/jamf/regatta/raft/logger"
@@ -47,7 +46,6 @@ var (
 	// ErrRestoreSnapshot indicates there is error when trying to restore
 	// from a snapshot
 	ErrRestoreSnapshot             = errors.New("failed to restore snapshot")
-	batchedEntryApply              = settings.Soft.BatchedEntryApply
 	sessionBufferInitialCap uint64 = 128 * 1024
 )
 
@@ -838,7 +836,7 @@ func getEntryTypes(entries []pb.Entry) (bool, bool) {
 }
 
 func (s *StateMachine) handle(t []Task, a []sm.Entry) error {
-	batch := batchedEntryApply && s.Concurrent()
+	batch := s.Concurrent()
 	for idx := range t {
 		if t[idx].IsSnapshotTask() || t[idx].isSyncTask() {
 			plog.Panicf("%s trying to handle a snapshot/sync request", s.id())

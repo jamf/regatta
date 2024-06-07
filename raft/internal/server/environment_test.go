@@ -24,7 +24,6 @@ import (
 	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/id"
-	"github.com/jamf/regatta/raft/internal/settings"
 	"github.com/jamf/regatta/raft/internal/vfs"
 	"github.com/jamf/regatta/raft/raftio"
 	"github.com/jamf/regatta/raft/raftpb"
@@ -76,11 +75,8 @@ func TestCheckNodeHostDirWorksWhenEverythingMatches(t *testing.T) {
 			DeploymentID: testDeploymentID,
 		}
 		status := raftpb.RaftDataStatus{
-			Address: testAddress,
-			BinVer:  raftio.LogDBBinVersion,
-			HardHash: settings.HardHash(cfg.Expert.Engine.ExecShards,
-				cfg.Expert.LogDB.Shards, settings.Hard.LRUMaxSessionCount,
-				settings.Hard.LogDBEntryBatchSize),
+			Address:      testAddress,
+			BinVer:       raftio.LogDBBinVersion,
 			LogdbType:    testName,
 			Hostname:     env.hostname,
 			DeploymentId: testDeploymentID,
@@ -121,11 +117,8 @@ func testNodeHostDirectoryDetectsMismatches(t *testing.T,
 	}
 
 	status := raftpb.RaftDataStatus{
-		Address: addr,
-		BinVer:  binVer,
-		HardHash: settings.HardHash(cfg.Expert.Engine.ExecShards,
-			cfg.Expert.LogDB.Shards, settings.Hard.LRUMaxSessionCount,
-			settings.Hard.LogDBEntryBatchSize),
+		Address:             addr,
+		BinVer:              binVer,
 		LogdbType:           name,
 		Hostname:            hostname,
 		AddressByNodeHostId: false,
@@ -170,13 +163,6 @@ func TestCanDetectMismatchedAddress(t *testing.T) {
 	testNodeHostDirectoryDetectsMismatches(t,
 		"invalid:12345", "", raftio.LogDBBinVersion,
 		testLogDBName, false, ErrNotOwner, fs)
-}
-
-func TestCanDetectMismatchedHardHash(t *testing.T) {
-	fs := vfs.GetTestFS()
-	testNodeHostDirectoryDetectsMismatches(t,
-		testAddress, "", raftio.LogDBBinVersion,
-		testLogDBName, true, ErrHardSettingsChanged, fs)
 }
 
 func TestLockFileCanBeLockedAndUnlocked(t *testing.T) {

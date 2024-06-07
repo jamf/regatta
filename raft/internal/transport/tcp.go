@@ -49,8 +49,8 @@ var (
 	readDuration        = 5 * time.Second
 	writeDuration       = 5 * time.Second
 	keepAlivePeriod     = 10 * time.Second
-	perConnBufSize      = settings.Soft.PerConnectionSendBufSize
-	recvBufSize         = settings.Soft.PerConnectionRecvBufSize
+	perConnBufSize      = settings.PerConnectionSendBufSize
+	recvBufSize         = settings.PerConnectionRecvBufSize
 )
 
 const (

@@ -47,7 +47,7 @@ import (
 
 var (
 	snapshotChunkSize  = settings.SnapshotChunkSize
-	maxConnectionCount = settings.Soft.MaxSnapshotConnections
+	maxConnectionCount = settings.MaxSnapshotConnections
 )
 
 // SendSnapshot asynchronously sends raft snapshot message to its target.

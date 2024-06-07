@@ -37,9 +37,9 @@ var (
 	// ErrSnapshotOutOfDate is returned when the snapshot being received is
 	// considered as out of date.
 	ErrSnapshotOutOfDate     = errors.New("snapshot is out of date")
-	gcIntervalTick           = settings.Soft.SnapshotGCTick
-	snapshotChunkTimeoutTick = settings.Soft.SnapshotChunkTimeoutTick
-	maxConcurrentSlot        = settings.Soft.MaxConcurrentStreamingSnapshot
+	gcIntervalTick           = settings.SnapshotGCTick
+	snapshotChunkTimeoutTick = settings.SnapshotChunkTimeoutTick
+	maxConcurrentSlot        = settings.MaxConcurrentStreamingSnapshot
 )
 
 var firstError = utils.FirstError

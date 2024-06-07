@@ -39,7 +39,7 @@ import (
 
 var (
 	defaultGCTick         uint64 = 2
-	pendingProposalShards        = settings.Soft.PendingProposalShards
+	pendingProposalShards        = settings.PendingProposalShards
 )
 
 var (

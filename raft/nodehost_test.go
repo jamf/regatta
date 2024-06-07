@@ -45,7 +45,6 @@ import (
 	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/id"
 	"github.com/jamf/regatta/raft/internal/invariants"
-	"github.com/jamf/regatta/raft/internal/logdb"
 	"github.com/jamf/regatta/raft/internal/registry"
 	"github.com/jamf/regatta/raft/internal/rsm"
 	"github.com/jamf/regatta/raft/internal/server"
@@ -812,7 +811,7 @@ func (trf *testRegistryFactory) Set(nhid, addr string) {
 
 func (trf *testRegistryFactory) Create(nhid string, streamConnections uint64, v config.TargetValidator) (raftio.INodeRegistry, error) {
 	return &testRegistry{
-		registry.NewNodeRegistry(streamConnections, v),
+		registry.NewNodeRegistry(v),
 		&trf.mu,
 		trf.nodeAddrs,
 	}, nil
@@ -4197,101 +4196,6 @@ func (t *testLogDBFactory2) Create(cfg config.NodeHostConfig, cb config.LogDBCal
 
 func (t *testLogDBFactory2) Name() string {
 	return t.name
-}
-
-func TestNodeHostReturnsErrLogDBBrokenChangeWhenLogDBTypeChanges(t *testing.T) {
-	fs := vfs.GetTestFS()
-	bff := func(config config.NodeHostConfig, cb config.LogDBCallback,
-		dirs []string, lldirs []string) (raftio.ILogDB, error) {
-		return logdb.NewDefaultBatchedLogDB(config, cb, dirs, lldirs)
-	}
-	nff := func(config config.NodeHostConfig, cb config.LogDBCallback,
-		dirs []string, lldirs []string) (raftio.ILogDB, error) {
-		return logdb.NewDefaultLogDB(config, cb, dirs, lldirs)
-	}
-	to := &testOption{
-		at: func(*NodeHost) {
-			nhc := getTestNodeHostConfig(fs)
-			nhc.Expert.LogDBFactory = &testLogDBFactory2{f: nff}
-			if _, err := NewNodeHost(*nhc); err != server.ErrLogDBBrokenChange {
-				t.Errorf("failed to return ErrLogDBBrokenChange")
-			}
-		},
-		updateNodeHostConfig: func(c *config.NodeHostConfig) *config.NodeHostConfig {
-			c.Expert.LogDBFactory = &testLogDBFactory2{f: bff}
-			return c
-		},
-		noElection: true,
-	}
-	runNodeHostTest(t, to, fs)
-}
-
-func TestNodeHostByDefaultUsePlainEntryLogDB(t *testing.T) {
-	fs := vfs.GetTestFS()
-	bff := func(config config.NodeHostConfig, cb config.LogDBCallback,
-		dirs []string, lldirs []string) (raftio.ILogDB, error) {
-		return logdb.NewDefaultBatchedLogDB(config, cb, dirs, lldirs)
-	}
-	nff := func(config config.NodeHostConfig, cb config.LogDBCallback,
-		dirs []string, lldirs []string) (raftio.ILogDB, error) {
-		return logdb.NewDefaultLogDB(config, cb, dirs, lldirs)
-	}
-	to := &testOption{
-		updateNodeHostConfig: func(c *config.NodeHostConfig) *config.NodeHostConfig {
-			c.Expert.LogDBFactory = &testLogDBFactory2{f: nff}
-			return c
-		},
-		noElection: true,
-		at: func(*NodeHost) {
-			nhc := getTestNodeHostConfig(fs)
-			nhc.Expert.LogDBFactory = &testLogDBFactory2{f: bff}
-			if _, err := NewNodeHost(*nhc); err != server.ErrIncompatibleData {
-				t.Errorf("failed to return server.ErrIncompatibleData")
-			}
-		},
-	}
-	runNodeHostTest(t, to, fs)
-}
-
-func TestNodeHostByDefaultChecksWhetherToUseBatchedLogDB(t *testing.T) {
-	fs := vfs.GetTestFS()
-	bff := func(config config.NodeHostConfig, cb config.LogDBCallback,
-		dirs []string, lldirs []string) (raftio.ILogDB, error) {
-		return logdb.NewDefaultBatchedLogDB(config, cb, dirs, lldirs)
-	}
-	nff := func(config config.NodeHostConfig, cb config.LogDBCallback,
-		dirs []string, lldirs []string) (raftio.ILogDB, error) {
-		return logdb.NewDefaultLogDB(config, cb, dirs, lldirs)
-	}
-	to := &testOption{
-		updateNodeHostConfig: func(c *config.NodeHostConfig) *config.NodeHostConfig {
-			c.Expert.LogDBFactory = &testLogDBFactory2{f: bff}
-			return c
-		},
-		createSM: func(uint64, uint64) sm.IStateMachine {
-			return &PST{}
-		},
-		tf: func(nh *NodeHost) {
-			pto := pto(nh)
-			cs := nh.GetNoOPSession(1)
-			ctx, cancel := context.WithTimeout(context.Background(), pto)
-			_, err := nh.SyncPropose(ctx, cs, []byte("test-data"))
-			cancel()
-			if err != nil {
-				t.Errorf("failed to make proposal %v", err)
-			}
-		},
-		at: func(*NodeHost) {
-			nhc := getTestNodeHostConfig(fs)
-			nhc.Expert.LogDBFactory = &testLogDBFactory2{f: nff}
-			if nh, err := NewNodeHost(*nhc); err != nil {
-				t.Errorf("failed to create node host")
-			} else {
-				nh.Close()
-			}
-		},
-	}
-	runNodeHostTest(t, to, fs)
 }
 
 func TestNodeHostWithUnexpectedDeploymentIDWillBeDetected(t *testing.T) {

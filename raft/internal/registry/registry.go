@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/jamf/regatta/raft/internal/settings"
 	"github.com/lni/goutils/logutil"
 
 	"github.com/jamf/regatta/raft/config"
@@ -50,11 +51,8 @@ type Registry struct {
 }
 
 // NewNodeRegistry returns a new Registry object.
-func NewNodeRegistry(streamConnections uint64, v config.TargetValidator) *Registry {
-	n := &Registry{validate: v}
-	if streamConnections > 1 {
-		n.partitioner = server.NewFixedPartitioner(streamConnections)
-	}
+func NewNodeRegistry(v config.TargetValidator) *Registry {
+	n := &Registry{validate: v, partitioner: server.NewFixedPartitioner(settings.StreamConnections)}
 	return n
 }
 

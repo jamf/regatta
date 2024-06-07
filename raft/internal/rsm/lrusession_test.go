@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jamf/regatta/raft/internal/settings"
 	sm "github.com/jamf/regatta/raft/statemachine"
 )
 
@@ -250,7 +251,7 @@ func TestLRUSessionCanBeSavedAndRestored(t *testing.T) {
 }
 
 func TestGetEmptyLRUSession(t *testing.T) {
-	s := newLRUSession(LRUMaxSessionCount)
+	s := newLRUSession(settings.LRUMaxSessionCount)
 	buf := bytes.NewBuffer(make([]byte, 0))
 	if err := s.save(buf); err != nil {
 		t.Fatalf("failed to save %v", err)

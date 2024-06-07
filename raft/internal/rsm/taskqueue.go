@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	initialTaskQueueCap = settings.Soft.TaskQueueInitialCap
-	taskQueueBusyCap    = settings.Soft.TaskQueueTargetLength
+	initialTaskQueueCap = settings.TaskQueueInitialCap
+	taskQueueBusyCap    = settings.TaskQueueTargetLength
 	emptyTask           = Task{}
 )
 

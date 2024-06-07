@@ -53,8 +53,8 @@ const (
 
 var (
 	emptyState     = pb.State{}
-	maxEntrySize   = settings.Soft.MaxEntrySize
-	inMemGcTimeout = settings.Soft.InMemGCTimeout
+	maxEntrySize   = settings.MaxEntrySize
+	inMemGcTimeout = settings.InMemGCTimeout
 )
 
 // State is the state of a raft node defined in the raft thesis.

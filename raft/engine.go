@@ -31,11 +31,11 @@ import (
 )
 
 var (
-	reloadTime           = settings.Soft.NodeReloadMillisecond
-	timedCloseWaitSecond = settings.Soft.CloseWorkerTimedWaitSecond
+	reloadTime           = settings.NodeReloadMillisecond
+	timedCloseWaitSecond = settings.CloseWorkerTimedWaitSecond
 	timedCloseWait       = time.Second * time.Duration(timedCloseWaitSecond)
 	nodeReloadInterval   = time.Millisecond * time.Duration(reloadTime)
-	taskBatchSize        = settings.Soft.TaskBatchSize
+	taskBatchSize        = settings.TaskBatchSize
 )
 
 type bitmap struct {

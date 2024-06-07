@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/pebble"
+	rp "github.com/jamf/regatta/pebble"
 	"github.com/lni/goutils/syncutil"
 
 	"github.com/jamf/regatta/raft/config"
@@ -177,9 +178,6 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 		sz = sz * levelSizeMultiplier
 		lopts = append(lopts, opt)
 	}
-	if inMonkeyTesting {
-		writeBufferSize = 1024 * 1024 * 4
-	}
 	cache := pebble.NewCache(cacheSize)
 	ro := &pebble.IterOptions{}
 	wo := &pebble.WriteOptions{Sync: true}
@@ -195,7 +193,7 @@ func openPebbleDB(config config.LogDBConfig, callback kv.LogDBCallback,
 		Logger:                      PebbleLogger,
 	}
 	if fs != vfs.DefaultFS {
-		opts.FS = vfs.NewPebbleFS(fs)
+		opts.FS = rp.NewPebbleFS(fs)
 	}
 	kv := &KV{
 		ro:       ro,

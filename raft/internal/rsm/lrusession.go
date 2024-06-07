@@ -32,17 +32,11 @@ const (
 	EmptyClientSessionLength uint64 = 16
 )
 
-var (
-	// LRUMaxSessionCount is the largest number of client sessions that can be
-	// concurrently managed by a LRUSession instance.
-	LRUMaxSessionCount = settings.Hard.LRUMaxSessionCount
-)
-
 // GetEmptyLRUSession returns an marshaled empty sessions instance.
 func GetEmptyLRUSession() []byte {
 	v := make([]byte, 0)
 	sz := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sz, LRUMaxSessionCount)
+	binary.LittleEndian.PutUint64(sz, settings.LRUMaxSessionCount)
 	total := make([]byte, 8)
 	binary.LittleEndian.PutUint64(total, 0)
 	v = append(v, sz...)

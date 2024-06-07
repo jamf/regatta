@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	entrySliceSize    = settings.Soft.InMemEntrySliceSize
-	minEntrySliceSize = settings.Soft.MinEntrySliceFreeSize
+	entrySliceSize    = settings.InMemEntrySliceSize
+	minEntrySliceSize = settings.MinEntrySliceFreeSize
 )
 
 // inMemory is a two stage in memory log storage struct to keep log entries
@@ -39,9 +39,6 @@ type inMemory struct {
 }
 
 func newInMemory(lastIndex uint64, rl *server.InMemRateLimiter) inMemory {
-	if minEntrySliceSize >= entrySliceSize {
-		panic("minEntrySliceSize >= entrySliceSize")
-	}
 	return inMemory{
 		markerIndex: lastIndex + 1,
 		savedTo:     lastIndex,
