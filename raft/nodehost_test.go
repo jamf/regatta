@@ -44,7 +44,6 @@ import (
 	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/raft/internal/fileutil"
 	"github.com/jamf/regatta/raft/internal/id"
-	"github.com/jamf/regatta/raft/internal/invariants"
 	"github.com/jamf/regatta/raft/internal/registry"
 	"github.com/jamf/regatta/raft/internal/rsm"
 	"github.com/jamf/regatta/raft/internal/server"
@@ -131,17 +130,11 @@ func calcRTTMillisecond(fs vfs.IFS, dir string) uint64 {
 // typical proposal timeout
 func pto(nh *NodeHost) time.Duration {
 	rtt := nh.NodeHostConfig().RTTMillisecond
-	if invariants.Race {
-		return 5 * time.Second
-	}
 	return time.Duration(rtt*45) * time.Millisecond
 }
 
 func lpto(nh *NodeHost) time.Duration {
 	rtt := nh.NodeHostConfig().RTTMillisecond
-	if invariants.Race {
-		return 30 * time.Second
-	}
 	return time.Duration(rtt*100) * time.Millisecond
 }
 
