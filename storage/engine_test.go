@@ -18,6 +18,7 @@ import (
 	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/logreader"
 	"github.com/jamf/regatta/storage/table"
+	"github.com/jamf/regatta/util/iter"
 	"github.com/jamf/regatta/version"
 	lvfs "github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
@@ -235,6 +236,167 @@ func TestEngine_Range(t *testing.T) {
 			got, err := e.Range(tt.args.ctx, tt.args.req)
 			tt.wantErr(t, err)
 			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEngine_IterateRange(t *testing.T) {
+	type args struct {
+		ctx context.Context
+		req *regattapb.RangeRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		prepare func(t *testing.T, e *Engine)
+		want    *regattapb.RangeResponse
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name:    "table not found",
+			prepare: func(t *testing.T, e *Engine) {},
+			args: args{
+				ctx: context.Background(),
+				req: &regattapb.RangeRequest{
+					Table: []byte(testTableName),
+					Key:   []byte("key"),
+				},
+			},
+			wantErr: require.Error,
+		},
+		{
+			name: "key not found serializable request",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &regattapb.RangeRequest{
+					Table: []byte(testTableName),
+					Key:   []byte("key"),
+				},
+			},
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "key not found linearizable request",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &regattapb.RangeRequest{
+					Table:        []byte(testTableName),
+					Key:          []byte("key"),
+					Linearizable: true,
+				},
+			},
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "key found serializable request",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &regattapb.RangeRequest{
+					Table: []byte(testTableName),
+					Key:   []byte("key"),
+				},
+			},
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+				Kvs: []*regattapb.KeyValue{
+					{Key: []byte("key"), Value: []byte("value")},
+				},
+				Count: 1,
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "key found range request",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &regattapb.RangeRequest{
+					Table:    []byte(testTableName),
+					Key:      []byte("key"),
+					RangeEnd: []byte("key_"),
+				},
+			},
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+				Kvs: []*regattapb.KeyValue{
+					{Key: []byte("key"), Value: []byte("value")},
+				},
+				Count: 1,
+			},
+			wantErr: require.NoError,
+		},
+		{
+			name: "key found linearizable request",
+			prepare: func(t *testing.T, e *Engine) {
+				createTable(t, e)
+				_, err := e.Put(context.Background(), &regattapb.PutRequest{Table: []byte(testTableName), Key: []byte("key"), Value: []byte("value")})
+				require.NoError(t, err)
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &regattapb.RangeRequest{
+					Table: []byte(testTableName),
+					Key:   []byte("key"),
+				},
+			},
+			want: &regattapb.RangeResponse{
+				Header: &regattapb.ResponseHeader{
+					ReplicaId: 1,
+					ShardId:   10001,
+				},
+				Kvs: []*regattapb.KeyValue{
+					{Key: []byte("key"), Value: []byte("value")},
+				},
+				Count: 1,
+			},
+			wantErr: require.NoError,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := cancellableTestContext(t)
+			e := newTestEngine(t, newTestConfig())
+			require.NoError(t, e.Start())
+			require.NoError(t, e.WaitUntilReady(ctx))
+			tt.prepare(t, e)
+			got, err := e.IterateRange(tt.args.ctx, tt.args.req)
+			tt.wantErr(t, err)
+			require.Equal(t, tt.want, iter.First(got))
 		})
 	}
 }

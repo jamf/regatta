@@ -35,6 +35,9 @@ func From[T any](in ...T) Seq[T] {
 
 func First[T any](seq Seq[T]) T {
 	var res T
+	if seq == nil {
+		return *new(T)
+	}
 	seq(func(t T) bool {
 		res = t
 		return false

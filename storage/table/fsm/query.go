@@ -137,6 +137,17 @@ func singleLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (*regatt
 	}, nil
 }
 
+func iteratorLookup(reader pebble.Reader, req *regattapb.RequestOp_Range) (iter.Seq[*regattapb.ResponseOp_Range], error) {
+	if req.RangeEnd != nil {
+		return iterate(reader, req)
+	}
+	single, err := singleLookup(reader, req)
+	if err != nil {
+		return nil, err
+	}
+	return iter.From(single), nil
+}
+
 // IteratorRequest returns open pebble.Iterator it is an API consumer responsibility to close it.
 type IteratorRequest struct {
 	RangeOp *regattapb.RequestOp_Range

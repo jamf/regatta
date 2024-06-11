@@ -239,7 +239,7 @@ func (p *FSM) Lookup(l interface{}) (interface{}, error) {
 		return lookup(db, req)
 	case IteratorRequest:
 		db := p.pebble.Load()
-		return iterate(db, req.RangeOp)
+		return iteratorLookup(db, req.RangeOp)
 	case SnapshotRequest:
 		snapshot := p.pebble.Load().NewSnapshot()
 		defer snapshot.Close()
