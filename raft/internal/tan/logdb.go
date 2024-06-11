@@ -161,21 +161,6 @@ func (l *LogDB) cleanupBootstrapDir() error {
 	return nil
 }
 
-// TODO: remove the following two methods
-
-// DeleteSnapshot ...
-func (l *LogDB) DeleteSnapshot(shardID uint64,
-	replicaID uint64, index uint64) error {
-	panic("depreciated")
-}
-
-// ListSnapshots lists available snapshots associated with the specified
-// Raft node for index range (0, index].
-func (l *LogDB) ListSnapshots(shardID uint64,
-	replicaID uint64, index uint64) ([]pb.Snapshot, error) {
-	panic("depreciated")
-}
-
 // Name returns the type name of the ILogDB instance.
 func (l *LogDB) Name() string {
 	return tanLogDBName
