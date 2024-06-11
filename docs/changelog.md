@@ -5,7 +5,12 @@ nav_order: 999
 ---
 
 # Changelog
-## v0.5.1 (unreleased)
+## v0.5.2 (unreleased)
+
+### Bugfixes
+* Fix `regatta.v1.KV/IterateRange` without `range_end` returning 0 results.
+---
+## v0.5.1
 
 ### Improvements
 * API server will now by default use fixed number of pre-created worker go routines for stream handling. The behaviour could be overridden by setting `api.stream-workers` config value.
@@ -17,7 +22,7 @@ nav_order: 999
 
 ### Bugfixes
 * Fix storage compaction metrics.
-
+---
 ## v0.5.0
 
 ### Highlights
