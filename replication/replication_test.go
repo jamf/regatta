@@ -12,12 +12,12 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/regattaserver"
 	"github.com/jamf/regatta/replication/snapshot"
 	"github.com/jamf/regatta/storage"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -281,10 +281,10 @@ func startReplicationServer(engine *storage.Engine) *regattaserver.RegattaServer
 }
 
 type testLogReader struct {
-	nh *dragonboat.NodeHost
+	nh *raft.NodeHost
 }
 
-func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
+func (t *testLogReader) QueryRaftLog(ctx context.Context, clusterID uint64, logRange raft.LogRange, maxSize uint64) ([]raftpb.Entry, error) {
 	// Empty log range should return immediately.
 	if logRange.FirstIndex == logRange.LastIndex {
 		return nil, nil

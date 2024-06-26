@@ -3,6 +3,7 @@
 package pebble
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -65,8 +66,8 @@ func DefaultOptions() *pebble.Options {
 	// acceptable. We'll achieve 80-90% of the benefit of having bloom filters on every level for only 10% of the
 	// memory cost.
 	lvlOpts[len(lvlOpts)-1].FilterPolicy = nil
-	return &pebble.Options{
-		FormatMajorVersion:          pebble.FormatRangeKeys,
+	opts := &pebble.Options{
+		FormatMajorVersion:          pebble.FormatVirtualSSTables,
 		L0CompactionFileThreshold:   l0FileNumCompactionTrigger,
 		L0StopWritesThreshold:       l0StopWritesTrigger,
 		LBaseMaxBytes:               maxBytesForLevelBase,
@@ -88,10 +89,14 @@ func DefaultOptions() *pebble.Options {
 			Name:               pebble.DefaultComparer.Name,
 		},
 	}
+	opts.EnsureDefaults()
+	opts.Experimental.EnableValueBlocks = func() bool { return true }
+	opts.Experimental.IngestSplit = func() bool { return true }
+	return opts
 }
 
 func WriterOptions(level int) sstable.WriterOptions {
-	return DefaultOptions().MakeWriterOptions(level, sstable.TableFormatPebblev2)
+	return DefaultOptions().MakeWriterOptions(level, sstable.TableFormatPebblev4)
 }
 
 type Option interface {
@@ -108,11 +113,10 @@ func (fdo *funcOption) apply(do *pebble.Options) {
 
 func WithFS(fs vfs.FS) Option {
 	return &funcOption{func(options *pebble.Options) {
-		options.FS, _ = vfs.WithDiskHealthChecks(fs, 5*time.Second, func(path string, duration time.Duration) {
-			options.EventListener.DiskSlow(pebble.DiskSlowInfo{
-				Path:     path,
-				Duration: duration,
-			})
+		options.FS, _ = vfs.WithDiskHealthChecks(fs, 5*time.Second, func(info pebble.DiskSlowInfo) {
+			if options.EventListener != nil {
+				options.EventListener.DiskSlow(info)
+			}
 		})
 	}}
 }
@@ -137,7 +141,7 @@ func WithLogger(logger pebble.Logger) Option {
 
 func WithEventListener(listener pebble.EventListener) Option {
 	return &funcOption{func(options *pebble.Options) {
-		options.EventListener = listener
+		options.AddEventListener(listener)
 	}}
 }
 
@@ -147,5 +151,13 @@ func OpenDB(dbdir string, options ...Option) (*pebble.DB, error) {
 	for _, option := range options {
 		option.apply(opts)
 	}
-	return pebble.Open(dbdir, opts)
+	db, err := pebble.Open(dbdir, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error opening DB: %w", err)
+	}
+	err = db.RatchetFormatMajorVersion(pebble.FormatVirtualSSTables)
+	if err != nil {
+		return nil, fmt.Errorf("error ratcheting DB: %w", err)
+	}
+	return db, nil
 }

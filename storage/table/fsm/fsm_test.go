@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble/vfs"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/util"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	pb "google.golang.org/protobuf/proto"

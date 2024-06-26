@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jamf/regatta/raft"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -105,13 +105,13 @@ func TestKVServer_RangeError(t *testing.T) {
 
 	t.Log("Get retry-safe error")
 	storage = &mockKVService{}
-	storage.On("Range", mock.Anything, mock.Anything).Return((*regattapb.RangeResponse)(nil), dragonboat.ErrSystemBusy)
+	storage.On("Range", mock.Anything, mock.Anything).Return((*regattapb.RangeResponse)(nil), raft.ErrSystemBusy)
 	kv.Storage = storage
 	_, err = kv.Range(context.Background(), &regattapb.RangeRequest{
 		Table: table1Name,
 		Key:   []byte("foo"),
 	})
-	r.EqualError(err, status.Errorf(codes.Unavailable, dragonboat.ErrSystemBusy.Error()).Error())
+	r.EqualError(err, status.Errorf(codes.Unavailable, raft.ErrSystemBusy.Error()).Error())
 }
 
 func TestKVServer_RangeUnimplemented(t *testing.T) {
@@ -227,13 +227,13 @@ func TestKVServer_IterateRangeError(t *testing.T) {
 
 	t.Log("Get retry-safe error")
 	storage = &mockKVService{}
-	storage.On("IterateRange", mock.Anything, mock.Anything).Return((iter.Seq[*regattapb.RangeResponse])(nil), dragonboat.ErrSystemBusy)
+	storage.On("IterateRange", mock.Anything, mock.Anything).Return((iter.Seq[*regattapb.RangeResponse])(nil), raft.ErrSystemBusy)
 	kv.Storage = storage
 	err = kv.IterateRange(&regattapb.RangeRequest{
 		Table: table1Name,
 		Key:   []byte("foo"),
 	}, srv)
-	r.EqualError(err, status.Errorf(codes.Unavailable, dragonboat.ErrSystemBusy.Error()).Error())
+	r.EqualError(err, status.Errorf(codes.Unavailable, raft.ErrSystemBusy.Error()).Error())
 }
 
 func TestKVServer_IterateRangeUnimplemented(t *testing.T) {
@@ -362,13 +362,13 @@ func TestKVServer_PutError(t *testing.T) {
 
 	t.Log("Put retry-safe error")
 	storage = &mockKVService{}
-	storage.On("Put", mock.Anything, mock.Anything).Return((*regattapb.PutResponse)(nil), dragonboat.ErrSystemBusy)
+	storage.On("Put", mock.Anything, mock.Anything).Return((*regattapb.PutResponse)(nil), raft.ErrSystemBusy)
 	kv.Storage = storage
 	_, err = kv.Put(context.Background(), &regattapb.PutRequest{
 		Table: table1Name,
 		Key:   []byte("foo"),
 	})
-	r.EqualError(err, status.Errorf(codes.Unavailable, dragonboat.ErrSystemBusy.Error()).Error())
+	r.EqualError(err, status.Errorf(codes.Unavailable, raft.ErrSystemBusy.Error()).Error())
 }
 
 func TestKVServer_Put(t *testing.T) {
@@ -433,13 +433,13 @@ func TestKVServer_DeleteRangeError(t *testing.T) {
 
 	t.Log("Delete retry-safe error")
 	storage = &mockKVService{}
-	storage.On("Delete", mock.Anything, mock.Anything).Return((*regattapb.DeleteRangeResponse)(nil), dragonboat.ErrSystemBusy)
+	storage.On("Delete", mock.Anything, mock.Anything).Return((*regattapb.DeleteRangeResponse)(nil), raft.ErrSystemBusy)
 	kv.Storage = storage
 	_, err = kv.DeleteRange(context.Background(), &regattapb.DeleteRangeRequest{
 		Table: table1Name,
 		Key:   []byte("foo"),
 	})
-	r.EqualError(err, status.Errorf(codes.Unavailable, dragonboat.ErrSystemBusy.Error()).Error())
+	r.EqualError(err, status.Errorf(codes.Unavailable, raft.ErrSystemBusy.Error()).Error())
 }
 
 func TestKVServer_DeleteRange(t *testing.T) {
@@ -493,12 +493,12 @@ func TestKVServer_TxnError(t *testing.T) {
 
 	t.Log("Txn retry-safe error")
 	storage = &mockKVService{}
-	storage.On("Txn", mock.Anything, mock.Anything).Return((*regattapb.TxnResponse)(nil), dragonboat.ErrSystemBusy)
+	storage.On("Txn", mock.Anything, mock.Anything).Return((*regattapb.TxnResponse)(nil), raft.ErrSystemBusy)
 	kv.Storage = storage
 	_, err = kv.Txn(context.Background(), &regattapb.TxnRequest{
 		Table: table1Name,
 	})
-	r.EqualError(err, status.Errorf(codes.Unavailable, dragonboat.ErrSystemBusy.Error()).Error())
+	r.EqualError(err, status.Errorf(codes.Unavailable, raft.ErrSystemBusy.Error()).Error())
 }
 
 func TestKVServer_Txn(t *testing.T) {

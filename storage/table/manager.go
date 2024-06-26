@@ -13,15 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/VictoriaMetrics/metrics"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cockroachdb/pebble"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/regattapb"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
 	"github.com/jamf/regatta/storage/table/fsm"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
 	"go.uber.org/zap"
 )
 
@@ -43,7 +42,7 @@ const (
 	tableIDsRangeStart uint64 = 10000
 )
 
-func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, store store, cfg Config) *Manager {
+func NewManager(nh *raft.NodeHost, members map[uint64]string, store store, cfg Config) *Manager {
 	blockCache := pebble.NewCache(cfg.Table.BlockCacheSize)
 	tableCache := pebble.NewTableCache(blockCache, runtime.GOMAXPROCS(-1), cfg.Table.TableCacheSize)
 	return &Manager{
@@ -65,7 +64,7 @@ func NewManager(nh *dragonboat.NodeHost, members map[uint64]string, store store,
 
 type Manager struct {
 	store              store
-	nh                 *dragonboat.NodeHost
+	nh                 *raft.NodeHost
 	mtx                sync.RWMutex
 	members            map[uint64]string
 	closed             chan struct{}
@@ -279,14 +278,14 @@ func (m *Manager) reconcileLoop() {
 }
 
 func (m *Manager) reconcile() error {
-	tabs, nhi, err := func() (map[string]Table, *dragonboat.NodeHostInfo, error) {
+	tabs, nhi, err := func() (map[string]Table, *raft.NodeHostInfo, error) {
 		m.mtx.RLock()
 		defer m.mtx.RUnlock()
 		tabs, err := m.getTables()
 		if err != nil {
 			return nil, nil, err
 		}
-		nhi := m.nh.GetNodeHostInfo(dragonboat.DefaultNodeHostInfoOption)
+		nhi := m.nh.GetNodeHostInfo(raft.DefaultNodeHostInfoOption)
 		if nhi == nil {
 			return nil, nil, serrors.ErrNodeHostInfoUnavailable
 		}
@@ -411,7 +410,7 @@ func (m *Manager) getTables() (map[string]Table, error) {
 	return tables, nil
 }
 
-func diffTables(tables map[string]Table, raftInfo []dragonboat.ShardInfo) (toStart map[uint64]Table, toStop []uint64) {
+func diffTables(tables map[string]Table, raftInfo []raft.ShardInfo) (toStart map[uint64]Table, toStop []uint64) {
 	tableIDs := make(map[uint64]Table)
 	for _, t := range tables {
 		if t.ClusterID != 0 {
@@ -448,7 +447,7 @@ func diffTables(tables map[string]Table, raftInfo []dragonboat.ShardInfo) (toSta
 func (m *Manager) startTable(name string, id uint64) error {
 	if m.nh.HasNodeInfo(id, m.cfg.NodeID) {
 		return m.nh.StartOnDiskReplica(
-			map[uint64]dragonboat.Target{},
+			map[uint64]raft.Target{},
 			false,
 			fsm.New(name, m.cfg.Table.DataDir, m.cfg.Table.FS, m.blockCache, m.tableCache, fsm.SnapshotRecoveryType(m.cfg.Table.RecoveryType), func(applied uint64) {
 				if m.cfg.Table.AppliedIndexListener != nil {
@@ -501,18 +500,6 @@ func (m *Manager) stopTable(clusterID uint64) error {
 	}
 	if err := m.nh.StopShard(clusterID); err != nil {
 		return err
-	}
-
-	// Unregister metrics, check dragonboat/v4/event.go for metric names
-	if m.nh.NodeHostConfig().EnableMetrics {
-		label := fmt.Sprintf(`{shardid="%d",replicaid="%d"}`, clusterID, m.cfg.NodeID)
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_campaign_launched_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_campaign_skipped_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_snapshot_rejected_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_replication_rejected_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_proposal_dropped_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_read_index_dropped_total%s`, label))
-		metrics.UnregisterMetric(fmt.Sprintf(`dragonboat_raftnode_has_leader%s`, label))
 	}
 	return nil
 }
@@ -642,7 +629,7 @@ func (m *Manager) readIntoTable(id uint64, reader io.Reader) error {
 			defer cancel()
 			_, err := m.nh.SyncPropose(ctx, session, bb)
 			if err != nil {
-				if errors.Is(err, dragonboat.ErrShardNotFound) {
+				if errors.Is(err, raft.ErrShardNotFound) {
 					m.log.Warn("cluster not found recovery probably started on a different node")
 					return backoff.Permanent(err)
 				}

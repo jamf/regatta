@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/memberlist"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftio"
 	"github.com/jamf/regatta/storage/cluster/dns"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftio"
 	"go.uber.org/zap"
 )
 
@@ -57,7 +57,7 @@ type resolver interface {
 }
 
 type clusterState struct {
-	ShardView []dragonboat.ShardView `json:"shard_view"`
+	ShardView []raft.ShardView `json:"shard_view"`
 }
 
 // Info carries Raft-related information to the particular NodeHost in the cluster.
@@ -72,7 +72,7 @@ type Info struct {
 	// ClientAddress is the public address of the Regatta host used for client requests.
 	ClientAddress string
 	// ShardInfo is a list of all Raft shards managed by the NodeHost
-	ShardInfoList []dragonboat.ShardInfo
+	ShardInfoList []raft.ShardInfo
 	// LogInfo is a list of raftio.NodeInfo values representing all Raft logs
 	// stored on the NodeHost.
 	LogInfo []raftio.NodeInfo
@@ -205,7 +205,7 @@ func (c *Cluster) notify() {
 	for {
 		select {
 		case <-c.not:
-			if err := c.ml.UpdateNode(500 * time.Millisecond); err != nil {
+			if err := c.ml.UpdateNode(5 * time.Second); err != nil {
 				c.log.Warnf("unable to update node: %v", err)
 			}
 		case <-c.stop:
@@ -363,7 +363,7 @@ func New(bindAddr, advAddr, clusterName, nodeName string, f getClusterInfo) (*Cl
 }
 
 // ShardInfo retrieves a record representing the state of the Raft shard.
-func (c *Cluster) ShardInfo(id uint64) dragonboat.ShardView {
+func (c *Cluster) ShardInfo(id uint64) raft.ShardView {
 	return c.shardView.shardInfo(id)
 }
 

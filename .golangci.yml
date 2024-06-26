@@ -30,18 +30,20 @@ linters:
 
 linters-settings:
   gosec:
-    global:
-      audit: true
     excludes:
     - G104
     - G304
     - G401
+    - G404
     - G501
 
   goheader:
     template: Copyright JAMF Software, LLC
 
 issues:
+  exclude-dirs:
+  - raft
+
   exclude-rules:
   # Exclude some linters from running on tests files.
   - path: _test\.go

@@ -13,8 +13,8 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/sstable"
 	rp "github.com/jamf/regatta/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/storage/errors"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 )
 
 type snapshotContext struct {
@@ -46,7 +46,10 @@ func (s *snapshot) prepare() (any, error) {
 
 func (s *snapshot) save(ctx any, w io.Writer, stopc <-chan struct{}) error {
 	snapshot := ctx.(*snapshotContext)
-	iter := snapshot.NewIter(nil)
+	iter, err := snapshot.NewIter(nil)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err := iter.Close(); err != nil {
 			s.fsm.log.Error(err)

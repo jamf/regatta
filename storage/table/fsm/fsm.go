@@ -15,10 +15,10 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	rp "github.com/jamf/regatta/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/table/key"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 	"github.com/oxtoacart/bpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -344,7 +344,10 @@ func (p *FSM) Close() error {
 func (p *FSM) GetHash() (uint64, error) {
 	db := p.pebble.Load()
 	snap := db.NewSnapshot()
-	iter := snap.NewIter(nil)
+	iter, err := snap.NewIter(nil)
+	if err != nil {
+		return 0, err
+	}
 	defer func() {
 		if err := iter.Close(); err != nil {
 			p.log.Error(err)
@@ -486,7 +489,7 @@ func makeLoggingEventListener(logger *zap.SugaredLogger) pebble.EventListener {
 			logger.Debugf("%s", info)
 		},
 		CompactionEnd: func(info pebble.CompactionInfo) {
-			logger.Debugf("%s", info)
+			logger.Infof("%s", info)
 		},
 		DiskSlow: func(info pebble.DiskSlowInfo) {
 			logger.Warnf("%s", info)

@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:1.2
-FROM golang:1.22.2-alpine3.19 as builder
+FROM golang:1.22.3-alpine3.20 as builder
 
 RUN apk add --update --no-cache build-base tzdata \
  && addgroup -g 1000 -S regatta && adduser -u 1000 -S regatta -G regatta
@@ -13,7 +13,7 @@ ARG VERSION
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build GOMODCACHE=/go/pkg/mod GOCACHE=/root/.cache/go-build VERSION=${VERSION} make regatta
 
 # Runtime
-FROM alpine:3.19
+FROM alpine:3.20
 
 ARG VERSION
 LABEL org.opencontainers.image.authors="Regatta Developers <regatta@jamf.com>"

@@ -47,7 +47,8 @@ func Test_handleDelete(t *testing.T) {
 	r.NoError(c.Commit())
 
 	// Assert that there are no more user keys left.
-	iter := db.NewIter(allUserKeysOpts())
+	iter, err := db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 	iter.First()
 	r.False(iter.Valid())
 	r.NoError(iter.Close())
@@ -105,7 +106,8 @@ func Test_handleDeleteBatch(t *testing.T) {
 	r.NoError(err)
 	r.NoError(c.Commit())
 
-	iter := db.NewIter(allUserKeysOpts())
+	iter, err := db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 
 	// Skip the local index first and assert that there are no more keys in state machine.
 	iter.First()
@@ -151,7 +153,8 @@ func Test_handleDeleteRange(t *testing.T) {
 	r.NoError(c.Commit())
 
 	// Assert that there left expected user keys.
-	iter := db.NewIter(allUserKeysOpts())
+	iter, err := db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 	iter.First()
 	k := &key.Key{}
 	decodeKey(t, iter, k)
@@ -173,7 +176,8 @@ func Test_handleDeleteRange(t *testing.T) {
 	r.NoError(c.Commit())
 
 	// Skip the local index first and assert that there are no more keys in state machine.
-	iter = db.NewIter(allUserKeysOpts())
+	iter, err = db.NewIter(allUserKeysOpts())
+	r.NoError(err)
 	iter.First()
 	r.False(iter.Valid())
 	r.NoError(iter.Close())

@@ -6,11 +6,11 @@ import (
 	"context"
 	"io"
 
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/raftpb"
 	"github.com/jamf/regatta/regattapb"
 	"github.com/jamf/regatta/storage/table"
 	"github.com/jamf/regatta/util/iter"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/raftpb"
 )
 
 type KVService interface {
@@ -41,5 +41,5 @@ type ClusterService interface {
 type ConfigService func() map[string]any
 
 type LogReaderService interface {
-	QueryRaftLog(ctx context.Context, clusterID uint64, logRange dragonboat.LogRange, maxSize uint64) ([]raftpb.Entry, error)
+	QueryRaftLog(ctx context.Context, clusterID uint64, logRange raft.LogRange, maxSize uint64) ([]raftpb.Entry, error)
 }

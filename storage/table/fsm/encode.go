@@ -14,6 +14,17 @@ type memFile struct {
 	bytes.Buffer
 }
 
+func (f *memFile) Write(p []byte) error {
+	_, err := f.Buffer.Write(p)
+	return err
+}
+
+func (f *memFile) Finish() error {
+	return nil
+}
+
+func (f *memFile) Abort() {}
+
 // Close implements the writeCloseSyncer interface.
 func (*memFile) Close() error {
 	return nil

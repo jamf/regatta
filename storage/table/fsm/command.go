@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 
 	"github.com/cockroachdb/pebble"
+	sm "github.com/jamf/regatta/raft/statemachine"
 	"github.com/jamf/regatta/regattapb"
-	sm "github.com/lni/dragonboat/v4/statemachine"
 	pb "google.golang.org/protobuf/proto"
 )
 

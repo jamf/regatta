@@ -8,11 +8,11 @@ import (
 	"time"
 
 	pvfs "github.com/cockroachdb/pebble/vfs"
+	"github.com/jamf/regatta/raft"
+	"github.com/jamf/regatta/raft/config"
 	"github.com/jamf/regatta/replication/snapshot"
 	serrors "github.com/jamf/regatta/storage/errors"
 	"github.com/jamf/regatta/storage/kv"
-	"github.com/lni/dragonboat/v4"
-	"github.com/lni/dragonboat/v4/config"
 	"github.com/lni/vfs"
 	"github.com/stretchr/testify/require"
 )
@@ -90,7 +90,7 @@ func TestManager_DeleteTable(t *testing.T) {
 
 	// LogDB cleaned
 	_, err = tm.nh.GetLogReader(tab.ClusterID)
-	r.ErrorIs(err, dragonboat.ErrLogDBNotCreatedOrClosed)
+	r.ErrorIs(err, raft.ErrLogDBNotCreatedOrClosed)
 
 	// FS cleaned
 	files, err := tm.cfg.Table.FS.List("")
@@ -278,7 +278,7 @@ func TestManager_reconcile(t *testing.T) {
 func Test_diffTables(t *testing.T) {
 	type args struct {
 		tables   map[string]Table
-		raftInfo []dragonboat.ShardInfo
+		raftInfo []raft.ShardInfo
 	}
 	tests := []struct {
 		name        string
@@ -295,7 +295,7 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10001,
 					},
 				},
-				raftInfo: []dragonboat.ShardInfo{},
+				raftInfo: []raft.ShardInfo{},
 			},
 			wantToStart: map[uint64]Table{
 				10001: {
@@ -314,7 +314,7 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10,
 					},
 				},
-				raftInfo: []dragonboat.ShardInfo{},
+				raftInfo: []raft.ShardInfo{},
 			},
 			wantToStart: nil,
 			wantToStop:  nil,
@@ -332,7 +332,7 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10002,
 					},
 				},
-				raftInfo: []dragonboat.ShardInfo{
+				raftInfo: []raft.ShardInfo{
 					{
 						ShardID: 10001,
 					},
@@ -360,7 +360,7 @@ func Test_diffTables(t *testing.T) {
 						ClusterID: 10002,
 					},
 				},
-				raftInfo: []dragonboat.ShardInfo{
+				raftInfo: []raft.ShardInfo{
 					{
 						ShardID: 10001,
 					},
@@ -384,7 +384,7 @@ func Test_diffTables(t *testing.T) {
 						RecoverID: 10001,
 					},
 				},
-				raftInfo: []dragonboat.ShardInfo{},
+				raftInfo: []raft.ShardInfo{},
 			},
 			wantToStart: map[uint64]Table{
 				10001: {
@@ -404,7 +404,7 @@ func Test_diffTables(t *testing.T) {
 						RecoverID: 10002,
 					},
 				},
-				raftInfo: []dragonboat.ShardInfo{},
+				raftInfo: []raft.ShardInfo{},
 			},
 			wantToStart: map[uint64]Table{
 				10001: {
@@ -431,7 +431,7 @@ func Test_diffTables(t *testing.T) {
 	}
 }
 
-func startRaftNode(t *testing.T) (*dragonboat.NodeHost, map[uint64]string) {
+func startRaftNode(t *testing.T) (*raft.NodeHost, map[uint64]string) {
 	l, _ := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, l.Close())
 	nhc := config.NodeHostConfig{
@@ -445,7 +445,7 @@ func startRaftNode(t *testing.T) (*dragonboat.NodeHost, map[uint64]string) {
 	nhc.Expert.FS = vfs.NewMem()
 	nhc.Expert.Engine.ExecShards = 1
 	nhc.Expert.LogDB.Shards = 1
-	nh, err := dragonboat.NewNodeHost(nhc)
+	nh, err := raft.NewNodeHost(nhc)
 	require.NoError(t, err)
 	return nh, map[uint64]string{1: l.Addr().String()}
 }

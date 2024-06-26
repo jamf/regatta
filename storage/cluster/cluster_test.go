@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jamf/regatta/raft"
 	"github.com/jamf/regatta/util"
-	"github.com/lni/dragonboat/v4"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 )
@@ -34,7 +34,7 @@ func TestMultiNodeCluster(t *testing.T) {
 				NodeHostID:  util.RandString(64),
 				NodeID:      uint64(i),
 				RaftAddress: fmt.Sprintf("127.0.0.%d:5762", i),
-				ShardInfoList: []dragonboat.ShardInfo{
+				ShardInfoList: []raft.ShardInfo{
 					{
 						Replicas:          map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
 						ShardID:           1,
@@ -66,7 +66,7 @@ func TestMultiNodeCluster(t *testing.T) {
 		for _, cluster2 := range clusters {
 			require.ElementsMatch(t, nodes, cluster2.Nodes())
 		}
-		require.Equal(t, dragonboat.ShardView{
+		require.Equal(t, raft.ShardView{
 			ShardID:           1,
 			Replicas:          map[uint64]string{1: "127.0.0.1:5762", 2: "127.0.0.2:5762", 3: "127.0.0.3:5762"},
 			ConfigChangeIndex: 1,
