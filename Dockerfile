@@ -13,7 +13,7 @@ ARG VERSION
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build GOMODCACHE=/go/pkg/mod GOCACHE=/root/.cache/go-build VERSION=${VERSION} make regatta
 
 # Runtime
-FROM alpine:3.19
+FROM alpine:3.20
 
 ARG VERSION
 LABEL org.opencontainers.image.authors="Regatta Developers <regatta@jamf.com>"
